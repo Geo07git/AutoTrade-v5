@@ -23,6 +23,7 @@ export interface IExecutionAdapter {
     orderLinkId: string,
     exchangeOrderId?: string
   ): Promise<{
+    orderId?: string;
     status: OrderStatus;
     filledQty: number;
     avgPrice: number;

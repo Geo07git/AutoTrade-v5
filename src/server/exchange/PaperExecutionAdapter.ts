@@ -365,6 +365,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     orderLinkId: string,
     exchangeOrderId?: string
   ): Promise<{
+    orderId?: string;
     status: OrderStatus;
     filledQty: number;
     avgPrice: number;
@@ -375,6 +376,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     if (!simOrder) return null;
 
     return {
+      orderId: simOrder.exchangeOrderId,
       status: simOrder.status,
       filledQty: simOrder.filledQty,
       avgPrice: simOrder.price,

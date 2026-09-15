@@ -129,6 +129,8 @@ export class OrderManager {
       qty: formattedQty,
       sizeUSDT: formattedQty * currentPrice,
       status: 'CREATED',
+      cumFilledQty: 0,
+      processedFilledQty: 0,
       createdTime: Date.now(),
       updatedTime: Date.now(),
       intent: 'ENTRY',
@@ -168,25 +170,15 @@ export class OrderManager {
         exchangeOrderId: submitRes.orderId,
       });
 
-      // 7. Confirmation of Execution (Check fill status)
+      // 7. Confirmation of Execution via Polling (routes through central idempotent handler)
       const confirmed = await this.pollExecutionConfirmation(orderRecord, 5, 800);
       const currentStatus = orderRecord.status as OrderStatus;
 
       if (confirmed && (currentStatus === 'FILLED' || currentStatus === 'PARTIALLY_FILLED')) {
-        // Update PositionManager with real confirmed fill values
-        const finalFillPrice = orderRecord.fillPrice || currentPrice;
-        const finalFilledQty = orderRecord.filledQty || formattedQty;
-
-        await this.positionManager.onOrderFilled({
-          ...orderRecord,
-          fillPrice: finalFillPrice,
-          filledQty: finalFilledQty,
-        });
-
         return { success: true, order: orderRecord };
       } else {
-        // Order accepted but waiting for fill
-        this.auditLogger('ORDER_PARTIALLY_FILLED', `Order ${clientOrderId} submitted; waiting for fill confirmation`, {
+        // Order accepted but still waiting for fill confirmation
+        this.auditLogger('ORDER_ACCEPTED', `Order ${clientOrderId} submitted; waiting for asynchronous fill confirmation`, {
           order: orderRecord,
         });
         return { success: true, order: orderRecord };
@@ -348,6 +340,84 @@ export class OrderManager {
   }
 
   /**
+   * Central idempotent execution update handler for both Polling and WebSocket streams.
+   * - Eliminates duplicate onOrderFilled() invocations between polling and WebSocket.
+   * - Accurately processes cumulative filled quantity (cumFilledQty) into incremental fills.
+   * - Guarantees that only unprocessed delta quantities are applied to PositionManager.
+   */
+  public async handleOrderExecutionUpdate(update: {
+    orderLinkId: string;
+    exchangeOrderId?: string;
+    status: OrderStatus;
+    cumExecQty: number;
+    avgPrice: number;
+    cumFee?: number;
+    source: 'POLL' | 'WS';
+  }): Promise<OrderRecord | null> {
+    const order = this.orders.get(update.orderLinkId);
+    if (!order) return null;
+
+    if (update.exchangeOrderId && !order.exchangeOrderId) {
+      order.exchangeOrderId = update.exchangeOrderId;
+    }
+
+    if (update.avgPrice > 0) {
+      order.fillPrice = update.avgPrice;
+    }
+
+    if (update.cumFee !== undefined) {
+      order.cumFee = update.cumFee;
+    }
+
+    order.status = update.status;
+    order.updatedTime = Date.now();
+
+    // Calculate incremental fill from cumulative execution quantity
+    const previouslyProcessedQty = order.processedFilledQty || 0;
+    const reportedCumQty = typeof update.cumExecQty === 'number' && !isNaN(update.cumExecQty) ? update.cumExecQty : previouslyProcessedQty;
+    const newCumFilledQty = Math.max(previouslyProcessedQty, reportedCumQty);
+    const incrementalQty = Math.max(0, parseFloat((newCumFilledQty - previouslyProcessedQty).toFixed(6)));
+
+    order.cumFilledQty = newCumFilledQty;
+    order.filledQty = newCumFilledQty;
+
+    if (incrementalQty > 0) {
+      order.processedFilledQty = newCumFilledQty;
+
+      if (order.intent === 'ENTRY') {
+        const fillPrice = order.fillPrice && order.fillPrice > 0 ? order.fillPrice : update.avgPrice;
+        await this.positionManager.onOrderFilled(order, incrementalQty, fillPrice);
+
+        this.auditLogger(
+          order.status === 'FILLED' ? 'ORDER_FILLED' : 'ORDER_PARTIALLY_FILLED',
+          `Confirmed fill via ${update.source}: ${order.symbol} +${incrementalQty} @ $${fillPrice.toFixed(4)} (cum: ${newCumFilledQty}/${order.qty})`,
+          {
+            orderId: order.id,
+            symbol: order.symbol,
+            incrementalQty,
+            cumFilledQty: newCumFilledQty,
+            totalQty: order.qty,
+            status: order.status,
+            source: update.source,
+          }
+        );
+      }
+    } else {
+      // incrementalQty is 0 -> already processed by previous poll or websocket event!
+      // Do NOT invoke onOrderFilled() again!
+      if (update.source === 'WS' && (update.status === 'FILLED' || update.status === 'PARTIALLY_FILLED')) {
+        this.auditLogger(
+          'ORDER_ACCEPTED',
+          `WS duplicate check: Order ${order.id} (${order.status}) already processed. No redundant fill triggered.`,
+          { orderId: order.id, cumFilledQty: newCumFilledQty, status: order.status }
+        );
+      }
+    }
+
+    return order;
+  }
+
+  /**
    * Polls execution status for confirmation
    */
   private async pollExecutionConfirmation(
@@ -361,27 +431,18 @@ export class OrderManager {
       const statusRes = await this.exchange.queryOrderStatus(order.symbol, order.id, order.exchangeOrderId);
 
       if (statusRes) {
-        order.status = statusRes.status;
-        order.filledQty = statusRes.filledQty;
-        if (statusRes.avgPrice > 0) {
-          order.fillPrice = statusRes.avgPrice;
-        }
-        order.cumFee = statusRes.cumFee;
-        order.updatedTime = Date.now();
+        await this.handleOrderExecutionUpdate({
+          orderLinkId: order.id,
+          exchangeOrderId: statusRes.orderId || order.exchangeOrderId,
+          status: statusRes.status,
+          cumExecQty: statusRes.filledQty,
+          avgPrice: statusRes.avgPrice,
+          cumFee: statusRes.cumFee,
+          source: 'POLL',
+        });
 
         if (order.status === 'FILLED') {
-          this.auditLogger('ORDER_FILLED', `Confirmed Fill on ${this.executionMode}: ${order.symbol} @ $${order.fillPrice || 'Market'} (Qty: ${order.filledQty})`, {
-            orderId: order.id,
-            symbol: order.symbol,
-            fillPrice: order.fillPrice,
-            filledQty: order.filledQty,
-          });
           return true;
-        } else if (order.status === 'PARTIALLY_FILLED') {
-          this.auditLogger('ORDER_PARTIALLY_FILLED', `Partially Filled on ${this.executionMode}: ${order.symbol} (${order.filledQty} / ${order.qty})`, {
-            orderId: order.id,
-            filledQty: order.filledQty,
-          });
         } else if (order.status === 'CANCELLED' || order.status === 'REJECTED' || order.status === 'FAILED') {
           this.auditLogger('ORDER_FAILED', `Order ended with status ${order.status} on ${this.executionMode}`, {
             orderId: order.id,
@@ -398,7 +459,7 @@ export class OrderManager {
   /**
    * Handler for asynchronous WebSocket execution & order stream events
    */
-  public handleWsOrderUpdate(wsData: any) {
+  public async handleWsOrderUpdate(wsData: any) {
     const orderLinkId = wsData.orderLinkId;
     if (!orderLinkId) return;
 
@@ -406,40 +467,32 @@ export class OrderManager {
     if (!order) return;
 
     const rawStatus = wsData.orderStatus;
+    let status: OrderStatus = order.status;
     if (rawStatus === 'Filled') {
-      order.status = 'FILLED';
-      order.fillPrice = parseFloat(wsData.avgPrice || wsData.lastExecPrice || '0');
-      order.filledQty = parseFloat(wsData.cumExecQty || wsData.qty || '0');
-      order.cumFee = parseFloat(wsData.cumExecFee || '0');
-      order.updatedTime = Date.now();
-
-      this.auditLogger('ORDER_FILLED', `WS Confirmed Fill: ${order.symbol} @ $${order.fillPrice}`, {
-        orderId: order.id,
-        symbol: order.symbol,
-      });
-
-      if (order.intent === 'ENTRY') {
-        this.positionManager.onOrderFilled(order);
-      }
+      status = 'FILLED';
     } else if (rawStatus === 'PartiallyFilled') {
-      order.status = 'PARTIALLY_FILLED';
-      order.fillPrice = parseFloat(wsData.avgPrice || wsData.lastExecPrice || '0');
-      order.filledQty = parseFloat(wsData.cumExecQty || '0');
-      order.cumFee = parseFloat(wsData.cumExecFee || '0');
-      order.updatedTime = Date.now();
-
-      this.auditLogger('ORDER_PARTIALLY_FILLED', `WS: Order ${order.id} partially filled (${order.filledQty} / ${order.qty})`, {
-        orderId: order.id,
-        symbol: order.symbol,
-        filledQty: order.filledQty,
-      });
-
-      if (order.intent === 'ENTRY') {
-        this.positionManager.onOrderFilled(order);
-      }
+      status = 'PARTIALLY_FILLED';
     } else if (rawStatus === 'Cancelled') {
-      order.status = 'CANCELLED';
-      order.updatedTime = Date.now();
+      status = 'CANCELLED';
+    } else if (rawStatus === 'Rejected') {
+      status = 'REJECTED';
+    }
+
+    const cumExecQty = parseFloat(wsData.cumExecQty || wsData.qty || '0');
+    const avgPrice = parseFloat(wsData.avgPrice || wsData.lastExecPrice || '0');
+    const cumFee = parseFloat(wsData.cumExecFee || '0');
+
+    await this.handleOrderExecutionUpdate({
+      orderLinkId,
+      exchangeOrderId: wsData.orderId,
+      status,
+      cumExecQty,
+      avgPrice,
+      cumFee,
+      source: 'WS',
+    });
+
+    if (status === 'CANCELLED') {
       this.auditLogger('ORDER_CANCELLED', `WS: Order ${order.id} cancelled on exchange`, { orderId: order.id });
     }
   }

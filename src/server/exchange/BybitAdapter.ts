@@ -37,27 +37,33 @@ export class BybitAdapter implements IExecutionAdapter {
   public onConnectionChange?: (connected: boolean, message: string) => void;
 
   constructor(apiKey: string = '', apiSecret: string = '', testnet: boolean = true) {
+    if (testnet === false) {
+      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.');
+    }
     this.apiKey = apiKey.trim();
     this.apiSecret = apiSecret.trim();
-    this.testnet = testnet;
+    this.testnet = true; // STRICT HARD LOCK: Testnet only
 
     this.restClient = new RestClientV5({
       key: this.apiKey,
       secret: this.apiSecret,
-      testnet: this.testnet,
+      testnet: true,
       recv_window: 10000,
     });
   }
 
   public updateCredentials(apiKey: string, apiSecret: string, testnet: boolean = true) {
+    if (testnet === false) {
+      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.');
+    }
     this.apiKey = apiKey.trim();
     this.apiSecret = apiSecret.trim();
-    this.testnet = testnet;
+    this.testnet = true; // STRICT HARD LOCK: Testnet only
 
     this.restClient = new RestClientV5({
       key: this.apiKey,
       secret: this.apiSecret,
-      testnet: this.testnet,
+      testnet: true,
       recv_window: 10000,
     });
 
@@ -398,6 +404,7 @@ export class BybitAdapter implements IExecutionAdapter {
    * Query status of an order on Bybit
    */
   public async queryOrderStatus(symbol: string, orderLinkId: string, exchangeOrderId?: string): Promise<{
+    orderId?: string;
     status: OrderStatus;
     filledQty: number;
     avgPrice: number;
@@ -461,6 +468,7 @@ export class BybitAdapter implements IExecutionAdapter {
       }
 
       return {
+        orderId: orderItem.orderId,
         status,
         filledQty: parseFloat(orderItem.cumExecQty || '0'),
         avgPrice: parseFloat(orderItem.avgPrice || '0'),

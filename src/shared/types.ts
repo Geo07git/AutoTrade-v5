@@ -105,6 +105,8 @@ export interface OrderRecord {
   status: OrderStatus;
   fillPrice?: number;
   filledQty?: number;
+  cumFilledQty?: number;
+  processedFilledQty?: number;
   cumFee?: number;
   createdTime: number;
   updatedTime: number;

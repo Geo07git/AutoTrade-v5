@@ -39,30 +39,47 @@ export class PositionManager {
   }
 
   /**
-   * Called when an ENTRY order has been confirmed FILLED on Bybit
+   * Called when an ENTRY order has had an incremental fill confirmed.
+   * Incremental quantity ensures that subsequent fills (or multiple events from polling/WS)
+   * never duplicate or over-count position sizes.
    */
-  public async onOrderFilled(order: OrderRecord): Promise<Position> {
-    const entryPrice = order.fillPrice && order.fillPrice > 0 ? order.fillPrice : (order.sizeUSDT / order.qty);
-    const filledQty = order.filledQty && order.filledQty > 0 ? order.filledQty : order.qty;
+  public async onOrderFilled(
+    order: OrderRecord,
+    incrementalQty?: number,
+    fillPriceOverride?: number
+  ): Promise<Position | null> {
+    const entryPrice = fillPriceOverride && fillPriceOverride > 0
+      ? fillPriceOverride
+      : (order.fillPrice && order.fillPrice > 0 ? order.fillPrice : (order.sizeUSDT / order.qty));
+
+    const filledQty = incrementalQty !== undefined
+      ? incrementalQty
+      : (order.filledQty && order.filledQty > 0 ? order.filledQty : order.qty);
+
+    if (filledQty <= 0) {
+      return null;
+    }
+
     const realSizeUSDT = filledQty * entryPrice;
 
-    // Check if position already exists for this symbol (add to it or update)
+    // Check if position already exists for this symbol (add incremental quantity)
     const existing = this.activePositions.find((p) => p.symbol === order.symbol && p.status === 'OPEN');
 
     if (existing) {
-      // Weighted average entry price
+      // Weighted average entry price with incremental fill
       const totalQty = existing.qty + filledQty;
       const avgEntryPrice = (existing.qty * existing.entryPrice + filledQty * entryPrice) / totalQty;
-      existing.qty = totalQty;
-      existing.entryPrice = avgEntryPrice;
-      existing.sizeUSDT = totalQty * avgEntryPrice;
+      existing.qty = parseFloat(totalQty.toFixed(6));
+      existing.entryPrice = parseFloat(avgEntryPrice.toFixed(4));
+      existing.sizeUSDT = parseFloat((existing.qty * existing.entryPrice).toFixed(2));
       existing.highestPrice = Math.max(existing.highestPrice || avgEntryPrice, entryPrice);
       existing.lowestPrice = Math.min(existing.lowestPrice || avgEntryPrice, entryPrice);
 
-      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased to ${totalQty} @ avg $${avgEntryPrice.toFixed(4)}`, {
+      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased by +${filledQty} contracts to ${existing.qty} @ avg $${existing.entryPrice.toFixed(4)}`, {
         symbol: order.symbol,
-        qty: totalQty,
-        entryPrice: avgEntryPrice,
+        incrementalQty: filledQty,
+        totalQty: existing.qty,
+        entryPrice: existing.entryPrice,
       });
 
       return existing;
@@ -72,9 +89,9 @@ export class PositionManager {
       id: `pos_${Date.now()}_${order.symbol}`,
       symbol: order.symbol,
       side: order.side,
-      qty: filledQty,
-      entryPrice,
-      sizeUSDT: realSizeUSDT,
+      qty: parseFloat(filledQty.toFixed(6)),
+      entryPrice: parseFloat(entryPrice.toFixed(4)),
+      sizeUSDT: parseFloat(realSizeUSDT.toFixed(2)),
       status: 'OPEN',
       entryTime: Date.now(),
       highestPrice: entryPrice,

@@ -65,12 +65,23 @@ async function startServer() {
 
   // Protected control routes (requireControlAuth)
 
+  // Mode query endpoint
+  app.get('/api/bot/mode', (req, res) => {
+    const status = tradeBot.getStatus();
+    res.json({
+      executionMode: status.executionMode,
+      state: status.state,
+      testnet: status.config.testnet,
+      isLiveBlocked: true,
+    });
+  });
+
   // Switch execution mode: PAPER | TESTNET | LIVE (LIVE is strictly blocked!)
   app.post('/api/bot/mode', requireControlAuth, async (req, res) => {
     const { mode } = req.body;
 
     // STRICT SECURITY: LIVE mode is completely blocked
-    if (mode === 'LIVE') {
+    if (mode === 'LIVE' || mode === 'MAINNET') {
       return res.status(403).json({
         error: 'LIVE trading is strictly blocked and disabled for safety reasons.',
       });
@@ -121,14 +132,23 @@ async function startServer() {
     res.json({ success: true, killSwitchEngaged: engaged });
   });
 
-  // Update Bybit API credentials
+  // Update Bybit API credentials (STRICT TESTNET ONLY)
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
     const { apiKey, apiSecret, testnet } = req.body;
+    if (testnet === false) {
+      return res.status(403).json({
+        error: 'Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.',
+      });
+    }
     if (!apiKey || !apiSecret) {
       return res.status(400).json({ error: 'Both apiKey and apiSecret are required' });
     }
-    await tradeBot.updateCredentials(apiKey, apiSecret, testnet !== false);
-    res.json({ success: true, message: 'Credentials updated and reconnected' });
+    try {
+      await tradeBot.updateCredentials(apiKey, apiSecret, true);
+      res.json({ success: true, message: 'Credentials updated and reconnected on Bybit Testnet' });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Failed to update credentials' });
+    }
   });
 
   // Force manual reconciliation

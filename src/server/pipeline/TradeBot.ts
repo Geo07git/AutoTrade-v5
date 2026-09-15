@@ -211,7 +211,8 @@ export class TradeBot {
     }
 
     // STRICT RECONCILIATION:
-    // If getting open positions fails, NEVER wipe or assume empty positions!
+    // If reconciliation fails, DO NOT ALLOW TRADING!
+    let reconciliationSuccessful = false;
     try {
       const realPositions = await this.activeAdapter.getOpenPositions();
       const currentProfile = config.activeProfile;
@@ -219,6 +220,7 @@ export class TradeBot {
       const reconResult = this.positionManager.reconcileWithBybit(realPositions, currentProfile);
       this.positionStore.save(this.positionManager.getActivePositions());
       this.lastSyncTime = Date.now();
+      reconciliationSuccessful = true;
 
       this.logAudit('RECOVERY', `State reconciled with ${config.executionMode}. Discrepancies resolved: ${reconResult.discrepanciesFound}. Active positions: ${this.positionManager.getActivePositions().length}`, {
         equity: this.currentEquity,
@@ -226,8 +228,15 @@ export class TradeBot {
         discrepancies: reconResult.discrepanciesFound,
       });
     } catch (err: any) {
-      // Prevent false position closures when exchange is unreachable
-      this.logAudit('ERROR', `Could not fetch positions from ${config.executionMode}; skipping reconciliation to prevent false position closures: ${err.message || err}`);
+      this.state = 'WAITING_FOR_EXCHANGE';
+      this.logAudit('ERROR', `Reconciliation failed with ${config.executionMode}: ${err.message || err}. TRADING HALTED - trading is strictly not permitted when state reconciliation fails.`);
+      return; // STOP! Do not allow TRADING
+    }
+
+    if (!reconciliationSuccessful) {
+      this.state = 'WAITING_FOR_EXCHANGE';
+      this.logAudit('ERROR', `Reconciliation unverified. TRADING HALTED.`);
+      return;
     }
 
     // Initialize market feeds
@@ -269,8 +278,8 @@ export class TradeBot {
         return;
       }
 
-      // Guard: Must be ready or trading
-      if (this.state === 'WAITING_FOR_EXCHANGE' || this.state === 'INITIALIZING') {
+      // Guard: Must be in TRADING state (if reconciliation failed or waiting for exchange, strictly halt)
+      if (this.state !== 'TRADING') {
         return;
       }
 
@@ -293,7 +302,10 @@ export class TradeBot {
           this.positionStore.save(this.positionManager.getActivePositions());
           this.lastSyncTime = now;
         } catch (err: any) {
-          this.logAudit('ERROR', `Periodic position sync error: ${err.message || err}. Local positions preserved.`);
+          // If reconciliation fails, immediately halt TRADING!
+          this.state = 'WAITING_FOR_EXCHANGE';
+          this.logAudit('ERROR', `Periodic reconciliation failed with ${config.executionMode}: ${err.message || err}. Trading halted immediately for safety.`);
+          return; // Stop current tick immediately! No new orders!
         }
       }
 
@@ -505,17 +517,20 @@ export class TradeBot {
   }
 
   /**
-   * Update Bybit API credentials
+   * Update Bybit API credentials (STRICT TESTNET ONLY)
    */
   public async updateCredentials(apiKey: string, apiSecret: string, testnet: boolean = true) {
+    if (testnet === false) {
+      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.');
+    }
     const config = this.configStore.get();
     config.bybitApiKey = apiKey.trim();
     config.bybitApiSecret = apiSecret.trim();
-    config.testnet = testnet;
+    config.testnet = true; // STRICT HARD LOCK: Testnet only
     this.configStore.save();
 
-    this.bybitAdapter.updateCredentials(apiKey, apiSecret, testnet);
-    this.logAudit('SYSTEM', `Updated Bybit API credentials (Network: ${testnet ? 'Testnet' : 'Mainnet'}).`);
+    this.bybitAdapter.updateCredentials(apiKey, apiSecret, true);
+    this.logAudit('SYSTEM', 'Updated Bybit API credentials (Network: Bybit Testnet).');
 
     if (config.executionMode === 'TESTNET') {
       await this.connectAndRecover();

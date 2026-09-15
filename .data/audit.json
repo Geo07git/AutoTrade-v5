@@ -1,5 +1,117 @@
 [
   {
+    "id": "1789496226200_6jba",
+    "timestamp": 1789496226200,
+    "type": "PAPER_RESET",
+    "message": "Paper account reset: Balance restored to $10,000 USDT and paper positions cleared."
+  },
+  {
+    "id": "1789496223180_bx3g",
+    "timestamp": 1789496223180,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
+  },
+  {
+    "id": "1789496223179_78kf",
+    "timestamp": 1789496223179,
+    "type": "RECOVERY",
+    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "details": {
+      "equity": 10000,
+      "activePositionsCount": 0,
+      "discrepancies": 0
+    }
+  },
+  {
+    "id": "1789496223178_y2n3",
+    "timestamp": 1789496223178,
+    "type": "EXCHANGE_CONNECTED",
+    "message": "Connected to PAPER execution engine (CONTRACT)."
+  },
+  {
+    "id": "1789496222865_0jhr",
+    "timestamp": 1789496222865,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
+  },
+  {
+    "id": "1789496103117_cqmv",
+    "timestamp": 1789496103117,
+    "type": "SYSTEM",
+    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496100761_7ju3",
+    "timestamp": 1789496100761,
+    "type": "SYSTEM",
+    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496037306_hxdk",
+    "timestamp": 1789496037306,
+    "type": "SYSTEM",
+    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496035559_hqh4",
+    "timestamp": 1789496035559,
+    "type": "SYSTEM",
+    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496031107_v14q",
+    "timestamp": 1789496031108,
+    "type": "SYSTEM",
+    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496023809_lp1z",
+    "timestamp": 1789496023810,
+    "type": "SYSTEM",
+    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496020891_kkox",
+    "timestamp": 1789496020891,
+    "type": "SYSTEM",
+    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789496017870_f8no",
+    "timestamp": 1789496017870,
+    "type": "SYSTEM",
+    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789495637863_1jrf",
+    "timestamp": 1789495637863,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
+  },
+  {
+    "id": "1789495637863_33h8",
+    "timestamp": 1789495637863,
+    "type": "RECOVERY",
+    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "details": {
+      "equity": 10000,
+      "activePositionsCount": 0,
+      "discrepancies": 0
+    }
+  },
+  {
+    "id": "1789495637862_yvwb",
+    "timestamp": 1789495637862,
+    "type": "EXCHANGE_CONNECTED",
+    "message": "Connected to PAPER execution engine (CONTRACT)."
+  },
+  {
+    "id": "1789495637599_1bb7",
+    "timestamp": 1789495637599,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
+  },
+  {
     "id": "1789495622958_nchp",
     "timestamp": 1789495622958,
     "type": "PAPER_RESET",
