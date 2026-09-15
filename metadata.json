@@ -1,0 +1,6 @@
+{
+  "name": "TradeBot 5",
+  "description": "A new, streamlined algorithmic trading application focused on Bybit, featuring a centralized execution flow and a dual-profile Momentum Engine (SCALP / MOMENTUM).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
