@@ -1,0 +1,125 @@
+[
+  {
+    "id": "1789494732750_7tbu",
+    "timestamp": 1789494732750,
+    "type": "KILL_SWITCH_DISENGAGED",
+    "message": "Kill Switch disengaged. Resuming normal operations."
+  },
+  {
+    "id": "1789494730209_yxeu",
+    "timestamp": 1789494730209,
+    "type": "SYSTEM",
+    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789494720258_vq92",
+    "timestamp": 1789494720258,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494719756_bccp",
+    "timestamp": 1789494719756,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated..."
+  },
+  {
+    "id": "1789494688874_crua",
+    "timestamp": 1789494688874,
+    "type": "KILL_SWITCH_ENGAGED",
+    "message": "Kill Switch completed: 0/1 positions closed on Bybit."
+  },
+  {
+    "id": "1789494688873_ttp5",
+    "timestamp": 1789494688873,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position SOLUSDT on Bybit: Cannot submit order: Bybit API keys not configured.",
+    "details": {
+      "positionId": "pos_1789494594648_SOLUSDT",
+      "symbol": "SOLUSDT",
+      "error": "Cannot submit order: Bybit API keys not configured.",
+      "reason": "KILL_SWITCH"
+    }
+  },
+  {
+    "id": "1789494688873_czz1",
+    "timestamp": 1789494688873,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for SOLUSDT (KILL_SWITCH) - Side: Sell, Qty: NaN",
+    "details": {
+      "orderId": "tb5_close_1789494688673_gr80",
+      "symbol": "SOLUSDT",
+      "reason": "KILL_SWITCH",
+      "qty": null
+    }
+  },
+  {
+    "id": "1789494688672_ejv7",
+    "timestamp": 1789494688672,
+    "type": "KILL_SWITCH_ENGAGED",
+    "message": "🚨 KILL SWITCH ENGAGED! Halting new entries and closing all open positions on Bybit..."
+  },
+  {
+    "id": "1789494685380_xs8e",
+    "timestamp": 1789494685380,
+    "type": "SYSTEM",
+    "message": "Profile switch rejected: Cannot switch profile to SCALP while 1 position(s) are open. Close all positions first.",
+    "details": {
+      "activePositionsCount": 1
+    }
+  },
+  {
+    "id": "1789494674942_4ml9",
+    "timestamp": 1789494674942,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494674476_59wx",
+    "timestamp": 1789494674476,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated..."
+  },
+  {
+    "id": "1789494594648",
+    "timestamp": 1789494594648,
+    "type": "POSITION",
+    "message": "Opened BUY on SOLUSDT (Score: 60.2)"
+  },
+  {
+    "id": "1789494354072",
+    "timestamp": 1789494354072,
+    "type": "SYSTEM",
+    "message": "Bot started"
+  },
+  {
+    "id": "1789494351168",
+    "timestamp": 1789494351168,
+    "type": "SYSTEM",
+    "message": "Bot started"
+  },
+  {
+    "id": "1789493891987",
+    "timestamp": 1789493891987,
+    "type": "SYSTEM",
+    "message": "Profile changed to MOMENTUM"
+  },
+  {
+    "id": "1789493884340",
+    "timestamp": 1789493884340,
+    "type": "SYSTEM",
+    "message": "Profile changed to SCALP"
+  },
+  {
+    "id": "1789493816103",
+    "timestamp": 1789493816103,
+    "type": "SYSTEM",
+    "message": "Bot started"
+  },
+  {
+    "id": "1789493770001",
+    "timestamp": 1789493770001,
+    "type": "SYSTEM",
+    "message": "Bot started"
+  }
+]

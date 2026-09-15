@@ -17,31 +17,48 @@ async function startServer() {
   });
 
   app.get('/api/bot/status', (req, res) => {
-    res.json({
-      config: tradeBot.getConfig(),
-      profileConfig: tradeBot.getActiveProfile(),
-      equity: tradeBot.getEquity(),
-      positions: tradeBot.getPositions(),
-    });
+    res.json(tradeBot.getStatus());
   });
 
   app.get('/api/bot/logs', (req, res) => {
     res.json(tradeBot.getAuditLogs());
   });
 
+  app.get('/api/bot/orders', (req, res) => {
+    res.json(tradeBot.getOrders());
+  });
+
   app.post('/api/bot/profile', async (req, res) => {
     const { profile } = req.body;
     if (profile === 'SCALP' || profile === 'MOMENTUM') {
-      await tradeBot.setProfile(profile);
-      res.json({ success: true, profile });
+      const result = await tradeBot.setProfile(profile);
+      if (result.success) {
+        res.json({ success: true, profile });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
     } else {
       res.status(400).json({ error: 'Invalid profile' });
     }
   });
 
   app.post('/api/bot/killswitch', async (req, res) => {
-    await tradeBot.toggleKillSwitch();
-    res.json({ success: true, killSwitchEngaged: tradeBot.getConfig().killSwitchEngaged });
+    const engaged = await tradeBot.toggleKillSwitch();
+    res.json({ success: true, killSwitchEngaged: engaged });
+  });
+
+  app.post('/api/bot/credentials', async (req, res) => {
+    const { apiKey, apiSecret, testnet } = req.body;
+    if (!apiKey || !apiSecret) {
+      return res.status(400).json({ error: 'Both apiKey and apiSecret are required' });
+    }
+    await tradeBot.updateCredentials(apiKey, apiSecret, testnet !== false);
+    res.json({ success: true, message: 'Credentials updated and reconnected' });
+  });
+
+  app.post('/api/bot/reconcile', async (req, res) => {
+    await tradeBot.connectAndRecover();
+    res.json({ success: true, status: tradeBot.getStatus() });
   });
 
   // Start Vite middleware for development

@@ -1,81 +1,334 @@
-import { Position, ProfileConfig } from '../../shared/types';
-import { BybitAdapter } from '../exchange/BybitAdapter';
+import {
+  Position,
+  ProfileConfig,
+  BybitRawPosition,
+  OrderRecord,
+  ProfileType,
+  AuditLogType,
+} from '../../shared/types';
+import { OrderManager } from '../order/OrderManager';
 
 export class PositionManager {
   private activePositions: Position[] = [];
-  private exchange: BybitAdapter;
+  private closedHistory: Position[] = [];
+  private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
 
-  constructor(exchange: BybitAdapter) {
-    this.exchange = exchange;
+  constructor(auditLogger: (type: AuditLogType, message: string, details?: any) => void) {
+    this.auditLogger = auditLogger;
   }
 
   public getActivePositions(): Position[] {
     return this.activePositions;
   }
-  
+
+  public getClosedHistory(): Position[] {
+    return this.closedHistory;
+  }
+
   public setActivePositions(positions: Position[]) {
-    this.activePositions = positions;
+    this.activePositions = positions
+      .filter((p) => p.status === 'OPEN')
+      .map((p) => ({
+        ...p,
+        qty: p.qty && !isNaN(p.qty) && p.qty > 0 ? p.qty : parseFloat((p.sizeUSDT / (p.entryPrice || 1)).toFixed(4)),
+      }));
   }
 
-  public async registerPosition(pos: Position) {
-    this.activePositions.push(pos);
+  public setClosedHistory(history: Position[]) {
+    this.closedHistory = history;
   }
 
-  public async updatePrices(currentPrices: Record<string, number>, config: ProfileConfig) {
-    for (const pos of this.activePositions) {
+  /**
+   * Called when an ENTRY order has been confirmed FILLED on Bybit
+   */
+  public async onOrderFilled(order: OrderRecord): Promise<Position> {
+    const entryPrice = order.fillPrice && order.fillPrice > 0 ? order.fillPrice : (order.sizeUSDT / order.qty);
+    const filledQty = order.filledQty && order.filledQty > 0 ? order.filledQty : order.qty;
+    const realSizeUSDT = filledQty * entryPrice;
+
+    // Check if position already exists for this symbol (add to it or update)
+    const existing = this.activePositions.find((p) => p.symbol === order.symbol && p.status === 'OPEN');
+
+    if (existing) {
+      // Weighted average entry price
+      const totalQty = existing.qty + filledQty;
+      const avgEntryPrice = (existing.qty * existing.entryPrice + filledQty * entryPrice) / totalQty;
+      existing.qty = totalQty;
+      existing.entryPrice = avgEntryPrice;
+      existing.sizeUSDT = totalQty * avgEntryPrice;
+      existing.highestPrice = Math.max(existing.highestPrice || avgEntryPrice, entryPrice);
+      existing.lowestPrice = Math.min(existing.lowestPrice || avgEntryPrice, entryPrice);
+
+      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased to ${totalQty} @ avg $${avgEntryPrice.toFixed(4)}`, {
+        symbol: order.symbol,
+        qty: totalQty,
+        entryPrice: avgEntryPrice,
+      });
+
+      return existing;
+    }
+
+    const newPosition: Position = {
+      id: `pos_${Date.now()}_${order.symbol}`,
+      symbol: order.symbol,
+      side: order.side,
+      qty: filledQty,
+      entryPrice,
+      sizeUSDT: realSizeUSDT,
+      status: 'OPEN',
+      entryTime: Date.now(),
+      highestPrice: entryPrice,
+      lowestPrice: entryPrice,
+      profile: order.profile,
+      source: 'LOCAL',
+    };
+
+    this.activePositions.push(newPosition);
+
+    this.auditLogger('POSITION_OPENED', `Opened ${order.side} position on ${order.symbol}: ${filledQty} contracts @ $${entryPrice.toFixed(4)} ($${realSizeUSDT.toFixed(2)})`, {
+      positionId: newPosition.id,
+      symbol: newPosition.symbol,
+      side: newPosition.side,
+      qty: newPosition.qty,
+      entryPrice: newPosition.entryPrice,
+      sizeUSDT: newPosition.sizeUSDT,
+      profile: newPosition.profile,
+    });
+
+    return newPosition;
+  }
+
+  /**
+   * Updates current PNL for open positions and checks Stop-Loss / Trailing Stop conditions.
+   * If an exit rule triggers, delegates execution to OrderManager!
+   */
+  public async updatePrices(
+    currentPrices: Record<string, number>,
+    config: ProfileConfig,
+    orderManager: OrderManager
+  ) {
+    for (const pos of [...this.activePositions]) {
       if (pos.status !== 'OPEN') continue;
 
       const currentPrice = currentPrices[pos.symbol];
-      if (!currentPrice) continue;
+      if (!currentPrice || currentPrice <= 0) continue;
 
-      // Update max/min for trailing
+      // Update High/Low excursions
       pos.highestPrice = Math.max(pos.highestPrice || pos.entryPrice, currentPrice);
       pos.lowestPrice = Math.min(pos.lowestPrice || pos.entryPrice, currentPrice);
-      
-      const pnlPct = ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * (pos.side === 'BUY' ? 1 : -1);
-      pos.pnlPct = pnlPct;
-      pos.pnl = (pos.sizeUSDT * pnlPct) / 100;
 
-      // Check Hard Stop Loss
+      // PNL calculation
+      const multiplier = pos.side === 'BUY' ? 1 : -1;
+      const pnlPct = ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * multiplier;
+      pos.pnlPct = parseFloat(pnlPct.toFixed(2));
+      pos.pnl = parseFloat(((pos.sizeUSDT * pnlPct) / 100).toFixed(2));
+
+      // 1. Hard Stop Loss Check
       if (pnlPct <= -config.hardStopLossPct) {
-        await this.closePosition(pos, currentPrice, 'HARD_STOP_LOSS');
+        this.auditLogger('RISK_REJECTED', `Hard Stop-Loss triggered for ${pos.symbol} at ${pnlPct.toFixed(2)}% (limit: -${config.hardStopLossPct}%)`, {
+          symbol: pos.symbol,
+          pnlPct,
+          currentPrice,
+        });
+
+        await orderManager.executeCloseOrder({
+          position: pos,
+          reason: 'STOP_LOSS',
+          currentPrice,
+        });
         continue;
       }
 
-      // Check Trailing Stop
-      if (pos.highestPrice && pos.side === 'BUY') {
-        const highestPnlPct = ((pos.highestPrice - pos.entryPrice) / pos.entryPrice) * 100;
-        if (highestPnlPct >= config.trailingActivationPct) {
-          const distanceToCurrent = ((pos.highestPrice - currentPrice) / pos.highestPrice) * 100;
-          if (distanceToCurrent >= config.trailingDistancePct) {
-            await this.closePosition(pos, currentPrice, 'TRAILING_STOP');
+      // 2. Trailing Stop Check
+      if (pos.side === 'BUY' && pos.highestPrice) {
+        const peakPnlPct = ((pos.highestPrice - pos.entryPrice) / pos.entryPrice) * 100;
+        if (peakPnlPct >= config.trailingActivationPct) {
+          const retracementFromPeakPct = ((pos.highestPrice - currentPrice) / pos.highestPrice) * 100;
+          if (retracementFromPeakPct >= config.trailingDistancePct) {
+            this.auditLogger('RISK_REJECTED', `Trailing Stop triggered for ${pos.symbol}: retraced ${retracementFromPeakPct.toFixed(2)}% from peak of ${peakPnlPct.toFixed(2)}%`, {
+              symbol: pos.symbol,
+              peakPnlPct,
+              retracementFromPeakPct,
+              currentPrice,
+            });
+
+            await orderManager.executeCloseOrder({
+              position: pos,
+              reason: 'TRAILING_STOP',
+              currentPrice,
+            });
+            continue;
+          }
+        }
+      } else if (pos.side === 'SELL' && pos.lowestPrice) {
+        const peakPnlPct = ((pos.entryPrice - pos.lowestPrice) / pos.entryPrice) * 100;
+        if (peakPnlPct >= config.trailingActivationPct) {
+          const retracementFromTroughPct = ((currentPrice - pos.lowestPrice) / pos.lowestPrice) * 100;
+          if (retracementFromTroughPct >= config.trailingDistancePct) {
+            this.auditLogger('RISK_REJECTED', `Trailing Stop triggered for short ${pos.symbol}: retraced ${retracementFromTroughPct.toFixed(2)}%`, {
+              symbol: pos.symbol,
+              currentPrice,
+            });
+
+            await orderManager.executeCloseOrder({
+              position: pos,
+              reason: 'TRAILING_STOP',
+              currentPrice,
+            });
+            continue;
           }
         }
       }
     }
   }
 
-  public async closePosition(pos: Position, exitPrice: number, reason: string) {
-    console.log(`[PositionManager] Closing ${pos.symbol} at ${exitPrice} due to ${reason}`);
-    
-    // Attempt real close on exchange if not testnet or paper trading
-    // For now we will mock real order execution inside OrderManager/BybitAdapter, 
-    // but here we mark it as closed locally.
-    
+  /**
+   * Marks a position as closed only after confirmation from Bybit
+   */
+  public async markPositionClosed(
+    posId: string,
+    exitPrice: number,
+    exitTime: number,
+    reason: string
+  ): Promise<Position | null> {
+    const index = this.activePositions.findIndex((p) => p.id === posId);
+    if (index === -1) return null;
+
+    const pos = this.activePositions[index];
     pos.status = 'CLOSED';
     pos.exitPrice = exitPrice;
-    pos.exitTime = Date.now();
-    
-    // We would actually call exchange adapter here if fully live
-    // await this.exchange.placeMarketOrder(pos.symbol, pos.side === 'BUY' ? 'Sell' : 'Buy', calculateQty());
+    pos.exitTime = exitTime;
 
-    this.activePositions = this.activePositions.filter(p => p.id !== pos.id);
-  }
-  
-  public async closeAllPositions(reason: string) {
-    const positionsToClose = [...this.activePositions];
-    for(const pos of positionsToClose) {
-      await this.closePosition(pos, pos.highestPrice || pos.entryPrice, reason); // mock current price fallback
+    const multiplier = pos.side === 'BUY' ? 1 : -1;
+    const finalPnlPct = ((exitPrice - pos.entryPrice) / pos.entryPrice) * 100 * multiplier;
+    pos.pnlPct = parseFloat(finalPnlPct.toFixed(2));
+    pos.pnl = parseFloat(((pos.sizeUSDT * finalPnlPct) / 100).toFixed(2));
+
+    this.activePositions.splice(index, 1);
+    this.closedHistory.unshift(pos);
+
+    // Keep history at reasonable limit
+    if (this.closedHistory.length > 200) {
+      this.closedHistory.length = 200;
     }
+
+    return pos;
+  }
+
+  /**
+   * Reconciles internal positions against real Bybit positions.
+   * Bybit is the ultimate source of truth!
+   */
+  public reconcileWithBybit(
+    bybitPositions: BybitRawPosition[],
+    currentProfile: ProfileType
+  ): {
+    discrepanciesFound: number;
+    syncedPositions: Position[];
+  } {
+    let discrepancies = 0;
+    const bybitMap = new Map<string, BybitRawPosition>();
+
+    for (const bp of bybitPositions) {
+      bybitMap.set(bp.symbol, bp);
+    }
+
+    // 1. Check existing local positions against Bybit
+    for (const localPos of [...this.activePositions]) {
+      const bybitPos = bybitMap.get(localPos.symbol);
+
+      if (!bybitPos || bybitPos.size <= 0) {
+        // Discrepancy: Local position was closed on Bybit (liquidation, manual close, or TP/SL hit)
+        discrepancies++;
+        this.auditLogger(
+          'RECONCILIATION_DISCREPANCY',
+          `Local position ${localPos.symbol} does not exist on Bybit. Marking as CLOSED locally.`,
+          { symbol: localPos.symbol, localPos }
+        );
+
+        localPos.status = 'CLOSED';
+        localPos.exitTime = Date.now();
+        this.activePositions = this.activePositions.filter((p) => p.id !== localPos.id);
+        this.closedHistory.unshift(localPos);
+        continue;
+      }
+
+      // Check quantity mismatch
+      if (Math.abs(localPos.qty - bybitPos.size) > 1e-6) {
+        discrepancies++;
+        this.auditLogger(
+          'RECONCILIATION_DISCREPANCY',
+          `Quantity mismatch for ${localPos.symbol}: local=${localPos.qty}, Bybit=${bybitPos.size}. Updating to Bybit size.`,
+          { symbol: localPos.symbol, oldQty: localPos.qty, newQty: bybitPos.size }
+        );
+        localPos.qty = bybitPos.size;
+        localPos.sizeUSDT = bybitPos.size * localPos.entryPrice;
+      }
+
+      // Check side mismatch
+      const bybitSide = bybitPos.side.toUpperCase() as 'BUY' | 'SELL';
+      if (localPos.side !== bybitSide) {
+        discrepancies++;
+        this.auditLogger(
+          'RECONCILIATION_DISCREPANCY',
+          `Side mismatch for ${localPos.symbol}: local=${localPos.side}, Bybit=${bybitSide}. Updating to Bybit side.`,
+          { symbol: localPos.symbol, oldSide: localPos.side, newSide: bybitSide }
+        );
+        localPos.side = bybitSide;
+      }
+
+      // Check entry price mismatch
+      if (bybitPos.avgPrice > 0 && Math.abs(localPos.entryPrice - bybitPos.avgPrice) > 0.01) {
+        discrepancies++;
+        this.auditLogger(
+          'RECONCILIATION_DISCREPANCY',
+          `Entry price mismatch for ${localPos.symbol}: local=$${localPos.entryPrice}, Bybit=$${bybitPos.avgPrice}. Updating to Bybit price.`,
+          { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: bybitPos.avgPrice }
+        );
+        localPos.entryPrice = bybitPos.avgPrice;
+        localPos.sizeUSDT = localPos.qty * bybitPos.avgPrice;
+      }
+
+      // Remove from map so we know it's matched
+      bybitMap.delete(localPos.symbol);
+    }
+
+    // 2. Any remaining positions in Bybit exist on exchange but were missing locally
+    for (const [symbol, unmappedBybitPos] of bybitMap.entries()) {
+      if (unmappedBybitPos.size <= 0) continue;
+
+      discrepancies++;
+      const side = unmappedBybitPos.side.toUpperCase() as 'BUY' | 'SELL';
+      const entryPrice = unmappedBybitPos.avgPrice || unmappedBybitPos.markPrice;
+      const sizeUSDT = unmappedBybitPos.size * entryPrice;
+
+      const importedPos: Position = {
+        id: `bybit_sync_${Date.now()}_${symbol}`,
+        symbol,
+        side,
+        qty: unmappedBybitPos.size,
+        entryPrice,
+        sizeUSDT,
+        status: 'OPEN',
+        entryTime: unmappedBybitPos.updatedTime || Date.now(),
+        highestPrice: entryPrice,
+        lowestPrice: entryPrice,
+        profile: currentProfile,
+        source: 'BYBIT_SYNC',
+      };
+
+      this.activePositions.push(importedPos);
+
+      this.auditLogger(
+        'RECONCILIATION_DISCREPANCY',
+        `Discovered unmapped position on Bybit: ${symbol} (${side} ${unmappedBybitPos.size} @ $${entryPrice}). Imported into TradeBot state.`,
+        { symbol, importedPos }
+      );
+    }
+
+    return {
+      discrepanciesFound: discrepancies,
+      syncedPositions: this.activePositions,
+    };
   }
 }
