@@ -10,7 +10,8 @@ export class RiskEngine {
     config: ProfileConfig,
     activePositions: Position[],
     currentEquity: number,
-    killSwitchEngaged: boolean
+    killSwitchEngaged: boolean,
+    hasPendingOrder: boolean = false
   ): RiskApproval {
     // 1. Kill Switch check
     if (killSwitchEngaged) {
@@ -39,6 +40,15 @@ export class RiskEngine {
         approved: false,
         sizeUSDT: 0,
         reason: `Position already open for ${signal.symbol}`,
+      };
+    }
+
+    // 4. Pending in-flight Order check (Prevents duplicate entries)
+    if (hasPendingOrder) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `Pending order already in-flight for ${signal.symbol}. Duplicate entry prevented.`,
       };
     }
 

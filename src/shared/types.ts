@@ -1,6 +1,7 @@
 export type ProfileType = 'SCALP' | 'MOMENTUM';
 export type OrderSide = 'BUY' | 'SELL';
 export type PositionStatus = 'OPEN' | 'CLOSED';
+export type ExecutionMode = 'PAPER' | 'TESTNET' | 'LIVE';
 
 export type OrderStatus =
   | 'CREATED'
@@ -40,16 +41,20 @@ export type AuditLogType =
   | 'KILL_SWITCH_DISENGAGED'
   | 'EXCHANGE_CONNECTED'
   | 'EXCHANGE_DISCONNECTED'
+  | 'MODE_CHANGED'
+  | 'PAPER_RESET'
   | 'RECOVERY'
   | 'SYSTEM'
   | 'ERROR';
 
 export interface AppConfig {
+  executionMode: ExecutionMode;
   activeProfile: ProfileType;
   testnet: boolean;
   killSwitchEngaged: boolean;
   bybitApiKey?: string;
   bybitApiSecret?: string;
+  paperEquity?: number;
   maxLeverage?: number;
   watchlist?: string[];
 }
@@ -106,6 +111,7 @@ export interface OrderRecord {
   rejectionReason?: string;
   intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE';
   profile: ProfileType;
+  executionMode: ExecutionMode;
 }
 
 export interface Position {
@@ -124,7 +130,8 @@ export interface Position {
   highestPrice?: number;
   lowestPrice?: number;
   profile: ProfileType;
-  source: 'LOCAL' | 'BYBIT_SYNC';
+  source: 'LOCAL' | 'BYBIT_SYNC' | 'PAPER';
+  executionMode: ExecutionMode;
 }
 
 export interface BybitRawPosition {
@@ -148,6 +155,7 @@ export interface AuditLog {
 
 export interface BotStatusResponse {
   state: BotState;
+  executionMode: ExecutionMode;
   config: AppConfig;
   profileConfig: ProfileConfig;
   equity: number;

@@ -1,5 +1,6 @@
 {
-  "activeProfile": "SCALP",
+  "activeProfile": "MOMENTUM",
   "testnet": true,
-  "killSwitchEngaged": false
+  "killSwitchEngaged": false,
+  "executionMode": "PAPER"
 }

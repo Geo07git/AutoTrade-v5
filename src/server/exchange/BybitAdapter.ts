@@ -1,5 +1,6 @@
 import { RestClientV5, WebsocketClient } from 'bybit-api';
 import { Kline, BybitRawPosition, OrderStatus, OrderSide } from '../../shared/types';
+import { IExecutionAdapter } from './IExecutionAdapter';
 
 export interface InstrumentLotFilter {
   symbol: string;
@@ -18,7 +19,7 @@ export interface ConnectionTestResult {
   error?: string;
 }
 
-export class BybitAdapter {
+export class BybitAdapter implements IExecutionAdapter {
   private apiKey: string;
   private apiSecret: string;
   private testnet: boolean;
@@ -301,11 +302,12 @@ export class BybitAdapter {
   }
 
   /**
-   * Fetches real open positions from Bybit
+   * Fetches real open positions from Bybit.
+   * STRICT FIX: Throws error on API failure or missing credentials instead of returning []!
    */
   public async getOpenPositions(settleCoin: string = 'USDT'): Promise<BybitRawPosition[]> {
     if (!this.hasCredentials()) {
-      return [];
+      throw new Error('Cannot fetch Bybit positions: Bybit API keys not configured.');
     }
 
     try {
@@ -314,7 +316,11 @@ export class BybitAdapter {
         settleCoin,
       });
 
-      if (res.retCode === 0 && Array.isArray(res.result.list)) {
+      if (res.retCode !== 0) {
+        throw new Error(`Bybit getPositionInfo failed [${res.retCode}]: ${res.retMsg}`);
+      }
+
+      if (Array.isArray(res.result?.list)) {
         return res.result.list
           .filter((p: any) => {
             const size = parseFloat(p.size || '0');
@@ -334,7 +340,7 @@ export class BybitAdapter {
       return [];
     } catch (err: any) {
       console.error('[BybitAdapter] getOpenPositions error:', err.message || err);
-      return [];
+      throw new Error(`Bybit getOpenPositions failed: ${err.message || err}`);
     }
   }
 
@@ -579,5 +585,17 @@ export class BybitAdapter {
 
   public isConnected(): boolean {
     return this.isWsConnected;
+  }
+
+  public close() {
+    if (this.wsClient) {
+      try {
+        this.wsClient.closeAll();
+      } catch (err) {
+        // ignore error
+      }
+      this.wsClient = undefined;
+    }
+    this.isWsConnected = false;
   }
 }

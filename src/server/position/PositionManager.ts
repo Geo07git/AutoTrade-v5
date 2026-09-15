@@ -80,7 +80,8 @@ export class PositionManager {
       highestPrice: entryPrice,
       lowestPrice: entryPrice,
       profile: order.profile,
-      source: 'LOCAL',
+      source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
+      executionMode: order.executionMode || 'TESTNET',
     };
 
     this.activePositions.push(newPosition);
@@ -216,6 +217,41 @@ export class PositionManager {
   }
 
   /**
+   * Correctly handles PARTIALLY_FILLED close order:
+   * Deducts executed quantity from position without closing it!
+   */
+  public async handlePartialClose(
+    posId: string,
+    filledQty: number,
+    exitPrice: number
+  ): Promise<Position | null> {
+    const pos = this.activePositions.find((p) => p.id === posId);
+    if (!pos) return null;
+
+    const remainingQty = Math.max(0, parseFloat((pos.qty - filledQty).toFixed(6)));
+    if (remainingQty <= 1e-6) {
+      return this.markPositionClosed(posId, exitPrice, Date.now(), 'PARTIAL_CLOSE_COMPLETED');
+    }
+
+    pos.qty = remainingQty;
+    pos.sizeUSDT = parseFloat((remainingQty * pos.entryPrice).toFixed(2));
+
+    this.auditLogger(
+      'POSITION_UPDATED',
+      `Position ${pos.symbol} partially closed: reduced by ${filledQty} contracts @ $${exitPrice.toFixed(4)}. Remaining: ${remainingQty}`,
+      {
+        posId,
+        symbol: pos.symbol,
+        closedQty: filledQty,
+        remainingQty,
+        exitPrice,
+      }
+    );
+
+    return pos;
+  }
+
+  /**
    * Reconciles internal positions against real Bybit positions.
    * Bybit is the ultimate source of truth!
    */
@@ -315,6 +351,7 @@ export class PositionManager {
         lowestPrice: entryPrice,
         profile: currentProfile,
         source: 'BYBIT_SYNC',
+        executionMode: 'TESTNET',
       };
 
       this.activePositions.push(importedPos);

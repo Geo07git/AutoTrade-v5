@@ -1,5 +1,447 @@
 [
   {
+    "id": "1789495622958_nchp",
+    "timestamp": 1789495622958,
+    "type": "PAPER_RESET",
+    "message": "Paper account reset: Balance restored to $10,000 USDT and paper positions cleared."
+  },
+  {
+    "id": "1789495619359_9pwj",
+    "timestamp": 1789495619359,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
+  },
+  {
+    "id": "1789495619359_luwh",
+    "timestamp": 1789495619359,
+    "type": "RECOVERY",
+    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "details": {
+      "equity": 10000,
+      "activePositionsCount": 0,
+      "discrepancies": 0
+    }
+  },
+  {
+    "id": "1789495619358_dksd",
+    "timestamp": 1789495619358,
+    "type": "EXCHANGE_CONNECTED",
+    "message": "Connected to PAPER execution engine (CONTRACT)."
+  },
+  {
+    "id": "1789495619180_znxi",
+    "timestamp": 1789495619180,
+    "type": "MODE_CHANGED",
+    "message": "Execution mode switched to [PAPER]. Reconnecting execution engine..."
+  },
+  {
+    "id": "1789495616873_im04",
+    "timestamp": 1789495616873,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495616621_5np4",
+    "timestamp": 1789495616621,
+    "type": "MODE_CHANGED",
+    "message": "Execution mode switched to [TESTNET]. Reconnecting execution engine..."
+  },
+  {
+    "id": "1789495608725_7yao",
+    "timestamp": 1789495608725,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
+  },
+  {
+    "id": "1789495608725_fdbt",
+    "timestamp": 1789495608725,
+    "type": "RECOVERY",
+    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "details": {
+      "equity": 10000,
+      "activePositionsCount": 0,
+      "discrepancies": 0
+    }
+  },
+  {
+    "id": "1789495608724_nijg",
+    "timestamp": 1789495608724,
+    "type": "EXCHANGE_CONNECTED",
+    "message": "Connected to PAPER execution engine (CONTRACT)."
+  },
+  {
+    "id": "1789495608271_znj9",
+    "timestamp": 1789495608271,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
+  },
+  {
+    "id": "1789495605828_mdwb",
+    "timestamp": 1789495605828,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495590867_vgs5",
+    "timestamp": 1789495590867,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495575832_t7cz",
+    "timestamp": 1789495575832,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495560847_hw8o",
+    "timestamp": 1789495560847,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495545845_ceyz",
+    "timestamp": 1789495545845,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495530830_t666",
+    "timestamp": 1789495530830,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495515822_x1ky",
+    "timestamp": 1789495515822,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495500834_tz1q",
+    "timestamp": 1789495500834,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495485832_5v8l",
+    "timestamp": 1789495485832,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495470828_f64b",
+    "timestamp": 1789495470828,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495455816_c5ko",
+    "timestamp": 1789495455816,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495440817_gia1",
+    "timestamp": 1789495440817,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495425817_rbyz",
+    "timestamp": 1789495425817,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495410825_zb06",
+    "timestamp": 1789495410825,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495395820_9iri",
+    "timestamp": 1789495395820,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495380830_jnbi",
+    "timestamp": 1789495380830,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495365828_zp3h",
+    "timestamp": 1789495365828,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495350819_xail",
+    "timestamp": 1789495350819,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495335806_6ikk",
+    "timestamp": 1789495335806,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495325022_wlx3",
+    "timestamp": 1789495325022,
+    "type": "SYSTEM",
+    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+  },
+  {
+    "id": "1789495320826_xgfm",
+    "timestamp": 1789495320826,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495305819_34mx",
+    "timestamp": 1789495305819,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495290847_pwv1",
+    "timestamp": 1789495290847,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495275808_304q",
+    "timestamp": 1789495275808,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495260824_55eh",
+    "timestamp": 1789495260824,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495245845_yvi1",
+    "timestamp": 1789495245845,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495230825_6yc4",
+    "timestamp": 1789495230825,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495215813_sye4",
+    "timestamp": 1789495215813,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495200830_3r0r",
+    "timestamp": 1789495200830,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495185822_onyc",
+    "timestamp": 1789495185822,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495170840_a9w8",
+    "timestamp": 1789495170840,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495155813_4eoh",
+    "timestamp": 1789495155813,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495140913_92nv",
+    "timestamp": 1789495140913,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495125807_xewc",
+    "timestamp": 1789495125807,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495110815_scio",
+    "timestamp": 1789495110815,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495095825_jgsp",
+    "timestamp": 1789495095825,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495080797_4nj9",
+    "timestamp": 1789495080797,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495065811_lz9i",
+    "timestamp": 1789495065811,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495050814_k0vk",
+    "timestamp": 1789495050815,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495035816_0230",
+    "timestamp": 1789495035816,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495020836_sfvj",
+    "timestamp": 1789495020836,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789495005814_ghpp",
+    "timestamp": 1789495005814,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494990940_orv8",
+    "timestamp": 1789494990940,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494975813_h2mm",
+    "timestamp": 1789494975813,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494960812_9z8k",
+    "timestamp": 1789494960812,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494945851_kmi9",
+    "timestamp": 1789494945851,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494930800_f2tp",
+    "timestamp": 1789494930800,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494915807_kz5d",
+    "timestamp": 1789494915807,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494900800_m7r1",
+    "timestamp": 1789494900800,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494885796_u3qa",
+    "timestamp": 1789494885796,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494870847_ofvh",
+    "timestamp": 1789494870847,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494855793_1nvb",
+    "timestamp": 1789494855793,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494840800_c2s1",
+    "timestamp": 1789494840800,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494825798_clhw",
+    "timestamp": 1789494825798,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494810798_9f8f",
+    "timestamp": 1789494810798,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494795843_5ixy",
+    "timestamp": 1789494795843,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494780801_b2yr",
+    "timestamp": 1789494780801,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494765803_5kk2",
+    "timestamp": 1789494765804,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494750610_503q",
+    "timestamp": 1789494750610,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
+    "id": "1789494750328_hqp3",
+    "timestamp": 1789494750328,
+    "type": "SYSTEM",
+    "message": "TradeBot 5 starting sequence initiated..."
+  },
+  {
+    "id": "1789494735466_h16x",
+    "timestamp": 1789494735466,
+    "type": "EXCHANGE_DISCONNECTED",
+    "message": "Waiting for exchange connection: API keys not provided"
+  },
+  {
     "id": "1789494732750_7tbu",
     "timestamp": 1789494732750,
     "type": "KILL_SWITCH_DISENGAGED",
