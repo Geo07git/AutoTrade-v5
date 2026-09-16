@@ -47,4 +47,13 @@ export class JsonStore<T> {
     this.data = data;
     this.save();
   }
+
+  public clear() {
+    this.data = Array.isArray(this.defaultData)
+      ? ([] as unknown as T)
+      : typeof this.defaultData === 'object' && this.defaultData !== null
+      ? ({ ...this.defaultData } as T)
+      : this.defaultData;
+    this.save();
+  }
 }

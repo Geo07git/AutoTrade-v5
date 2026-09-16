@@ -211,10 +211,14 @@ export class OrderManager {
    */
   public async executeCloseOrder(params: {
     position: Position;
-    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE';
+    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
     currentPrice?: number;
+    exitReasonDetail?: string;
+    triggerStopValue?: number;
+    trailingPeakPct?: number;
+    trailingDistancePct?: number;
   }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
-    const { position, reason, currentPrice } = params;
+    const { position, reason, currentPrice, exitReasonDetail, triggerStopValue, trailingPeakPct, trailingDistancePct } = params;
 
     if (position.status !== 'OPEN') {
       return { success: false, error: `Position ${position.symbol} is already closed.` };
@@ -237,6 +241,8 @@ export class OrderManager {
       : (position.sizeUSDT / (position.entryPrice || 1));
     const formattedQty = await this.exchange.formatQuantity(position.symbol, rawQty, estPrice);
 
+    const holdingTimeMinutes = position.entryTime ? parseFloat(((Date.now() - position.entryTime) / 60000).toFixed(1)) : 0;
+
     const closeOrder: OrderRecord = {
       id: clientOrderId,
       symbol: position.symbol,
@@ -250,6 +256,12 @@ export class OrderManager {
       intent: reason,
       profile: position.profile,
       executionMode: this.executionMode,
+      entryPrice: position.entryPrice,
+      exitReasonDetail,
+      triggerStopValue,
+      trailingPeakPct,
+      trailingDistancePct,
+      holdingTimeMinutes,
     };
 
     this.orders.set(clientOrderId, closeOrder);
@@ -292,13 +304,26 @@ export class OrderManager {
         const exitPrice = closeOrder.fillPrice || estPrice;
         const exitTime = closeOrder.updatedTime || Date.now();
 
+        const multiplier = position.side === 'BUY' ? 1 : -1;
+        const pnlPct = ((exitPrice - position.entryPrice) / position.entryPrice) * 100 * multiplier;
+        const pnl = (position.sizeUSDT * pnlPct) / 100;
+
+        closeOrder.realizedPnl = parseFloat(pnl.toFixed(2));
+        closeOrder.realizedPnlPct = parseFloat(pnlPct.toFixed(2));
+        if (closeOrder.cumFee === undefined) {
+          closeOrder.cumFee = parseFloat((closeOrder.sizeUSDT * 0.00055).toFixed(4));
+        }
+
         await this.positionManager.markPositionClosed(position.id, exitPrice, exitTime, reason);
 
-        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason})`, {
+        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`, {
           positionId: position.id,
           symbol: position.symbol,
           exitPrice,
           reason,
+          pnl,
+          pnlPct,
+          fee: closeOrder.cumFee,
         });
 
         return { success: true, order: closeOrder };

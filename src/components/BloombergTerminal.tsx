@@ -31,6 +31,13 @@ import {
   HelpCircle,
   Clock,
   List,
+  Save,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Info,
+  Download,
+  Trash2,
 } from 'lucide-react';
 
 interface BloombergTerminalProps {
@@ -45,6 +52,8 @@ interface BloombergTerminalProps {
   onResetPaper: () => void;
   onToggleKillSwitch: () => void;
   onTriggerScan: () => void;
+  onClearLogs?: () => void;
+  onClearOrders?: () => void;
   errorMessage: string | null;
   successMessage: string | null;
 }
@@ -71,9 +80,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onResetPaper,
   onToggleKillSwitch,
   onTriggerScan,
+  onClearLogs,
+  onClearOrders,
   errorMessage,
   successMessage,
 }) => {
+  const profileConfig = status?.profileConfig;
+  const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
+
   const [activeScreen, setActiveScreen] = useState<'PORT' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET'>('PORT');
   const [commandInput, setCommandInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([
@@ -90,22 +104,216 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [scannerSaving, setScannerSaving] = useState(false);
   const [showScannerConfig, setShowScannerConfig] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const [equityProtAct, setEquityProtAct] = useState(profileConfig?.equityProtectionActivationPct ?? 0);
+  const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0);
+  const [riskPerTrade, setRiskPerTrade] = useState(profileConfig?.riskPerTradePct ?? 10);
+  const [maxPositions, setMaxPositions] = useState(profileConfig?.maxOpenPositions ?? 5);
+  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 2.5);
+  const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
+  const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.4);
+  const [minMomentum, setMinMomentum] = useState(profileConfig?.minMomentumScore ?? 60);
+  const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 60);
+  const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
+  const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [showClearOrdersConfirm, setShowClearOrdersConfirm] = useState(false);
+  const [showClearLogsConfirm, setShowClearLogsConfirm] = useState(false);
 
-  // Auto-scroll ticker tape continuously
+  // Helper to export data as CSV / Excel-compatible format
+  const exportToCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
+    // Add UTF-8 BOM so Excel opens it with proper characters and encoding
+    const BOM = '\uFEFF';
+    const csvContent = [
+      headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(','),
+      ...rows.map((row) =>
+        row
+          .map((val) => {
+            const str = val !== undefined && val !== null ? String(val) : '';
+            return `"${str.replace(/"/g, '""')}"`;
+          })
+          .join(',')
+      ),
+    ].join('\r\n');
+
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportOrders = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const headers = [
+      'Order ID',
+      'Exchange ID',
+      'Symbol',
+      'Side',
+      'Intent',
+      'Profile',
+      'Execution Mode',
+      'Size (USDT)',
+      'Qty',
+      'Price',
+      'Fill Price',
+      'Status',
+      'PnL ($)',
+      'PnL (%)',
+      'Fee ($)',
+      'Entry Price',
+      'Exit Reason Detail',
+      'Holding Time (min)',
+      'Created At',
+      'Updated At',
+    ];
+
+    const rows = orders.map((o) => [
+      o.id,
+      o.exchangeOrderId || '',
+      o.symbol,
+      o.side,
+      o.intent,
+      o.profile,
+      o.executionMode,
+      o.sizeUSDT,
+      o.qty,
+      o.price || '',
+      o.fillPrice || '',
+      o.status,
+      o.realizedPnl !== undefined ? o.realizedPnl : '',
+      o.realizedPnlPct !== undefined ? o.realizedPnlPct : '',
+      o.cumFee !== undefined ? o.cumFee : (o.sizeUSDT * 0.00055).toFixed(4),
+      o.entryPrice || '',
+      o.exitReasonDetail || '',
+      o.holdingTimeMinutes || '',
+      new Date(o.createdTime).toLocaleString(),
+      o.updatedTime ? new Date(o.updatedTime).toLocaleString() : '',
+    ]);
+
+    exportToCSV(`TradeBot_Orders_${timestamp}.csv`, headers, rows);
+  };
+
+  const handleExportLogs = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const headers = ['Log ID', 'Timestamp', 'Type', 'Message', 'Details'];
+
+    const rows = logs.map((l) => [
+      l.id,
+      new Date(l.timestamp).toLocaleString(),
+      l.type,
+      l.message,
+      l.details ? JSON.stringify(l.details) : '',
+    ]);
+
+    exportToCSV(`TradeBot_DeskLogs_${timestamp}.csv`, headers, rows);
+  };
+
+  // Sync local state when profileConfig or activeProfile changes
+  useEffect(() => {
+    if (profileConfig) {
+      setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
+      setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
+      setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
+      setMaxPositions(profileConfig.maxOpenPositions ?? 5);
+      setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
+      setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
+      setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
+      setMinMomentum(profileConfig.minMomentumScore ?? 60);
+      setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
+      setCooldownMins(profileConfig.cooldownMinutes ?? 5);
+      setSettingsSavedMessage(null);
+    }
+  }, [profileConfig, activeProfile]);
+
+  const hasUnsavedSettings = profileConfig ? (
+    riskPerTrade !== (profileConfig.riskPerTradePct ?? 10) ||
+    maxPositions !== (profileConfig.maxOpenPositions ?? 5) ||
+    hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
+    trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
+    trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
+    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
+    maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
+    equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 0) ||
+    equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0) ||
+    cooldownMins !== (profileConfig.cooldownMinutes ?? 5)
+  ) : false;
+
+  const handleSaveAllSettings = () => {
+    onUpdateProfileSettings(activeProfile, {
+      riskPerTradePct: riskPerTrade,
+      maxOpenPositions: maxPositions,
+      hardStopLossPct: hardStopLoss,
+      trailingActivationPct: trailingAct,
+      trailingDistancePct: trailingDist,
+      minMomentumScore: minMomentum,
+      maxHoldingTimeMinutes: maxHoldTime,
+      equityProtectionActivationPct: equityProtAct,
+      equityTrailingDrawdownPct: equityTrailingDraw,
+      cooldownMinutes: cooldownMins,
+    });
+    setSettingsSavedMessage('Modificările au fost salvate cu succes!');
+    setTimeout(() => setSettingsSavedMessage(null), 3500);
+  };
+
+  const handleResetSettingsToSaved = () => {
+    if (!profileConfig) return;
+    setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
+    setMaxPositions(profileConfig.maxOpenPositions ?? 5);
+    setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
+    setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
+    setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
+    setMinMomentum(profileConfig.minMomentumScore ?? 60);
+    setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
+    setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
+    setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
+    setCooldownMins(profileConfig.cooldownMinutes ?? 5);
+    setSettingsSavedMessage(null);
+  };
+
+  // =========================================================================
+  // VITEZA REAL-TIME TAPE (SETEAZĂ DIRECT AICI ÎN COD):
+  // 0.8 = lent/calm | 1.2 = normal/recomandat | 2.0 = rapid | 3.5 = ultra
+  // =========================================================================
+  const TAPE_SCROLL_SPEED = 1.2;
+
+  // Derulare fluidă 60FPS fără blocaje sau tremur (folosind requestAnimationFrame și buclă infinită)
   useEffect(() => {
     const el = tickerRef.current;
-    if (!el) return;
-    const interval = setInterval(() => {
-      if (el) {
-        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 5) {
-          el.scrollLeft = 0;
-        } else {
-          el.scrollLeft += 1;
+    if (!el || tapeItems.length === 0) return;
+
+    let animId: number;
+    let pos = el.scrollLeft;
+    let isHovered = false;
+
+    const onEnter = () => { isHovered = true; };
+    const onLeave = () => { isHovered = false; };
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+
+    const step = () => {
+      if (el && !isHovered) {
+        pos += TAPE_SCROLL_SPEED;
+        const halfWidth = el.scrollWidth / 2;
+        // Când ajunge la jumătate (sfârșitul primului set duplicat), resetăm lin fără niciun salt vizibil
+        if (halfWidth > 0 && pos >= halfWidth) {
+          pos -= halfWidth;
         }
+        el.scrollLeft = pos;
       }
-    }, 45);
-    return () => clearInterval(interval);
-  }, [tapeItems]);
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(animId);
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+    };
+  }, [tapeItems, TAPE_SCROLL_SPEED]);
 
   // Generate real-time tape stream items sorted descending by 24h price increase percentage
   useEffect(() => {
@@ -195,7 +403,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     const action = parts[0];
 
     if (action === 'HELP') {
-      response = 'AVAILABLE COMMANDS: START, STOP, SCALP, MOMENTUM, SCAN, RESET, KILL, CLEAR, PORT, TAPE, BLOT, SET';
+      response = 'AVAILABLE COMMANDS: START, STOP, SCALP, MOMENTUM, SCAN, RESET, KILL, SAVELOG, CLEARLOG, CLEAR, PORT, TAPE, BLOT, SET';
     } else if (action === 'SCALP') {
       onSwitchProfile('SCALP');
       response = 'PROFILE SWITCHED TO SCALP (15m/60m, Aggressive)';
@@ -205,6 +413,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     } else if (action === 'SCAN') {
       onTriggerScan();
       response = 'MANUAL UNIVERSE SCAN INITIATED...';
+    } else if (action === 'SAVELOG' || action === 'EXPORT') {
+      handleExportOrders();
+      handleExportLogs();
+      response = 'EXPORTED ORDERS & AUDIT LOGS TO CSV/EXCEL FILES.';
+    } else if (action === 'CLEARLOG') {
+      if (onClearOrders) onClearOrders();
+      if (onClearLogs) onClearLogs();
+      response = 'ORDERS BLOTTER & AUDIT LOGS CLEARED.';
     } else if (action === 'KILL') {
       onToggleKillSwitch();
       response = 'EMERGENCY KILL SWITCH TOGGLED.';
@@ -264,8 +480,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
-  const profileConfig = status?.profileConfig;
-  const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
   const positions = status?.positions || [];
   const totalPnL = positions.reduce((acc, p) => acc + (p.pnl || 0), 0);
   const lockedCapital = positions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
@@ -297,7 +511,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-2 md:space-x-4">
           <div className="flex items-center space-x-2 shrink-0">
             <span className="bg-black/90 text-emerald-400 px-2 py-0.5 rounded text-[11px] font-mono">
-              EQ: ${status?.equity?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '10,000.00'}
+              EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
             </span>
             <span className={`px-2 py-0.5 rounded text-[11px] font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
@@ -326,27 +540,32 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       </header>
 
       {/* 2. REAL-TIME TICKER TAPE (AUTO-SCROLLING 24H % DESC) */}
-      <div
-        ref={tickerRef}
-        className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center space-x-6 overflow-x-auto whitespace-nowrap shrink-0 scrollbar-none"
-        style={{ scrollBehavior: 'smooth' }}
-      >
-        <div className="flex items-center space-x-1 text-amber-400 font-bold shrink-0">
+      <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative">
+        {/* Antet fix pe stânga */}
+        <div className="flex items-center space-x-1.5 text-amber-400 font-bold shrink-0 z-20 bg-zinc-950 pr-3 border-r border-amber-500/30 shadow-[4px_0_10px_rgba(0,0,0,0.9)]">
           <Activity className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-          <span>AUTO-TAPE (24H % DESC) &gt;&gt;</span>
+          <span className="tracking-wider">AUTO-TAPE (24H % DESC) &gt;&gt;</span>
         </div>
-        <div className="flex items-center space-x-6 shrink-0">
-          {tapeItems.map((item, idx) => (
-            <div key={item.id + idx} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-              <span className="text-slate-400">[{item.timestamp}]</span>
-              <span className="font-bold text-amber-300">{item.symbol}</span>
-              <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                {item.side}
-              </span>
-              <span className="text-zinc-200">${item.price.toLocaleString()}</span>
-              <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
-            </div>
-          ))}
+
+        {/* Bandă date derulată fluid fără blocaje */}
+        <div
+          ref={tickerRef}
+          className="flex-1 overflow-x-hidden whitespace-nowrap pl-3 select-none scrollbar-none"
+          title="Trecerea cursorului peste bandă o pune pe pauză temporar"
+        >
+          <div className="inline-flex items-center space-x-6">
+            {[...tapeItems, ...tapeItems].map((item, idx) => (
+              <div key={`${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                <span className="text-slate-400">[{item.timestamp}]</span>
+                <span className="font-bold text-amber-300">{item.symbol}</span>
+                <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                  {item.side}
+                </span>
+                <span className="text-zinc-200">${item.price.toLocaleString()}</span>
+                <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -685,6 +904,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         <div key={opp.symbol} className="flex items-center justify-between bg-black p-2 rounded border border-zinc-800 text-xs">
                           <div className="flex items-center space-x-3">
                             <span className="font-bold text-amber-300">#{opp.rank} {opp.symbol}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              opp.side === 'SELL' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                            }`}>
+                              {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
+                            </span>
                             <span className="text-slate-400">${opp.price}</span>
                             <span className="text-emerald-400">RVOL: {opp.rvol}x</span>
                           </div>
@@ -707,12 +931,60 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           {activeScreen === 'BLOT' && (
             <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
-              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/30 pb-2 mb-3">
                 <div className="flex items-center space-x-2">
                   <List className="w-4 h-4 text-amber-500" />
                   <span className="font-bold text-sm tracking-wider">F4: ORDER EXECUTION BLOTTER &amp; AUDIT LOGS</span>
+                  <span className="text-xs text-slate-400 font-mono">({orders.length} Orders)</span>
                 </div>
-                <span className="text-xs text-slate-400">{orders.length} Orders Recorded</span>
+
+                {/* Control Action Buttons: Save Log (CSV/Excel) & Clear Log */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleExportOrders}
+                    disabled={orders.length === 0}
+                    className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    title="Exportă istoricul ordinelor în format CSV / Excel"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>SAVE LOG (EXCEL/CSV)</span>
+                  </button>
+
+                  {!showClearOrdersConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowClearOrdersConfirm(true)}
+                      disabled={orders.length === 0}
+                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                      title="Șterge istoricul ordinelor curente"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>CLEAR LOG</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center space-x-1.5 bg-rose-950 border border-rose-500 px-2 py-0.5 rounded text-xs font-mono">
+                      <span className="text-rose-200 text-[11px] font-bold">Confirmi ștergerea?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowClearOrdersConfirm(false);
+                          if (onClearOrders) onClearOrders();
+                        }}
+                        className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-[11px]"
+                      >
+                        DA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowClearOrdersConfirm(false)}
+                        className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[11px]"
+                      >
+                        NU
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto flex-1">
@@ -725,29 +997,202 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       <th className="py-2 px-2">Intent</th>
                       <th className="py-2 px-2">Size ($)</th>
                       <th className="py-2 px-2">Status</th>
+                      <th className="py-2 px-2">PnL / Exit Log</th>
                       <th className="py-2 px-2 text-right">Time</th>
+                      <th className="py-2 px-2 text-center">Log</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900 font-mono">
-                    {orders.slice(0, 20).map((ord) => (
-                      <tr key={ord.id} className="hover:bg-zinc-900/50">
-                        <td className="py-2 px-2 text-slate-400 text-[10px]">{ord.id.substring(0, 8)}</td>
-                        <td className="py-2 px-2 font-bold text-amber-300">{ord.symbol}</td>
-                        <td className="py-2 px-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ord.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                            {ord.side}
-                          </span>
-                        </td>
-                        <td className="py-2 px-2 text-zinc-300">{ord.intent}</td>
-                        <td className="py-2 px-2">${ord.sizeUSDT.toFixed(0)}</td>
-                        <td className="py-2 px-2">
-                          <span className="text-cyan-400 font-bold text-[10px]">{ord.status}</span>
-                        </td>
-                        <td className="py-2 px-2 text-right text-slate-400 text-[10px]">
-                          {new Date(ord.createdTime).toLocaleTimeString()}
-                        </td>
-                      </tr>
-                    ))}
+                    {orders.slice(0, 30).map((ord) => {
+                      const isExpanded = expandedOrderId === ord.id;
+                      const hasPnl = ord.realizedPnl !== undefined;
+                      const isProfit = (ord.realizedPnl ?? 0) >= 0;
+                      const isCloseOrder = ord.intent !== 'ENTRY';
+                      
+                      // Fallback fee calculation if not present: 0.055% taker fee
+                      const feeUSDT = ord.cumFee !== undefined ? ord.cumFee : (ord.sizeUSDT * 0.00055);
+
+                      return (
+                        <React.Fragment key={ord.id}>
+                          <tr className={`hover:bg-zinc-900/60 transition-colors ${isExpanded ? 'bg-amber-950/20 border-l-2 border-l-amber-500' : ''}`}>
+                            <td className="py-2 px-2 text-slate-400 text-[10px]">{ord.id.substring(0, 8)}</td>
+                            <td className="py-2 px-2 font-bold text-amber-300">{ord.symbol}</td>
+                            <td className="py-2 px-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ord.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
+                                {ord.side}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                ord.intent === 'STOP_LOSS' ? 'bg-rose-950/80 text-rose-300 font-bold border border-rose-800/40' :
+                                ord.intent === 'TRAILING_STOP' ? 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/40' :
+                                ord.intent === 'EQUITY_PROTECTION' ? 'bg-purple-950/80 text-purple-300 font-bold border border-purple-800/40' :
+                                ord.intent === 'MANUAL_CLOSE' || ord.intent === 'KILL_SWITCH' ? 'bg-orange-950/80 text-orange-300 border border-orange-800/40' :
+                                'text-zinc-300'
+                              }`}>
+                                {ord.intent}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2 font-medium">${ord.sizeUSDT.toFixed(0)}</td>
+                            <td className="py-2 px-2">
+                              <span className={`text-[10px] font-bold ${
+                                ord.status === 'FILLED' ? 'text-emerald-400' :
+                                ord.status === 'REJECTED' || ord.status === 'CANCELLED' ? 'text-rose-400' :
+                                'text-cyan-400'
+                              }`}>
+                                {ord.status}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2">
+                              {hasPnl ? (
+                                <span className={`font-bold text-[11px] ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {isProfit ? '+' : ''}${ord.realizedPnl?.toFixed(2)} ({isProfit ? '+' : ''}{ord.realizedPnlPct?.toFixed(2)}%)
+                                </span>
+                              ) : isCloseOrder ? (
+                                <span className="text-zinc-500 text-[10px] italic">Închidere poziție</span>
+                              ) : (
+                                <span className="text-zinc-500 text-[10px]">—</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-right text-slate-400 text-[10px]">
+                              {new Date(ord.createdTime).toLocaleTimeString()}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedOrderId(isExpanded ? null : ord.id)}
+                                className={`inline-flex items-center space-x-1 px-2 py-1 rounded text-[10px] font-bold border transition-all ${
+                                  isExpanded
+                                    ? 'bg-amber-500 text-black border-amber-400 shadow-sm'
+                                    : 'bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-amber-500/30 hover:border-amber-400'
+                                }`}
+                                title="Afișează log detaliat ordin"
+                              >
+                                <FileText className="w-3 h-3" />
+                                <span>{isExpanded ? 'ASCUNDE' : 'SHOW LOG'}</span>
+                                {isExpanded ? <ChevronUp className="w-2.5 h-2.5 ml-0.5" /> : <ChevronDown className="w-2.5 h-2.5 ml-0.5" />}
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Expanded detailed audit log panel */}
+                          {isExpanded && (
+                            <tr className="bg-zinc-950/90 border-b border-amber-500/30">
+                              <td colSpan={9} className="p-3 text-xs">
+                                <div className="bg-zinc-900/90 border border-amber-500/40 rounded p-3 text-slate-200 space-y-2.5 shadow-inner">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Info className="w-4 h-4 text-amber-400" />
+                                      <span className="font-bold text-amber-400 uppercase tracking-wide">
+                                        DETALII EXECUȚIE ORDIN: {ord.symbol} ({ord.side}) [{ord.id}]
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-3 text-[11px] text-zinc-400">
+                                      <span>Profil: <strong className="text-zinc-200">{ord.profile}</strong></span>
+                                      <span>Mod: <strong className="text-amber-300">{ord.executionMode}</strong></span>
+                                      <span>Creat: <strong className="text-zinc-200">{new Date(ord.createdTime).toLocaleString()}</strong></span>
+                                    </div>
+                                  </div>
+
+                                  {/* Metric highlights */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Profit / Pierdere (PnL)</div>
+                                      <div className={`text-sm font-bold mt-0.5 ${
+                                        hasPnl
+                                          ? isProfit ? 'text-emerald-400' : 'text-rose-400'
+                                          : 'text-zinc-500'
+                                      }`}>
+                                        {hasPnl
+                                          ? `${isProfit ? '+' : ''}$${ord.realizedPnl?.toFixed(2)} (${isProfit ? '+' : ''}${ord.realizedPnlPct?.toFixed(2)}%)`
+                                          : 'N/A (Intrare)'}
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Comision Estimativ (Fee)</div>
+                                      <div className="text-sm font-bold text-amber-300 mt-0.5">
+                                        ${feeUSDT.toFixed(4)} <span className="text-[10px] text-zinc-400 font-normal">(0.055%)</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Preț Execuție / Fill</div>
+                                      <div className="text-sm font-bold text-zinc-200 mt-0.5">
+                                        {ord.fillPrice ? `$${ord.fillPrice.toFixed(4)}` : 'La Piață (Market)'}
+                                        {ord.entryPrice && (
+                                          <span className="text-[10px] text-zinc-400 block font-normal">
+                                            Intrare: ${ord.entryPrice.toFixed(4)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Cantitate / Dimensiune</div>
+                                      <div className="text-sm font-bold text-zinc-200 mt-0.5">
+                                        {ord.qty} {ord.symbol.replace('USDT', '')}
+                                        <span className="text-[10px] text-zinc-400 block font-normal">
+                                          ${ord.sizeUSDT.toFixed(2)} USDT
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Exit Reason & Triggers description */}
+                                  <div className="bg-black/70 border border-zinc-800/80 p-2.5 rounded text-xs">
+                                    <div className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-1">
+                                      Motiv Închidere / Diagnostic Parametri:
+                                    </div>
+                                    <div className="text-zinc-200 font-mono text-[11px] leading-relaxed">
+                                      {ord.exitReasonDetail ? (
+                                        <p className="text-amber-200">{ord.exitReasonDetail}</p>
+                                      ) : ord.intent === 'STOP_LOSS' ? (
+                                        <p className="text-rose-300">
+                                          Declanșat de <strong>Hard Stop-Loss</strong> (depășire limită maximă de pierdere permisă per profil).
+                                        </p>
+                                      ) : ord.intent === 'TRAILING_STOP' ? (
+                                        <p className="text-amber-300">
+                                          Declanșat de <strong>Trailing Stop</strong> (prețul s-a retras de la vârful maxim cu distanța setată).
+                                          {ord.trailingPeakPct !== undefined && ` [Vârf PnL atins: +${ord.trailingPeakPct}%]`}
+                                          {ord.trailingDistancePct !== undefined && ` [Retragere: ${ord.trailingDistancePct}%]`}
+                                        </p>
+                                      ) : ord.intent === 'EQUITY_PROTECTION' ? (
+                                        <p className="text-purple-300">
+                                          Declanșat de <strong>Equity Protection</strong> (drawdown al capitalului global de la vârf).
+                                        </p>
+                                      ) : ord.intent === 'TIME_STOP' ? (
+                                        <p className="text-cyan-300">
+                                          Declanșat de <strong>Max Holding Time</strong> (poziția a atins durata maximă permisă de menținere).
+                                        </p>
+                                      ) : ord.intent === 'MANUAL_CLOSE' ? (
+                                        <p className="text-orange-300">Închidere manuală declanșată din interfața Bloomberg Terminal.</p>
+                                      ) : ord.intent === 'KILL_SWITCH' ? (
+                                        <p className="text-red-400 font-bold">Oprire forțată prin Kill Switch Operator.</p>
+                                      ) : (
+                                        <p className="text-zinc-400">Ordin de intrare (deschidere poziție) executat conform semnalului din scaner.</p>
+                                      )}
+
+                                      {ord.rejectionReason && (
+                                        <div className="mt-1 text-rose-400 font-bold">
+                                          Motiv respingere Bybit: {ord.rejectionReason}
+                                        </div>
+                                      )}
+
+                                      {ord.holdingTimeMinutes !== undefined && ord.holdingTimeMinutes > 0 && (
+                                        <div className="mt-1 text-[10px] text-zinc-400">
+                                          Timp menținere poziție: <span className="text-zinc-200 font-bold">{ord.holdingTimeMinutes} minute</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -756,159 +1201,236 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           {activeScreen === 'SET' && (
             <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
-              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                 <div className="flex items-center space-x-2">
                   <Sliders className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold text-sm tracking-wider">F5: STRATEGY PARAMETERS &amp; SLIDERS ({activeProfile})</span>
+                  <span className="font-bold text-sm tracking-wider">F5: STRATEGY PARAMETERS ({activeProfile})</span>
                 </div>
-                <span className="text-xs text-amber-400">Live Auto-Save Enabled</span>
+                
+                <div className="flex items-center space-x-2">
+                  {settingsSavedMessage && (
+                    <span className="text-xs text-emerald-400 font-bold animate-pulse">
+                      ✓ {settingsSavedMessage}
+                    </span>
+                  )}
+                  {hasUnsavedSettings && (
+                    <span className="text-[11px] text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40 animate-pulse">
+                      ● Modificări nesalvate
+                    </span>
+                  )}
+                  <button
+                    onClick={handleResetSettingsToSaved}
+                    disabled={!hasUnsavedSettings}
+                    className="px-2 py-1 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Anulează modificările nesalvate"
+                  >
+                    Anulează
+                  </button>
+                  <button
+                    onClick={handleSaveAllSettings}
+                    disabled={!hasUnsavedSettings}
+                    className={`px-3 py-1 text-xs font-bold rounded flex items-center space-x-1.5 transition-all shadow-md ${
+                      hasUnsavedSettings
+                        ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20 animate-bounce'
+                        : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>SAVE CHANGES</span>
+                  </button>
+                </div>
               </div>
 
               {profileConfig && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  {/* Risk Allocation */}
+                  {/* Risk Allocation - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Risk Allocation</span>
-                      <span className="font-bold text-amber-400">{profileConfig.riskPerTradePct}% / trade</span>
+                      <span className="font-bold text-amber-400">{riskPerTrade}% / trade</span>
                     </div>
                     <input
                       type="range"
                       min="1"
                       max="100"
                       step="1"
-                      defaultValue={profileConfig.riskPerTradePct}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { riskPerTradePct: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { riskPerTradePct: Number(e.currentTarget.value) })}
-                      className="w-full accent-amber-500"
+                      value={riskPerTrade}
+                      onChange={(e) => setRiskPerTrade(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Max Open Positions */}
+                  {/* Max Open Positions - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Max Open Positions</span>
-                      <span className="font-bold text-amber-400">{profileConfig.maxOpenPositions}</span>
+                      <span className="font-bold text-amber-400">{maxPositions}</span>
                     </div>
                     <input
                       type="range"
                       min="1"
                       max="20"
                       step="1"
-                      defaultValue={profileConfig.maxOpenPositions}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { maxOpenPositions: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { maxOpenPositions: Number(e.currentTarget.value) })}
-                      className="w-full accent-amber-500"
+                      value={maxPositions}
+                      onChange={(e) => setMaxPositions(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Hard Stop Loss */}
+                  {/* Hard Stop Loss - step 0.1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Hard Stop Loss</span>
-                      <span className="font-bold text-rose-400">-{profileConfig.hardStopLossPct}%</span>
+                      <span className="font-bold text-rose-400">-{Number(hardStopLoss).toFixed(1)}%</span>
                     </div>
                     <input
                       type="range"
                       min="0.5"
                       max="20"
                       step="0.1"
-                      defaultValue={profileConfig.hardStopLossPct}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { hardStopLossPct: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { hardStopLossPct: Number(e.currentTarget.value) })}
-                      className="w-full accent-rose-500"
+                      value={hardStopLoss}
+                      onChange={(e) => setHardStopLoss(Number(e.target.value))}
+                      className="w-full accent-rose-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Trailing Activation */}
+                  {/* Trailing Activation - step 0.1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Trailing Activation</span>
-                      <span className="font-bold text-emerald-400">+{profileConfig.trailingActivationPct}%</span>
+                      <span className="font-bold text-emerald-400">+{Number(trailingAct).toFixed(1)}%</span>
                     </div>
                     <input
                       type="range"
                       min="0.1"
                       max="20"
                       step="0.1"
-                      defaultValue={profileConfig.trailingActivationPct}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { trailingActivationPct: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { trailingActivationPct: Number(e.currentTarget.value) })}
-                      className="w-full accent-emerald-500"
+                      value={trailingAct}
+                      onChange={(e) => setTrailingAct(Number(e.target.value))}
+                      className="w-full accent-emerald-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Trailing Distance */}
+                  {/* Trailing Distance - step 0.05 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Trailing Distance</span>
-                      <span className="font-bold text-purple-400">-{profileConfig.trailingDistancePct}%</span>
+                      <span className="font-bold text-purple-400">-{Number(trailingDist).toFixed(2)}%</span>
                     </div>
                     <input
                       type="range"
-                      min="0.1"
+                      min="0.05"
                       max="10"
-                      step="0.1"
-                      defaultValue={profileConfig.trailingDistancePct}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { trailingDistancePct: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { trailingDistancePct: Number(e.currentTarget.value) })}
-                      className="w-full accent-purple-500"
+                      step="0.05"
+                      value={trailingDist}
+                      onChange={(e) => setTrailingDist(Number(e.target.value))}
+                      className="w-full accent-purple-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Min Momentum Score */}
+                  {/* Min Momentum Score - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Min Momentum Score</span>
-                      <span className="font-bold text-amber-400">{profileConfig.minMomentumScore || 0} / 100</span>
+                      <span className="font-bold text-amber-400">{minMomentum} / 100</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
-                      step="5"
-                      defaultValue={profileConfig.minMomentumScore || 0}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { minMomentumScore: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { minMomentumScore: Number(e.currentTarget.value) })}
-                      className="w-full accent-amber-500"
+                      step="1"
+                      value={minMomentum}
+                      onChange={(e) => setMinMomentum(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Max Holding Time */}
+                  {/* Max Holding Time - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Max Hold Time (Min)</span>
-                      <span className="font-bold text-amber-400">{profileConfig.maxHoldingTimeMinutes || 0}m</span>
+                      <span className="font-bold text-amber-400">{maxHoldTime}m</span>
                     </div>
                     <input
                       type="range"
                       min="5"
                       max="1440"
-                      step="5"
-                      defaultValue={profileConfig.maxHoldingTimeMinutes || 0}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { maxHoldingTimeMinutes: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { maxHoldingTimeMinutes: Number(e.currentTarget.value) })}
-                      className="w-full accent-amber-500"
+                      step="1"
+                      value={maxHoldTime}
+                      onChange={(e) => setMaxHoldTime(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
                     />
                   </div>
 
-                  {/* Cooldown Minutes */}
+                  {/* Equity Protection Activation - step 0.1 */}
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Equity Protection Activation</span>
+                      <span className="font-bold text-amber-400">+{Number(equityProtAct).toFixed(1)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      step="0.1"
+                      value={equityProtAct}
+                      onChange={(e) => setEquityProtAct(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Equity Trailing Drawdown - step 0.05 */}
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Equity Trailing Drawdown</span>
+                      <span className="font-bold text-rose-400">-{Number(equityTrailingDraw).toFixed(2)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="10"
+                      step="0.05"
+                      value={equityTrailingDraw}
+                      onChange={(e) => setEquityTrailingDraw(Number(e.target.value))}
+                      className="w-full accent-rose-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Cooldown Minutes - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Cooldown (Minutes)</span>
-                      <span className="font-bold text-cyan-400">{profileConfig.cooldownMinutes || 0}m</span>
+                      <span className="font-bold text-cyan-400">{cooldownMins}m</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="1440"
-                      step="5"
-                      defaultValue={profileConfig.cooldownMinutes || 0}
-                      onMouseUp={(e) => onUpdateProfileSettings(activeProfile, { cooldownMinutes: Number(e.currentTarget.value) })}
-                      onTouchEnd={(e) => onUpdateProfileSettings(activeProfile, { cooldownMinutes: Number(e.currentTarget.value) })}
-                      className="w-full accent-cyan-500"
+                      step="1"
+                      value={cooldownMins}
+                      onChange={(e) => setCooldownMins(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer"
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Mobile bottom Save bar for easy reach */}
+              {hasUnsavedSettings && (
+                <div className="mt-4 pt-3 border-t border-amber-500/30 flex justify-end space-x-2">
+                  <button
+                    onClick={handleResetSettingsToSaved}
+                    className="px-3 py-1.5 text-xs rounded border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                  >
+                    Anulează modificările
+                  </button>
+                  <button
+                    onClick={handleSaveAllSettings}
+                    className="px-4 py-1.5 text-xs font-bold rounded bg-amber-500 hover:bg-amber-400 text-black flex items-center space-x-1.5 shadow-lg shadow-amber-500/20"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>SAVE CHANGES</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -919,9 +1441,58 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         <div className="lg:col-span-4 flex flex-col space-y-2">
           {/* Audit Logs / System Events */}
           <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[320px]">
-            <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2">
-              <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
-              <span className="text-[10px] text-slate-400">{logs.length} Events</span>
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-2 mb-2">
+              <div className="flex items-center space-x-1.5">
+                <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
+                <span className="text-[10px] text-slate-400 font-mono">({logs.length})</span>
+              </div>
+
+              <div className="flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={handleExportLogs}
+                  disabled={logs.length === 0}
+                  className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Exportă feed-ul de audit în format CSV / Excel"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>SAVE LOG</span>
+                </button>
+
+                {!showClearLogsConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowClearLogsConfirm(true)}
+                    disabled={logs.length === 0}
+                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Șterge feed-ul de evenimente"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>CLEAR LOG</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center space-x-1 bg-rose-950 border border-rose-500 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                    <span className="text-rose-200">Ștergi?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowClearLogsConfirm(false);
+                        if (onClearLogs) onClearLogs();
+                      }}
+                      className="px-1.5 py-0.2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold"
+                    >
+                      DA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowClearLogsConfirm(false)}
+                      className="px-1.5 py-0.2 bg-zinc-800 text-zinc-300 rounded"
+                    >
+                      NU
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 space-y-1 font-mono text-[11px] pr-1">
               {logs.slice(0, 40).map((log) => (

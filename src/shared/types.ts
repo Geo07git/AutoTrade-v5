@@ -110,6 +110,8 @@ export interface ProfileConfig {
   trailingActivationPct: number;
   trailingDistancePct: number;
   hardStopLossPct: number;
+  equityProtectionActivationPct: number;
+  equityTrailingDrawdownPct: number;
   minMomentumScore?: number;
   maxHoldingTimeMinutes?: number;
   cooldownMinutes?: number;
@@ -157,9 +159,18 @@ export interface OrderRecord {
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
   profile: ProfileType;
   executionMode: ExecutionMode;
+  // Detailed exit / profit / log telemetry
+  realizedPnl?: number;
+  realizedPnlPct?: number;
+  entryPrice?: number;
+  exitReasonDetail?: string;
+  triggerStopValue?: number;
+  trailingPeakPct?: number;
+  trailingDistancePct?: number;
+  holdingTimeMinutes?: number;
 }
 
 export interface Position {

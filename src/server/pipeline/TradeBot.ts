@@ -45,6 +45,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     trailingActivationPct: 1.5,
     trailingDistancePct: 0.4,
     hardStopLossPct: 2.0,
+    equityProtectionActivationPct: 1.0,
+    equityTrailingDrawdownPct: 0.25,
     minMomentumScore: 60,
     maxHoldingTimeMinutes: 30,
     cooldownMinutes: 5,
@@ -57,6 +59,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     trailingActivationPct: 3.0,
     trailingDistancePct: 1.0,
     hardStopLossPct: 5.0,
+    equityProtectionActivationPct: 1.0,
+    equityTrailingDrawdownPct: 0.25,
     minMomentumScore: 75,
     maxHoldingTimeMinutes: 240,
     cooldownMinutes: 60,
@@ -177,7 +181,7 @@ export class TradeBot {
       const profile = this.getActiveProfileConfig();
       // Live trailing stop & stop loss evaluation on real tick
       this.positionManager
-        .updatePrices(this.latestPrices, profile, this.orderManager)
+        .updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity)
         .catch((err) => console.error('[TradeBot] Position price update error:', err));
     };
 
@@ -426,10 +430,19 @@ export class TradeBot {
           }
         );
 
-        // Evaluate signal through Momentum Engine
-        const signal = candidate.signal || this.engine.evaluate(symbol, {
-          [profile.timeframes[0]]: await this.activeAdapter.getKlines(symbol, profile.timeframes[0], 30)
-        });
+        // Evaluate signal through Momentum Engine with MTF (LTF + HTF confirmation)
+        let signal = candidate.signal;
+        if (!signal) {
+          const ltfKlines = await this.activeAdapter.getKlines(symbol, profile.timeframes[0], 35);
+          const htfKlines = profile.timeframes[1]
+            ? await this.activeAdapter.getKlines(symbol, profile.timeframes[1], 30)
+            : [];
+          
+          signal = this.engine.evaluate(symbol, {
+            [profile.timeframes[0]]: ltfKlines,
+            ...(profile.timeframes[1] ? { [profile.timeframes[1]]: htfKlines } : {}),
+          });
+        }
 
         if (signal) {
           this.logAudit(
@@ -484,7 +497,7 @@ export class TradeBot {
       }
 
       // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss)
-      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager);
+      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity);
 
       // Persist state
       this.positionStore.save(this.positionManager.getActivePositions());
@@ -562,10 +575,13 @@ export class TradeBot {
     this.paperAdapter.resetAccount(200.0);
     this.positionManager.setActivePositions([]);
     this.positionManager.clearHistory();
+    this.positionManager.resetHighestEquity(200.0);
     this.positionStore.save([]);
     this.orderManager.clearOrders();
     this.orderStore.save([]);
     this.currentEquity = 200.0;
+    this.equityHistory = [{ time: Date.now(), equity: 200.0 }];
+    this.lastEquitySnapshotTime = Date.now();
 
     this.logAudit('PAPER_RESET', 'Paper account reset: Balance restored to $200.00 USDT and paper positions cleared.');
     return { success: true };
@@ -617,6 +633,7 @@ export class TradeBot {
           position: pos,
           reason: 'KILL_SWITCH',
           currentPrice,
+          exitReasonDetail: 'Închidere de urgență prin Kill Switch Operator',
         });
 
         if (res.success) {
@@ -727,6 +744,7 @@ export class TradeBot {
       position: pos,
       reason: 'MANUAL_CLOSE',
       currentPrice,
+      exitReasonDetail: 'Închidere manuală efectuată de Operator din panou',
     });
     
     if (result.success) {
@@ -765,6 +783,17 @@ export class TradeBot {
 
   public getAuditLogs(): AuditLog[] {
     return this.auditStore.get();
+  }
+
+  public clearAuditLogs(): void {
+    this.auditStore.clear();
+    this.logAudit('SYSTEM', 'Audit feed cleared by user command.');
+  }
+
+  public clearOrders(): void {
+    this.orderManager.clearOrders();
+    this.orderStore.clear();
+    this.logAudit('SYSTEM', 'Order blotter history cleared by user command.');
   }
 
   public getConfig(): AppConfig {

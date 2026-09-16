@@ -126,7 +126,7 @@ export default function App() {
       if (!res.ok) {
         setErrorMessage(data.error || 'Failed to reset paper account');
       } else {
-        setSuccessMessage('Paper account reset successfully to $10,000.00');
+        setSuccessMessage('Paper account reset successfully to $200.00');
         await fetchStatus();
         await fetchLogs();
         await fetchOrders();
@@ -245,6 +245,39 @@ export default function App() {
     }
   };
 
+  const handleClearLogs = async () => {
+    try {
+      const res = await fetch('/api/bot/logs/clear', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        setLogs([]);
+        setSuccessMessage('Desk Audit Feed cleared.');
+        await fetchLogs();
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to clear logs');
+    }
+  };
+
+  const handleClearOrders = async () => {
+    try {
+      const res = await fetch('/api/bot/orders/clear', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        setOrders([]);
+        setSuccessMessage('Order Blotter history cleared.');
+        await fetchOrders();
+        await fetchLogs();
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to clear orders');
+    }
+  };
+
   return (
     <BloombergTerminal
       status={status}
@@ -262,6 +295,8 @@ export default function App() {
       onResetPaper={resetPaperAccount}
       onToggleKillSwitch={toggleKillswitch}
       onTriggerScan={handleTriggerScan}
+      onClearLogs={handleClearLogs}
+      onClearOrders={handleClearOrders}
       errorMessage={errorMessage}
       successMessage={successMessage}
     />

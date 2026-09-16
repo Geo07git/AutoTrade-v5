@@ -11,6 +11,7 @@ import { OrderManager } from '../order/OrderManager';
 export class PositionManager {
   private activePositions: Position[] = [];
   private closedHistory: Position[] = [];
+  private highestEquity: number = 200.0; // Initialize with base equity
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
 
   constructor(auditLogger: (type: AuditLogType, message: string, details?: any) => void) {
@@ -19,6 +20,20 @@ export class PositionManager {
 
   public getActivePositions(): Position[] {
     return this.activePositions;
+  }
+
+  public getHighestEquity(): number {
+    return this.highestEquity;
+  }
+
+  public updateHighestEquity(currentEquity: number): void {
+    if (currentEquity > this.highestEquity) {
+      this.highestEquity = currentEquity;
+    }
+  }
+
+  public resetHighestEquity(equity: number = 200.0): void {
+    this.highestEquity = equity;
   }
 
   public getPosition(symbol: string): Position | undefined {
@@ -143,8 +158,38 @@ export class PositionManager {
   public async updatePrices(
     currentPrices: Record<string, number>,
     config: ProfileConfig,
-    orderManager: OrderManager
+    orderManager: OrderManager,
+    currentEquity: number
   ) {
+    // Equity Protection Check
+    this.updateHighestEquity(currentEquity);
+    
+    if (config.equityProtectionActivationPct !== undefined && config.equityTrailingDrawdownPct !== undefined) {
+      const peakEquity = this.getHighestEquity();
+      const activationEquity = peakEquity * (1 + config.equityProtectionActivationPct / 100);
+      
+      if (currentEquity >= activationEquity) {
+        const drawdownFromPeak = (peakEquity - currentEquity) / peakEquity * 100;
+        if (drawdownFromPeak >= config.equityTrailingDrawdownPct) {
+          this.auditLogger('KILL_SWITCH_ENGAGED', `Equity Protection triggered! Drawdown of ${drawdownFromPeak.toFixed(2)}% exceeded limit of ${config.equityTrailingDrawdownPct}%. Closing all positions.`, {
+            peakEquity,
+            currentEquity,
+            drawdownFromPeak
+          });
+          
+          for (const pos of [...this.activePositions]) {
+            await orderManager.executeCloseOrder({
+              position: pos,
+              reason: 'EQUITY_PROTECTION',
+              currentPrice: currentPrices[pos.symbol] || pos.entryPrice,
+              exitReasonDetail: `Equity Protection Drawdown: -${drawdownFromPeak.toFixed(2)}% de la vârful capitalului ($${peakEquity.toFixed(2)})`,
+              triggerStopValue: config.equityTrailingDrawdownPct,
+            });
+          }
+        }
+      }
+    }
+
     for (const pos of [...this.activePositions]) {
       if (pos.status !== 'OPEN') continue;
 
@@ -173,6 +218,8 @@ export class PositionManager {
           position: pos,
           reason: 'STOP_LOSS',
           currentPrice,
+          exitReasonDetail: `Hard Stop-Loss triggered: Pierdere de ${pnlPct.toFixed(2)}% sub limita de -${config.hardStopLossPct}%`,
+          triggerStopValue: -config.hardStopLossPct,
         });
         continue;
       }
@@ -196,6 +243,10 @@ export class PositionManager {
               position: pos,
               reason: 'TRAILING_STOP',
               currentPrice,
+              exitReasonDetail: `Trailing Stop declanșat: retragere ${retracementFromPeakPct.toFixed(2)}% din vârful de +${peakPnlPct.toFixed(2)}% (distanță: ${config.trailingDistancePct}%)`,
+              triggerStopValue: config.trailingDistancePct,
+              trailingPeakPct: parseFloat(peakPnlPct.toFixed(2)),
+              trailingDistancePct: parseFloat(retracementFromPeakPct.toFixed(2)),
             });
             continue;
           }
@@ -215,6 +266,10 @@ export class PositionManager {
               position: pos,
               reason: 'TRAILING_STOP',
               currentPrice,
+              exitReasonDetail: `Trailing Stop Short declanșat: retragere ${retracementFromTroughPct.toFixed(2)}% din minim (distanță: ${config.trailingDistancePct}%)`,
+              triggerStopValue: config.trailingDistancePct,
+              trailingPeakPct: parseFloat(peakPnlPct.toFixed(2)),
+              trailingDistancePct: parseFloat(retracementFromTroughPct.toFixed(2)),
             });
             continue;
           }
@@ -234,6 +289,7 @@ export class PositionManager {
             position: pos,
             reason: 'TIME_STOP',
             currentPrice,
+            exitReasonDetail: `Time Stop: Durata maximă de menținere (${config.maxHoldingTimeMinutes} min) a fost atinsă (${heldMinutes.toFixed(1)}m)`,
           });
           continue;
         }

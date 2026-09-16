@@ -103,11 +103,13 @@ export class MarketScanner {
 
   /**
    * Concurrency-controlled worker pool to scan symbols without overwhelming API rate limits.
+   * Supports Multi-Timeframe (LTF + HTF confirmation for top candidates).
    */
   private async scanBatchWithConcurrency(
     symbols: string[],
     tickersMap: Record<string, any>,
     mainTf: string,
+    htf: string,
     concurrency: number = 5
   ): Promise<ScannedOpportunity[]> {
     const results: ScannedOpportunity[] = [];
@@ -120,12 +122,14 @@ export class MarketScanner {
 
         try {
           const ticker = tickersMap[symbol];
-          const klines = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 6000);
+          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 6000);
 
-          if (klines && klines.length >= 22) {
+          if (klinesLtf && klinesLtf.length >= 22) {
+            const klinesMap: Record<string, Kline[]> = { [mainTf]: klinesLtf };
+
             const opportunity = this.engine.evaluateCandidate(
               symbol,
-              { [mainTf]: klines },
+              klinesMap,
               ticker
                 ? {
                     volume24hUSDT: ticker.turnover24hUSDT,
@@ -152,6 +156,40 @@ export class MarketScanner {
     const workers = Array.from({ length: Math.min(concurrency, symbols.length) }, () => worker());
     await Promise.all(workers);
 
+    // Multi-Timeframe Confluence (Problem #2):
+    // For top 10 ranked candidates, fetch HTF candles to verify macro trend confluence
+    results.sort((a, b) => b.score - a.score);
+    const topCandidates = results.slice(0, 10);
+
+    for (const cand of topCandidates) {
+      try {
+        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 30, 4000);
+        if (htfKlines && htfKlines.length >= 20) {
+          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 35, 4000);
+          if (ltfKlines) {
+            const reevaluated = this.engine.evaluateCandidate(
+              cand.symbol,
+              { [mainTf]: ltfKlines, [htf]: htfKlines },
+              tickersMap[cand.symbol]
+                ? {
+                    volume24hUSDT: tickersMap[cand.symbol].turnover24hUSDT,
+                    priceChange24hPct: tickersMap[cand.symbol].priceChange24hPct,
+                  }
+                : undefined
+            );
+            if (reevaluated) {
+              cand.score = reevaluated.score;
+              cand.side = reevaluated.side;
+              cand.signal = reevaluated.signal;
+              cand.isEligible = reevaluated.isEligible;
+            }
+          }
+        }
+      } catch (err) {
+        // HTF failure is non-blocking
+      }
+    }
+
     return results;
   }
 
@@ -170,11 +208,12 @@ export class MarketScanner {
 
     this.isScanning = true;
     const startTime = Date.now();
-    const mainTf = profile.timeframes[0] || '15m';
+    const mainTf = profile.timeframes[0] || '15';
+    const htf = profile.timeframes[1] || '60';
 
     this.logAuditFn?.(
       'SCAN_STARTED',
-      `Market Scanner started. Profiling universe for profile: ${profile.type} (Timeframe: ${mainTf})...`
+      `Market Scanner started. Profiling universe for profile: ${profile.type} (LTF: ${mainTf}m, HTF: ${htf}m)...`
     );
 
     try {
@@ -200,6 +239,7 @@ export class MarketScanner {
         eligibleSymbols,
         tickersMap,
         mainTf,
+        htf,
         5
       );
 

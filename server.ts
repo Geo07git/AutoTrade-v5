@@ -50,8 +50,18 @@ async function startServer() {
     res.json(tradeBot.getAuditLogs());
   });
 
+  app.post('/api/bot/logs/clear', requireControlAuth, (req, res) => {
+    tradeBot.clearAuditLogs();
+    res.json({ success: true, logs: tradeBot.getAuditLogs() });
+  });
+
   app.get('/api/bot/orders', (req, res) => {
     res.json(tradeBot.getOrders());
+  });
+
+  app.post('/api/bot/orders/clear', requireControlAuth, (req, res) => {
+    tradeBot.clearOrders();
+    res.json({ success: true, orders: tradeBot.getOrders() });
   });
 
   app.post('/api/bot/auth-verify', (req, res) => {
