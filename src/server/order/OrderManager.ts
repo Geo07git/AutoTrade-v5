@@ -419,15 +419,21 @@ export class OrderManager {
     const newCumFilledQty = Math.max(previouslyProcessedQty, reportedCumQty);
     const incrementalQty = Math.max(0, parseFloat((newCumFilledQty - previouslyProcessedQty).toFixed(6)));
 
+    // Calculate incremental fee
+    const previouslyProcessedFee = order.processedFee || 0;
+    const currentCumFee = order.cumFee || 0;
+    const feeDelta = Math.max(0, currentCumFee - previouslyProcessedFee);
+
     order.cumFilledQty = newCumFilledQty;
     order.filledQty = newCumFilledQty;
 
     if (incrementalQty > 0) {
       order.processedFilledQty = newCumFilledQty;
+      order.processedFee = currentCumFee;
 
       if (order.intent === 'ENTRY') {
         const fillPrice = order.fillPrice && order.fillPrice > 0 ? order.fillPrice : update.avgPrice;
-        await this.positionManager.onOrderFilled(order, incrementalQty, fillPrice, order.cumFee);
+        await this.positionManager.onOrderFilled(order, incrementalQty, fillPrice, feeDelta);
 
         this.auditLogger(
           order.status === 'FILLED' ? 'ORDER_FILLED' : 'ORDER_PARTIALLY_FILLED',

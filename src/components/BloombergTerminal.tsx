@@ -54,6 +54,8 @@ interface BloombergTerminalProps {
   onTriggerScan: () => void;
   onClearLogs?: () => void;
   onClearOrders?: () => void;
+  controlToken: string;
+  onUpdateControlToken: (token: string) => void;
   errorMessage: string | null;
   successMessage: string | null;
 }
@@ -82,6 +84,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onTriggerScan,
   onClearLogs,
   onClearOrders,
+  controlToken,
+  onUpdateControlToken,
   errorMessage,
   successMessage,
 }) => {
@@ -118,6 +122,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [showClearOrdersConfirm, setShowClearOrdersConfirm] = useState(false);
   const [showClearLogsConfirm, setShowClearLogsConfirm] = useState(false);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tempToken, setTempToken] = useState(controlToken);
 
   // Helper to export data as CSV / Excel-compatible format
   const exportToCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -175,7 +181,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.id,
       o.exchangeOrderId || '',
       o.symbol,
-      o.side,
+      o.side === 'BUY' ? 'LONG' : 'SHORT',
       o.intent,
       o.profile,
       o.executionMode,
@@ -519,6 +525,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
           <div className="flex items-center space-x-2 shrink-0">
             <button
+              onClick={() => setShowTokenModal(true)}
+              className="bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[11px]"
+              title="Set Bot Control Token"
+            >
+              <span>AUTH</span>
+            </button>
+            <button
               onClick={() => {
                 if (window.confirm('Reset paper account to $200.00? This will wipe equity.')) {
                   onResetPaper();
@@ -559,7 +572,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 <span className="text-slate-400">[{item.timestamp}]</span>
                 <span className="font-bold text-amber-300">{item.symbol}</span>
                 <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                  {item.side}
+                  {item.side === 'BUY' ? 'LONG' : 'SHORT'}
                 </span>
                 <span className="text-zinc-200">${item.price.toLocaleString()}</span>
                 <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
@@ -732,7 +745,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         <th className="py-2 px-2">Qty</th>
                         <th className="py-2 px-2">Entry</th>
                         <th className="py-2 px-2">Size</th>
-                        <th className="py-2 px-2">PnL ($ / %)</th>
+                        <th className="py-2 px-2">PnL (Net)</th>
                         <th className="py-2 px-2 text-right">Action</th>
                       </tr>
                     </thead>
@@ -741,10 +754,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         const isProfit = (pos.pnl || 0) >= 0;
                         return (
                           <tr key={pos.id} className="hover:bg-zinc-900/50">
-                            <td className="py-2.5 px-2 font-bold text-amber-300">{pos.symbol}</td>
+                            <td className="py-2.5 px-2 font-bold text-amber-300">
+                              {pos.symbol}
+                              {(pos.entryFee || 0) > 0 && (
+                                <span className="block text-[9px] text-zinc-500 font-normal">
+                                  Fee: -${pos.entryFee?.toFixed(2)}
+                                </span>
+                              )}
+                            </td>
                             <td className="py-2.5 px-2">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${pos.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                                {pos.side}
+                                {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
                               </span>
                             </td>
                             <td className="py-2.5 px-2">{pos.qty.toFixed(4)}</td>
@@ -752,6 +772,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             <td className="py-2.5 px-2">${pos.sizeUSDT.toFixed(2)}</td>
                             <td className={`py-2.5 px-2 font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
                               {isProfit ? '+' : ''}${pos.pnl?.toFixed(2) || '0.00'} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2) || '0.00'}%)
+                              {pos.grossPnl !== undefined && pos.grossPnl !== pos.pnl && (
+                                <span className="block text-[9px] text-zinc-500 font-normal mt-0.5">
+                                  Gross: {pos.grossPnl >= 0 ? '+' : ''}${pos.grossPnl.toFixed(2)}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-2 text-right">
                               <button
@@ -792,7 +817,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       <span className="text-slate-500">{item.timestamp}</span>
                       <span className="font-bold text-amber-300">{item.symbol}</span>
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                        {item.side}
+                        {item.side === 'BUY' ? 'LONG' : 'SHORT'}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4">
@@ -1019,7 +1044,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             <td className="py-2 px-2 font-bold text-amber-300">{ord.symbol}</td>
                             <td className="py-2 px-2">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ord.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                                {ord.side}
+                                {ord.side === 'BUY' ? 'LONG' : 'SHORT'}
                               </span>
                             </td>
                             <td className="py-2 px-2">
@@ -1084,7 +1109,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     <div className="flex items-center space-x-2">
                                       <Info className="w-4 h-4 text-amber-400" />
                                       <span className="font-bold text-amber-400 uppercase tracking-wide">
-                                        DETALII EXECUȚIE ORDIN: {ord.symbol} ({ord.side}) [{ord.id}]
+                                        DETALII EXECUȚIE ORDIN: {ord.symbol} ({ord.side === 'BUY' ? 'LONG' : 'SHORT'}) [{ord.id}]
                                       </span>
                                     </div>
                                     <div className="flex items-center space-x-3 text-[11px] text-zinc-400">
@@ -1097,7 +1122,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                   {/* Metric highlights */}
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                                     <div className="bg-black/60 border border-zinc-800 p-2 rounded">
-                                      <div className="text-[10px] text-zinc-400 uppercase">Profit / Pierdere (PnL)</div>
+                                      <div className="text-[10px] text-zinc-400 uppercase">Profit / Pierdere (Net PnL)</div>
                                       <div className={`text-sm font-bold mt-0.5 ${
                                         hasPnl
                                           ? isProfit ? 'text-emerald-400' : 'text-rose-400'
@@ -1110,9 +1135,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     </div>
 
                                     <div className="bg-black/60 border border-zinc-800 p-2 rounded">
-                                      <div className="text-[10px] text-zinc-400 uppercase">Comision Estimativ (Fee)</div>
+                                      <div className="text-[10px] text-zinc-400 uppercase">Comision (Fee)</div>
                                       <div className="text-sm font-bold text-amber-300 mt-0.5">
-                                        ${feeUSDT.toFixed(4)} <span className="text-[10px] text-zinc-400 font-normal">(0.055%)</span>
+                                        ${feeUSDT.toFixed(4)} <span className="text-[10px] text-zinc-400 font-normal">{(ord.cumFee !== undefined ? 'Realizat' : 'Estimativ (0.055%)')}</span>
                                       </div>
                                     </div>
 
@@ -1541,6 +1566,48 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
       </main>
+
+      {/* Bot Control Token Modal */}
+      {showTokenModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border-2 border-amber-500 rounded p-4 max-w-sm w-full">
+            <h3 className="text-amber-500 font-bold mb-3 flex items-center space-x-2">
+              <ShieldAlert className="w-5 h-5" />
+              <span>BOT CONTROL TOKEN</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              Introduceți token-ul de administrare (Bot Control Token) pentru a autoriza acțiuni precum SCAN, schimbare profil, etc. Acest token este salvat local în browserul dumneavoastră.
+            </p>
+            <input
+              type="password"
+              value={tempToken}
+              onChange={(e) => setTempToken(e.target.value)}
+              placeholder="Enter control token..."
+              className="w-full bg-black text-amber-400 placeholder:text-zinc-700 px-3 py-2 rounded border border-amber-500/40 text-sm font-mono focus:outline-none focus:border-amber-400 mb-4"
+            />
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setTempToken(controlToken);
+                  setShowTokenModal(false);
+                }}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-bold"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => {
+                  onUpdateControlToken(tempToken);
+                  setShowTokenModal(false);
+                }}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold"
+              >
+                SAVE TOKEN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

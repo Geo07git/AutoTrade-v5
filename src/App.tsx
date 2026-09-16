@@ -27,6 +27,13 @@ export default function App() {
     return localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
   });
 
+  const handleUpdateControlToken = (token: string) => {
+    const trimmed = token.trim();
+    localStorage.setItem('tb5_control_token', trimmed);
+    setControlToken(trimmed);
+    setSuccessMessage('Bot Control Token a fost actualizat și salvat local.');
+  };
+
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-bot-token': controlToken,
@@ -297,6 +304,8 @@ export default function App() {
       onTriggerScan={handleTriggerScan}
       onClearLogs={handleClearLogs}
       onClearOrders={handleClearOrders}
+      controlToken={controlToken}
+      onUpdateControlToken={handleUpdateControlToken}
       errorMessage={errorMessage}
       successMessage={successMessage}
     />
