@@ -26,6 +26,7 @@ export class BybitAdapter implements IExecutionAdapter {
   private restClient: RestClientV5;
   private wsClient?: WebsocketClient;
   private instrumentFilters: Map<string, InstrumentLotFilter> = new Map();
+  private configuredLeverageSymbols: Set<string> = new Set();
   private isWsConnected: boolean = false;
 
   // Callbacks for WebSocket events
@@ -59,6 +60,7 @@ export class BybitAdapter implements IExecutionAdapter {
     this.apiKey = apiKey.trim();
     this.apiSecret = apiSecret.trim();
     this.testnet = true; // STRICT HARD LOCK: Testnet only
+    this.configuredLeverageSymbols.clear();
 
     this.restClient = new RestClientV5({
       key: this.apiKey,
@@ -351,6 +353,46 @@ export class BybitAdapter implements IExecutionAdapter {
   }
 
   /**
+   * Explicitly ensures leverage on Bybit (default 1x).
+   * RetCode 110043 ("leverage not modified") is treated as success.
+   * Cached per symbol in memory to avoid repetitive API calls.
+   */
+  public async ensureLeverage(symbol: string, leverage: string = '1'): Promise<boolean> {
+    if (!this.hasCredentials()) return false;
+    if (this.configuredLeverageSymbols.has(symbol)) {
+      return true;
+    }
+
+    try {
+      console.log(`[BybitAdapter] Setting leverage to ${leverage}x for ${symbol}...`);
+      const res = await this.restClient.setLeverage({
+        category: 'linear',
+        symbol,
+        buyLeverage: leverage,
+        sellLeverage: leverage,
+      });
+
+      // retCode 0 = OK, retCode 110043 = "Set leverage not modified" (already at desired leverage)
+      if (res.retCode === 0 || res.retCode === 110043) {
+        this.configuredLeverageSymbols.add(symbol);
+        console.log(`[BybitAdapter] Leverage verified/set to ${leverage}x for ${symbol} (retCode: ${res.retCode}).`);
+        return true;
+      } else {
+        console.warn(`[BybitAdapter] setLeverage warning for ${symbol} [${res.retCode}]: ${res.retMsg}`);
+        return false;
+      }
+    } catch (err: any) {
+      // If error message indicates leverage not modified, treat as success
+      if (err?.message?.includes('110043') || err?.retCode === 110043) {
+        this.configuredLeverageSymbols.add(symbol);
+        return true;
+      }
+      console.error(`[BybitAdapter] ensureLeverage error for ${symbol}:`, err.message || err);
+      return false;
+    }
+  }
+
+  /**
    * Places an order on Bybit Testnet
    */
   public async submitOrder(params: {
@@ -364,6 +406,11 @@ export class BybitAdapter implements IExecutionAdapter {
   }): Promise<{ orderId: string; orderLinkId: string }> {
     if (!this.hasCredentials()) {
       throw new Error('Cannot submit order: Bybit API keys not configured.');
+    }
+
+    // Explicitly ensure leverage before opening/increasing positions (not on reduceOnly/close)
+    if (!params.reduceOnly) {
+      await this.ensureLeverage(params.symbol, '1');
     }
 
     try {

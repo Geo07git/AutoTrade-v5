@@ -304,25 +304,37 @@ export class OrderManager {
         const exitPrice = closeOrder.fillPrice || estPrice;
         const exitTime = closeOrder.updatedTime || Date.now();
 
-        const multiplier = position.side === 'BUY' ? 1 : -1;
-        const pnlPct = ((exitPrice - position.entryPrice) / position.entryPrice) * 100 * multiplier;
-        const pnl = (position.sizeUSDT * pnlPct) / 100;
-
-        closeOrder.realizedPnl = parseFloat(pnl.toFixed(2));
-        closeOrder.realizedPnlPct = parseFloat(pnlPct.toFixed(2));
         if (closeOrder.cumFee === undefined) {
           closeOrder.cumFee = parseFloat((closeOrder.sizeUSDT * 0.00055).toFixed(4));
         }
 
-        await this.positionManager.markPositionClosed(position.id, exitPrice, exitTime, reason);
+        const closedPos = await this.positionManager.markPositionClosed(
+          position.id,
+          exitPrice,
+          exitTime,
+          reason,
+          closeOrder.cumFee
+        );
 
-        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`, {
+        const pnl = closedPos?.pnl !== undefined ? closedPos.pnl : 0;
+        const pnlPct = closedPos?.pnlPct !== undefined ? closedPos.pnlPct : 0;
+        const grossPnl = closedPos?.grossPnl !== undefined ? closedPos.grossPnl : pnl;
+        const totalFees = ((closedPos?.entryFee || 0) + (closedPos?.exitFee || 0));
+
+        closeOrder.realizedPnl = pnl;
+        closeOrder.realizedPnlPct = pnlPct;
+
+        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)})`, {
           positionId: position.id,
           symbol: position.symbol,
           exitPrice,
           reason,
           pnl,
           pnlPct,
+          grossPnl,
+          entryFee: closedPos?.entryFee,
+          exitFee: closedPos?.exitFee,
+          totalFees,
           fee: closeOrder.cumFee,
         });
 
@@ -415,7 +427,7 @@ export class OrderManager {
 
       if (order.intent === 'ENTRY') {
         const fillPrice = order.fillPrice && order.fillPrice > 0 ? order.fillPrice : update.avgPrice;
-        await this.positionManager.onOrderFilled(order, incrementalQty, fillPrice);
+        await this.positionManager.onOrderFilled(order, incrementalQty, fillPrice, order.cumFee);
 
         this.auditLogger(
           order.status === 'FILLED' ? 'ORDER_FILLED' : 'ORDER_PARTIALLY_FILLED',

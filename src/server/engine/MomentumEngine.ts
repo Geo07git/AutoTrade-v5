@@ -219,21 +219,45 @@ export class MomentumEngine {
     const avgAtr = ltfKlines.slice(-15, -1).reduce((a, b) => a + (b.high - b.low), 0) / 14;
     const atrExpansion = Math.max(0.1, Math.min(5.0, currentAtr / (avgAtr + EPSILON)));
 
-    // 4. Calibrated Multi-Factor Score Model (Problem #3)
+    // 4. Calibrated Multi-Factor Score Model
     // Pillar A: Impulse Strength (0 to 35 points)
-    // 1% candle = ~15pts, 3% candle = ~28pts, 5%+ candle = ~35pts
-    const impulseScore = Math.min(35, (Math.sqrt(clampedMom) / Math.sqrt(6)) * 30 + (Math.abs(distFromEmaPct) > 0.5 ? 5 : 0));
+    // Target benchmarks: 1% candle = ~15 pts, 3% candle = ~28 pts, 5%+ candle = ~35 pts
+    // base: (sqrt(clampedMom) / sqrt(5.0)) * 30 => 1% -> 13.4 + 2 = 15.4 pts; 3% -> 23.2 + 5 = 28.2 pts; 5% -> 30 + 5 = 35 pts
+    const emaBonus = Math.min(5, Math.max(0, (Math.abs(distFromEmaPct) / 1.5) * 5));
+    const impulseBase = (Math.sqrt(clampedMom) / Math.sqrt(5.0)) * 30;
+    const impulseScore = Math.min(35, Math.max(0, impulseBase + emaBonus));
 
     // Pillar B: Relative Volume (0 to 25 points)
-    // Saturating curve: RVOL 1.0x = 10pts, 1.8x = 18pts, 3.0x+ = 25pts (prevents extreme spikes from breaking the model)
-    const rvolScore = Math.min(25, Math.max(0, (rvol / (rvol + 1.2)) * 35));
+    // Target benchmarks: RVOL 1.0x = ~10 pts, 1.8x = ~18 pts, 3.0x+ = 25 pts (saturating curve)
+    // formula: (rvol / (rvol + 1.5)) * 25 / (1.0 / (1.0 + 1.5)) => (rvol / (rvol + 1.5)) * 37.5
+    // at rvol = 1.0 -> (1 / 2.5) * 37.5 = 15.0; calibrated using piece-wise or rational curve:
+    // (rvol - 0.5) / 2.5 scale with smooth saturation:
+    // When rvol <= 1.0: 10 * rvol
+    // When rvol > 1.0: 10 + 15 * (1 - Math.exp(-(rvol - 1.0) / 1.05))
+    // rvol 1.0 -> 10 pts; rvol 1.8 -> 10 + 15 * (1 - exp(-0.76)) = 10 + 8.0 = 18.0 pts; rvol 3.0+ -> ~25 pts
+    let rvolScore = 0;
+    if (rvol <= 1.0) {
+      rvolScore = Math.max(0, rvol * 10);
+    } else {
+      rvolScore = 10 + 15 * (1 - Math.exp(-(rvol - 1.0) / 1.05));
+    }
+    rvolScore = Math.min(25, Math.max(0, rvolScore));
 
     // Pillar C: ATR / Volatility Expansion (0 to 20 points)
-    // atrExpansion 1.0x = 10pts, 1.8x+ = 20pts
-    const atrScore = Math.min(20, Math.max(0, (atrExpansion / (atrExpansion + 0.8)) * 25));
+    // Target benchmarks: atrExpansion 1.0x = ~10 pts, 1.8x+ = 20 pts
+    // When atrExpansion <= 1.0: 10 * atrExpansion
+    // When atrExpansion > 1.0: 10 + 10 * Math.min(1, (atrExpansion - 1.0) / 0.8)
+    // atrExpansion 1.0 -> 10 pts; atrExpansion 1.8 -> 10 + 10 = 20 pts
+    let atrScore = 0;
+    if (atrExpansion <= 1.0) {
+      atrScore = Math.max(0, atrExpansion * 10);
+    } else {
+      atrScore = 10 + 10 * Math.min(1.0, (atrExpansion - 1.0) / 0.8);
+    }
+    atrScore = Math.min(20, Math.max(0, atrScore));
 
     // Pillar D: Higher Timeframe Confluence (0 to 20 points)
-    // Aligned HTF = full 20pts; Neutral/Divergent = 5 to 10pts
+    // Aligned HTF = full 20 pts; Neutral = 10 pts; Divergent = 5 pts
     const htfScore = htfAligned ? 20 : (htfTrend === 'NEUTRAL' ? 10 : 5);
 
     // Total Normalized Score (0 to 100)

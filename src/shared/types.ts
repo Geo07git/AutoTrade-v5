@@ -186,6 +186,9 @@ export interface Position {
   exitPrice?: number;
   pnl?: number;
   pnlPct?: number;
+  grossPnl?: number;
+  entryFee?: number;
+  exitFee?: number;
   highestPrice?: number;
   lowestPrice?: number;
   profile: ProfileType;

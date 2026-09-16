@@ -81,7 +81,8 @@ export class PositionManager {
   public async onOrderFilled(
     order: OrderRecord,
     incrementalQty?: number,
-    fillPriceOverride?: number
+    fillPriceOverride?: number,
+    feeIncrement?: number
   ): Promise<Position | null> {
     const entryPrice = fillPriceOverride && fillPriceOverride > 0
       ? fillPriceOverride
@@ -96,6 +97,9 @@ export class PositionManager {
     }
 
     const realSizeUSDT = filledQty * entryPrice;
+    const feeToAdd = feeIncrement !== undefined
+      ? feeIncrement
+      : (order.cumFee !== undefined ? order.cumFee : parseFloat((realSizeUSDT * 0.00055).toFixed(4)));
 
     // Check if position already exists for this symbol (add incremental quantity)
     const existing = this.activePositions.find((p) => p.symbol === order.symbol && p.status === 'OPEN');
@@ -107,14 +111,16 @@ export class PositionManager {
       existing.qty = parseFloat(totalQty.toFixed(6));
       existing.entryPrice = parseFloat(avgEntryPrice.toFixed(4));
       existing.sizeUSDT = parseFloat((existing.qty * existing.entryPrice).toFixed(2));
+      existing.entryFee = parseFloat(((existing.entryFee || 0) + feeToAdd).toFixed(4));
       existing.highestPrice = Math.max(existing.highestPrice || avgEntryPrice, entryPrice);
       existing.lowestPrice = Math.min(existing.lowestPrice || avgEntryPrice, entryPrice);
 
-      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased by +${filledQty} contracts to ${existing.qty} @ avg $${existing.entryPrice.toFixed(4)}`, {
+      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased by +${filledQty} contracts to ${existing.qty} @ avg $${existing.entryPrice.toFixed(4)} (Entry Fee: $${existing.entryFee})`, {
         symbol: order.symbol,
         incrementalQty: filledQty,
         totalQty: existing.qty,
         entryPrice: existing.entryPrice,
+        entryFee: existing.entryFee,
       });
 
       return existing;
@@ -127,6 +133,8 @@ export class PositionManager {
       qty: parseFloat(filledQty.toFixed(6)),
       entryPrice: parseFloat(entryPrice.toFixed(4)),
       sizeUSDT: parseFloat(realSizeUSDT.toFixed(2)),
+      entryFee: parseFloat(feeToAdd.toFixed(4)),
+      exitFee: 0,
       status: 'OPEN',
       entryTime: Date.now(),
       highestPrice: entryPrice,
@@ -138,7 +146,7 @@ export class PositionManager {
 
     this.activePositions.push(newPosition);
 
-    this.auditLogger('POSITION_OPENED', `Opened ${order.side} position on ${order.symbol}: ${filledQty} contracts @ $${entryPrice.toFixed(4)} ($${realSizeUSDT.toFixed(2)})`, {
+    this.auditLogger('POSITION_OPENED', `Opened ${order.side} position on ${order.symbol}: ${filledQty} contracts @ $${entryPrice.toFixed(4)} ($${realSizeUSDT.toFixed(2)}) [Fee: $${newPosition.entryFee}]`, {
       positionId: newPosition.id,
       symbol: newPosition.symbol,
       side: newPosition.side,
@@ -298,13 +306,14 @@ export class PositionManager {
   }
 
   /**
-   * Marks a position as closed only after confirmation from Bybit
+   * Marks a position as closed only after confirmation from Bybit / Adapter
    */
   public async markPositionClosed(
     posId: string,
     exitPrice: number,
     exitTime: number,
-    reason: string
+    reason: string,
+    exitFee?: number
   ): Promise<Position | null> {
     const index = this.activePositions.findIndex((p) => p.id === posId);
     if (index === -1) return null;
@@ -317,7 +326,20 @@ export class PositionManager {
     const multiplier = pos.side === 'BUY' ? 1 : -1;
     const finalPnlPct = ((exitPrice - pos.entryPrice) / pos.entryPrice) * 100 * multiplier;
     pos.pnlPct = parseFloat(finalPnlPct.toFixed(2));
-    pos.pnl = parseFloat(((pos.sizeUSDT * finalPnlPct) / 100).toFixed(2));
+
+    // Gross PnL strictly from price movement
+    const grossPnl = (pos.sizeUSDT * finalPnlPct) / 100;
+    pos.grossPnl = parseFloat(grossPnl.toFixed(4));
+
+    // Fees: Entry Fee + Exit Fee
+    const entryFee = pos.entryFee || 0;
+    const exitNotional = pos.qty * exitPrice;
+    const resolvedExitFee = exitFee !== undefined ? exitFee : parseFloat((exitNotional * 0.00055).toFixed(4));
+    pos.exitFee = parseFloat(resolvedExitFee.toFixed(4));
+
+    // Net PnL = grossPnl - (entryFee + exitFee)
+    const netPnl = grossPnl - (entryFee + resolvedExitFee);
+    pos.pnl = parseFloat(netPnl.toFixed(2));
 
     this.activePositions.splice(index, 1);
     this.closedHistory.unshift(pos);
