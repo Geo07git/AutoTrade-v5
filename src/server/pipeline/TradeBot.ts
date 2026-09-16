@@ -9,6 +9,9 @@ import {
   ProfileType,
   ExecutionMode,
   BotStatusResponse,
+  UniverseFilterConfig,
+  ScannedOpportunity,
+  ScannerStats,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { BybitAdapter } from '../exchange/BybitAdapter';
@@ -18,6 +21,8 @@ import { RiskEngine } from '../risk/RiskEngine';
 import { PositionManager } from '../position/PositionManager';
 import { OrderManager } from '../order/OrderManager';
 import { JsonStore } from '../store';
+import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
+import { MarketScanner } from '../scanner/MarketScanner';
 
 const DEFAULT_CONFIG: AppConfig = {
   executionMode: 'PAPER', // Default safe mode: Full simulation without Bybit API keys
@@ -26,11 +31,12 @@ const DEFAULT_CONFIG: AppConfig = {
   killSwitchEngaged: false,
   bybitApiKey: process.env.BYBIT_API_KEY || '',
   bybitApiSecret: process.env.BYBIT_API_SECRET || '',
-  paperEquity: 10000.0,
+  paperEquity: 200.0,
   watchlist: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+  scannerFilter: { ...DEFAULT_UNIVERSE_FILTER },
 };
 
-const PROFILES: Record<ProfileType, ProfileConfig> = {
+const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
   SCALP: {
     type: 'SCALP',
     timeframes: ['15', '60'],
@@ -39,6 +45,9 @@ const PROFILES: Record<ProfileType, ProfileConfig> = {
     trailingActivationPct: 1.5,
     trailingDistancePct: 0.4,
     hardStopLossPct: 2.0,
+    minMomentumScore: 60,
+    maxHoldingTimeMinutes: 30,
+    cooldownMinutes: 5,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
@@ -48,6 +57,9 @@ const PROFILES: Record<ProfileType, ProfileConfig> = {
     trailingActivationPct: 3.0,
     trailingDistancePct: 1.0,
     hardStopLossPct: 5.0,
+    minMomentumScore: 75,
+    maxHoldingTimeMinutes: 240,
+    cooldownMinutes: 60,
   },
 };
 
@@ -66,13 +78,31 @@ export class TradeBot {
   private positionManager: PositionManager;
   private orderManager: OrderManager;
 
+  private universeManager: UniverseManager;
+  private marketScanner: MarketScanner;
+
   private state: BotState = 'INITIALIZING';
   private loopInterval?: NodeJS.Timeout;
   private reconnectInterval?: NodeJS.Timeout;
-  private currentEquity: number = 10000.0;
+  private currentEquity: number = 200.0;
+  private equityHistory: { time: number; equity: number }[] = [];
+  private lastEquitySnapshotTime: number = 0;
   private lastSyncTime: number = 0;
   private latestPrices: Record<string, number> = {};
   private isProcessingTick: boolean = false;
+
+  private getProfiles(): Record<ProfileType, ProfileConfig> {
+    const config = this.configStore.get();
+    if (config.profiles && Object.keys(config.profiles).length > 0) {
+      return config.profiles as Record<ProfileType, ProfileConfig>;
+    }
+    return DEFAULT_PROFILES;
+  }
+
+  private getActiveProfileConfig(): ProfileConfig {
+    const config = this.configStore.get();
+    return this.getProfiles()[config.activeProfile];
+  }
 
   constructor() {
     this.configStore = new JsonStore<AppConfig>('config.json', DEFAULT_CONFIG);
@@ -85,8 +115,14 @@ export class TradeBot {
       appConfig.executionMode = 'PAPER';
       this.configStore.save(appConfig);
     }
+    
+    // Ensure profiles are initialized in config
+    if (!appConfig.profiles) {
+      appConfig.profiles = { ...DEFAULT_PROFILES };
+      this.configStore.save(appConfig);
+    }
 
-    const profile = PROFILES[appConfig.activeProfile];
+    const profile = this.getActiveProfileConfig();
 
     // Unified audit logger callback
     const auditLogger = (type: AuditLogType, message: string, details?: any) => {
@@ -115,6 +151,18 @@ export class TradeBot {
     this.engine = new MomentumEngine(profile);
     this.riskEngine = new RiskEngine();
 
+    // Dynamic Universe & Market Scanner initialization
+    this.universeManager = new UniverseManager(auditLogger);
+    this.marketScanner = new MarketScanner(
+      this.activeAdapter,
+      this.engine,
+      this.universeManager,
+      auditLogger
+    );
+    if (appConfig.scannerFilter) {
+      this.marketScanner.updateFilterConfig(appConfig.scannerFilter);
+    }
+
     // Rehydrate saved positions
     const savedPositions = this.positionStore.get() || [];
     this.positionManager.setActivePositions(savedPositions);
@@ -126,7 +174,7 @@ export class TradeBot {
   private setupAdapterListeners(adapter: IExecutionAdapter) {
     adapter.onTickerUpdate = (symbol, lastPrice) => {
       this.latestPrices[symbol] = lastPrice;
-      const profile = PROFILES[this.configStore.get().activeProfile];
+      const profile = this.getActiveProfileConfig();
       // Live trailing stop & stop loss evaluation on real tick
       this.positionManager
         .updatePrices(this.latestPrices, profile, this.orderManager)
@@ -293,8 +341,18 @@ export class TradeBot {
         // preserve currentEquity
       }
 
-      // 2. Periodic Reconciliation
+      // Record Equity History snapshot (every 15 minutes, or on first tick)
       const now = Date.now();
+      if (now - this.lastEquitySnapshotTime > 15 * 60 * 1000) {
+        this.equityHistory.push({ time: now, equity: this.currentEquity });
+        // Keep last 24 hours (24h * 4 snapshots/hour = 96 snapshots max)
+        if (this.equityHistory.length > 96) {
+          this.equityHistory.shift();
+        }
+        this.lastEquitySnapshotTime = now;
+      }
+
+      // 2. Periodic Reconciliation
       if (now - this.lastSyncTime > 60000) {
         try {
           const exchangePositions = await this.activeAdapter.getOpenPositions();
@@ -309,34 +367,82 @@ export class TradeBot {
         }
       }
 
-      const profile = PROFILES[config.activeProfile];
-      const watchlist = config.watchlist || ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'];
-      const mainTf = profile.timeframes[0];
+      const profile = this.getActiveProfileConfig();
+      this.engine.setConfig(profile); // Force update engine config
 
-      // 3. Process Watchlist through Pipeline
-      for (const symbol of watchlist) {
-        // STRICT CHECK: Pre-filter symbols that already have an in-flight pending order
+      // 3. Dynamic Universe & Market Scanning
+      const scannedOpportunities = await this.marketScanner.scan(profile);
+
+      // Update latest prices for all scanned pairs
+      for (const opp of scannedOpportunities) {
+        if (opp.price > 0) {
+          this.latestPrices[opp.symbol] = opp.price;
+        }
+      }
+
+      // Filter eligible candidates meeting momentum threshold, sorted by score descending
+      const eligibleCandidates = scannedOpportunities.filter((opp) => {
+        if (!opp.isEligible) return false;
+        if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
+        return true;
+      });
+
+      for (const candidate of eligibleCandidates) {
+        const symbol = candidate.symbol;
+
+        // STRICT CHECK 1: Pre-filter symbols that already have an in-flight pending order
         if (this.orderManager.hasPendingOrderForSymbol(symbol)) {
           continue;
         }
 
-        // Market Data: Fetch klines
-        const klines = await this.activeAdapter.getKlines(symbol, mainTf, 30);
-        if (!klines || klines.length === 0) continue;
+        // STRICT CHECK 2: Pre-filter symbols that already have an open position
+        const existingPos = this.positionManager.getPosition(symbol);
+        if (existingPos && existingPos.status === 'OPEN') {
+          continue;
+        }
 
-        const currentPrice = klines[klines.length - 1].close;
-        this.latestPrices[symbol] = currentPrice;
+        // STRICT CHECK 3: Check cooldown period
+        if (profile.cooldownMinutes && profile.cooldownMinutes > 0) {
+          const lastClosedTime = this.positionManager.getLastClosedTime(symbol);
+          if (lastClosedTime > 0) {
+            const minutesSinceClose = (Date.now() - lastClosedTime) / 60000;
+            if (minutesSinceClose < profile.cooldownMinutes) {
+              continue;
+            }
+          }
+        }
 
-        // Momentum Engine: Evaluate market data
-        const signal = this.engine.evaluate(symbol, { [mainTf]: klines });
+        this.logAudit(
+          'CANDIDATE_SELECTED',
+          `Dynamic Candidate #${candidate.rank} Selected: ${symbol} (Momentum Score: ${candidate.score}/100, RVOL: ${candidate.rvol}x, 24h Vol: $${(candidate.volume24hUSDT / 1e6).toFixed(1)}M)`,
+          {
+            symbol,
+            rank: candidate.rank,
+            score: candidate.score,
+            rvol: candidate.rvol,
+            atrExpansion: candidate.atrExpansion,
+            price: candidate.price,
+            profile: config.activeProfile,
+          }
+        );
+
+        // Evaluate signal through Momentum Engine
+        const signal = candidate.signal || this.engine.evaluate(symbol, {
+          [profile.timeframes[0]]: await this.activeAdapter.getKlines(symbol, profile.timeframes[0], 30)
+        });
 
         if (signal) {
-          this.logAudit('SIGNAL_GENERATED', `Momentum Engine produced ${signal.side} signal on ${symbol} (Score: ${signal.score.toFixed(1)}/100)`, {
-            symbol,
-            side: signal.side,
-            score: signal.score,
-            profile: config.activeProfile,
-          });
+          this.logAudit(
+            'SIGNAL_GENERATED',
+            `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`,
+            {
+              symbol,
+              side: signal.side,
+              score: signal.score,
+              profile: config.activeProfile,
+              rank: candidate.rank,
+            }
+          );
 
           // Risk Engine: Mandatory gatekeeper validation with pending order check
           const hasPending = this.orderManager.hasPendingOrderForSymbol(symbol);
@@ -350,6 +456,10 @@ export class TradeBot {
           );
 
           if (!riskApproval.approved) {
+            this.logAudit('CANDIDATE_REJECTED', `Candidate ${symbol} rejected by Risk Engine: ${riskApproval.reason}`, {
+              symbol,
+              reason: riskApproval.reason,
+            });
             this.logAudit('SIGNAL_REJECTED', `Signal rejected by Risk Engine: ${riskApproval.reason}`, {
               symbol,
               reason: riskApproval.reason,
@@ -357,11 +467,11 @@ export class TradeBot {
             continue;
           }
 
-          // Order Manager: Execute via active Execution Adapter
+          // Order Manager: Execute via active Execution Adapter (PAPER or TESTNET)
           const executionResult = await this.orderManager.executeSignalOrder({
             signal,
             riskApproval,
-            currentPrice,
+            currentPrice: candidate.price,
             profile: config.activeProfile,
           });
 
@@ -422,6 +532,17 @@ export class TradeBot {
     this.activeAdapter = mode === 'TESTNET' ? this.bybitAdapter : this.paperAdapter;
     this.orderManager.setExecutionAdapter(this.activeAdapter, mode);
 
+    // Rebind scanner to active adapter
+    this.marketScanner = new MarketScanner(
+      this.activeAdapter,
+      this.engine,
+      this.universeManager,
+      (type, msg, det) => this.logAudit(type, msg, det)
+    );
+    if (config.scannerFilter) {
+      this.marketScanner.updateFilterConfig(config.scannerFilter);
+    }
+
     this.setupAdapterListeners(this.activeAdapter);
     this.logAudit('MODE_CHANGED', `Execution mode switched to [${mode}]. Reconnecting execution engine...`);
 
@@ -438,12 +559,15 @@ export class TradeBot {
       return { success: false, error: 'Account reset is only available in PAPER mode.' };
     }
 
-    this.paperAdapter.resetAccount(10000.0);
+    this.paperAdapter.resetAccount(200.0);
     this.positionManager.setActivePositions([]);
+    this.positionManager.clearHistory();
     this.positionStore.save([]);
-    this.currentEquity = 10000.0;
+    this.orderManager.clearOrders();
+    this.orderStore.save([]);
+    this.currentEquity = 200.0;
 
-    this.logAudit('PAPER_RESET', 'Paper account reset: Balance restored to $10,000 USDT and paper positions cleared.');
+    this.logAudit('PAPER_RESET', 'Paper account reset: Balance restored to $200.00 USDT and paper positions cleared.');
     return { success: true };
   }
 
@@ -464,7 +588,7 @@ export class TradeBot {
     config.activeProfile = profile;
     this.configStore.save();
 
-    this.engine.setConfig(PROFILES[profile]);
+    this.engine.setConfig(this.getProfiles()[profile]);
     this.logAudit('SYSTEM', `Active profile switched to ${profile}. Execution rules and timeframes updated.`);
     return { success: true };
   }
@@ -557,6 +681,9 @@ export class TradeBot {
 
   public getStatus(): BotStatusResponse {
     const config = this.configStore.get();
+    const closedPositions = this.positionManager.getClosedHistory();
+    const sessionRealizedPnL = closedPositions.reduce((acc, pos) => acc + (pos.pnl || 0), 0);
+
     return {
       state: this.state,
       executionMode: config.executionMode,
@@ -565,13 +692,75 @@ export class TradeBot {
         // Mask API secret for security
         bybitApiSecret: config.bybitApiSecret ? '********' : '',
       },
-      profileConfig: PROFILES[config.activeProfile],
+      profileConfig: this.getActiveProfileConfig(),
+      profiles: this.getProfiles(),
       equity: this.currentEquity,
+      equityHistory: this.equityHistory,
+      sessionRealizedPnL,
       positions: this.positionManager.getActivePositions(),
       orders: this.orderManager.getOrders().slice(0, 50),
       connected: this.state === 'READY' || this.state === 'TRADING',
       lastSyncTime: this.lastSyncTime,
+      scannerStats: this.marketScanner.getStats(),
     };
+  }
+
+  public getScannerStats(): ScannerStats {
+    return this.marketScanner.getStats();
+  }
+
+  public async triggerManualScan(): Promise<ScannedOpportunity[]> {
+    return this.marketScanner.scan(this.getActiveProfile());
+  }
+
+  public async closePositionManually(symbol: string): Promise<{ success: boolean; error?: string }> {
+    const pos = this.positionManager.getPosition(symbol);
+    if (!pos) {
+      return { success: false, error: 'Position not found' };
+    }
+
+    const currentPrice = this.latestPrices[symbol] || pos.entryPrice;
+    
+    this.logAudit('SYSTEM', `Manual close initiated for ${symbol}`);
+    
+    const result = await this.orderManager.executeCloseOrder({
+      position: pos,
+      reason: 'MANUAL_CLOSE',
+      currentPrice,
+    });
+    
+    if (result.success) {
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.orderStore.save(this.orderManager.getOrders());
+    }
+    
+    return result;
+  }
+
+  public updateProfileSettings(profileType: ProfileType, settings: Partial<ProfileConfig>) {
+    const config = this.configStore.get();
+    if (!config.profiles) {
+      config.profiles = { ...DEFAULT_PROFILES };
+    }
+    if (!config.profiles[profileType]) {
+      config.profiles[profileType] = { ...DEFAULT_PROFILES[profileType] };
+    }
+    config.profiles[profileType] = {
+      ...config.profiles[profileType],
+      ...settings,
+    };
+    this.configStore.save(config);
+    if (config.activeProfile === profileType) {
+      this.engine.setConfig(this.getActiveProfileConfig());
+    }
+    this.logAudit('SYSTEM', `Updated profile settings for ${profileType}`, settings);
+  }
+
+  public updateScannerFilter(filter: Partial<UniverseFilterConfig>) {
+    this.marketScanner.updateFilterConfig(filter);
+    const config = this.configStore.get();
+    config.scannerFilter = this.marketScanner.getFilterConfig();
+    this.configStore.save(config);
   }
 
   public getAuditLogs(): AuditLog[] {
@@ -583,7 +772,7 @@ export class TradeBot {
   }
 
   public getActiveProfile(): ProfileConfig {
-    return PROFILES[this.configStore.get().activeProfile];
+    return this.getActiveProfileConfig();
   }
 
   public getEquity(): number {

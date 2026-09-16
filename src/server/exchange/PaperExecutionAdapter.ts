@@ -11,7 +11,7 @@ export interface PaperAccountState {
 }
 
 const DEFAULT_PAPER_STATE: PaperAccountState = {
-  balanceUSDT: 10000.0,
+  balanceUSDT: 200.0,
   positions: {},
   realizedPnlTotal: 0,
 };
@@ -437,7 +437,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     }
   }
 
-  public resetAccount(initialBalance: number = 10000.0) {
+  public resetAccount(initialBalance: number = 200.0) {
     const newState: PaperAccountState = {
       balanceUSDT: initialBalance,
       positions: {},

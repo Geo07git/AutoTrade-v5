@@ -21,8 +21,28 @@ export class PositionManager {
     return this.activePositions;
   }
 
+  public getPosition(symbol: string): Position | undefined {
+    return this.activePositions.find((p) => p.symbol === symbol && p.status === 'OPEN');
+  }
+
+  public hasOpenPosition(symbol: string): boolean {
+    return this.activePositions.some((p) => p.symbol === symbol && p.status === 'OPEN');
+  }
+
   public getClosedHistory(): Position[] {
     return this.closedHistory;
+  }
+
+  public clearHistory(): void {
+    this.closedHistory = [];
+  }
+
+  public getLastClosedTime(symbol: string): number {
+    const closedForSymbol = this.closedHistory.filter(p => p.symbol === symbol);
+    if (closedForSymbol.length === 0) return 0;
+    // Sort descending by exitTime
+    closedForSymbol.sort((a, b) => (b.exitTime || 0) - (a.exitTime || 0));
+    return closedForSymbol[0].exitTime || 0;
   }
 
   public setActivePositions(positions: Position[]) {
@@ -158,9 +178,11 @@ export class PositionManager {
       }
 
       // 2. Trailing Stop Check
+      let isTrailingActive = false;
       if (pos.side === 'BUY' && pos.highestPrice) {
         const peakPnlPct = ((pos.highestPrice - pos.entryPrice) / pos.entryPrice) * 100;
         if (peakPnlPct >= config.trailingActivationPct) {
+          isTrailingActive = true;
           const retracementFromPeakPct = ((pos.highestPrice - currentPrice) / pos.highestPrice) * 100;
           if (retracementFromPeakPct >= config.trailingDistancePct) {
             this.auditLogger('RISK_REJECTED', `Trailing Stop triggered for ${pos.symbol}: retraced ${retracementFromPeakPct.toFixed(2)}% from peak of ${peakPnlPct.toFixed(2)}%`, {
@@ -181,6 +203,7 @@ export class PositionManager {
       } else if (pos.side === 'SELL' && pos.lowestPrice) {
         const peakPnlPct = ((pos.entryPrice - pos.lowestPrice) / pos.entryPrice) * 100;
         if (peakPnlPct >= config.trailingActivationPct) {
+          isTrailingActive = true;
           const retracementFromTroughPct = ((currentPrice - pos.lowestPrice) / pos.lowestPrice) * 100;
           if (retracementFromTroughPct >= config.trailingDistancePct) {
             this.auditLogger('RISK_REJECTED', `Trailing Stop triggered for short ${pos.symbol}: retraced ${retracementFromTroughPct.toFixed(2)}%`, {
@@ -195,6 +218,24 @@ export class PositionManager {
             });
             continue;
           }
+        }
+      }
+
+      // 3. Max Holding Time Check
+      if (!isTrailingActive && config.maxHoldingTimeMinutes && config.maxHoldingTimeMinutes > 0) {
+        const heldMinutes = (Date.now() - pos.entryTime) / 60000;
+        if (heldMinutes >= config.maxHoldingTimeMinutes) {
+          this.auditLogger('RISK_REJECTED', `Max holding time of ${config.maxHoldingTimeMinutes}m exceeded for ${pos.symbol}. Closing position.`, {
+            symbol: pos.symbol,
+            heldMinutes: parseFloat(heldMinutes.toFixed(2)),
+            currentPrice,
+          });
+          await orderManager.executeCloseOrder({
+            position: pos,
+            reason: 'TIME_STOP',
+            currentPrice,
+          });
+          continue;
         }
       }
     }

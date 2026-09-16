@@ -1,679 +1,4479 @@
 [
   {
-    "id": "1789496226200_6jba",
-    "timestamp": 1789496226200,
+    "id": "1789531787191_0qyp",
+    "timestamp": 1789531787191,
     "type": "PAPER_RESET",
     "message": "Paper account reset: Balance restored to $10,000 USDT and paper positions cleared."
   },
   {
-    "id": "1789496223180_bx3g",
-    "timestamp": 1789496223180,
+    "id": "1789531775713_vsz0",
+    "timestamp": 1789531775713,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.13s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.5), XRPUSDT (54.5), ADAUSDT (52.0), 1000PEPEUSDT (46.1), ETHUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.5,
+          "rvol": 0.82,
+          "price": 714.7
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.5,
+          "rvol": 0.18,
+          "price": 1.3587
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52,
+          "rvol": 0.49,
+          "price": 0.1949
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.1,
+          "rvol": 0.29,
+          "price": 0.0034
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.3,
+          "rvol": 0.1,
+          "price": 2402.46
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531773105_645m",
+    "timestamp": 1789531773105,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531772583_i7ir",
+    "timestamp": 1789531772583,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531758450_i05g",
+    "timestamp": 1789531758450,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.6), XRPUSDT (54.6), ADAUSDT (51.2), 1000PEPEUSDT (46.0), ETHUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.6,
+          "rvol": 0.81,
+          "price": 715.4
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.17,
+          "price": 1.3593
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 51.2,
+          "rvol": 0.48,
+          "price": 0.1942
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46,
+          "rvol": 0.28,
+          "price": 0.003399
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.3,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531757789_mp79",
+    "timestamp": 1789531757789,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531757583_p688",
+    "timestamp": 1789531757583,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531745461_sry9",
+    "timestamp": 1789531745461,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.88s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.6), XRPUSDT (54.6), ADAUSDT (51.2), 1000PEPEUSDT (46.0), ETHUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.6,
+          "rvol": 0.81,
+          "price": 715.4
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.17,
+          "price": 1.3593
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 51.2,
+          "rvol": 0.48,
+          "price": 0.1942
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46,
+          "rvol": 0.28,
+          "price": 0.003399
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.3,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531742795_brzl",
+    "timestamp": 1789531742795,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531742582_lhxn",
+    "timestamp": 1789531742582,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531728615_8ky7",
+    "timestamp": 1789531728615,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.03s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.8), XRPUSDT (54.6), ADAUSDT (50.6), 1000PEPEUSDT (45.8), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.8,
+          "rvol": 0.8,
+          "price": 716.1
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.17,
+          "price": 1.3597
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 50.6,
+          "rvol": 0.46,
+          "price": 0.1937
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.8,
+          "rvol": 0.28,
+          "price": 0.003397
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.53
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531727951_pyxa",
+    "timestamp": 1789531727951,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531727581_mxlb",
+    "timestamp": 1789531727581,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531715953_3k48",
+    "timestamp": 1789531715953,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.37s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.8), XRPUSDT (54.6), ADAUSDT (50.6), 1000PEPEUSDT (45.8), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.8,
+          "rvol": 0.8,
+          "price": 716.1
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.17,
+          "price": 1.3597
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 50.6,
+          "rvol": 0.46,
+          "price": 0.1937
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.8,
+          "rvol": 0.28,
+          "price": 0.003397
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.53
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531712785_53g4",
+    "timestamp": 1789531712785,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531712580_bnk1",
+    "timestamp": 1789531712580,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531699069_mdmw",
+    "timestamp": 1789531699069,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.49s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.6), ADAUSDT (49.8), 1000PEPEUSDT (45.8), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.79,
+          "price": 716.7
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.16,
+          "price": 1.36
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 49.8,
+          "rvol": 0.44,
+          "price": 0.193
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.8,
+          "rvol": 0.28,
+          "price": 0.003396
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531698424_ka6v",
+    "timestamp": 1789531698424,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531697580_xt76",
+    "timestamp": 1789531697580,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531685205_q0cd",
+    "timestamp": 1789531685205,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.63s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.6), ADAUSDT (49.8), 1000PEPEUSDT (45.8), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.79,
+          "price": 716.7
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.6,
+          "rvol": 0.16,
+          "price": 1.36
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 49.8,
+          "rvol": 0.44,
+          "price": 0.193
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.8,
+          "rvol": 0.28,
+          "price": 0.003396
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531682963_hex7",
+    "timestamp": 1789531682963,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531682579_eu2x",
+    "timestamp": 1789531682579,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531669258_6b9r",
+    "timestamp": 1789531669258,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.68s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.7), ADAUSDT (48.7), 1000PEPEUSDT (45.9), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.77,
+          "price": 716.9
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.7,
+          "rvol": 0.15,
+          "price": 1.3611
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 48.7,
+          "rvol": 0.43,
+          "price": 0.192
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.9,
+          "rvol": 0.27,
+          "price": 0.003398
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531668590_sl1x",
+    "timestamp": 1789531668590,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531667577_s1sw",
+    "timestamp": 1789531667577,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531655587_ra4k",
+    "timestamp": 1789531655587,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.01s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.7), ADAUSDT (48.7), 1000PEPEUSDT (45.9), ETHUSDT (45.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.77,
+          "price": 716.9
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.7,
+          "rvol": 0.15,
+          "price": 1.3611
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 48.7,
+          "rvol": 0.43,
+          "price": 0.192
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.9,
+          "rvol": 0.27,
+          "price": 0.003398
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.09,
+          "price": 2402.55
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531652781_t0aa",
+    "timestamp": 1789531652781,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531652576_gspb",
+    "timestamp": 1789531652577,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531638612_mkdg",
+    "timestamp": 1789531638612,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.04s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.7), 1000PEPEUSDT (46.1), ETHUSDT (45.2), ADAUSDT (44.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.76,
+          "price": 717.3
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.7,
+          "rvol": 0.14,
+          "price": 1.3614
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.1,
+          "rvol": 0.26,
+          "price": 0.003404
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.49
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 44.4,
+          "rvol": 0.37,
+          "price": 0.192
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531637942_979h",
+    "timestamp": 1789531637942,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531637576_u972",
+    "timestamp": 1789531637576,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531626661_xskq",
+    "timestamp": 1789531626661,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 4.09s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.7), 1000PEPEUSDT (46.1), ETHUSDT (45.2), ADAUSDT (44.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.76,
+          "price": 717.3
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.7,
+          "rvol": 0.14,
+          "price": 1.3614
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.1,
+          "rvol": 0.26,
+          "price": 0.003404
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.49
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 44.4,
+          "rvol": 0.37,
+          "price": 0.192
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531623630_40q6",
+    "timestamp": 1789531623630,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531622574_sq4w",
+    "timestamp": 1789531622574,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531609286_r0ac",
+    "timestamp": 1789531609286,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.71s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.8), 1000PEPEUSDT (46.4), ETHUSDT (45.2), ADAUSDT (43.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.75,
+          "price": 717.5
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.8,
+          "rvol": 0.13,
+          "price": 1.3622
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.4,
+          "rvol": 0.24,
+          "price": 0.003409
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.4
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 43.8,
+          "rvol": 0.35,
+          "price": 0.1915
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531608549_6p20",
+    "timestamp": 1789531608549,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531607574_tjgs",
+    "timestamp": 1789531607574,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531595232_pgh0",
+    "timestamp": 1789531595232,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.66s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (63.9), XRPUSDT (54.8), 1000PEPEUSDT (46.4), ETHUSDT (45.2), ADAUSDT (43.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 63.9,
+          "rvol": 0.75,
+          "price": 717.5
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 54.8,
+          "rvol": 0.13,
+          "price": 1.3622
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.4,
+          "rvol": 0.24,
+          "price": 0.003409
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.4
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 43.8,
+          "rvol": 0.35,
+          "price": 0.1915
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531592945_vq1l",
+    "timestamp": 1789531592945,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531592574_sjj1",
+    "timestamp": 1789531592574,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531578445_rs2f",
+    "timestamp": 1789531578445,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (64.0), XRPUSDT (51.4), 1000PEPEUSDT (46.7), ETHUSDT (45.2), ADAUSDT (42.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 64,
+          "rvol": 0.73,
+          "price": 718.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.4,
+          "rvol": 0.12,
+          "price": 1.3625
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.7,
+          "rvol": 0.23,
+          "price": 0.003416
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.36
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 42.6,
+          "rvol": 0.13,
+          "price": 0.1914
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531577782_vf4t",
+    "timestamp": 1789531577782,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531577573_gix2",
+    "timestamp": 1789531577573,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531565804_co52",
+    "timestamp": 1789531565804,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.23s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (64.0), XRPUSDT (51.4), 1000PEPEUSDT (46.7), ETHUSDT (45.2), ADAUSDT (42.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 64,
+          "rvol": 0.73,
+          "price": 718.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.4,
+          "rvol": 0.12,
+          "price": 1.3625
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.7,
+          "rvol": 0.23,
+          "price": 0.003416
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.2,
+          "rvol": 0.08,
+          "price": 2402.36
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 42.6,
+          "rvol": 0.13,
+          "price": 0.1914
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531563085_y6ae",
+    "timestamp": 1789531563085,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531562571_voev",
+    "timestamp": 1789531562571,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531548769_p51n",
+    "timestamp": 1789531548769,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.20s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (64.1), XRPUSDT (51.5), 1000PEPEUSDT (46.9), ETHUSDT (45.1), AAVEUSDT (40.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 64.1,
+          "rvol": 0.72,
+          "price": 718.8
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.5,
+          "rvol": 0.11,
+          "price": 1.3631
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.9,
+          "rvol": 0.22,
+          "price": 0.003421
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.08,
+          "price": 2402.25
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 40.6,
+          "rvol": 0.11,
+          "price": 120.92
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531547786_qd50",
+    "timestamp": 1789531547786,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531547571_2pa5",
+    "timestamp": 1789531547571,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531535449_ry4l",
+    "timestamp": 1789531535449,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.88s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (64.1), XRPUSDT (51.5), 1000PEPEUSDT (46.9), ETHUSDT (45.1), AAVEUSDT (40.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 64.1,
+          "rvol": 0.72,
+          "price": 718.8
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.5,
+          "rvol": 0.11,
+          "price": 1.3631
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 46.9,
+          "rvol": 0.22,
+          "price": 0.003421
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.08,
+          "price": 2402.25
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 40.6,
+          "rvol": 0.11,
+          "price": 120.92
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531533011_wm5u",
+    "timestamp": 1789531533011,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531532570_jhcb",
+    "timestamp": 1789531532570,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531519145_kgrj",
+    "timestamp": 1789531519145,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.57s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (70.2), 1000PEPEUSDT (55.4), XRPUSDT (51.4), ETHUSDT (45.1), PUMPFUNUSDT (40.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 70.2,
+          "rvol": 0.71,
+          "price": 740.6
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 55.4,
+          "rvol": 0.18,
+          "price": 0.003568
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.4,
+          "rvol": 0.09,
+          "price": 1.3633
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.17
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 40.5,
+          "rvol": 0.08,
+          "price": 0.003489
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531518476_no6x",
+    "timestamp": 1789531518476,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531517570_tgkp",
+    "timestamp": 1789531517570,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531505429_rpxe",
+    "timestamp": 1789531505429,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.86s. Scanned: 42/50 pairs. Candidates: 1. Top: BNBUSDT (70.2), 1000PEPEUSDT (55.4), XRPUSDT (51.4), ETHUSDT (45.1), PUMPFUNUSDT (40.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 70.2,
+          "rvol": 0.71,
+          "price": 740.6
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 55.4,
+          "rvol": 0.18,
+          "price": 0.003568
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 51.4,
+          "rvol": 0.09,
+          "price": 1.3633
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.17
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 40.5,
+          "rvol": 0.08,
+          "price": 0.003489
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531503124_182h",
+    "timestamp": 1789531503124,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531502569_v0kq",
+    "timestamp": 1789531502569,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531489306_w8zi",
+    "timestamp": 1789531489306,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.74s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (54.9), ETHUSDT (45.1), 1000PEPEUSDT (43.4), XRPUSDT (41.1), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 54.9,
+          "rvol": 0.14,
+          "price": 734.2
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.08
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 43.4,
+          "rvol": 0.14,
+          "price": 0.003401
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 41.1,
+          "rvol": 0.08,
+          "price": 1.2977
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.1,
+          "price": 76043.9
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531488662_kprl",
+    "timestamp": 1789531488662,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531487569_qeyy",
+    "timestamp": 1789531487569,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531475674_3mfj",
+    "timestamp": 1789531475674,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.10s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (54.9), ETHUSDT (45.1), 1000PEPEUSDT (43.4), XRPUSDT (41.1), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 54.9,
+          "rvol": 0.14,
+          "price": 734.2
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.08
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 43.4,
+          "rvol": 0.14,
+          "price": 0.003401
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 41.1,
+          "rvol": 0.08,
+          "price": 1.2977
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.1,
+          "price": 76043.9
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531472970_amqm",
+    "timestamp": 1789531472970,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531472569_okpv",
+    "timestamp": 1789531472569,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531458601_ohfy",
+    "timestamp": 1789531458601,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.03s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.0), ETHUSDT (45.1), 1000PEPEUSDT (44.0), XRPUSDT (40.9), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55,
+          "rvol": 0.13,
+          "price": 734.8
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.06
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44,
+          "rvol": 0.13,
+          "price": 0.003412
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.9,
+          "rvol": 0.07,
+          "price": 1.297
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.1,
+          "price": 76044
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531457948_0qxk",
+    "timestamp": 1789531457948,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531457569_h9c5",
+    "timestamp": 1789531457569,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531446620_vas4",
+    "timestamp": 1789531446620,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 4.05s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.0), ETHUSDT (45.1), 1000PEPEUSDT (44.0), XRPUSDT (40.9), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55,
+          "rvol": 0.13,
+          "price": 734.8
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.07,
+          "price": 2402.06
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44,
+          "rvol": 0.13,
+          "price": 0.003412
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.9,
+          "rvol": 0.07,
+          "price": 1.297
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.1,
+          "price": 76044
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531443647_n910",
+    "timestamp": 1789531443647,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531442567_qw03",
+    "timestamp": 1789531442567,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531428446_5eaz",
+    "timestamp": 1789531428446,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.88s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.1), ETHUSDT (45.1), 1000PEPEUSDT (44.5), XRPUSDT (40.8), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.1,
+          "rvol": 0.12,
+          "price": 735.5
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.03
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44.5,
+          "rvol": 0.12,
+          "price": 0.003421
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.8,
+          "rvol": 0.06,
+          "price": 1.2964
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.09,
+          "price": 76044.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531427772_7y9p",
+    "timestamp": 1789531427772,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531427567_ptst",
+    "timestamp": 1789531427567,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531415538_p28w",
+    "timestamp": 1789531415538,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.97s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.1), ETHUSDT (45.1), 1000PEPEUSDT (44.5), XRPUSDT (40.8), BTCUSDT (40.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.1,
+          "rvol": 0.12,
+          "price": 735.5
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.03
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44.5,
+          "rvol": 0.12,
+          "price": 0.003421
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.8,
+          "rvol": 0.06,
+          "price": 1.2964
+        },
+        {
+          "symbol": "BTCUSDT",
+          "score": 40,
+          "rvol": 0.09,
+          "price": 76044.5
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531412762_60hb",
+    "timestamp": 1789531412762,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531412567_k186",
+    "timestamp": 1789531412567,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531398436_9cuq",
+    "timestamp": 1789531398436,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.3), ETHUSDT (45.1), 1000PEPEUSDT (44.7), XRPUSDT (40.8), AAVEUSDT (38.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.3,
+          "rvol": 0.11,
+          "price": 736.4
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.07
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44.7,
+          "rvol": 0.1,
+          "price": 0.003426
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.8,
+          "rvol": 0.06,
+          "price": 1.2963
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 38.3,
+          "rvol": 0.06,
+          "price": 120.63
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531397780_l87q",
+    "timestamp": 1789531397780,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531397567_66q5",
+    "timestamp": 1789531397567,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531385191_0ap5",
+    "timestamp": 1789531385191,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.63s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.3), ETHUSDT (45.1), 1000PEPEUSDT (44.7), XRPUSDT (40.8), AAVEUSDT (38.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.3,
+          "rvol": 0.11,
+          "price": 736.4
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.07
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 44.7,
+          "rvol": 0.1,
+          "price": 0.003426
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.8,
+          "rvol": 0.06,
+          "price": 1.2963
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 38.3,
+          "rvol": 0.06,
+          "price": 120.63
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531382768_ygdl",
+    "timestamp": 1789531382768,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531382566_2xmf",
+    "timestamp": 1789531382566,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531369247_7trv",
+    "timestamp": 1789531369247,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.68s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.5), ETHUSDT (45.1), 1000PEPEUSDT (45.1), XRPUSDT (40.7), AAVEUSDT (37.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.5,
+          "rvol": 0.09,
+          "price": 737.2
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.16
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.1,
+          "rvol": 0.08,
+          "price": 0.003434
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.05,
+          "price": 1.2959
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.9,
+          "rvol": 0.05,
+          "price": 120.58
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531368581_mtwx",
+    "timestamp": 1789531368581,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531367566_kpi9",
+    "timestamp": 1789531367566,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531355997_lo0r",
+    "timestamp": 1789531355997,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.43s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.5), ETHUSDT (45.1), 1000PEPEUSDT (45.1), XRPUSDT (40.7), AAVEUSDT (37.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.5,
+          "rvol": 0.09,
+          "price": 737.2
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45.1,
+          "rvol": 0.06,
+          "price": 2402.16
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 45.1,
+          "rvol": 0.08,
+          "price": 0.003434
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.05,
+          "price": 1.2959
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.9,
+          "rvol": 0.05,
+          "price": 120.58
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531352790_a4bk",
+    "timestamp": 1789531352791,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531352565_jwl9",
+    "timestamp": 1789531352565,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531338438_bmkv",
+    "timestamp": 1789531338438,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.5), 1000PEPEUSDT (48.4), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.7).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.5,
+          "rvol": 0.08,
+          "price": 737.8
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 48.4,
+          "rvol": 0.07,
+          "price": 0.003492
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.06,
+          "price": 2402.19
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.04,
+          "price": 1.2968
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.7,
+          "rvol": 0.04,
+          "price": 120.51
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531337773_307i",
+    "timestamp": 1789531337773,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531337565_wr58",
+    "timestamp": 1789531337565,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531326178_c5lq",
+    "timestamp": 1789531326178,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.61s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.5), 1000PEPEUSDT (48.4), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.7).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.5,
+          "rvol": 0.08,
+          "price": 737.8
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 48.4,
+          "rvol": 0.07,
+          "price": 0.003492
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.06,
+          "price": 2402.19
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.04,
+          "price": 1.2968
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.7,
+          "rvol": 0.04,
+          "price": 120.51
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531323270_b6cu",
+    "timestamp": 1789531323270,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531322565_uqhy",
+    "timestamp": 1789531322565,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531308609_gq90",
+    "timestamp": 1789531308609,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.04s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.6), 1000PEPEUSDT (49.0), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.6,
+          "rvol": 0.06,
+          "price": 738.4
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 49,
+          "rvol": 0.06,
+          "price": 0.003503
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.05,
+          "price": 2402.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.03,
+          "price": 1.2971
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.5,
+          "rvol": 0.03,
+          "price": 120.42
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531307938_ifza",
+    "timestamp": 1789531307938,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531307564_z72f",
+    "timestamp": 1789531307564,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531295309_h8uo",
+    "timestamp": 1789531295309,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.75s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.6), 1000PEPEUSDT (49.0), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.6,
+          "rvol": 0.06,
+          "price": 738.4
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 49,
+          "rvol": 0.06,
+          "price": 0.003503
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.05,
+          "price": 2402.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.03,
+          "price": 1.2971
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.5,
+          "rvol": 0.03,
+          "price": 120.42
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531292771_i2ft",
+    "timestamp": 1789531292771,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531292564_6osl",
+    "timestamp": 1789531292564,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531278428_tu3o",
+    "timestamp": 1789531278428,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.86s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.7), 1000PEPEUSDT (49.3), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.7,
+          "rvol": 0.05,
+          "price": 739
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 49.3,
+          "rvol": 0.05,
+          "price": 0.003509
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.05,
+          "price": 2402.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.03,
+          "price": 1.2973
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.4,
+          "rvol": 0.02,
+          "price": 120.34
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531277767_eg1e",
+    "timestamp": 1789531277767,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531277563_hfve",
+    "timestamp": 1789531277563,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531265632_0zcr",
+    "timestamp": 1789531265632,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.07s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (55.7), 1000PEPEUSDT (49.3), ETHUSDT (45.0), XRPUSDT (40.7), AAVEUSDT (37.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 55.7,
+          "rvol": 0.05,
+          "price": 739
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 49.3,
+          "rvol": 0.05,
+          "price": 0.003509
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 45,
+          "rvol": 0.05,
+          "price": 2402.2
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.7,
+          "rvol": 0.03,
+          "price": 1.2973
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 37.4,
+          "rvol": 0.02,
+          "price": 120.34
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531263124_9elh",
+    "timestamp": 1789531263124,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531262562_0nca",
+    "timestamp": 1789531262562,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531248457_74j6",
+    "timestamp": 1789531248457,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.90s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (56.0), 1000PEPEUSDT (50.0), ETHUSDT (46.2), XRPUSDT (40.6), ADAUSDT (37.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 56,
+          "rvol": 0.04,
+          "price": 740.2
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 50,
+          "rvol": 0.04,
+          "price": 0.003521
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 46.2,
+          "rvol": 0.04,
+          "price": 2416.82
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.6,
+          "rvol": 0.02,
+          "price": 1.297
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 37.4,
+          "rvol": 0.01,
+          "price": 0.195
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531247784_c7mf",
+    "timestamp": 1789531247784,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531247561_91f3",
+    "timestamp": 1789531247561,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531236456_11ul",
+    "timestamp": 1789531236456,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.90s. Scanned: 42/50 pairs. Candidates: 0. Top: BNBUSDT (56.0), 1000PEPEUSDT (50.0), ETHUSDT (46.2), XRPUSDT (40.6), ADAUSDT (37.4).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 0,
+      "topRanked": [
+        {
+          "symbol": "BNBUSDT",
+          "score": 56,
+          "rvol": 0.04,
+          "price": 740.2
+        },
+        {
+          "symbol": "1000PEPEUSDT",
+          "score": 50,
+          "rvol": 0.04,
+          "price": 0.003521
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 46.2,
+          "rvol": 0.04,
+          "price": 2416.82
+        },
+        {
+          "symbol": "XRPUSDT",
+          "score": 40.6,
+          "rvol": 0.02,
+          "price": 1.297
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 37.4,
+          "rvol": 0.01,
+          "price": 0.195
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531233499_blyx",
+    "timestamp": 1789531233499,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531232817_hafv",
+    "timestamp": 1789531232817,
+    "type": "UNIVERSE_REFRESH",
+    "message": "Dynamic Universe refreshed: 762 active USDT Linear Perpetuals discovered from Bybit.",
+    "details": {
+      "totalCount": 762,
+      "previousCount": 0
+    }
+  },
+  {
+    "id": "1789531232561_mbei",
+    "timestamp": 1789531232561,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531217558_egx1",
+    "timestamp": 1789531217558,
     "type": "SYSTEM",
     "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
   },
   {
-    "id": "1789496223179_78kf",
-    "timestamp": 1789496223179,
+    "id": "1789531217557_4gda",
+    "timestamp": 1789531217557,
     "type": "RECOVERY",
-    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 3",
     "details": {
-      "equity": 10000,
-      "activePositionsCount": 0,
+      "equity": 9822.22,
+      "activePositionsCount": 3,
       "discrepancies": 0
     }
   },
   {
-    "id": "1789496223178_y2n3",
-    "timestamp": 1789496223178,
+    "id": "1789531217556_9nud",
+    "timestamp": 1789531217556,
     "type": "EXCHANGE_CONNECTED",
     "message": "Connected to PAPER execution engine (CONTRACT)."
   },
   {
-    "id": "1789496222865_0jhr",
-    "timestamp": 1789496222865,
+    "id": "1789531217288_b9h5",
+    "timestamp": 1789531217288,
     "type": "SYSTEM",
     "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
   },
   {
-    "id": "1789496103117_cqmv",
-    "timestamp": 1789496103117,
-    "type": "SYSTEM",
-    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
+    "id": "1789531215308_942k",
+    "timestamp": 1789531215308,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   },
   {
-    "id": "1789496100761_7ju3",
-    "timestamp": 1789496100761,
-    "type": "SYSTEM",
-    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496037306_hxdk",
-    "timestamp": 1789496037306,
-    "type": "SYSTEM",
-    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496035559_hqh4",
-    "timestamp": 1789496035559,
-    "type": "SYSTEM",
-    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496031107_v14q",
-    "timestamp": 1789496031108,
-    "type": "SYSTEM",
-    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496023809_lp1z",
-    "timestamp": 1789496023810,
-    "type": "SYSTEM",
-    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496020891_kkox",
-    "timestamp": 1789496020891,
-    "type": "SYSTEM",
-    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789496017870_f8no",
-    "timestamp": 1789496017870,
-    "type": "SYSTEM",
-    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789495637863_1jrf",
-    "timestamp": 1789495637863,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
-  },
-  {
-    "id": "1789495637863_33h8",
-    "timestamp": 1789495637863,
-    "type": "RECOVERY",
-    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "id": "1789531202289_3sr7",
+    "timestamp": 1789531202289,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.98s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.2), XAUTUSDT (55.9), ADAUSDT (53.0), PUMPFUNUSDT (47.5), AAVEUSDT (46.8).",
     "details": {
-      "equity": 10000,
-      "activePositionsCount": 0,
-      "discrepancies": 0
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.2,
+          "rvol": 1.57,
+          "price": 76272.7
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.97,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.5,
+          "rvol": 0.89,
+          "price": 0.003466
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.8,
+          "rvol": 1.02,
+          "price": 120.18
+        }
+      ]
     }
   },
   {
-    "id": "1789495637862_yvwb",
-    "timestamp": 1789495637862,
-    "type": "EXCHANGE_CONNECTED",
-    "message": "Connected to PAPER execution engine (CONTRACT)."
-  },
-  {
-    "id": "1789495637599_1bb7",
-    "timestamp": 1789495637599,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
-  },
-  {
-    "id": "1789495622958_nchp",
-    "timestamp": 1789495622958,
-    "type": "PAPER_RESET",
-    "message": "Paper account reset: Balance restored to $10,000 USDT and paper positions cleared."
-  },
-  {
-    "id": "1789495619359_9pwj",
-    "timestamp": 1789495619359,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
-  },
-  {
-    "id": "1789495619359_luwh",
-    "timestamp": 1789495619359,
-    "type": "RECOVERY",
-    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "id": "1789531201640_ltgo",
+    "timestamp": 1789531201640,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
     "details": {
-      "equity": 10000,
-      "activePositionsCount": 0,
-      "discrepancies": 0
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
     }
   },
   {
-    "id": "1789495619358_dksd",
-    "timestamp": 1789495619358,
-    "type": "EXCHANGE_CONNECTED",
-    "message": "Connected to PAPER execution engine (CONTRACT)."
+    "id": "1789531200308_kv7p",
+    "timestamp": 1789531200308,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   },
   {
-    "id": "1789495619180_znxi",
-    "timestamp": 1789495619180,
-    "type": "MODE_CHANGED",
-    "message": "Execution mode switched to [PAPER]. Reconnecting execution engine..."
-  },
-  {
-    "id": "1789495616873_im04",
-    "timestamp": 1789495616873,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495616621_5np4",
-    "timestamp": 1789495616621,
-    "type": "MODE_CHANGED",
-    "message": "Execution mode switched to [TESTNET]. Reconnecting execution engine..."
-  },
-  {
-    "id": "1789495608725_7yao",
-    "timestamp": 1789495608725,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 active. Profile: MOMENTUM | Mode: PAPER. Engine operational."
-  },
-  {
-    "id": "1789495608725_fdbt",
-    "timestamp": 1789495608725,
-    "type": "RECOVERY",
-    "message": "State reconciled with PAPER. Discrepancies resolved: 0. Active positions: 0",
+    "id": "1789531188030_hspi",
+    "timestamp": 1789531188030,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.72s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.2), XAUTUSDT (55.9), ADAUSDT (53.0), PUMPFUNUSDT (47.5), AAVEUSDT (46.8).",
     "details": {
-      "equity": 10000,
-      "activePositionsCount": 0,
-      "discrepancies": 0
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.2,
+          "rvol": 1.57,
+          "price": 76272.7
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.97,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.5,
+          "rvol": 0.89,
+          "price": 0.003466
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.8,
+          "rvol": 1.02,
+          "price": 120.18
+        }
+      ]
     }
   },
   {
-    "id": "1789495608724_nijg",
-    "timestamp": 1789495608724,
-    "type": "EXCHANGE_CONNECTED",
-    "message": "Connected to PAPER execution engine (CONTRACT)."
-  },
-  {
-    "id": "1789495608271_znj9",
-    "timestamp": 1789495608271,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
-  },
-  {
-    "id": "1789495605828_mdwb",
-    "timestamp": 1789495605828,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495590867_vgs5",
-    "timestamp": 1789495590867,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495575832_t7cz",
-    "timestamp": 1789495575832,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495560847_hw8o",
-    "timestamp": 1789495560847,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495545845_ceyz",
-    "timestamp": 1789495545845,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495530830_t666",
-    "timestamp": 1789495530830,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495515822_x1ky",
-    "timestamp": 1789495515822,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495500834_tz1q",
-    "timestamp": 1789495500834,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495485832_5v8l",
-    "timestamp": 1789495485832,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495470828_f64b",
-    "timestamp": 1789495470828,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495455816_c5ko",
-    "timestamp": 1789495455816,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495440817_gia1",
-    "timestamp": 1789495440817,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495425817_rbyz",
-    "timestamp": 1789495425817,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495410825_zb06",
-    "timestamp": 1789495410825,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495395820_9iri",
-    "timestamp": 1789495395820,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495380830_jnbi",
-    "timestamp": 1789495380830,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495365828_zp3h",
-    "timestamp": 1789495365828,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495350819_xail",
-    "timestamp": 1789495350819,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495335806_6ikk",
-    "timestamp": 1789495335806,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495325022_wlx3",
-    "timestamp": 1789495325022,
-    "type": "SYSTEM",
-    "message": "Active profile switched to MOMENTUM. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789495320826_xgfm",
-    "timestamp": 1789495320826,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495305819_34mx",
-    "timestamp": 1789495305819,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495290847_pwv1",
-    "timestamp": 1789495290847,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495275808_304q",
-    "timestamp": 1789495275808,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495260824_55eh",
-    "timestamp": 1789495260824,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495245845_yvi1",
-    "timestamp": 1789495245845,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495230825_6yc4",
-    "timestamp": 1789495230825,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495215813_sye4",
-    "timestamp": 1789495215813,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495200830_3r0r",
-    "timestamp": 1789495200830,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495185822_onyc",
-    "timestamp": 1789495185822,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495170840_a9w8",
-    "timestamp": 1789495170840,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495155813_4eoh",
-    "timestamp": 1789495155813,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495140913_92nv",
-    "timestamp": 1789495140913,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495125807_xewc",
-    "timestamp": 1789495125807,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495110815_scio",
-    "timestamp": 1789495110815,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495095825_jgsp",
-    "timestamp": 1789495095825,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495080797_4nj9",
-    "timestamp": 1789495080797,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495065811_lz9i",
-    "timestamp": 1789495065811,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495050814_k0vk",
-    "timestamp": 1789495050815,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495035816_0230",
-    "timestamp": 1789495035816,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495020836_sfvj",
-    "timestamp": 1789495020836,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789495005814_ghpp",
-    "timestamp": 1789495005814,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494990940_orv8",
-    "timestamp": 1789494990940,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494975813_h2mm",
-    "timestamp": 1789494975813,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494960812_9z8k",
-    "timestamp": 1789494960812,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494945851_kmi9",
-    "timestamp": 1789494945851,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494930800_f2tp",
-    "timestamp": 1789494930800,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494915807_kz5d",
-    "timestamp": 1789494915807,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494900800_m7r1",
-    "timestamp": 1789494900800,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494885796_u3qa",
-    "timestamp": 1789494885796,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494870847_ofvh",
-    "timestamp": 1789494870847,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494855793_1nvb",
-    "timestamp": 1789494855793,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494840800_c2s1",
-    "timestamp": 1789494840800,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494825798_clhw",
-    "timestamp": 1789494825798,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494810798_9f8f",
-    "timestamp": 1789494810798,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494795843_5ixy",
-    "timestamp": 1789494795843,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494780801_b2yr",
-    "timestamp": 1789494780801,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494765803_5kk2",
-    "timestamp": 1789494765804,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494750610_503q",
-    "timestamp": 1789494750610,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494750328_hqp3",
-    "timestamp": 1789494750328,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated..."
-  },
-  {
-    "id": "1789494735466_h16x",
-    "timestamp": 1789494735466,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494732750_7tbu",
-    "timestamp": 1789494732750,
-    "type": "KILL_SWITCH_DISENGAGED",
-    "message": "Kill Switch disengaged. Resuming normal operations."
-  },
-  {
-    "id": "1789494730209_yxeu",
-    "timestamp": 1789494730209,
-    "type": "SYSTEM",
-    "message": "Active profile switched to SCALP. Execution rules and timeframes updated."
-  },
-  {
-    "id": "1789494720258_vq92",
-    "timestamp": 1789494720258,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
-  },
-  {
-    "id": "1789494719756_bccp",
-    "timestamp": 1789494719756,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated..."
-  },
-  {
-    "id": "1789494688874_crua",
-    "timestamp": 1789494688874,
-    "type": "KILL_SWITCH_ENGAGED",
-    "message": "Kill Switch completed: 0/1 positions closed on Bybit."
-  },
-  {
-    "id": "1789494688873_ttp5",
-    "timestamp": 1789494688873,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position SOLUSDT on Bybit: Cannot submit order: Bybit API keys not configured.",
+    "id": "1789531185519_r6o6",
+    "timestamp": 1789531185519,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
     "details": {
-      "positionId": "pos_1789494594648_SOLUSDT",
-      "symbol": "SOLUSDT",
-      "error": "Cannot submit order: Bybit API keys not configured.",
-      "reason": "KILL_SWITCH"
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
     }
   },
   {
-    "id": "1789494688873_czz1",
-    "timestamp": 1789494688873,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for SOLUSDT (KILL_SWITCH) - Side: Sell, Qty: NaN",
+    "id": "1789531185306_hvur",
+    "timestamp": 1789531185306,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531171654_dif3",
+    "timestamp": 1789531171654,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.35s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.2), XAUTUSDT (55.9), ADAUSDT (53.0), PUMPFUNUSDT (47.7), AAVEUSDT (46.6).",
     "details": {
-      "orderId": "tb5_close_1789494688673_gr80",
-      "symbol": "SOLUSDT",
-      "reason": "KILL_SWITCH",
-      "qty": null
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.2,
+          "rvol": 1.57,
+          "price": 76273.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.97,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.7,
+          "rvol": 0.88,
+          "price": 0.003469
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.6,
+          "rvol": 1,
+          "price": 120.11
+        }
+      ]
     }
   },
   {
-    "id": "1789494688672_ejv7",
-    "timestamp": 1789494688672,
-    "type": "KILL_SWITCH_ENGAGED",
-    "message": "🚨 KILL SWITCH ENGAGED! Halting new entries and closing all open positions on Bybit..."
-  },
-  {
-    "id": "1789494685380_xs8e",
-    "timestamp": 1789494685380,
-    "type": "SYSTEM",
-    "message": "Profile switch rejected: Cannot switch profile to SCALP while 1 position(s) are open. Close all positions first.",
+    "id": "1789531170999_7d1m",
+    "timestamp": 1789531170999,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
     "details": {
-      "activePositionsCount": 1
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
     }
   },
   {
-    "id": "1789494674942_4ml9",
-    "timestamp": 1789494674942,
-    "type": "EXCHANGE_DISCONNECTED",
-    "message": "Waiting for exchange connection: API keys not provided"
+    "id": "1789531170307_tkkz",
+    "timestamp": 1789531170307,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   },
   {
-    "id": "1789494674476_59wx",
-    "timestamp": 1789494674476,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated..."
+    "id": "1789531158872_tnvj",
+    "timestamp": 1789531158872,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.57s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.2), XAUTUSDT (55.9), ADAUSDT (53.0), PUMPFUNUSDT (47.7), AAVEUSDT (46.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.2,
+          "rvol": 1.57,
+          "price": 76273.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.97,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.7,
+          "rvol": 0.88,
+          "price": 0.003469
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.6,
+          "rvol": 1,
+          "price": 120.11
+        }
+      ]
+    }
   },
   {
-    "id": "1789494594648",
-    "timestamp": 1789494594648,
-    "type": "POSITION",
-    "message": "Opened BUY on SOLUSDT (Score: 60.2)"
+    "id": "1789531155949_7fur",
+    "timestamp": 1789531155949,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
   },
   {
-    "id": "1789494354072",
-    "timestamp": 1789494354072,
-    "type": "SYSTEM",
-    "message": "Bot started"
+    "id": "1789531155749_innw",
+    "timestamp": 1789531155749,
+    "type": "UNIVERSE_REFRESH",
+    "message": "Dynamic Universe refreshed: 762 active USDT Linear Perpetuals discovered from Bybit.",
+    "details": {
+      "totalCount": 762,
+      "previousCount": 762
+    }
   },
   {
-    "id": "1789494351168",
-    "timestamp": 1789494351168,
-    "type": "SYSTEM",
-    "message": "Bot started"
+    "id": "1789531155306_6rtn",
+    "timestamp": 1789531155306,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   },
   {
-    "id": "1789493891987",
-    "timestamp": 1789493891987,
-    "type": "SYSTEM",
-    "message": "Profile changed to MOMENTUM"
+    "id": "1789531141526_k8rf",
+    "timestamp": 1789531141526,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.22s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.1), XAUTUSDT (55.9), ADAUSDT (52.9), PUMPFUNUSDT (47.6), AAVEUSDT (46.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.1,
+          "rvol": 1.56,
+          "price": 76273.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.97,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.6,
+          "rvol": 0.88,
+          "price": 0.003468
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.5,
+          "rvol": 0.99,
+          "price": 120.05
+        }
+      ]
+    }
   },
   {
-    "id": "1789493884340",
-    "timestamp": 1789493884340,
-    "type": "SYSTEM",
-    "message": "Profile changed to SCALP"
+    "id": "1789531140824_2k8c",
+    "timestamp": 1789531140824,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
   },
   {
-    "id": "1789493816103",
-    "timestamp": 1789493816103,
-    "type": "SYSTEM",
-    "message": "Bot started"
+    "id": "1789531140305_98xo",
+    "timestamp": 1789531140305,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   },
   {
-    "id": "1789493770001",
-    "timestamp": 1789493770001,
-    "type": "SYSTEM",
-    "message": "Bot started"
+    "id": "1789531128078_fkez",
+    "timestamp": 1789531128078,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.77s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.1), XAUTUSDT (55.9), ADAUSDT (52.9), PUMPFUNUSDT (47.6), AAVEUSDT (46.5).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.1,
+          "rvol": 1.56,
+          "price": 76273.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.9,
+          "rvol": 1.18,
+          "price": 4323.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.97,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.6,
+          "rvol": 0.88,
+          "price": 0.003468
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.5,
+          "rvol": 0.99,
+          "price": 120.05
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531125508_jcy3",
+    "timestamp": 1789531125508,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531125305_68xt",
+    "timestamp": 1789531125305,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531111282_szir",
+    "timestamp": 1789531111282,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.98s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.1), XAUTUSDT (55.8), ADAUSDT (52.9), PUMPFUNUSDT (47.5), AAVEUSDT (46.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.1,
+          "rvol": 1.55,
+          "price": 76272.8
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.18,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.96,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.5,
+          "rvol": 0.87,
+          "price": 0.003467
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.3,
+          "rvol": 0.98,
+          "price": 119.97
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531110517_ubd3",
+    "timestamp": 1789531110517,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531110305_eb7c",
+    "timestamp": 1789531110305,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531097900_zof4",
+    "timestamp": 1789531097900,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.60s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (62.1), XAUTUSDT (55.8), ADAUSDT (52.9), PUMPFUNUSDT (47.5), AAVEUSDT (46.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 62.1,
+          "rvol": 1.55,
+          "price": 76272.8
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.18,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.96,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.5,
+          "rvol": 0.87,
+          "price": 0.003467
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46.3,
+          "rvol": 0.98,
+          "price": 119.97
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531095521_jk1s",
+    "timestamp": 1789531095521,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531095304_adt5",
+    "timestamp": 1789531095304,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531081622_wi2m",
+    "timestamp": 1789531081622,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.32s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.4), XAUTUSDT (55.8), ADAUSDT (52.9), PUMPFUNUSDT (47.4), ETHUSDT (47.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.4,
+          "rvol": 1.5,
+          "price": 76120.6
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.17,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.96,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.4,
+          "rvol": 0.87,
+          "price": 0.003466
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 47.2,
+          "rvol": 1.32,
+          "price": 2373.04
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531080834_qqzb",
+    "timestamp": 1789531080834,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531080304_0iwa",
+    "timestamp": 1789531080304,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531068080_e2e8",
+    "timestamp": 1789531068080,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.78s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.4), XAUTUSDT (55.8), ADAUSDT (52.9), PUMPFUNUSDT (47.4), ETHUSDT (47.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.4,
+          "rvol": 1.5,
+          "price": 76120.6
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.17,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.9,
+          "rvol": 0.96,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.4,
+          "rvol": 0.87,
+          "price": 0.003466
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 47.2,
+          "rvol": 1.32,
+          "price": 2373.04
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531065516_hskc",
+    "timestamp": 1789531065516,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531065304_gq8k",
+    "timestamp": 1789531065304,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531051201_h3n2",
+    "timestamp": 1789531051201,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.90s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.4), XAUTUSDT (55.8), ADAUSDT (53.0), PUMPFUNUSDT (47.3), ETHUSDT (47.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.4,
+          "rvol": 1.47,
+          "price": 76184
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.16,
+          "price": 4323
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.96,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.3,
+          "rvol": 0.86,
+          "price": 0.003465
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 47.2,
+          "rvol": 1.32,
+          "price": 2372.96
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531050523_a9i3",
+    "timestamp": 1789531050523,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531050304_6960",
+    "timestamp": 1789531050304,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531038426_w7j4",
+    "timestamp": 1789531038426,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.12s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.4), XAUTUSDT (55.8), ADAUSDT (53.0), PUMPFUNUSDT (47.3), ETHUSDT (47.2).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.4,
+          "rvol": 1.47,
+          "price": 76184
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.8,
+          "rvol": 1.16,
+          "price": 4323
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 53,
+          "rvol": 0.96,
+          "price": 0.1948
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.3,
+          "rvol": 0.86,
+          "price": 0.003465
+        },
+        {
+          "symbol": "ETHUSDT",
+          "score": 47.2,
+          "rvol": 1.32,
+          "price": 2372.96
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531035684_37l6",
+    "timestamp": 1789531035684,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531035305_xci8",
+    "timestamp": 1789531035305,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531021322_ti2k",
+    "timestamp": 1789531021322,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.02s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.7), ADAUSDT (52.8), PUMPFUNUSDT (47.3), AAVEUSDT (46.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76184.3
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.7,
+          "rvol": 1.15,
+          "price": 4322.7
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.8,
+          "rvol": 0.95,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.3,
+          "rvol": 0.86,
+          "price": 0.003464
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46,
+          "rvol": 0.96,
+          "price": 119.89
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531020523_bzms",
+    "timestamp": 1789531020523,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531020303_hwgt",
+    "timestamp": 1789531020303,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789531008472_st23",
+    "timestamp": 1789531008472,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.17s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.7), ADAUSDT (52.8), PUMPFUNUSDT (47.3), AAVEUSDT (46.0).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76184.3
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.7,
+          "rvol": 1.15,
+          "price": 4322.7
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.8,
+          "rvol": 0.95,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.3,
+          "rvol": 0.86,
+          "price": 0.003464
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 46,
+          "rvol": 0.96,
+          "price": 119.89
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789531006145_6u99",
+    "timestamp": 1789531006145,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789531005304_zr6c",
+    "timestamp": 1789531005304,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530991204_9lhr",
+    "timestamp": 1789530991204,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.90s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.7), ADAUSDT (52.8), PUMPFUNUSDT (47.1), AAVEUSDT (45.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76184.5
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.7,
+          "rvol": 1.15,
+          "price": 4322.4
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.8,
+          "rvol": 0.95,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.1,
+          "rvol": 0.86,
+          "price": 0.003462
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.9,
+          "rvol": 0.95,
+          "price": 119.85
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530990503_5rn6",
+    "timestamp": 1789530990503,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530990303_gac5",
+    "timestamp": 1789530990303,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530978387_mgmn",
+    "timestamp": 1789530978387,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.08s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.7), ADAUSDT (52.8), PUMPFUNUSDT (47.1), AAVEUSDT (45.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76184.5
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.7,
+          "rvol": 1.15,
+          "price": 4322.4
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.8,
+          "rvol": 0.95,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.1,
+          "rvol": 0.86,
+          "price": 0.003462
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.9,
+          "rvol": 0.95,
+          "price": 119.85
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530975508_mb3m",
+    "timestamp": 1789530975508,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530975302_3l6y",
+    "timestamp": 1789530975302,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530961981_8piu",
+    "timestamp": 1789530961981,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.68s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.6), ADAUSDT (52.7), PUMPFUNUSDT (47.1), AAVEUSDT (45.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76185
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.6,
+          "rvol": 1.14,
+          "price": 4322.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.1,
+          "rvol": 0.86,
+          "price": 0.003461
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.9,
+          "rvol": 0.94,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530961318_38iv",
+    "timestamp": 1789530961318,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530960301_52ww",
+    "timestamp": 1789530960301,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530948755_5nj6",
+    "timestamp": 1789530948755,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.46s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.3), XAUTUSDT (55.6), ADAUSDT (52.7), PUMPFUNUSDT (47.1), AAVEUSDT (45.9).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.3,
+          "rvol": 1.44,
+          "price": 76185
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.6,
+          "rvol": 1.14,
+          "price": 4322.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 47.1,
+          "rvol": 0.86,
+          "price": 0.003461
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.9,
+          "rvol": 0.94,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530946250_nhee",
+    "timestamp": 1789530946250,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530945300_fcva",
+    "timestamp": 1789530945300,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530931375_np1v",
+    "timestamp": 1789530931375,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.08s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.6), ADAUSDT (52.6), PUMPFUNUSDT (46.8), AAVEUSDT (45.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.43,
+          "price": 76185.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.6,
+          "rvol": 1.13,
+          "price": 4322.3
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.6,
+          "rvol": 0.95,
+          "price": 0.1945
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.8,
+          "rvol": 0.85,
+          "price": 0.003457
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.8,
+          "rvol": 0.94,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530930709_ni1d",
+    "timestamp": 1789530930709,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530930299_vr0u",
+    "timestamp": 1789530930299,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530919352_mo4x",
+    "timestamp": 1789530919352,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 4.05s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.6), ADAUSDT (52.6), PUMPFUNUSDT (46.8), AAVEUSDT (45.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.43,
+          "price": 76185.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.6,
+          "rvol": 1.13,
+          "price": 4322.3
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.6,
+          "rvol": 0.95,
+          "price": 0.1945
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.8,
+          "rvol": 0.85,
+          "price": 0.003457
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.8,
+          "rvol": 0.94,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530916401_0lrw",
+    "timestamp": 1789530916401,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530915299_bmg1",
+    "timestamp": 1789530915299,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530901435_ikoa",
+    "timestamp": 1789530901435,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.14s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.9), AAVEUSDT (45.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.42,
+          "price": 76185.9
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.13,
+          "price": 4322.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.9,
+          "rvol": 0.84,
+          "price": 0.003459
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.8,
+          "rvol": 0.93,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530900573_sm0r",
+    "timestamp": 1789530900573,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530900298_4n5b",
+    "timestamp": 1789530900298,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530888721_fp8j",
+    "timestamp": 1789530888721,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 3.42s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.9), AAVEUSDT (45.8).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.42,
+          "price": 76185.9
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.13,
+          "price": 4322.1
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.9,
+          "rvol": 0.84,
+          "price": 0.003459
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.8,
+          "rvol": 0.93,
+          "price": 119.84
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530886460_nprs",
+    "timestamp": 1789530886460,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530885297_slug",
+    "timestamp": 1789530885297,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530871378_8eio",
+    "timestamp": 1789530871378,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.08s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.8), AAVEUSDT (45.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.42,
+          "price": 76186.5
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.12,
+          "price": 4322.2
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.8,
+          "rvol": 0.83,
+          "price": 0.003458
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.6,
+          "rvol": 0.92,
+          "price": 119.86
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530870533_w49a",
+    "timestamp": 1789530870533,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530870295_rzim",
+    "timestamp": 1789530870295,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530858023_8yap",
+    "timestamp": 1789530858023,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.73s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.8), AAVEUSDT (45.6).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.42,
+          "price": 76186.5
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.12,
+          "price": 4322.2
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.8,
+          "rvol": 0.83,
+          "price": 0.003458
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.6,
+          "rvol": 0.92,
+          "price": 119.86
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530855495_pkzc",
+    "timestamp": 1789530855495,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530855296_8rdr",
+    "timestamp": 1789530855296,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530841164_54ou",
+    "timestamp": 1789530841164,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.9), AAVEUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.41,
+          "price": 76187.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.11,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.9,
+          "rvol": 0.83,
+          "price": 0.00346
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.3,
+          "rvol": 0.91,
+          "price": 119.93
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530840488_kps6",
+    "timestamp": 1789530840488,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530840294_gb89",
+    "timestamp": 1789530840294,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530827804_pfw1",
+    "timestamp": 1789530827804,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 2.51s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.2), XAUTUSDT (55.5), ADAUSDT (52.7), PUMPFUNUSDT (46.9), AAVEUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.2,
+          "rvol": 1.41,
+          "price": 76187.2
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.11,
+          "price": 4322.9
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.7,
+          "rvol": 0.95,
+          "price": 0.1946
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.9,
+          "rvol": 0.83,
+          "price": 0.00346
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.3,
+          "rvol": 0.91,
+          "price": 119.93
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530825487_x1ot",
+    "timestamp": 1789530825487,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530825294_gx2t",
+    "timestamp": 1789530825294,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
+  },
+  {
+    "id": "1789530811163_iftd",
+    "timestamp": 1789530811163,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.87s. Scanned: 42/50 pairs. Candidates: 1. Top: BTCUSDT (61.1), XAUTUSDT (55.5), ADAUSDT (52.8), PUMPFUNUSDT (46.5), AAVEUSDT (45.3).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "scannedCount": 42,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "BTCUSDT",
+          "score": 61.1,
+          "rvol": 1.41,
+          "price": 76187.4
+        },
+        {
+          "symbol": "XAUTUSDT",
+          "score": 55.5,
+          "rvol": 1.1,
+          "price": 4323.7
+        },
+        {
+          "symbol": "ADAUSDT",
+          "score": 52.8,
+          "rvol": 0.94,
+          "price": 0.1947
+        },
+        {
+          "symbol": "PUMPFUNUSDT",
+          "score": 46.5,
+          "rvol": 0.82,
+          "price": 0.003455
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "score": 45.3,
+          "rvol": 0.9,
+          "price": 119.95
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789530810512_u8kj",
+    "timestamp": 1789530810512,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 50 liquid candidates selected from 762 total (Min 24h Volume: $3.0M USDT).",
+    "details": {
+      "totalUniverse": 762,
+      "eligibleCount": 50,
+      "maxSymbols": 50,
+      "minVolumeUSDT": 3000000,
+      "topSymbols": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "XRPUSDT",
+        "SOLUSDT",
+        "ZECUSDT"
+      ]
+    }
+  },
+  {
+    "id": "1789530810294_irpf",
+    "timestamp": 1789530810294,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (Timeframe: 60)..."
   }
 ]

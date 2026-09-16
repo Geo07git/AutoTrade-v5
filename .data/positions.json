@@ -1,1 +1,1 @@
-[]
+[{"id":"pos_1789531788647_BNBUSDT","symbol":"BNBUSDT","side":"BUY","qty":1.39,"entryPrice":714.7,"sizeUSDT":993.43,"status":"OPEN","entryTime":1789531788647,"highestPrice":714.7,"lowestPrice":714.7,"profile":"MOMENTUM","source":"PAPER","executionMode":"PAPER","pnlPct":0,"pnl":0},{"id":"closed_test2","symbol":"TESTUSDT","side":"BUY","qty":100,"entryPrice":1,"sizeUSDT":100,"status":"CLOSED","entryTime":1789531795254,"exitTime":1789531795254,"exitPrice":1.5,"pnl":45.75,"profile":"MOMENTUM","source":"PAPER","executionMode":"PAPER"}]

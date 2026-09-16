@@ -64,6 +64,10 @@ export class OrderManager {
     return false;
   }
 
+  public clearOrders(): void {
+    this.orders.clear();
+  }
+
   /**
    * Primary entry point for signal-based orders.
    * STRICT CONSTRAINTS:

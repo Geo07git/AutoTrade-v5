@@ -1,15 +1,1 @@
-[
-  {
-    "id": "tb5_close_1789494688673_gr80",
-    "symbol": "SOLUSDT",
-    "side": "SELL",
-    "orderType": "Market",
-    "qty": null,
-    "sizeUSDT": null,
-    "status": "FAILED",
-    "createdTime": 1789494688873,
-    "updatedTime": 1789494688873,
-    "intent": "KILL_SWITCH",
-    "rejectionReason": "Cannot submit order: Bybit API keys not configured."
-  }
-]
+[]

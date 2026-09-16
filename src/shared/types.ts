@@ -43,9 +43,50 @@ export type AuditLogType =
   | 'EXCHANGE_DISCONNECTED'
   | 'MODE_CHANGED'
   | 'PAPER_RESET'
+  | 'UNIVERSE_REFRESH'
+  | 'UNIVERSE_FILTERED'
+  | 'SCAN_STARTED'
+  | 'SCAN_COMPLETED'
+  | 'SCAN_ERROR'
+  | 'CANDIDATE_SELECTED'
+  | 'CANDIDATE_REJECTED'
   | 'RECOVERY'
   | 'SYSTEM'
   | 'ERROR';
+
+export interface UniverseFilterConfig {
+  min24hVolumeUSDT: number;
+  minPrice: number;
+  maxSymbols: number;
+  settleCoin: string;
+  refreshIntervalMs: number;
+}
+
+export interface ScannedOpportunity {
+  symbol: string;
+  price: number;
+  volume24hUSDT: number;
+  priceChange24hPct: number;
+  rvol: number;
+  atrExpansion: number;
+  score: number;
+  side: OrderSide;
+  isEligible: boolean;
+  signal?: TradeSignal;
+  rank: number;
+  lastScannedTime: number;
+}
+
+export interface ScannerStats {
+  universeCount: number;
+  filteredCount: number;
+  candidatesCount: number;
+  lastScanDurationMs: number;
+  lastScanTimestamp: number;
+  isScanning: boolean;
+  topOpportunities: ScannedOpportunity[];
+  filterConfig: UniverseFilterConfig;
+}
 
 export interface AppConfig {
   executionMode: ExecutionMode;
@@ -57,6 +98,8 @@ export interface AppConfig {
   paperEquity?: number;
   maxLeverage?: number;
   watchlist?: string[];
+  scannerFilter?: UniverseFilterConfig;
+  profiles?: Record<ProfileType, ProfileConfig>;
 }
 
 export interface ProfileConfig {
@@ -67,6 +110,9 @@ export interface ProfileConfig {
   trailingActivationPct: number;
   trailingDistancePct: number;
   hardStopLossPct: number;
+  minMomentumScore?: number;
+  maxHoldingTimeMinutes?: number;
+  cooldownMinutes?: number;
 }
 
 export interface Kline {
@@ -155,15 +201,24 @@ export interface AuditLog {
   details?: any;
 }
 
+export interface EquityDataPoint {
+  time: number;
+  equity: number;
+}
+
 export interface BotStatusResponse {
   state: BotState;
   executionMode: ExecutionMode;
   config: AppConfig;
   profileConfig: ProfileConfig;
+  profiles?: Record<ProfileType, ProfileConfig>;
   equity: number;
+  equityHistory?: EquityDataPoint[];
+  sessionRealizedPnL?: number;
   positions: Position[];
   orders: OrderRecord[];
   connected: boolean;
   lastSyncTime: number;
+  scannerStats?: ScannerStats;
 }
 

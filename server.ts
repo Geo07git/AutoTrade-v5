@@ -126,6 +126,33 @@ async function startServer() {
     }
   });
 
+  // Update profile settings
+  app.post('/api/bot/profile/settings', requireControlAuth, async (req, res) => {
+    const { profileType, settings } = req.body;
+    if (!profileType || !settings) {
+      return res.status(400).json({ error: 'Missing profileType or settings' });
+    }
+    tradeBot.updateProfileSettings(profileType, settings);
+    res.json({ success: true, status: tradeBot.getStatus() });
+  });
+
+  // Manual close position
+  app.post('/api/bot/position/:symbol/close', requireControlAuth, async (req, res) => {
+    const { symbol } = req.params;
+    try {
+      const pos = tradeBot.getPositions().find(p => p.symbol === symbol);
+      if (!pos) {
+         return res.status(404).json({ error: 'Position not found' });
+      }
+      
+      // We need a way to close this position manually
+      const result = await tradeBot.closePositionManually(symbol);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Emergency Kill Switch
   app.post('/api/bot/killswitch', requireControlAuth, async (req, res) => {
     const engaged = await tradeBot.toggleKillSwitch();
@@ -155,6 +182,49 @@ async function startServer() {
   app.post('/api/bot/reconcile', requireControlAuth, async (req, res) => {
     await tradeBot.connectAndRecover();
     res.json({ success: true, status: tradeBot.getStatus() });
+  });
+
+  // Query Market Scanner statistics & ranked opportunities
+  app.get('/api/bot/scanner', (req, res) => {
+    res.json(tradeBot.getScannerStats());
+  });
+
+  // Trigger manual market scan
+  app.post('/api/bot/scanner/scan', requireControlAuth, async (req, res) => {
+    try {
+      const opportunities = await tradeBot.triggerManualScan();
+      res.json({
+        success: true,
+        stats: tradeBot.getScannerStats(),
+        count: opportunities.length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Scan failed' });
+    }
+  });
+
+  // Update Universe Filter configuration
+  app.post('/api/bot/scanner/config', requireControlAuth, (req, res) => {
+    const { min24hVolumeUSDT, maxSymbols, minPrice, refreshIntervalMs } = req.body;
+    const filterUpdates: any = {};
+    if (typeof min24hVolumeUSDT === 'number' && min24hVolumeUSDT > 0) {
+      filterUpdates.min24hVolumeUSDT = min24hVolumeUSDT;
+    }
+    if (typeof maxSymbols === 'number' && maxSymbols > 0 && maxSymbols <= 100) {
+      filterUpdates.maxSymbols = maxSymbols;
+    }
+    if (typeof minPrice === 'number' && minPrice >= 0) {
+      filterUpdates.minPrice = minPrice;
+    }
+    if (typeof refreshIntervalMs === 'number' && refreshIntervalMs >= 60000) {
+      filterUpdates.refreshIntervalMs = refreshIntervalMs;
+    }
+
+    tradeBot.updateScannerFilter(filterUpdates);
+    res.json({
+      success: true,
+      filter: tradeBot.getScannerStats().filterConfig,
+    });
   });
 
   // Vite middleware for development
