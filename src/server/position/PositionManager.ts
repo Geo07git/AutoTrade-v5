@@ -1,7 +1,7 @@
 import {
   Position,
   ProfileConfig,
-  BybitRawPosition,
+  OKXRawPosition,
   OrderRecord,
   ProfileType,
   AuditLogType,
@@ -12,6 +12,8 @@ export class PositionManager {
   private activePositions: Position[] = [];
   private closedHistory: Position[] = [];
   private highestEquity: number = 200.0; // Initialize with base equity
+  private initialEquity: number = 200.0;
+  private equityProtCount: number = 0;
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
 
   constructor(auditLogger: (type: AuditLogType, message: string, details?: any) => void) {
@@ -26,6 +28,29 @@ export class PositionManager {
     return this.highestEquity;
   }
 
+  public getEquityTrailingState(config: ProfileConfig, currentEquity: number) {
+    const activationPrice = this.initialEquity * (1 + (config.equityProtectionActivationPct || 0) / 100);
+    const isActive = this.highestEquity >= activationPrice;
+    
+    let sellThreshold: number | null = null;
+    if (isActive && config.equityTrailingDrawdownPct) {
+      sellThreshold = this.highestEquity * (1 - config.equityTrailingDrawdownPct / 100);
+    }
+    
+    const currentDrawdownPct = isActive ? ((this.highestEquity - currentEquity) / this.highestEquity) * 100 : 0;
+    
+    return {
+      isActive,
+      activationPrice,
+      activationPct: config.equityProtectionActivationPct || 0,
+      peakEquity: this.highestEquity,
+      drawdownLimitPct: config.equityTrailingDrawdownPct || 0,
+      currentDrawdownPct: Math.max(0, currentDrawdownPct),
+      sellThreshold,
+      triggerCount: this.equityProtCount
+    };
+  }
+
   public updateHighestEquity(currentEquity: number): void {
     if (currentEquity > this.highestEquity) {
       this.highestEquity = currentEquity;
@@ -34,6 +59,7 @@ export class PositionManager {
 
   public resetHighestEquity(equity: number = 200.0): void {
     this.highestEquity = equity;
+    this.initialEquity = equity;
   }
 
   public getPosition(symbol: string): Position | undefined {
@@ -142,6 +168,7 @@ export class PositionManager {
       profile: order.profile,
       source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
       executionMode: order.executionMode || 'TESTNET',
+      marketRegime: order.marketRegime,
     };
 
     this.activePositions.push(newPosition);
@@ -174,9 +201,10 @@ export class PositionManager {
     
     if (config.equityProtectionActivationPct !== undefined && config.equityTrailingDrawdownPct !== undefined) {
       const peakEquity = this.getHighestEquity();
-      const activationEquity = peakEquity * (1 + config.equityProtectionActivationPct / 100);
+      const activationEquity = this.initialEquity * (1 + config.equityProtectionActivationPct / 100);
       
-      if (currentEquity >= activationEquity) {
+      // If we ever hit activationEquity, the peakEquity will naturally be >= activationEquity
+      if (peakEquity >= activationEquity) {
         const drawdownFromPeak = (peakEquity - currentEquity) / peakEquity * 100;
         if (drawdownFromPeak >= config.equityTrailingDrawdownPct) {
           this.auditLogger('KILL_SWITCH_ENGAGED', `Equity Protection triggered! Drawdown of ${drawdownFromPeak.toFixed(2)}% exceeded limit of ${config.equityTrailingDrawdownPct}%. Closing all positions.`, {
@@ -184,6 +212,8 @@ export class PositionManager {
             currentEquity,
             drawdownFromPeak
           });
+          
+          this.equityProtCount++;
           
           for (const pos of [...this.activePositions]) {
             await orderManager.executeCloseOrder({
@@ -194,6 +224,10 @@ export class PositionManager {
               triggerStopValue: config.equityTrailingDrawdownPct,
             });
           }
+          
+          // Reset highest equity baseline so it doesn't immediately re-trigger on next tick
+          this.initialEquity = currentEquity;
+          this.highestEquity = currentEquity;
         }
       }
     }
@@ -209,16 +243,45 @@ export class PositionManager {
       pos.lowestPrice = Math.min(pos.lowestPrice || pos.entryPrice, currentPrice);
 
       // PNL calculation
-      const multiplier = pos.side === 'BUY' ? 1 : -1;
-      const pnlPct = ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100 * multiplier;
+      const isBuy = pos.side.toUpperCase() === 'BUY';
+      const pnlPct = isBuy
+        ? ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100
+        : ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100;
       pos.pnlPct = parseFloat(pnlPct.toFixed(2));
       pos.pnl = parseFloat(((pos.sizeUSDT * pnlPct) / 100).toFixed(2));
 
+      // Initialize stopLossPrice if undefined
+      if (pos.stopLossPrice === undefined) {
+        pos.stopLossPrice = pos.entryPrice * (1 - (pos.side === 'BUY' ? config.hardStopLossPct / 100 : -config.hardStopLossPct / 100));
+      }
+
+      // Take-Profit Logic
+      if (config.takeProfitPct > 0) {
+          if ((pos.side === 'BUY' && pnlPct >= config.takeProfitPct) || (pos.side === 'SELL' && pnlPct >= config.takeProfitPct)) {
+              this.auditLogger('POSITION_UPDATED', `Take-Profit triggered for ${pos.symbol} at +${pnlPct.toFixed(2)}%`);
+              await orderManager.executeCloseOrder({
+                position: pos,
+                reason: 'TAKE_PROFIT',
+                currentPrice,
+                exitReasonDetail: `Take-Profit declanșat: ținta de +${pnlPct.toFixed(2)}% a fost atinsă`,
+              });
+              continue;
+          }
+      }
+
+      // Break-Even Logic
+      if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && pos.stopLossPrice < pos.entryPrice) {
+          pos.stopLossPrice = pos.entryPrice * 1.0005; // Move SL to entry + 0.05% buffer
+          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
+      } else if (pos.side === 'SELL' && pnlPct >= config.breakEvenActivationPct && (pos.stopLossPrice === undefined || pos.stopLossPrice > pos.entryPrice)) {
+          pos.stopLossPrice = pos.entryPrice * 0.9995;
+          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
+      }
+
       // 1. Hard Stop Loss Check
-      if (pnlPct <= -config.hardStopLossPct) {
-        this.auditLogger('RISK_REJECTED', `Hard Stop-Loss triggered for ${pos.symbol} at ${pnlPct.toFixed(2)}% (limit: -${config.hardStopLossPct}%)`, {
+      if ((pos.side === 'BUY' && currentPrice <= pos.stopLossPrice) || (pos.side === 'SELL' && currentPrice >= pos.stopLossPrice)) {
+        this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at ${currentPrice}`, {
           symbol: pos.symbol,
-          pnlPct,
           currentPrice,
         });
 
@@ -226,8 +289,7 @@ export class PositionManager {
           position: pos,
           reason: 'STOP_LOSS',
           currentPrice,
-          exitReasonDetail: `Hard Stop-Loss triggered: Pierdere de ${pnlPct.toFixed(2)}% sub limita de -${config.hardStopLossPct}%`,
-          triggerStopValue: -config.hardStopLossPct,
+          exitReasonDetail: `Stop-Loss triggered`,
         });
         continue;
       }
@@ -306,7 +368,7 @@ export class PositionManager {
   }
 
   /**
-   * Marks a position as closed only after confirmation from Bybit / Adapter
+   * Marks a position as closed only after confirmation from OKX / Adapter
    */
   public async markPositionClosed(
     posId: string,
@@ -323,13 +385,33 @@ export class PositionManager {
     pos.exitPrice = exitPrice;
     pos.exitTime = exitTime;
 
-    const multiplier = pos.side === 'BUY' ? 1 : -1;
-    const finalPnlPct = ((exitPrice - pos.entryPrice) / pos.entryPrice) * 100 * multiplier;
+    const isBuy = pos.side.toUpperCase() === 'BUY';
+    const finalPnlPct = isBuy
+      ? ((exitPrice - pos.entryPrice) / pos.entryPrice) * 100
+      : ((pos.entryPrice - exitPrice) / pos.entryPrice) * 100;
     pos.pnlPct = parseFloat(finalPnlPct.toFixed(2));
 
     // Gross PnL strictly from price movement
-    const grossPnl = (pos.sizeUSDT * finalPnlPct) / 100;
-    pos.grossPnl = parseFloat(grossPnl.toFixed(4));
+    // Folosim valoarea reală de intrare pentru a evita problemele de sincronizare a sizeUSDT
+    const realNotional = pos.qty * pos.entryPrice;
+    const grossPnl = (realNotional * finalPnlPct) / 100;
+    
+    // Circuit Breaker: Dacă PnL-ul este aberant de mare (> 50% din notional), limităm/logăm eroarea
+    if (Math.abs(grossPnl) > realNotional * 0.5) {
+      this.auditLogger('CRITICAL_CALC_ERROR', `Anomalie PnL detectată pentru ${pos.symbol}: GrossPnL $${grossPnl.toFixed(2)} față de notional $${realNotional.toFixed(2)}. Limitând la 50%. Detalii Poziție: Qty=${pos.qty}, Entry=$${pos.entryPrice}, Exit=$${exitPrice}, Side=${pos.side}, SizeUSDT_Captured=${pos.sizeUSDT}`, {
+        symbol: pos.symbol,
+        grossPnl,
+        realNotional,
+        qty: pos.qty,
+        entryPrice: pos.entryPrice,
+        exitPrice,
+        side: pos.side,
+        sizeUSDT_Captured: pos.sizeUSDT
+      });
+      pos.grossPnl = parseFloat((Math.sign(grossPnl) * realNotional * 0.5).toFixed(4));
+    } else {
+      pos.grossPnl = parseFloat(grossPnl.toFixed(4));
+    }
 
     // Fees: Entry Fee + Exit Fee
     const entryFee = pos.entryFee || 0;
@@ -338,7 +420,11 @@ export class PositionManager {
     pos.exitFee = parseFloat(resolvedExitFee.toFixed(4));
 
     // Net PnL = grossPnl - (entryFee + exitFee)
-    const netPnl = grossPnl - (entryFee + resolvedExitFee);
+    // Protecție: Comisioanele totale nu pot depăși 5% din dimensiunea poziției (pentru a preveni bug-uri de calcul în volatilitate)
+    const maxAllowedFee = pos.sizeUSDT * 0.05;
+    const actualTotalFee = Math.min(entryFee + resolvedExitFee, maxAllowedFee);
+    
+    const netPnl = grossPnl - actualTotalFee;
     pos.pnl = parseFloat(netPnl.toFixed(2));
 
     this.activePositions.splice(index, 1);
@@ -388,33 +474,33 @@ export class PositionManager {
   }
 
   /**
-   * Reconciles internal positions against real Bybit positions.
-   * Bybit is the ultimate source of truth!
+   * Reconciles internal positions against real OKX exchange positions.
+   * OKX is the ultimate source of truth!
    */
-  public reconcileWithBybit(
-    bybitPositions: BybitRawPosition[],
+  public reconcileWithExchange(
+    exchangePositions: OKXRawPosition[],
     currentProfile: ProfileType
   ): {
     discrepanciesFound: number;
     syncedPositions: Position[];
   } {
     let discrepancies = 0;
-    const bybitMap = new Map<string, BybitRawPosition>();
+    const exchangeMap = new Map<string, OKXRawPosition>();
 
-    for (const bp of bybitPositions) {
-      bybitMap.set(bp.symbol, bp);
+    for (const ep of exchangePositions) {
+      exchangeMap.set(ep.symbol, ep);
     }
 
-    // 1. Check existing local positions against Bybit
+    // 1. Check existing local positions against OKX
     for (const localPos of [...this.activePositions]) {
-      const bybitPos = bybitMap.get(localPos.symbol);
+      const okxPos = exchangeMap.get(localPos.symbol);
 
-      if (!bybitPos || bybitPos.size <= 0) {
-        // Discrepancy: Local position was closed on Bybit (liquidation, manual close, or TP/SL hit)
+      if (!okxPos || okxPos.size <= 0) {
+        // Discrepancy: Local position was closed on OKX (liquidation, manual close, or TP/SL hit)
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Local position ${localPos.symbol} does not exist on Bybit. Marking as CLOSED locally.`,
+          `Local position ${localPos.symbol} does not exist on OKX. Marking as CLOSED locally.`,
           { symbol: localPos.symbol, localPos }
         );
 
@@ -426,67 +512,67 @@ export class PositionManager {
       }
 
       // Check quantity mismatch
-      if (Math.abs(localPos.qty - bybitPos.size) > 1e-6) {
+      if (Math.abs(localPos.qty - okxPos.size) > 1e-6) {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Quantity mismatch for ${localPos.symbol}: local=${localPos.qty}, Bybit=${bybitPos.size}. Updating to Bybit size.`,
-          { symbol: localPos.symbol, oldQty: localPos.qty, newQty: bybitPos.size }
+          `Quantity mismatch for ${localPos.symbol}: local=${localPos.qty}, OKX=${okxPos.size}. Updating to OKX size.`,
+          { symbol: localPos.symbol, oldQty: localPos.qty, newQty: okxPos.size }
         );
-        localPos.qty = bybitPos.size;
-        localPos.sizeUSDT = bybitPos.size * localPos.entryPrice;
+        localPos.qty = okxPos.size;
+        localPos.sizeUSDT = okxPos.size * localPos.entryPrice;
       }
 
       // Check side mismatch
-      const bybitSide = bybitPos.side.toUpperCase() as 'BUY' | 'SELL';
-      if (localPos.side !== bybitSide) {
+      const okxSide = okxPos.side.toUpperCase() as 'BUY' | 'SELL';
+      if (localPos.side !== okxSide) {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Side mismatch for ${localPos.symbol}: local=${localPos.side}, Bybit=${bybitSide}. Updating to Bybit side.`,
-          { symbol: localPos.symbol, oldSide: localPos.side, newSide: bybitSide }
+          `Side mismatch for ${localPos.symbol}: local=${localPos.side}, OKX=${okxSide}. Updating to OKX side.`,
+          { symbol: localPos.symbol, oldSide: localPos.side, newSide: okxSide }
         );
-        localPos.side = bybitSide;
+        localPos.side = okxSide;
       }
 
       // Check entry price mismatch
-      if (bybitPos.avgPrice > 0 && Math.abs(localPos.entryPrice - bybitPos.avgPrice) > 0.01) {
+      if (okxPos.avgPrice > 0 && Math.abs(localPos.entryPrice - okxPos.avgPrice) > 0.01) {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Entry price mismatch for ${localPos.symbol}: local=$${localPos.entryPrice}, Bybit=$${bybitPos.avgPrice}. Updating to Bybit price.`,
-          { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: bybitPos.avgPrice }
+          `Entry price mismatch for ${localPos.symbol}: local=$${localPos.entryPrice}, OKX=$${okxPos.avgPrice}. Updating to OKX price.`,
+          { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: okxPos.avgPrice }
         );
-        localPos.entryPrice = bybitPos.avgPrice;
-        localPos.sizeUSDT = localPos.qty * bybitPos.avgPrice;
+        localPos.entryPrice = okxPos.avgPrice;
+        localPos.sizeUSDT = localPos.qty * okxPos.avgPrice;
       }
 
       // Remove from map so we know it's matched
-      bybitMap.delete(localPos.symbol);
+      exchangeMap.delete(localPos.symbol);
     }
 
-    // 2. Any remaining positions in Bybit exist on exchange but were missing locally
-    for (const [symbol, unmappedBybitPos] of bybitMap.entries()) {
-      if (unmappedBybitPos.size <= 0) continue;
+    // 2. Any remaining positions on OKX exist on exchange but were missing locally
+    for (const [symbol, unmappedOkxPos] of exchangeMap.entries()) {
+      if (unmappedOkxPos.size <= 0) continue;
 
       discrepancies++;
-      const side = unmappedBybitPos.side.toUpperCase() as 'BUY' | 'SELL';
-      const entryPrice = unmappedBybitPos.avgPrice || unmappedBybitPos.markPrice;
-      const sizeUSDT = unmappedBybitPos.size * entryPrice;
+      const side = unmappedOkxPos.side.toUpperCase() as 'BUY' | 'SELL';
+      const entryPrice = unmappedOkxPos.avgPrice || unmappedOkxPos.markPrice;
+      const sizeUSDT = unmappedOkxPos.size * entryPrice;
 
       const importedPos: Position = {
-        id: `bybit_sync_${Date.now()}_${symbol}`,
+        id: `okx_sync_${Date.now()}_${symbol}`,
         symbol,
         side,
-        qty: unmappedBybitPos.size,
+        qty: unmappedOkxPos.size,
         entryPrice,
         sizeUSDT,
         status: 'OPEN',
-        entryTime: unmappedBybitPos.updatedTime || Date.now(),
+        entryTime: unmappedOkxPos.updatedTime || Date.now(),
         highestPrice: entryPrice,
         lowestPrice: entryPrice,
         profile: currentProfile,
-        source: 'BYBIT_SYNC',
+        source: 'OKX_SYNC',
         executionMode: 'TESTNET',
       };
 
@@ -494,7 +580,7 @@ export class PositionManager {
 
       this.auditLogger(
         'RECONCILIATION_DISCREPANCY',
-        `Discovered unmapped position on Bybit: ${symbol} (${side} ${unmappedBybitPos.size} @ $${entryPrice}). Imported into TradeBot state.`,
+        `Discovered unmapped position on OKX: ${symbol} (${side} ${unmappedOkxPos.size} @ $${entryPrice}). Imported into TradeBot state.`,
         { symbol, importedPos }
       );
     }

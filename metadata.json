@@ -1,6 +1,6 @@
 {
   "name": "TradeBot 5",
-  "description": "A streamlined algorithmic trading application for Bybit USDT Linear Perpetuals with Dynamic Universe discovery, Market Scanner ranking, and a unified Momentum Engine pipeline (SCALP / MOMENTUM).",
+  "description": "A streamlined algorithmic trading application for OKX EEA USDT SWAP Perpetuals with Dynamic Universe discovery, Market Scanner ranking, and a unified Momentum Engine pipeline (SCALP / MOMENTUM).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

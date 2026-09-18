@@ -1,5 +1,23 @@
-import { Kline, BybitRawPosition, OrderStatus } from '../../shared/types';
-import { InstrumentLotFilter, ConnectionTestResult } from './BybitAdapter';
+import { Kline, OKXRawPosition, OrderStatus } from '../../shared/types';
+
+export interface InstrumentLotFilter {
+  symbol: string;
+  minOrderQty: number;
+  maxOrderQty: number;
+  qtyStep: number;
+  minNotionalValue: number;
+  tickSize: number;
+  ctVal?: number;
+  ctValCcy?: string;
+}
+
+export interface ConnectionTestResult {
+  reachable: boolean;
+  authenticated: boolean;
+  accountType?: string;
+  equity?: number;
+  error?: string;
+}
 
 export interface IExecutionAdapter {
   testConnection(): Promise<ConnectionTestResult>;
@@ -8,7 +26,7 @@ export interface IExecutionAdapter {
   getTickerPrice(symbol: string): Promise<number | null>;
   getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter>;
   formatQuantity(symbol: string, desiredQty: number, currentPrice: number): Promise<number>;
-  getOpenPositions(settleCoin?: string): Promise<BybitRawPosition[]>;
+  getOpenPositions(settleCoin?: string): Promise<OKXRawPosition[]>;
   submitOrder(params: {
     symbol: string;
     side: 'Buy' | 'Sell';
@@ -33,7 +51,7 @@ export interface IExecutionAdapter {
   cancelOrder(symbol: string, orderId?: string, orderLinkId?: string): Promise<boolean>;
   hasCredentials(): boolean;
   isTestnet(): boolean;
-  updateCredentials?(apiKey: string, apiSecret: string, testnet?: boolean): void;
+  updateCredentials?(apiKey: string, secretKey: string, passphrase?: string, isDemo?: boolean): void;
   initWebSocket?(symbols?: string[]): void;
   close?(): void;
 
@@ -44,3 +62,4 @@ export interface IExecutionAdapter {
   onWalletUpdate?: (wallet: any) => void;
   onConnectionChange?: (connected: boolean, message: string) => void;
 }
+

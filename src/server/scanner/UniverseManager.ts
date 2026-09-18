@@ -1,5 +1,4 @@
 import { UniverseFilterConfig, AuditLogType } from '../../shared/types';
-import { RestClientV5 } from 'bybit-api';
 
 export interface MarketTickerInfo {
   symbol: string;
@@ -20,23 +19,21 @@ export interface FilteredUniverseResult {
 export const DEFAULT_UNIVERSE_FILTER: UniverseFilterConfig = {
   min24hVolumeUSDT: 5_000_000, // 5M USDT 24h turnover minimum
   minPrice: 0.0001,
-  maxSymbols: 30,             // Top 30 liquid candidates scanned per cycle
+  maxSymbols: 500,             // Permitem până la 500 de simboluri
   settleCoin: 'USDT',
   refreshIntervalMs: 15 * 60 * 1000, // 15 minutes
 };
 
 export class UniverseManager {
-  private restClient: RestClientV5;
+  private okxBaseUrl: string = 'https://eea.okx.com';
   private cachedUniverse: string[] = [];
   private lastRefreshTime: number = 0;
   private logAuditFn?: (type: AuditLogType, message: string, details?: any) => void;
 
   constructor(
-    logAudit?: (type: AuditLogType, message: string, details?: any) => void,
-    restClient?: RestClientV5
+    logAudit?: (type: AuditLogType, message: string, details?: any) => void
   ) {
     this.logAuditFn = logAudit;
-    this.restClient = restClient || new RestClientV5({ testnet: false });
   }
 
   public setAuditLogger(fn: (type: AuditLogType, message: string, details?: any) => void) {
@@ -44,7 +41,7 @@ export class UniverseManager {
   }
 
   /**
-   * Fetches active USDT Linear Perpetual instruments from Bybit.
+   * Fetches active USDT SWAP (Perpetual) instruments from OKX EEA.
    * Caches results and refreshes only when stale or forced.
    */
   public async refreshUniverse(
@@ -59,54 +56,50 @@ export class UniverseManager {
     }
 
     try {
-      // 1. Fetch linear instruments from Bybit public endpoint
-      // Using RestClientV5 with linear category
-      const res = await this.restClient.getInstrumentsInfo({
-        category: 'linear',
-        limit: 1000,
-      });
+      // Fetch SWAP instruments from OKX EEA public endpoint
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/public/instruments?instType=SWAP`);
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data.code === '0' && Array.isArray(data.data)) {
+          const usdtSwaps = data.data.filter((inst: any) => {
+            const isLive = inst.state === 'live';
+            const isUsdtSettle = (inst.settleCcy || '').toUpperCase() === (filterConfig.settleCoin || 'USDT').toUpperCase();
+            return isLive && isUsdtSettle;
+          });
 
-      if (res.retCode === 0 && Array.isArray(res.result?.list)) {
-        const linearPerps = res.result.list.filter((inst: any) => {
-          const isTrading = inst.status === 'Trading';
-          const isUsdtSettle = (inst.settleCoin || inst.quoteCoin) === (filterConfig.settleCoin || 'USDT');
-          const isPerpetual = !inst.deliveryTime || inst.deliveryTime === '0' || inst.contractType === 'LinearPerpetual';
-          return isTrading && isUsdtSettle && isPerpetual;
-        });
+          const symbols = usdtSwaps.map((i: any) => i.instId);
 
-        const symbols = linearPerps.map((i: any) => i.symbol);
+          if (symbols.length > 0) {
+            const previousCount = this.cachedUniverse.length;
+            this.cachedUniverse = symbols;
+            this.lastRefreshTime = now;
 
-        if (symbols.length > 0) {
-          const previousCount = this.cachedUniverse.length;
-          this.cachedUniverse = symbols;
-          this.lastRefreshTime = now;
+            this.logAuditFn?.(
+              'UNIVERSE_REFRESH',
+              `Dynamic Universe refreshed: ${symbols.length} active USDT SWAP Perpetuals discovered from OKX EEA.`,
+              { totalCount: symbols.length, previousCount }
+            );
 
-          this.logAuditFn?.(
-            'UNIVERSE_REFRESH',
-            `Dynamic Universe refreshed: ${symbols.length} active USDT Linear Perpetuals discovered from Bybit.`,
-            { totalCount: symbols.length, previousCount }
-          );
-
-          return this.cachedUniverse;
+            return this.cachedUniverse;
+          }
         }
       }
     } catch (err: any) {
-      console.warn('[UniverseManager] Bybit instruments query error, trying public HTTP fallback:', err?.message || err);
-      // Fallback via direct fetch to public API
+      console.warn('[UniverseManager] OKX EEA instruments query error, trying fallback:', err?.message || err);
       try {
-        const fallbackRes = await fetch('https://api.bybit.com/v5/market/instruments-info?category=linear&limit=1000');
+        const fallbackRes = await fetch('https://www.okx.com/api/v5/public/instruments?instType=SWAP');
         if (fallbackRes.ok) {
           const data: any = await fallbackRes.json();
-          if (data.retCode === 0 && Array.isArray(data.result?.list)) {
-            const symbols = data.result.list
-              .filter((inst: any) => inst.status === 'Trading' && (inst.settleCoin || inst.quoteCoin) === 'USDT')
-              .map((i: any) => i.symbol);
+          if (data.code === '0' && Array.isArray(data.data)) {
+            const symbols = data.data
+              .filter((inst: any) => inst.state === 'live' && inst.settleCcy === 'USDT')
+              .map((i: any) => i.instId);
             if (symbols.length > 0) {
               this.cachedUniverse = symbols;
               this.lastRefreshTime = now;
               this.logAuditFn?.(
                 'UNIVERSE_REFRESH',
-                `Dynamic Universe refreshed via fallback: ${symbols.length} active USDT pairs.`,
+                `Dynamic Universe refreshed via fallback: ${symbols.length} active OKX USDT pairs.`,
                 { totalCount: symbols.length }
               );
               return this.cachedUniverse;
@@ -114,21 +107,21 @@ export class UniverseManager {
           }
         }
       } catch (fbErr) {
-        console.error('[UniverseManager] Public HTTP fallback also failed:', fbErr);
+        console.error('[UniverseManager] Fallback instruments fetch failed:', fbErr);
       }
     }
 
-    // If fetch failed but we have cached symbols, retain them
     if (this.cachedUniverse.length > 0) {
       return this.cachedUniverse;
     }
 
-    // Safety fallback: standard high-liquidity crypto perps
+    // Standard high-liquidity OKX SWAP perpetual universe
     const standardUniverse = [
-      'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-      'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'SUIUSDT',
-      'NEARUSDT', 'APTUSDT', 'OPUSDT', 'ARBUSDT', 'RENDERUSDT',
-      'FETUSDT', 'INJUSDT', 'TIAUSDT', 'SEIUSDT', 'PEPEUSDT'
+      'BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP', 'XRP-USDT-SWAP',
+      'DOGE-USDT-SWAP', 'ADA-USDT-SWAP', 'AVAX-USDT-SWAP', 'LINK-USDT-SWAP',
+      'SUI-USDT-SWAP', 'NEAR-USDT-SWAP', 'APT-USDT-SWAP', 'OP-USDT-SWAP',
+      'ARB-USDT-SWAP', 'RENDER-USDT-SWAP', 'FET-USDT-SWAP', 'INJ-USDT-SWAP',
+      'TIA-USDT-SWAP', 'SEI-USDT-SWAP', 'PEPE-USDT-SWAP'
     ];
     this.cachedUniverse = standardUniverse;
     this.lastRefreshTime = now;
@@ -136,59 +129,64 @@ export class UniverseManager {
   }
 
   /**
-   * Fetches 24h market tickers for all linear perps in a single batch call.
+   * Fetches 24h market tickers for all SWAP perpetuals from OKX EEA in a single call.
    */
   public async fetch24hTickers(): Promise<Record<string, MarketTickerInfo>> {
     const tickersMap: Record<string, MarketTickerInfo> = {};
 
     try {
-      const res = await this.restClient.getTickers({ category: 'linear' });
-      if (res.retCode === 0 && Array.isArray(res.result?.list)) {
-        for (const item of res.result.list) {
-          const symbol = item.symbol;
-          const lastPrice = parseFloat(item.lastPrice || '0');
-          const turnover24hUSDT = parseFloat(item.turnover24h || '0');
-          const volume24h = parseFloat(item.volume24h || '0');
-          const priceChange24hPct = parseFloat(item.price24hPcnt || '0') * 100;
-          const highPrice24h = parseFloat(item.highPrice24h || '0');
-          const lowPrice24h = parseFloat(item.lowPrice24h || '0');
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/tickers?instType=SWAP`);
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data.code === '0' && Array.isArray(data.data)) {
+          for (const item of data.data) {
+            const symbol = item.instId;
+            const lastPrice = parseFloat(item.last || '0');
+            // volCcy24h in OKX is 24h turnover in quote currency (USDT)
+            const turnover24hUSDT = parseFloat(item.volCcy24h || '0');
+            const volume24h = parseFloat(item.vol24h || '0');
+            const open24h = parseFloat(item.open24h || '0');
+            const priceChange24hPct = open24h > 0 ? ((lastPrice - open24h) / open24h) * 100 : 0;
+            const highPrice24h = parseFloat(item.high24h || '0');
+            const lowPrice24h = parseFloat(item.low24h || '0');
 
-          if (symbol && lastPrice > 0) {
-            tickersMap[symbol] = {
-              symbol,
-              lastPrice,
-              turnover24hUSDT,
-              volume24h,
-              priceChange24hPct,
-              highPrice24h,
-              lowPrice24h,
-            };
+            if (symbol && lastPrice > 0) {
+              tickersMap[symbol] = {
+                symbol,
+                lastPrice,
+                turnover24hUSDT,
+                volume24h,
+                priceChange24hPct,
+                highPrice24h,
+                lowPrice24h,
+              };
+            }
           }
+          return tickersMap;
         }
-        return tickersMap;
       }
     } catch (err: any) {
-      console.warn('[UniverseManager] getTickers failed, trying fallback HTTP:', err?.message || err);
+      console.warn('[UniverseManager] OKX getTickers failed, trying fallback:', err?.message || err);
       try {
-        const fbRes = await fetch('https://api.bybit.com/v5/market/tickers?category=linear');
+        const fbRes = await fetch('https://www.okx.com/api/v5/market/tickers?instType=SWAP');
         if (fbRes.ok) {
           const data: any = await fbRes.json();
-          if (data.retCode === 0 && Array.isArray(data.result?.list)) {
-            for (const item of data.result.list) {
-              const symbol = item.symbol;
-              const lastPrice = parseFloat(item.lastPrice || '0');
-              const turnover24hUSDT = parseFloat(item.turnover24h || '0');
-              const volume24h = parseFloat(item.volume24h || '0');
-              const priceChange24hPct = parseFloat(item.price24hPcnt || '0') * 100;
+          if (data.code === '0' && Array.isArray(data.data)) {
+            for (const item of data.data) {
+              const symbol = item.instId;
+              const lastPrice = parseFloat(item.last || '0');
+              const turnover24hUSDT = parseFloat(item.volCcy24h || '0');
+              const open24h = parseFloat(item.open24h || '0');
+              const priceChange24hPct = open24h > 0 ? ((lastPrice - open24h) / open24h) * 100 : 0;
               if (symbol && lastPrice > 0) {
                 tickersMap[symbol] = {
                   symbol,
                   lastPrice,
                   turnover24hUSDT,
-                  volume24h,
+                  volume24h: parseFloat(item.vol24h || '0'),
                   priceChange24hPct,
-                  highPrice24h: parseFloat(item.highPrice24h || '0'),
-                  lowPrice24h: parseFloat(item.lowPrice24h || '0'),
+                  highPrice24h: parseFloat(item.high24h || '0'),
+                  lowPrice24h: parseFloat(item.low24h || '0'),
                 };
               }
             }
@@ -196,7 +194,7 @@ export class UniverseManager {
           }
         }
       } catch (fbErr) {
-        console.error('[UniverseManager] Ticker fallback failed:', fbErr);
+        console.error('[UniverseManager] OKX Ticker fallback failed:', fbErr);
       }
     }
 

@@ -37,7 +37,25 @@ export class OrderManager {
   }
 
   public getOrders(): OrderRecord[] {
-    return Array.from(this.orders.values()).sort((a, b) => b.createdTime - a.createdTime);
+    const list = Array.from(this.orders.values()).sort((a, b) => b.createdTime - a.createdTime);
+    if (list.length > 200) {
+      // Keep only 200 most recent
+      this.orders.clear();
+      for (const o of list.slice(0, 200)) {
+        this.orders.set(o.id, o);
+      }
+      return list.slice(0, 200);
+    }
+    return list;
+  }
+
+  public setOrders(orders: OrderRecord[]) {
+    this.orders.clear();
+    for (const order of (orders || []).slice(0, 200)) {
+      if (order && order.id) {
+        this.orders.set(order.id, order);
+      }
+    }
   }
 
   public getOrder(id: string): OrderRecord | undefined {
@@ -80,8 +98,9 @@ export class OrderManager {
     riskApproval: RiskApproval;
     currentPrice: number;
     profile: ProfileType;
+    marketRegime?: string;
   }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
-    const { signal, riskApproval, currentPrice, profile } = params;
+    const { signal, riskApproval, currentPrice, profile, marketRegime } = params;
 
     // 1. Check for in-flight pending order for this symbol to prevent duplicate entries
     if (this.hasPendingOrderForSymbol(signal.symbol)) {
@@ -140,6 +159,7 @@ export class OrderManager {
       intent: 'ENTRY',
       profile,
       executionMode: this.executionMode,
+      marketRegime,
     };
 
     this.orders.set(clientOrderId, orderRecord);
@@ -156,10 +176,10 @@ export class OrderManager {
     });
 
     try {
-      const bybitSide = signal.side === 'BUY' ? 'Buy' : 'Sell';
+      const orderSide = signal.side === 'BUY' ? 'Buy' : 'Sell';
       const submitRes = await this.exchange.submitOrder({
         symbol: signal.symbol,
-        side: bybitSide,
+        side: orderSide,
         orderType: 'Market',
         qty: formattedQty,
         orderLinkId: clientOrderId,
@@ -211,7 +231,7 @@ export class OrderManager {
    */
   public async executeCloseOrder(params: {
     position: Position;
-    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
+    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
     currentPrice?: number;
     exitReasonDetail?: string;
     triggerStopValue?: number;
@@ -224,14 +244,18 @@ export class OrderManager {
       return { success: false, error: `Position ${position.symbol} is already closed.` };
     }
 
+    // Immediately lock position status to prevent concurrent duplicate close triggers from rapid ticks
+    position.status = 'CLOSING';
+
     if (this.hasPendingOrderForSymbol(position.symbol)) {
+      position.status = 'OPEN'; // Revert status lock
       const err = `A pending order already exists for ${position.symbol}. Close order postponed until pending order completes.`;
       this.auditLogger('ORDER_FAILED', err, { symbol: position.symbol, positionId: position.id });
       return { success: false, error: err };
     }
 
     const closeSide: OrderSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-    const bybitSide: 'Buy' | 'Sell' = closeSide === 'BUY' ? 'Buy' : 'Sell';
+    const orderSide: 'Buy' | 'Sell' = closeSide === 'BUY' ? 'Buy' : 'Sell';
     const clientOrderId = `tb5_close_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     // Quantity to close equals the open position quantity
@@ -266,7 +290,7 @@ export class OrderManager {
 
     this.orders.set(clientOrderId, closeOrder);
 
-    this.auditLogger('ORDER_SUBMITTED', `Submitting Close Order for ${position.symbol} (${reason}) - Side: ${bybitSide}, Qty: ${formattedQty} via ${this.executionMode}`, {
+    this.auditLogger('ORDER_SUBMITTED', `Submitting Close Order for ${position.symbol} (${reason}) - Side: ${orderSide}, Qty: ${formattedQty} via ${this.executionMode}`, {
       orderId: clientOrderId,
       symbol: position.symbol,
       reason,
@@ -279,7 +303,7 @@ export class OrderManager {
     try {
       const submitRes = await this.exchange.submitOrder({
         symbol: position.symbol,
-        side: bybitSide,
+        side: orderSide,
         orderType: 'Market',
         qty: formattedQty,
         orderLinkId: clientOrderId,
@@ -354,7 +378,8 @@ export class OrderManager {
         return { success: true, order: closeOrder };
       } else {
         // Neither FILLED nor PARTIALLY_FILLED (e.g. still SUBMITTED / ACCEPTED or FAILED)
-        // STRICT RULE: Do NOT mark position closed!
+        // STRICT RULE: Do NOT mark position closed, reset position status to OPEN so it can retry!
+        position.status = 'OPEN';
         const errorMsg = `Close order for ${position.symbol} not confirmed filled (status: ${closeOrder.status}). Position remains OPEN.`;
         this.auditLogger('ORDER_FAILED', errorMsg, {
           positionId: position.id,
@@ -365,6 +390,7 @@ export class OrderManager {
         return { success: false, order: closeOrder, error: errorMsg };
       }
     } catch (err: any) {
+      position.status = 'OPEN'; // Reset position status to OPEN on exception
       closeOrder.status = 'FAILED';
       closeOrder.rejectionReason = err.message || 'Close order failed';
       closeOrder.updatedTime = Date.now();

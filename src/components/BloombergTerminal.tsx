@@ -116,6 +116,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
   const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.4);
   const [minMomentum, setMinMomentum] = useState(profileConfig?.minMomentumScore ?? 60);
+  const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
+  const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 60);
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
@@ -124,6 +126,59 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [showClearLogsConfirm, setShowClearLogsConfirm] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tempToken, setTempToken] = useState(controlToken);
+  const [chartSymbol, setChartSymbol] = useState('BTCUSDT');
+  const [symbolSearchQuery, setSymbolSearchQuery] = useState('');
+  const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
+
+  const allUniverseSymbols = Array.from(new Set([
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
+    'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'SUIUSDT',
+    'NEARUSDT', 'APTUSDT', 'OPUSDT', 'ARBUSDT', 'RENDERUSDT',
+    'FETUSDT', 'INJUSDT', 'TIAUSDT', 'SEIUSDT', 'PEPEUSDT',
+    'POLUSDT', 'ATOMUSDT', 'ICPUSDT', 'SHIBUSDT', 'WIFUSDT',
+    'BONKUSDT', 'FLOKIUSDT', 'PENDLEUSDT', 'JUPUSDT', 'WLDUSDT',
+    'CRVUSDT', 'AAVEUSDT', 'MKRUSDT', 'UNIUSDT', 'FILUSDT',
+    'PUMPUSDT', 'IOSTUSDT', 'BOMEUSDT', 'AKEUSDT', 'TURBOUSDT',
+    'ONEOUSDT', 'RESOLVUSDT', 'EDENUSDT', 'FLOCKUSDT', 'ENAUSDT',
+    'MONUSDT', 'DGAIUSDT', 'PONSUSDT', 'TRIAUSDT', 'USELESSUSDT',
+    'TONUSDT', 'LDOUSDT', 'GRTUSDT', 'RNDRUSDT', 'DYDXUSDT', 
+    'GMXUSDT', 'IMXUSDT', 'COMPUSDT', 'SNXUSDT', 'AXSUSDT', 
+    'SANDUSDT', 'MANAUSDT', 'CHZUSDT', 'THETAUSDT', 'FTMUSDT',
+    ...(status?.marketOpportunities?.map(o => o.symbol) || []),
+    ...(status?.scannerStats?.candidates?.map((c: any) => c.symbol) || [])
+  ]));
+
+  const filteredSymbols = allUniverseSymbols.filter(s =>
+    s.toLowerCase().includes(symbolSearchQuery.toLowerCase())
+  );
+
+  const loadTradingViewChart = (symbol: string) => {
+    setChartSymbol(symbol);
+    setSymbolSearchQuery('');
+    setShowSymbolDropdown(false);
+    const script = document.createElement('script');
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    const cleanSym = symbol.replace(/-SWAP$/i, '').replace(/-/g, '');
+    script.innerHTML = JSON.stringify({
+      "autosize": true,
+      "symbol": `OKX:${cleanSym}.P`,
+      "interval": "D",
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "allow_symbol_change": true,
+      "calendar": false,
+      "support_host": "https://www.tradingview.com"
+    });
+    const container = document.getElementById('tradingview-widget-container');
+    if (container) {
+      container.innerHTML = '';
+      container.appendChild(script);
+    }
+  };
 
   // Helper to export data as CSV / Excel-compatible format
   const exportToCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -173,6 +228,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       'Entry Price',
       'Exit Reason Detail',
       'Holding Time (min)',
+      'Market Regime',
       'Created At',
       'Updated At',
     ];
@@ -196,6 +252,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.entryPrice || '',
       o.exitReasonDetail || '',
       o.holdingTimeMinutes || '',
+      o.marketRegime || '',
       new Date(o.createdTime).toLocaleString(),
       o.updatedTime ? new Date(o.updatedTime).toLocaleString() : '',
     ]);
@@ -218,9 +275,24 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     exportToCSV(`TradeBot_DeskLogs_${timestamp}.csv`, headers, rows);
   };
 
-  // Sync local state when profileConfig or activeProfile changes
+  const hasUnsavedSettings = profileConfig ? (
+    riskPerTrade !== (profileConfig.riskPerTradePct ?? 10) ||
+    maxPositions !== (profileConfig.maxOpenPositions ?? 5) ||
+    hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
+    trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
+    trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
+    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
+    takeProfit !== (profileConfig.takeProfitPct ?? 0) ||
+    breakEven !== (profileConfig.breakEvenActivationPct ?? 1.0) ||
+    maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
+    equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 0) ||
+    equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0) ||
+    cooldownMins !== (profileConfig.cooldownMinutes ?? 5)
+  ) : false;
+
+  // Sync local state when profileConfig or activeProfile changes, but NOT if there are unsaved settings
   useEffect(() => {
-    if (profileConfig) {
+    if (profileConfig && !hasUnsavedSettings) {
       setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
       setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
       setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
@@ -229,24 +301,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
       setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
       setMinMomentum(profileConfig.minMomentumScore ?? 60);
+      setTakeProfit(profileConfig.takeProfitPct ?? 0);
+      setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
       setCooldownMins(profileConfig.cooldownMinutes ?? 5);
       setSettingsSavedMessage(null);
     }
-  }, [profileConfig, activeProfile]);
-
-  const hasUnsavedSettings = profileConfig ? (
-    riskPerTrade !== (profileConfig.riskPerTradePct ?? 10) ||
-    maxPositions !== (profileConfig.maxOpenPositions ?? 5) ||
-    hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
-    trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
-    trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
-    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
-    maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
-    equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 0) ||
-    equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0) ||
-    cooldownMins !== (profileConfig.cooldownMinutes ?? 5)
-  ) : false;
+  }, [profileConfig, activeProfile, hasUnsavedSettings]);
 
   const handleSaveAllSettings = () => {
     onUpdateProfileSettings(activeProfile, {
@@ -256,6 +317,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       trailingActivationPct: trailingAct,
       trailingDistancePct: trailingDist,
       minMomentumScore: minMomentum,
+      takeProfitPct: takeProfit,
+      breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
       equityProtectionActivationPct: equityProtAct,
       equityTrailingDrawdownPct: equityTrailingDraw,
@@ -273,6 +336,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
     setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
     setMinMomentum(profileConfig.minMomentumScore ?? 60);
+    setTakeProfit(profileConfig.takeProfitPct ?? 0);
+    setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
     setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
     setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
@@ -496,18 +561,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
       <header className="bg-amber-600 text-black px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 md:gap-0">
         <div className="flex items-center justify-between md:justify-start w-full md:w-auto space-x-2 md:space-x-3">
-          <span className="bg-black text-amber-500 px-2 py-0.5 rounded text-[11px] tracking-widest font-extrabold border border-amber-500/50">
+          <span className="bg-black text-amber-500 px-3 py-1 rounded text-base tracking-widest font-black border border-amber-500/50">
             <span className="hidden sm:inline">BLOOMBERG // TRADEBOT v5.0 PRO</span>
             <span className="sm:hidden">BBG // TRADEBOT</span>
           </span>
           <span className="hidden lg:inline">DESK: SECURE-QUANT-01</span>
           <span className="hidden lg:inline">|</span>
           <span className="hidden md:inline">FEED: {status?.config?.executionMode || 'PAPER'} (TESTNET)</span>
+          <span className="hidden md:inline">|</span>
+          <span className="font-mono text-[10px] bg-black text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/50">{status?.marketRegime || 'BTC: --'}</span>
           <button
             onClick={() => {
-              if (window.confirm('Reset paper account to $200.00? This will wipe equity.')) {
-                onResetPaper();
-              }
+              onResetPaper();
             }}
             className="md:hidden bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[10px]"
           >
@@ -516,28 +581,26 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-2 md:space-x-4">
           <div className="flex items-center space-x-2 shrink-0">
-            <span className="bg-black/90 text-emerald-400 px-2 py-0.5 rounded text-[11px] font-mono">
+            <span className="bg-black/90 text-emerald-400 px-2 py-0.5 rounded text-base font-mono">
               EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
             </span>
-            <span className={`px-2 py-0.5 rounded text-[11px] font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
+            <span className={`px-2 py-0.5 rounded text-base font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={() => setShowTokenModal(true)}
-              className="bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[11px]"
+              className="bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-xs"
               title="Set Bot Control Token"
             >
               <span>AUTH</span>
             </button>
             <button
               onClick={() => {
-                if (window.confirm('Reset paper account to $200.00? This will wipe equity.')) {
-                  onResetPaper();
-                }
+                onResetPaper();
               }}
-              className="hidden md:flex bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 items-center space-x-1 text-[11px]"
+              className="hidden md:flex bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 items-center space-x-1 text-xs"
             >
               <span>RESET BAL</span>
             </button>
@@ -682,10 +745,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
       {/* 4. MAIN TERMINAL WORKSPACE GRID */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 p-2 bg-black overflow-y-auto">
-        {/* LEFT / CENTER MODULE CONTENT (8 Cols on LG) */}
-        <div className="lg:col-span-8 flex flex-col space-y-2">
+        {/* LEFT / CENTER MODULE CONTENT (6 Cols on LG) */}
+        <div className="lg:col-span-6 flex flex-col space-y-2">
           {activeScreen === 'PORT' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col flex-1 min-h-[300px]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                 <div className="flex items-center space-x-2">
                   <Terminal className="w-4 h-4 text-amber-500" />
@@ -695,7 +758,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
 
               {/* PORTFOLIO METRICS */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <div className="bg-black border border-amber-500/20 p-3 rounded">
                   <div className="text-slate-400 text-[10px] tracking-wider mb-1">SESSION REALIZED PNL</div>
                   <div className={`text-lg font-bold ${(status?.sessionRealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -703,12 +766,109 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
                 <div className="bg-black border border-amber-500/20 p-3 rounded">
-                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">LOCKED CAPITAL (USDT)</div>
+                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">TOTAL EXPOSURE (USDT)</div>
                   <div className="text-lg font-bold text-cyan-400">
                     ${lockedCapital.toFixed(2)}
                   </div>
                 </div>
+                <div className="bg-black border border-amber-500/20 p-3 rounded">
+                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">WIN RATE</div>
+                  <div className="text-lg font-bold text-amber-400">
+                    {status?.performanceMetrics?.winRate !== undefined ? `${status.performanceMetrics.winRate}%` : '0.00%'}
+                    <span className="text-[10px] text-slate-500 font-normal ml-1">({status?.performanceMetrics?.winningTrades || 0}W / {status?.performanceMetrics?.losingTrades || 0}L)</span>
+                  </div>
+                </div>
+                <div className="bg-black border border-amber-500/20 p-3 rounded">
+                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">PROFIT FACTOR</div>
+                  <div className="text-lg font-bold text-amber-400">
+                    {status?.performanceMetrics?.profitFactor !== undefined ? status.performanceMetrics.profitFactor : '0.00'}
+                  </div>
+                </div>
               </div>
+
+              {/* ADVANCED STATS SUB-GRID */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 bg-black border border-amber-500/20 p-3 rounded text-xs">
+                <div>
+                  <div className="text-slate-500 text-[10px]">EXPECTANCY (AVG/TR)</div>
+                  <div className={`font-bold ${(status?.performanceMetrics?.expectancy || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {(status?.performanceMetrics?.expectancy || 0) >= 0 ? '+' : ''}${status?.performanceMetrics?.expectancy?.toFixed(2) || '0.00'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">MAX DRAWDOWN</div>
+                  <div className="font-bold text-rose-400">
+                    -{status?.performanceMetrics?.maxDrawdownPct?.toFixed(2) || '0.00'}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">AVG WIN / LOSS</div>
+                  <div className="font-bold text-zinc-300">
+                    +${status?.performanceMetrics?.avgWin?.toFixed(2) || '0.00'} / -${status?.performanceMetrics?.avgLoss?.toFixed(2) || '0.00'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">TOTAL CLOSED TRADES</div>
+                  <div className="font-bold text-amber-300">
+                    {status?.performanceMetrics?.totalClosed || 0}
+                  </div>
+                </div>
+              </div>
+
+              {/* EQUITY TRAILING PROTECTION CARD */}
+              {status?.equityTrailingState && (
+                <div className="bg-black border border-amber-500/20 rounded p-3 mb-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+                    <h3 className="font-bold text-amber-500 uppercase tracking-wider text-sm flex items-center gap-2">
+                      EQUITY TRAILING PROTECTION
+                      {status.equityTrailingState.isActive ? (
+                        <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/50 px-2 py-0.5 rounded text-[10px]">
+                          ACTIV - URMĂREȘTE VÂRFUL
+                        </span>
+                      ) : (
+                        <span className="bg-amber-950 text-amber-400 border border-amber-500/50 px-2 py-0.5 rounded text-[10px]">
+                          AȘTEPTARE PROFIT (NECESITĂ +{status.equityTrailingState.activationPct.toFixed(2)}%)
+                        </span>
+                      )}
+                    </h3>
+                  </div>
+                  
+                  <p className="text-xs text-slate-400 mb-4">
+                    {status.equityTrailingState.isActive 
+                      ? `Urmărirea este activă. Se va închide automat la o retragere de ${status.equityTrailingState.drawdownLimitPct.toFixed(2)}% din vârful atins. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
+                      : `Urmărirea se activează când contul atinge $${status.equityTrailingState.activationPrice.toFixed(2)} (+${status.equityTrailingState.activationPct.toFixed(2)}%). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`}
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div>
+                      <div className="text-zinc-500 tracking-wider mb-1">PRAG ACTIVARE</div>
+                      <div className="font-bold text-emerald-400">
+                        ${status.equityTrailingState.activationPrice.toFixed(2)} <span className="text-[10px]">(+{status.equityTrailingState.activationPct.toFixed(2)}%)</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 tracking-wider mb-1">HIGH-WATER MARK (PEAK)</div>
+                      <div className="font-bold text-amber-100">
+                        ${status.equityTrailingState.peakEquity.toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 tracking-wider mb-1">PRAG VÂNZARE</div>
+                      <div className="font-bold text-zinc-300">
+                        {status.equityTrailingState.sellThreshold 
+                          ? `$${status.equityTrailingState.sellThreshold.toFixed(2)}`
+                          : 'În așteptare'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-500 tracking-wider mb-1">RETRAGERE CURENTĂ</div>
+                      <div className="font-bold text-emerald-400">
+                        {status.equityTrailingState.currentDrawdownPct.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* EQUITY HISTORY CHART */}
               {status?.equityHistory && status.equityHistory.length > 1 && (
@@ -781,9 +941,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             <td className="py-2.5 px-2 text-right">
                               <button
                                 onClick={() => {
-                                  if (window.confirm(`Force close position for ${pos.symbol}?`)) {
-                                    onClosePosition(pos.symbol);
-                                  }
+                                  onClosePosition(pos.symbol);
                                 }}
                                 className="bg-rose-900 hover:bg-rose-800 text-white px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"
                               >
@@ -1049,6 +1207,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             </td>
                             <td className="py-2 px-2">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                ord.intent === 'TAKE_PROFIT' ? 'bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-800/40' :
                                 ord.intent === 'STOP_LOSS' ? 'bg-rose-950/80 text-rose-300 font-bold border border-rose-800/40' :
                                 ord.intent === 'TRAILING_STOP' ? 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/40' :
                                 ord.intent === 'EQUITY_PROTECTION' ? 'bg-purple-950/80 text-purple-300 font-bold border border-purple-800/40' :
@@ -1162,6 +1321,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                         </span>
                                       </div>
                                     </div>
+                                    
+                                    {ord.marketRegime && (
+                                      <div className="bg-black/60 border border-zinc-800 p-2 rounded col-span-2 sm:col-span-4 mt-1">
+                                        <div className="text-[10px] text-zinc-400 uppercase">Context Piață (BTC 24h Proxy)</div>
+                                        <div className="text-sm font-bold text-amber-300 mt-0.5">
+                                          {ord.marketRegime}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
 
                                   {/* Exit Reason & Triggers description */}
@@ -1172,6 +1340,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     <div className="text-zinc-200 font-mono text-[11px] leading-relaxed">
                                       {ord.exitReasonDetail ? (
                                         <p className="text-amber-200">{ord.exitReasonDetail}</p>
+                                      ) : ord.intent === 'TAKE_PROFIT' ? (
+                                        <p className="text-emerald-300 font-bold">
+                                          Declanșat de <strong>Take-Profit</strong> (ținta automată procentuală de profit a fost atinsă cu succes).
+                                        </p>
                                       ) : ord.intent === 'STOP_LOSS' ? (
                                         <p className="text-rose-300">
                                           Declanșat de <strong>Hard Stop-Loss</strong> (depășire limită maximă de pierdere permisă per profil).
@@ -1200,7 +1372,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
                                       {ord.rejectionReason && (
                                         <div className="mt-1 text-rose-400 font-bold">
-                                          Motiv respingere Bybit: {ord.rejectionReason}
+                                          Motiv respingere OKX: {ord.rejectionReason}
                                         </div>
                                       )}
 
@@ -1240,7 +1412,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   )}
                   {hasUnsavedSettings && (
                     <span className="text-[11px] text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/40 animate-pulse">
-                      ● Modificări nesalvate
+                      ● Modificări nesalvate (Apasă SAVE CHANGES pentru a aplica)
                     </span>
                   )}
                   <button
@@ -1263,6 +1435,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <Save className="w-3.5 h-3.5" />
                     <span>SAVE CHANGES</span>
                   </button>
+                </div>
+              </div>
+
+              {/* ACTIVE RUNNING VALUES BANNER */}
+              <div className="bg-black border border-amber-500/40 rounded p-2.5 mb-3 flex flex-wrap items-center justify-between text-[11px] font-mono gap-2">
+                <div className="text-amber-300 font-bold flex items-center space-x-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                  <span>VALORI ACTIVE (CU CARE CALCULEAZĂ BOTUL ÎN TIMP REAL):</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-zinc-300">
+                  <span>Risk: <strong className="text-amber-400">{profileConfig?.riskPerTradePct ?? 10}%</strong></span>
+                  <span>StopLoss: <strong className="text-rose-400">-{profileConfig?.hardStopLossPct ?? 2.5}%</strong></span>
+                  <span>TrailingAct: <strong className="text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong></span>
+                  <span>TrailingDist: <strong className="text-purple-400">-{profileConfig?.trailingDistancePct ?? 0.4}%</strong></span>
+                  <span>MinScore: <strong className="text-cyan-400">{profileConfig?.minMomentumScore ?? 60}</strong></span>
                 </div>
               </div>
 
@@ -1370,6 +1557,40 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     />
                   </div>
 
+                  {/* Break-Even Activation (%) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Break-Even Act (%)</span>
+                      <span className="font-bold text-amber-400">{breakEven}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={breakEven}
+                      onChange={(e) => setBreakEven(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Take-Profit (%) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-emerald-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Take-Profit (%)</span>
+                      <span className="font-bold text-emerald-400">{takeProfit === 0 ? 'OFF' : `${takeProfit}%`}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="0.5"
+                      value={takeProfit}
+                      onChange={(e) => setTakeProfit(Number(e.target.value))}
+                      className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
                   {/* Max Holding Time - step 1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
@@ -1462,8 +1683,67 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
         </div>
 
-        {/* RIGHT MODULE PANEL: AUDIT LOGS & TERMINAL COMMAND LINE (4 Cols on LG) */}
-        <div className="lg:col-span-4 flex flex-col space-y-2">
+        {/* RIGHT MODULE PANEL: AUDIT LOGS & TRADINGVIEW CHART (6 Cols on LG) */}
+        <div className="lg:col-span-6 flex flex-col space-y-2">
+          {/* TradingView Widget */}
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[460px]">
+            <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2 relative">
+              <span className="font-bold text-xs tracking-wider text-amber-400">MARKET CHART ({chartSymbol})</span>
+              <div className="relative">
+                <div className="flex items-center bg-black border border-amber-500/40 rounded px-1.5 py-0.5">
+                  <Search className="w-3 h-3 text-amber-500 mr-1" />
+                  <input
+                    type="text"
+                    placeholder="Caută simbol..."
+                    value={symbolSearchQuery}
+                    onFocus={() => setShowSymbolDropdown(true)}
+                    onChange={(e) => {
+                      setSymbolSearchQuery(e.target.value);
+                      setShowSymbolDropdown(true);
+                    }}
+                    className="bg-transparent text-amber-400 text-[10px] outline-none w-[130px]"
+                  />
+                </div>
+                {showSymbolDropdown && (
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-950 border border-amber-500/50 rounded shadow-xl max-h-60 overflow-y-auto z-50">
+                    <div className="p-1 text-[9px] text-zinc-500 border-b border-zinc-800">
+                      Simboluri Universe ({filteredSymbols.length})
+                    </div>
+                    {filteredSymbols.length > 0 ? (
+                      filteredSymbols.map((sym) => (
+                        <div
+                          key={sym}
+                          onClick={() => loadTradingViewChart(sym)}
+                          className={`px-2 py-1.5 text-[10px] cursor-pointer hover:bg-amber-500/20 text-amber-300 font-mono flex items-center justify-between ${
+                            chartSymbol === sym ? 'bg-amber-500/30 font-bold' : ''
+                          }`}
+                        >
+                          <span>{sym}</span>
+                          <span className="text-[9px] text-slate-500">OKX</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-[10px] text-zinc-500 text-center">Niciun simbol găsit</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div id="tradingview-widget-container" className="flex-1 w-full h-full"></div>
+            {/* Load default chart on mount */}
+            <div className="hidden">
+              {(() => {
+                setTimeout(() => {
+                  const container = document.getElementById('tradingview-widget-container');
+                  if (container && container.innerHTML === '') {
+                    loadTradingViewChart('BTCUSDT');
+                  }
+                }, 100);
+                return null;
+              })()}
+            </div>
+          </div>
+
           {/* Audit Logs / System Events */}
           <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[320px]">
             <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-2 mb-2">
@@ -1530,39 +1810,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Terminal Command Line (`BLP >`) */}
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[280px]">
-            <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2">
-              <span className="font-bold text-xs tracking-wider text-amber-400">BLOOMBERG COMMAND PROMPT</span>
-              <span className="text-[10px] text-zinc-500">TYPE HELP</span>
-            </div>
-
-            <div className="overflow-y-auto flex-1 space-y-1 font-mono text-[11px] bg-black p-2 rounded border border-zinc-900 mb-2">
-              {commandHistory.map((cmd, i) => (
-                <div key={i} className={cmd.startsWith('>') ? 'text-cyan-400 font-bold' : 'text-amber-500/90'}>
-                  {cmd}
-                </div>
-              ))}
-            </div>
-
-            <form onSubmit={handleCommandSubmit} className="flex items-center space-x-1">
-              <span className="text-amber-400 font-bold text-xs">BLP &gt;</span>
-              <input
-                type="text"
-                value={commandInput}
-                onChange={(e) => setCommandInput(e.target.value)}
-                placeholder="Enter command (e.g., HELP, SCALP, MOMENTUM, SCAN)..."
-                className="flex-1 bg-black text-amber-400 placeholder:text-zinc-700 px-2 py-1 rounded border border-amber-500/40 text-xs font-mono focus:outline-none focus:border-amber-400"
-              />
-              <button
-                type="submit"
-                className="bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 rounded text-xs font-bold"
-              >
-                EXEC
-              </button>
-            </form>
           </div>
         </div>
       </main>

@@ -74,7 +74,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white">Dynamic Market Scanner</h3>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800/60">
-                  Bybit USDT Linear Perps
+                  OKX EEA USDT SWAP Perps
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -173,7 +173,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
           <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg">
             <div className="text-slate-500 text-[11px] uppercase tracking-wider font-semibold flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-blue-400" />
-              <span>Bybit Universe</span>
+              <span>OKX Universe</span>
             </div>
             <div className="text-xl font-bold text-white mt-1">
               {stats?.universeCount || 0}{' '}
@@ -246,7 +246,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
             <Scan className="w-10 h-10 mx-auto text-slate-600 opacity-40" />
             <p className="font-medium text-sm">No scanned opportunities currently cached.</p>
             <p className="text-xs text-slate-600">
-              Click &quot;Scan Now&quot; above to poll the dynamic Bybit USDT linear universe and rank candidates.
+              Click &quot;Scan Now&quot; above to poll the dynamic OKX EEA USDT SWAP universe and rank candidates.
             </p>
           </div>
         ) : (

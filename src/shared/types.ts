@@ -1,6 +1,6 @@
 export type ProfileType = 'SCALP' | 'MOMENTUM';
 export type OrderSide = 'BUY' | 'SELL';
-export type PositionStatus = 'OPEN' | 'CLOSED';
+export type PositionStatus = 'OPEN' | 'CLOSING' | 'CLOSED';
 export type ExecutionMode = 'PAPER' | 'TESTNET' | 'LIVE';
 
 export type OrderStatus =
@@ -93,8 +93,9 @@ export interface AppConfig {
   activeProfile: ProfileType;
   testnet: boolean;
   killSwitchEngaged: boolean;
-  bybitApiKey?: string;
-  bybitApiSecret?: string;
+  okxApiKey?: string;
+  okxSecretKey?: string;
+  okxPassphrase?: string;
   paperEquity?: number;
   maxLeverage?: number;
   watchlist?: string[];
@@ -109,6 +110,8 @@ export interface ProfileConfig {
   maxOpenPositions: number;
   trailingActivationPct: number;
   trailingDistancePct: number;
+  breakEvenActivationPct: number;
+  takeProfitPct: number; // 0 means Off
   hardStopLossPct: number;
   equityProtectionActivationPct: number;
   equityTrailingDrawdownPct: number;
@@ -156,10 +159,11 @@ export interface OrderRecord {
   cumFilledQty?: number;
   processedFilledQty?: number;
   cumFee?: number;
+  processedFee?: number;
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
   profile: ProfileType;
   executionMode: ExecutionMode;
   // Detailed exit / profit / log telemetry
@@ -171,6 +175,7 @@ export interface OrderRecord {
   trailingPeakPct?: number;
   trailingDistancePct?: number;
   holdingTimeMinutes?: number;
+  marketRegime?: string;
 }
 
 export interface Position {
@@ -191,12 +196,14 @@ export interface Position {
   exitFee?: number;
   highestPrice?: number;
   lowestPrice?: number;
+  stopLossPrice?: number;
   profile: ProfileType;
-  source: 'LOCAL' | 'BYBIT_SYNC' | 'PAPER';
+  source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';
   executionMode: ExecutionMode;
+  marketRegime?: string;
 }
 
-export interface BybitRawPosition {
+export interface OKXRawPosition {
   symbol: string;
   side: 'Buy' | 'Sell' | 'None';
   size: number;
@@ -220,6 +227,29 @@ export interface EquityDataPoint {
   equity: number;
 }
 
+export interface EquityTrailingState {
+  isActive: boolean;
+  activationPrice: number;
+  activationPct: number;
+  peakEquity: number;
+  drawdownLimitPct: number;
+  currentDrawdownPct: number;
+  sellThreshold: number | null;
+  triggerCount: number;
+}
+
+export interface PerformanceMetrics {
+  totalClosed: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  profitFactor: number;
+  expectancy: number;
+  avgWin: number;
+  avgLoss: number;
+  maxDrawdownPct: number;
+}
+
 export interface BotStatusResponse {
   state: BotState;
   executionMode: ExecutionMode;
@@ -229,10 +259,13 @@ export interface BotStatusResponse {
   equity: number;
   equityHistory?: EquityDataPoint[];
   sessionRealizedPnL?: number;
+  performanceMetrics?: PerformanceMetrics;
   positions: Position[];
   orders: OrderRecord[];
   connected: boolean;
   lastSyncTime: number;
   scannerStats?: ScannerStats;
+  marketRegime?: string;
+  equityTrailingState?: EquityTrailingState;
 }
 

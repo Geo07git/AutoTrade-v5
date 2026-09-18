@@ -52,6 +52,11 @@ export class MomentumEngine {
 
     const metrics = precomputedMetrics || this.calculateMetrics(klines);
 
+    // STRICT HTF CONFLUENCE FILTER: Do not allow entry if HTF trend is counter-trend or unaligned
+    if (!metrics.htfAligned) {
+      return null;
+    }
+
     if (metrics.score >= metrics.threshold) {
       return {
         symbol,
@@ -191,16 +196,13 @@ export class MomentumEngine {
       }
     }
 
-    // Determine Direction: BUY (Long) vs SELL (Short) (Problem #1)
-    // Positive momentum + price above EMA -> BUY
-    // Negative momentum + price below EMA -> SELL
+    // Determine Direction: BUY (Long) vs SELL (Short)
     let side: OrderSide = 'BUY';
     if (mom < 0 && (distFromEmaPct < 0 || htfTrend === 'BEARISH')) {
       side = 'SELL';
     } else if (mom > 0 && (distFromEmaPct > 0 || htfTrend === 'BULLISH')) {
       side = 'BUY';
     } else {
-      // Mixed: side follows the active candle price momentum
       side = mom >= 0 ? 'BUY' : 'SELL';
     }
 
@@ -219,46 +221,42 @@ export class MomentumEngine {
     const avgAtr = ltfKlines.slice(-15, -1).reduce((a, b) => a + (b.high - b.low), 0) / 14;
     const atrExpansion = Math.max(0.1, Math.min(5.0, currentAtr / (avgAtr + EPSILON)));
 
+    // Candle body quality ratio & persistence check
+    const candleRange = Math.max(EPSILON, last.high - last.low);
+    const candleBody = Math.abs(last.close - last.open);
+    const bodyRatio = candleBody / candleRange;
+    const qualityMultiplier = bodyRatio >= 0.20 ? 1.0 : 0.85;
+
+    const prevMom = ltfKlines.length >= 3 ? ((prev.close / ltfKlines[ltfKlines.length - 3].close) - 1) * 100 : 0;
+    const persistenceBonus = (side === 'BUY' && prev.close > prev.open && mom > 0 && prevMom > 0) || 
+                             (side === 'SELL' && prev.close < prev.open && mom < 0 && prevMom < 0) ? 8 : 0;
+
     // 4. Calibrated Multi-Factor Score Model
     // Pillar A: Impulse Strength (0 to 35 points)
-    // Target benchmarks: 1% candle = ~15 pts, 3% candle = ~28 pts, 5%+ candle = ~35 pts
-    // base: (sqrt(clampedMom) / sqrt(5.0)) * 30 => 1% -> 13.4 + 2 = 15.4 pts; 3% -> 23.2 + 5 = 28.2 pts; 5% -> 30 + 5 = 35 pts
-    const emaBonus = Math.min(5, Math.max(0, (Math.abs(distFromEmaPct) / 1.5) * 5));
+    const emaBonus = Math.min(8, Math.max(0, (Math.abs(distFromEmaPct) / 1.5) * 8));
     const impulseBase = (Math.sqrt(clampedMom) / Math.sqrt(5.0)) * 30;
-    const impulseScore = Math.min(35, Math.max(0, impulseBase + emaBonus));
+    const impulseScore = Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
 
     // Pillar B: Relative Volume (0 to 25 points)
-    // Target benchmarks: RVOL 1.0x = ~10 pts, 1.8x = ~18 pts, 3.0x+ = 25 pts (saturating curve)
-    // formula: (rvol / (rvol + 1.5)) * 25 / (1.0 / (1.0 + 1.5)) => (rvol / (rvol + 1.5)) * 37.5
-    // at rvol = 1.0 -> (1 / 2.5) * 37.5 = 15.0; calibrated using piece-wise or rational curve:
-    // (rvol - 0.5) / 2.5 scale with smooth saturation:
-    // When rvol <= 1.0: 10 * rvol
-    // When rvol > 1.0: 10 + 15 * (1 - Math.exp(-(rvol - 1.0) / 1.05))
-    // rvol 1.0 -> 10 pts; rvol 1.8 -> 10 + 15 * (1 - exp(-0.76)) = 10 + 8.0 = 18.0 pts; rvol 3.0+ -> ~25 pts
     let rvolScore = 0;
     if (rvol <= 1.0) {
-      rvolScore = Math.max(0, rvol * 10);
+      rvolScore = Math.max(0, rvol * 12);
     } else {
-      rvolScore = 10 + 15 * (1 - Math.exp(-(rvol - 1.0) / 1.05));
+      rvolScore = 12 + 13 * (1 - Math.exp(-(rvol - 1.0) / 0.9));
     }
     rvolScore = Math.min(25, Math.max(0, rvolScore));
 
     // Pillar C: ATR / Volatility Expansion (0 to 20 points)
-    // Target benchmarks: atrExpansion 1.0x = ~10 pts, 1.8x+ = 20 pts
-    // When atrExpansion <= 1.0: 10 * atrExpansion
-    // When atrExpansion > 1.0: 10 + 10 * Math.min(1, (atrExpansion - 1.0) / 0.8)
-    // atrExpansion 1.0 -> 10 pts; atrExpansion 1.8 -> 10 + 10 = 20 pts
     let atrScore = 0;
     if (atrExpansion <= 1.0) {
-      atrScore = Math.max(0, atrExpansion * 10);
+      atrScore = Math.max(0, atrExpansion * 12);
     } else {
-      atrScore = 10 + 10 * Math.min(1.0, (atrExpansion - 1.0) / 0.8);
+      atrScore = 12 + 8 * Math.min(1.0, (atrExpansion - 1.0) / 0.7);
     }
     atrScore = Math.min(20, Math.max(0, atrScore));
 
     // Pillar D: Higher Timeframe Confluence (0 to 20 points)
-    // Aligned HTF = full 20 pts; Neutral = 10 pts; Divergent = 5 pts
-    const htfScore = htfAligned ? 20 : (htfTrend === 'NEUTRAL' ? 10 : 5);
+    const htfScore = htfAligned ? 20 : (htfTrend === 'NEUTRAL' ? 12 : 8);
 
     // Total Normalized Score (0 to 100)
     const totalScore = Math.max(0, Math.min(100, impulseScore + rvolScore + atrScore + htfScore));

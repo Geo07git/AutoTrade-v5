@@ -217,7 +217,7 @@ export class MarketScanner {
     );
 
     try {
-      // 1. Get filtered eligible symbols from Bybit linear perpetual universe
+      // 1. Get filtered eligible symbols from OKX EEA USDT SWAP universe
       const { allSymbolsCount, eligibleSymbols, tickersMap } =
         await this.universeManager.getFilteredUniverse(this.filterConfig);
 

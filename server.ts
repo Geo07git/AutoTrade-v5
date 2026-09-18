@@ -113,7 +113,9 @@ async function startServer() {
 
   // Reset paper trading account
   app.post('/api/bot/paper-reset', requireControlAuth, (req, res) => {
+    console.log('[API] Received request to reset paper account');
     const result = tradeBot.resetPaperAccount();
+    console.log('[API] resetPaperAccount result:', result);
     if (result.success) {
       res.json({ success: true, status: tradeBot.getStatus() });
     } else {
@@ -169,20 +171,22 @@ async function startServer() {
     res.json({ success: true, killSwitchEngaged: engaged });
   });
 
-  // Update Bybit API credentials (STRICT TESTNET ONLY)
+  // Update OKX API credentials (STRICT TESTNET / DEMO ONLY)
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
-    const { apiKey, apiSecret, testnet } = req.body;
+    const { apiKey, apiSecret, secretKey, passphrase, testnet } = req.body;
     if (testnet === false) {
       return res.status(403).json({
-        error: 'Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.',
+        error: 'Mainnet is permanently blocked and disabled in this version. Only Testnet/Demo is permitted.',
       });
     }
-    if (!apiKey || !apiSecret) {
-      return res.status(400).json({ error: 'Both apiKey and apiSecret are required' });
+    const finalSecret = secretKey || apiSecret;
+    const finalPassphrase = passphrase || '';
+    if (!apiKey || !finalSecret) {
+      return res.status(400).json({ error: 'apiKey and secretKey (or apiSecret) are required' });
     }
     try {
-      await tradeBot.updateCredentials(apiKey, apiSecret, true);
-      res.json({ success: true, message: 'Credentials updated and reconnected on Bybit Testnet' });
+      await tradeBot.updateCredentials(apiKey, finalSecret, finalPassphrase, true);
+      res.json({ success: true, message: 'Credentials updated and reconnected on OKX EEA Testnet/Demo' });
     } catch (err: any) {
       res.status(400).json({ error: err.message || 'Failed to update credentials' });
     }
@@ -235,6 +239,18 @@ async function startServer() {
       success: true,
       filter: tradeBot.getScannerStats().filterConfig,
     });
+  });
+
+  // Update Leverage & Margin Mode
+  app.post('/api/bot/leverage', requireControlAuth, (req, res) => {
+    const { leverage, marginMode } = req.body;
+    const lev = typeof leverage === 'number' ? leverage : parseInt(leverage, 10);
+    if (isNaN(lev) || lev < 1 || lev > 100) {
+      return res.status(400).json({ error: 'Leverage must be a number between 1 and 100' });
+    }
+    const mode = marginMode === 'isolated' ? 'isolated' : 'cross';
+    tradeBot.updateLeverage(lev, mode);
+    res.json({ success: true, leverage: lev, marginMode: mode });
   });
 
   // Vite middleware for development

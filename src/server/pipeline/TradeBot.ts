@@ -14,7 +14,7 @@ import {
   ScannerStats,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
-import { BybitAdapter } from '../exchange/BybitAdapter';
+import { OKXAdapter } from '../exchange/OKXAdapter';
 import { PaperExecutionAdapter } from '../exchange/PaperExecutionAdapter';
 import { MomentumEngine } from '../engine/MomentumEngine';
 import { RiskEngine } from '../risk/RiskEngine';
@@ -25,14 +25,15 @@ import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseMan
 import { MarketScanner } from '../scanner/MarketScanner';
 
 const DEFAULT_CONFIG: AppConfig = {
-  executionMode: 'PAPER', // Default safe mode: Full simulation without Bybit API keys
+  executionMode: 'PAPER', // Default safe mode: Full simulation without OKX API keys
   activeProfile: 'MOMENTUM',
   testnet: true,
   killSwitchEngaged: false,
-  bybitApiKey: process.env.BYBIT_API_KEY || '',
-  bybitApiSecret: process.env.BYBIT_API_SECRET || '',
+  okxApiKey: process.env.OKX_API_KEY || '',
+  okxSecretKey: process.env.OKX_SECRET_KEY || '',
+  okxPassphrase: process.env.OKX_PASSPHRASE || '',
   paperEquity: 200.0,
-  watchlist: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+  watchlist: ['BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP'],
   scannerFilter: { ...DEFAULT_UNIVERSE_FILTER },
 };
 
@@ -42,26 +43,30 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     timeframes: ['15', '60'],
     riskPerTradePct: 15,
     maxOpenPositions: 3,
-    trailingActivationPct: 1.5,
-    trailingDistancePct: 0.4,
-    hardStopLossPct: 2.0,
+    trailingActivationPct: 1.0,
+    trailingDistancePct: 0.3,
+    breakEvenActivationPct: 0.5,
+    takeProfitPct: 3.0, // TP 3% vs SL 1.0% (R/R 3:1)
+    hardStopLossPct: 1.0,
     equityProtectionActivationPct: 1.0,
     equityTrailingDrawdownPct: 0.25,
-    minMomentumScore: 60,
+    minMomentumScore: 72,
     maxHoldingTimeMinutes: 30,
-    cooldownMinutes: 5,
+    cooldownMinutes: 10,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
     timeframes: ['60', '240'],
     riskPerTradePct: 10,
     maxOpenPositions: 5,
-    trailingActivationPct: 3.0,
-    trailingDistancePct: 1.0,
-    hardStopLossPct: 5.0,
+    trailingActivationPct: 2.0,
+    trailingDistancePct: 0.6,
+    breakEvenActivationPct: 1.0,
+    takeProfitPct: 6.0, // TP 6% vs SL 2.0% (R/R 3:1)
+    hardStopLossPct: 2.0,
     equityProtectionActivationPct: 1.0,
     equityTrailingDrawdownPct: 0.25,
-    minMomentumScore: 75,
+    minMomentumScore: 82,
     maxHoldingTimeMinutes: 240,
     cooldownMinutes: 60,
   },
@@ -74,7 +79,7 @@ export class TradeBot {
   private orderStore: JsonStore<OrderRecord[]>;
 
   private activeAdapter: IExecutionAdapter;
-  private bybitAdapter: BybitAdapter;
+  private okxAdapter: OKXAdapter;
   private paperAdapter: PaperExecutionAdapter;
 
   private engine: MomentumEngine;
@@ -94,6 +99,8 @@ export class TradeBot {
   private lastSyncTime: number = 0;
   private latestPrices: Record<string, number> = {};
   private isProcessingTick: boolean = false;
+  private marketRegime: string = 'BTC: --';
+  private regimeInterval?: NodeJS.Timeout;
 
   private getProfiles(): Record<ProfileType, ProfileConfig> {
     const config = this.configStore.get();
@@ -134,15 +141,19 @@ export class TradeBot {
     };
 
     // Instantiate both adapters
-    this.bybitAdapter = new BybitAdapter(
-      appConfig.bybitApiKey || '',
-      appConfig.bybitApiSecret || '',
+    this.okxAdapter = new OKXAdapter(
+      appConfig.okxApiKey || '',
+      appConfig.okxSecretKey || '',
+      appConfig.okxPassphrase || '',
       appConfig.testnet
     );
+    if (appConfig.maxLeverage) {
+      this.okxAdapter.setLeverageConfig(appConfig.maxLeverage, 'cross');
+    }
     this.paperAdapter = new PaperExecutionAdapter();
 
     // Select active adapter based on executionMode
-    this.activeAdapter = appConfig.executionMode === 'TESTNET' ? this.bybitAdapter : this.paperAdapter;
+    this.activeAdapter = appConfig.executionMode === 'TESTNET' ? this.okxAdapter : this.paperAdapter;
 
     this.positionManager = new PositionManager(auditLogger);
     this.orderManager = new OrderManager(
@@ -167,9 +178,12 @@ export class TradeBot {
       this.marketScanner.updateFilterConfig(appConfig.scannerFilter);
     }
 
-    // Rehydrate saved positions
+    // Rehydrate saved positions and orders
     const savedPositions = this.positionStore.get() || [];
     this.positionManager.setActivePositions(savedPositions);
+
+    const savedOrders = this.orderStore.get() || [];
+    this.orderManager.setOrders(savedOrders);
 
     // Setup WebSocket event hooks
     this.setupAdapterListeners(this.activeAdapter);
@@ -231,6 +245,29 @@ export class TradeBot {
         await this.connectAndRecover();
       }
     }, 15000);
+
+    // Watcher for BTC 24h market regime proxy
+    if (this.regimeInterval) clearInterval(this.regimeInterval);
+    this.regimeInterval = setInterval(() => this.updateMarketRegime(), 60000); // every minute
+    setTimeout(() => this.updateMarketRegime(), 2000);
+  }
+
+  private async updateMarketRegime() {
+    try {
+      const response = await fetch('https://eea.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP');
+      const data = await response.json();
+      if (data && data.code === '0' && Array.isArray(data.data) && data.data.length > 0) {
+        const btcData = data.data[0];
+        const last = parseFloat(btcData.last || '0');
+        const open24h = parseFloat(btcData.open24h || '0');
+        const pcnt = open24h > 0 ? ((last - open24h) / open24h) * 100 : 0;
+        const sign = pcnt >= 0 ? '+' : '';
+        const trend = pcnt > 2.0 ? 'BULL' : pcnt < -2.0 ? 'BEAR' : 'NEUTRAL';
+        this.marketRegime = `BTC: ${sign}${pcnt.toFixed(2)}% (${trend})`;
+      }
+    } catch (err) {
+      console.warn('[TradeBot] Failed to update BTC market regime:', err);
+    }
   }
 
   public async connectAndRecover() {
@@ -269,7 +306,7 @@ export class TradeBot {
       const realPositions = await this.activeAdapter.getOpenPositions();
       const currentProfile = config.activeProfile;
 
-      const reconResult = this.positionManager.reconcileWithBybit(realPositions, currentProfile);
+      const reconResult = this.positionManager.reconcileWithExchange(realPositions, currentProfile);
       this.positionStore.save(this.positionManager.getActivePositions());
       this.lastSyncTime = Date.now();
       reconciliationSuccessful = true;
@@ -311,12 +348,13 @@ export class TradeBot {
     this.state = 'STOPPED';
     if (this.loopInterval) clearInterval(this.loopInterval);
     if (this.reconnectInterval) clearInterval(this.reconnectInterval);
+    if (this.regimeInterval) clearInterval(this.regimeInterval);
     this.logAudit('SYSTEM', 'TradeBot 5 stopped by operator');
   }
 
   /**
    * Central Execution Pipeline:
-   * Market Data -> Momentum Engine -> Risk Engine -> Order Manager -> Execution Adapter -> PAPER / BYBIT
+   * Market Data -> Momentum Engine -> Risk Engine -> Order Manager -> Execution Adapter -> PAPER / OKX
    */
   public async tick() {
     if (this.isProcessingTick) return;
@@ -360,7 +398,7 @@ export class TradeBot {
       if (now - this.lastSyncTime > 60000) {
         try {
           const exchangePositions = await this.activeAdapter.getOpenPositions();
-          this.positionManager.reconcileWithBybit(exchangePositions, config.activeProfile);
+          this.positionManager.reconcileWithExchange(exchangePositions, config.activeProfile);
           this.positionStore.save(this.positionManager.getActivePositions());
           this.lastSyncTime = now;
         } catch (err: any) {
@@ -486,6 +524,7 @@ export class TradeBot {
             riskApproval,
             currentPrice: candidate.price,
             profile: config.activeProfile,
+            marketRegime: this.marketRegime,
           });
 
           if (executionResult.success) {
@@ -542,7 +581,7 @@ export class TradeBot {
     this.configStore.save(config);
 
     // Switch active execution adapter
-    this.activeAdapter = mode === 'TESTNET' ? this.bybitAdapter : this.paperAdapter;
+    this.activeAdapter = mode === 'TESTNET' ? this.okxAdapter : this.paperAdapter;
     this.orderManager.setExecutionAdapter(this.activeAdapter, mode);
 
     // Rebind scanner to active adapter
@@ -658,20 +697,21 @@ export class TradeBot {
   }
 
   /**
-   * Update Bybit API credentials (STRICT TESTNET ONLY)
+   * Update OKX API credentials (STRICT TESTNET / DEMO ONLY)
    */
-  public async updateCredentials(apiKey: string, apiSecret: string, testnet: boolean = true) {
+  public async updateCredentials(apiKey: string, secretKey: string, passphrase: string, testnet: boolean = true) {
     if (testnet === false) {
-      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet is permitted.');
+      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet/Demo is permitted.');
     }
     const config = this.configStore.get();
-    config.bybitApiKey = apiKey.trim();
-    config.bybitApiSecret = apiSecret.trim();
+    config.okxApiKey = apiKey.trim();
+    config.okxSecretKey = secretKey.trim();
+    config.okxPassphrase = passphrase.trim();
     config.testnet = true; // STRICT HARD LOCK: Testnet only
     this.configStore.save();
 
-    this.bybitAdapter.updateCredentials(apiKey, apiSecret, true);
-    this.logAudit('SYSTEM', 'Updated Bybit API credentials (Network: Bybit Testnet).');
+    this.okxAdapter.updateCredentials(apiKey, secretKey, passphrase, true);
+    this.logAudit('SYSTEM', 'Updated OKX EEA API credentials (Network: OKX Demo/Simulated).');
 
     if (config.executionMode === 'TESTNET') {
       await this.connectAndRecover();
@@ -701,24 +741,85 @@ export class TradeBot {
     const closedPositions = this.positionManager.getClosedHistory();
     const sessionRealizedPnL = closedPositions.reduce((acc, pos) => acc + (pos.pnl || 0), 0);
 
+    // Calculate advanced performance metrics
+    const totalClosed = closedPositions.length;
+    let winningTrades = 0;
+    let losingTrades = 0;
+    let totalGrossProfit = 0;
+    let totalGrossLoss = 0;
+    let sumWins = 0;
+    let sumLosses = 0;
+
+    for (const pos of closedPositions) {
+      const pnl = pos.pnl || 0;
+      if (pnl > 0) {
+        winningTrades++;
+        totalGrossProfit += pnl;
+        sumWins += pnl;
+      } else if (pnl < 0) {
+        losingTrades++;
+        totalGrossLoss += Math.abs(pnl);
+        sumLosses += Math.abs(pnl);
+      }
+    }
+
+    const winRate = totalClosed > 0 ? (winningTrades / totalClosed) * 100 : 0;
+    const profitFactor = totalGrossLoss > 0 ? totalGrossProfit / totalGrossLoss : (totalGrossProfit > 0 ? 999 : 0);
+    const avgWin = winningTrades > 0 ? sumWins / winningTrades : 0;
+    const avgLoss = losingTrades > 0 ? sumLosses / losingTrades : 0;
+    const winRateDecimal = totalClosed > 0 ? winningTrades / totalClosed : 0;
+    const lossRateDecimal = totalClosed > 0 ? losingTrades / totalClosed : 0;
+    const expectancy = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
+
+    // Max Drawdown calculation from equity history
+    let peak = config.paperEquity || 200;
+    let maxDdPct = 0;
+    if (this.equityHistory && this.equityHistory.length > 0) {
+      for (const pt of this.equityHistory) {
+        if (pt.equity > peak) {
+          peak = pt.equity;
+        }
+        const dd = peak > 0 ? ((peak - pt.equity) / peak) * 100 : 0;
+        if (dd > maxDdPct) {
+          maxDdPct = dd;
+        }
+      }
+    }
+
+    const performanceMetrics = {
+      totalClosed,
+      winningTrades,
+      losingTrades,
+      winRate: parseFloat(winRate.toFixed(2)),
+      profitFactor: parseFloat(profitFactor.toFixed(2)),
+      expectancy: parseFloat(expectancy.toFixed(2)),
+      avgWin: parseFloat(avgWin.toFixed(2)),
+      avgLoss: parseFloat(avgLoss.toFixed(2)),
+      maxDrawdownPct: parseFloat(maxDdPct.toFixed(2)),
+    };
+
     return {
       state: this.state,
       executionMode: config.executionMode,
       config: {
         ...config,
-        // Mask API secret for security
-        bybitApiSecret: config.bybitApiSecret ? '********' : '',
+        // Mask API secrets for security
+        okxSecretKey: config.okxSecretKey ? '********' : '',
+        okxPassphrase: config.okxPassphrase ? '********' : '',
       },
       profileConfig: this.getActiveProfileConfig(),
       profiles: this.getProfiles(),
       equity: this.currentEquity,
       equityHistory: this.equityHistory,
       sessionRealizedPnL,
+      performanceMetrics,
       positions: this.positionManager.getActivePositions(),
-      orders: this.orderManager.getOrders().slice(0, 50),
+      orders: this.orderManager.getOrders().slice(0, 200),
       connected: this.state === 'READY' || this.state === 'TRADING',
       lastSyncTime: this.lastSyncTime,
       scannerStats: this.marketScanner.getStats(),
+      marketRegime: this.marketRegime,
+      equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity),
     };
   }
 
@@ -779,6 +880,14 @@ export class TradeBot {
     const config = this.configStore.get();
     config.scannerFilter = this.marketScanner.getFilterConfig();
     this.configStore.save(config);
+  }
+
+  public updateLeverage(leverage: number, marginMode: 'cross' | 'isolated' = 'cross') {
+    const config = this.configStore.get();
+    config.maxLeverage = leverage;
+    this.configStore.save(config);
+    this.okxAdapter.setLeverageConfig(leverage, marginMode);
+    this.logAudit('SYSTEM', `Leverage configured: ${leverage}x (mode: ${marginMode})`);
   }
 
   public getAuditLogs(): AuditLog[] {

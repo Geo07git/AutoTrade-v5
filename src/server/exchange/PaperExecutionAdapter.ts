@@ -1,12 +1,11 @@
-import { RestClientV5, WebsocketClient } from 'bybit-api';
-import { Kline, BybitRawPosition, OrderStatus, OrderSide } from '../../shared/types';
-import { IExecutionAdapter } from './IExecutionAdapter';
-import { InstrumentLotFilter, ConnectionTestResult } from './BybitAdapter';
+import WebSocket from 'ws';
+import { Kline, OKXRawPosition, OrderStatus, OrderSide } from '../../shared/types';
+import { IExecutionAdapter, InstrumentLotFilter, ConnectionTestResult } from './IExecutionAdapter';
 import { JsonStore } from '../store';
 
 export interface PaperAccountState {
   balanceUSDT: number;
-  positions: Record<string, BybitRawPosition>;
+  positions: Record<string, OKXRawPosition>;
   realizedPnlTotal: number;
 }
 
@@ -18,8 +17,8 @@ const DEFAULT_PAPER_STATE: PaperAccountState = {
 
 export class PaperExecutionAdapter implements IExecutionAdapter {
   private paperStore: JsonStore<PaperAccountState>;
-  private restClient: RestClientV5;
-  private wsClient?: WebsocketClient;
+  private wsClient?: WebSocket;
+  private pingInterval?: NodeJS.Timeout;
   private instrumentFilters: Map<string, InstrumentLotFilter> = new Map();
   private simulatedOrders: Map<string, {
     orderLinkId: string;
@@ -36,6 +35,9 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
 
   private latestPrices: Map<string, number> = new Map();
   private isWsConnected: boolean = false;
+  private subscribedSymbols: Set<string> = new Set();
+  private okxBaseUrl = 'https://eea.okx.com';
+  private wsBaseUrl = 'wss://wseea.okx.com:8443/ws/v5/public';
 
   public onTickerUpdate?: (symbol: string, lastPrice: number) => void;
   public onOrderUpdate?: (order: any) => void;
@@ -46,43 +48,50 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
 
   constructor() {
     this.paperStore = new JsonStore<PaperAccountState>('paper_account.json', DEFAULT_PAPER_STATE);
-    // Public REST client to fetch real Bybit market prices without credentials
-    this.restClient = new RestClientV5({
-      testnet: true,
-      recv_window: 10000,
-    });
   }
 
   public hasCredentials(): boolean {
-    return true; // Paper trading doesn't require Bybit API keys
+    return true; // Paper trading doesn't require live API keys
   }
 
   public isTestnet(): boolean {
-    return false; // This is PAPER mode
+    return false; // Paper mode
+  }
+
+  public normalizeSymbol(symbol: string): string {
+    if (!symbol) return '';
+    const clean = symbol.trim().toUpperCase();
+    if (clean.endsWith('-SWAP')) return clean;
+    if (clean.includes('-')) return `${clean}-SWAP`;
+    if (clean.endsWith('USDT')) {
+      return `${clean.replace(/USDT$/, '')}-USDT-SWAP`;
+    }
+    return `${clean}-USDT-SWAP`;
   }
 
   public async testConnection(): Promise<ConnectionTestResult> {
     try {
-      const publicRes = await this.restClient.getTickers({ category: 'linear', symbol: 'BTCUSDT' });
-      if (publicRes.retCode !== 0) {
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/ticker?instId=BTC-USDT-SWAP`);
+      const data: any = await res.json();
+      if (data.code !== '0') {
         return {
           reachable: false,
           authenticated: false,
-          error: `Paper engine cannot reach market data: ${publicRes.retMsg || 'Unknown error'}`,
+          error: `Paper engine cannot reach OKX market data: ${data.msg || 'Unknown error'}`,
         };
       }
       const equity = await this.getEquity();
       return {
         reachable: true,
         authenticated: true,
-        accountType: 'CONTRACT',
+        accountType: 'PAPER_OKX_SWAP',
         equity,
       };
     } catch (err: any) {
       return {
         reachable: false,
         authenticated: false,
-        error: err.message || 'Failed to connect to market data',
+        error: err.message || 'Failed to connect to OKX market data',
       };
     }
   }
@@ -94,8 +103,12 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     for (const [symbol, pos] of Object.entries(state.positions)) {
       if (pos.size <= 0) continue;
       const currentPrice = this.latestPrices.get(symbol) || pos.avgPrice;
-      const mult = pos.side === 'Buy' ? 1 : -1;
-      const uPnl = (currentPrice - pos.avgPrice) * pos.size * mult;
+      const filter = this.instrumentFilters.get(this.normalizeSymbol(symbol));
+      const ctVal = filter?.ctVal || 1;
+      const isBuy = pos.side.toUpperCase() === 'BUY';
+      const uPnl = isBuy
+        ? (currentPrice - pos.avgPrice) * pos.size * ctVal
+        : (pos.avgPrice - currentPrice) * pos.size * ctVal;
       pos.unrealisedPnl = parseFloat(uPnl.toFixed(4));
       pos.markPrice = currentPrice;
       totalUnrealisedPnl += uPnl;
@@ -105,16 +118,25 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   }
 
   public async getKlines(symbol: string, interval: string, limit: number = 200): Promise<Kline[]> {
-    try {
-      const res = await this.restClient.getKline({
-        category: 'linear',
-        symbol,
-        interval: interval as any,
-        limit,
-      });
+    const instId = this.normalizeSymbol(symbol);
+    let bar = '15m';
+    const norm = interval.replace('m', '').replace('M', '');
+    if (norm === '1') bar = '1m';
+    else if (norm === '3') bar = '3m';
+    else if (norm === '5') bar = '5m';
+    else if (norm === '15') bar = '15m';
+    else if (norm === '30') bar = '30m';
+    else if (norm === '60' || norm === '1H') bar = '1H';
+    else if (norm === '120' || norm === '2H') bar = '2H';
+    else if (norm === '240' || norm === '4H') bar = '4H';
+    else if (norm === 'D' || norm === '1D') bar = '1D';
 
-      if (res.retCode === 0 && Array.isArray(res.result.list)) {
-        const klines = res.result.list.map((k: any[]) => ({
+    try {
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`);
+      const data: any = await res.json();
+
+      if (data.code === '0' && Array.isArray(data.data)) {
+        const klines = data.data.map((k: any[]) => ({
           timestamp: parseInt(k[0]),
           open: parseFloat(k[1]),
           high: parseFloat(k[2]),
@@ -125,87 +147,103 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
 
         if (klines.length > 0) {
           const lastClose = klines[klines.length - 1].close;
+          this.latestPrices.set(instId, lastClose);
           this.latestPrices.set(symbol, lastClose);
         }
         return klines;
       }
       return [];
     } catch (err) {
-      console.error(`[PaperAdapter] Failed to fetch klines for ${symbol}:`, err);
+      console.error(`[PaperAdapter] Failed to fetch klines for ${instId}:`, err);
       return [];
     }
   }
 
   public async getTickerPrice(symbol: string): Promise<number | null> {
+    const instId = this.normalizeSymbol(symbol);
     try {
-      const res = await this.restClient.getTickers({ category: 'linear', symbol });
-      if (res.retCode === 0 && res.result.list?.length > 0) {
-        const price = parseFloat(res.result.list[0].lastPrice);
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/ticker?instId=${instId}`);
+      const data: any = await res.json();
+      if (data.code === '0' && data.data?.length > 0) {
+        const price = parseFloat(data.data[0].last);
         if (!isNaN(price) && price > 0) {
+          this.latestPrices.set(instId, price);
           this.latestPrices.set(symbol, price);
           return price;
         }
       }
     } catch (err) {
-      console.error(`[PaperAdapter] Failed to get ticker price for ${symbol}:`, err);
+      console.error(`[PaperAdapter] Failed to get ticker price for ${instId}:`, err);
     }
-    return this.latestPrices.get(symbol) || null;
+    return this.latestPrices.get(instId) || this.latestPrices.get(symbol) || null;
   }
 
   public async getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter> {
-    if (this.instrumentFilters.has(symbol)) {
-      return this.instrumentFilters.get(symbol)!;
+    const instId = this.normalizeSymbol(symbol);
+    if (this.instrumentFilters.has(instId)) {
+      return this.instrumentFilters.get(instId)!;
     }
 
     try {
-      const res = await this.restClient.getInstrumentsInfo({ category: 'linear', symbol });
-      if (res.retCode === 0 && res.result.list?.length > 0) {
-        const info: any = res.result.list[0];
-        const lot: any = info.lotSizeFilter || {};
-        const priceFilter: any = info.priceFilter || {};
-
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/public/instruments?instType=SWAP&instId=${instId}`);
+      const data: any = await res.json();
+      if (data.code === '0' && data.data?.length > 0) {
+        const info = data.data[0];
         const filter: InstrumentLotFilter = {
-          symbol,
-          minOrderQty: parseFloat(lot.minOrderQty || '0.001'),
-          maxOrderQty: parseFloat(lot.maxOrderQty || '1000000'),
-          qtyStep: parseFloat(lot.qtyStep || '0.001'),
-          minNotionalValue: parseFloat(lot.minNotionalValue || '5'),
-          tickSize: parseFloat(priceFilter.tickSize || '0.01'),
+          symbol: instId,
+          minOrderQty: parseFloat(info.minSz || '1'),
+          maxOrderQty: parseFloat(info.maxMktSz || '1000000'),
+          qtyStep: parseFloat(info.lotSz || '1'),
+          minNotionalValue: 5,
+          tickSize: parseFloat(info.tickSz || '0.01'),
+          ctVal: parseFloat(info.ctVal || '1'),
+          ctValCcy: info.ctValCcy || 'USDT',
         };
+        this.instrumentFilters.set(instId, filter);
         this.instrumentFilters.set(symbol, filter);
         return filter;
       }
     } catch (err) {
-      console.error(`[PaperAdapter] Instrument info fetch error for ${symbol}:`, err);
+      console.error(`[PaperAdapter] Instrument info fetch error for ${instId}:`, err);
     }
 
     const fallback: InstrumentLotFilter = {
-      symbol,
-      minOrderQty: 0.001,
+      symbol: instId,
+      minOrderQty: 1,
       maxOrderQty: 100000,
-      qtyStep: 0.001,
+      qtyStep: 1,
       minNotionalValue: 5,
       tickSize: 0.01,
+      ctVal: 1,
+      ctValCcy: 'USDT',
     };
-    this.instrumentFilters.set(symbol, fallback);
+    this.instrumentFilters.set(instId, fallback);
     return fallback;
   }
 
   public async formatQuantity(symbol: string, desiredQty: number, currentPrice: number): Promise<number> {
     const filter = await this.getInstrumentFilter(symbol);
     const step = filter.qtyStep;
+    const ctVal = filter.ctVal || 1;
+
+    let contracts = desiredQty;
+    if (desiredQty < filter.minOrderQty && ctVal > 0 && ctVal < 1) {
+      contracts = desiredQty / ctVal;
+    }
+
     const stepStr = step.toString();
     const decimals = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
 
-    let qty = Math.floor(desiredQty / step) * step;
+    let qty = Math.floor(contracts / step) * step;
     qty = parseFloat(qty.toFixed(decimals));
 
     if (qty < filter.minOrderQty) {
       qty = filter.minOrderQty;
     }
 
-    if (currentPrice > 0 && qty * currentPrice < filter.minNotionalValue) {
-      const minQtyForNotional = filter.minNotionalValue / currentPrice;
+    const notional = currentPrice > 0 ? qty * ctVal * currentPrice : 0;
+    if (currentPrice > 0 && notional < filter.minNotionalValue) {
+      const minQtyForNotional = filter.minNotionalValue / (ctVal * currentPrice);
       qty = Math.ceil(minQtyForNotional / step) * step;
       qty = parseFloat(qty.toFixed(decimals));
     }
@@ -213,18 +251,17 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     return qty;
   }
 
-  /**
-   * Returns current paper positions formatted identically to Bybit raw positions
-   */
-  public async getOpenPositions(settleCoin: string = 'USDT'): Promise<BybitRawPosition[]> {
+  public async getOpenPositions(settleCoin: string = 'USDT'): Promise<OKXRawPosition[]> {
     const state = this.paperStore.get();
-    const result: BybitRawPosition[] = [];
+    const result: OKXRawPosition[] = [];
 
     for (const [symbol, pos] of Object.entries(state.positions)) {
       if (pos.size > 0 && pos.side !== 'None') {
         const mark = this.latestPrices.get(symbol) || pos.avgPrice;
+        const filter = this.instrumentFilters.get(this.normalizeSymbol(symbol));
+        const ctVal = filter?.ctVal || 1;
         const mult = pos.side === 'Buy' ? 1 : -1;
-        const uPnl = (mark - pos.avgPrice) * pos.size * mult;
+        const uPnl = (mark - pos.avgPrice) * pos.size * mult * ctVal;
 
         result.push({
           symbol: pos.symbol,
@@ -242,9 +279,6 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     return result;
   }
 
-  /**
-   * Simulates order submission and immediate execution with taker fee
-   */
   public async submitOrder(params: {
     symbol: string;
     side: 'Buy' | 'Sell';
@@ -254,46 +288,49 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     orderLinkId: string;
     reduceOnly?: boolean;
   }): Promise<{ orderId: string; orderLinkId: string }> {
+    const instId = this.normalizeSymbol(params.symbol);
     const exchangeOrderId = `paper_ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     
-    // Obtain fill price
-    let fillPrice = params.price || this.latestPrices.get(params.symbol) || 0;
+    let fillPrice = params.price || this.latestPrices.get(instId) || this.latestPrices.get(params.symbol) || 0;
     if (fillPrice <= 0) {
-      const livePrice = await this.getTickerPrice(params.symbol);
-      fillPrice = livePrice || (params.symbol.startsWith('BTC') ? 65000 : params.symbol.startsWith('ETH') ? 3500 : 150);
+      const livePrice = await this.getTickerPrice(instId);
+      fillPrice = livePrice || (instId.includes('BTC') ? 65000 : instId.includes('ETH') ? 3500 : 150);
     }
 
-    // 0.055% taker fee simulation
-    const notionalValue = fillPrice * params.qty;
-    const fee = notionalValue * 0.00055;
+    const filter = await this.getInstrumentFilter(instId);
+    const ctVal = filter.ctVal || 1;
+    const notionalValue = fillPrice * params.qty * ctVal;
+    const fee = notionalValue * 0.0005; // 0.05% OKX standard taker fee
 
     const state = this.paperStore.get();
 
     if (params.reduceOnly) {
-      // Close / Reduce simulated position
-      const existing = state.positions[params.symbol];
+      const existing = state.positions[instId] || state.positions[params.symbol];
+      const targetKey = state.positions[instId] ? instId : params.symbol;
+
       if (existing && existing.size > 0) {
         const closeQty = Math.min(params.qty, existing.size);
-        const mult = existing.side === 'Buy' ? 1 : -1;
-        const realizedPnl = (fillPrice - existing.avgPrice) * closeQty * mult;
+        const isBuy = existing.side.toUpperCase() === 'BUY';
+        const realizedPnl = isBuy
+          ? (fillPrice - existing.avgPrice) * closeQty * ctVal
+          : (existing.avgPrice - fillPrice) * closeQty * ctVal;
 
         state.balanceUSDT = parseFloat((state.balanceUSDT + realizedPnl - fee).toFixed(4));
         state.realizedPnlTotal = parseFloat((state.realizedPnlTotal + realizedPnl).toFixed(4));
 
         existing.size = parseFloat((existing.size - closeQty).toFixed(4));
         if (existing.size <= 1e-6) {
-          delete state.positions[params.symbol];
+          delete state.positions[targetKey];
         } else {
           existing.updatedTime = Date.now();
         }
       } else {
-        // Position was not found, still deduct fee
         state.balanceUSDT = parseFloat((state.balanceUSDT - fee).toFixed(4));
       }
     } else {
-      // Open / Increase simulated position
       state.balanceUSDT = parseFloat((state.balanceUSDT - fee).toFixed(4));
-      const existing = state.positions[params.symbol];
+      const existing = state.positions[instId] || state.positions[params.symbol];
+      const targetKey = instId;
 
       if (existing && existing.side === params.side) {
         const totalSize = existing.size + params.qty;
@@ -302,8 +339,8 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
         existing.avgPrice = parseFloat(weightedAvgPrice.toFixed(4));
         existing.updatedTime = Date.now();
       } else {
-        state.positions[params.symbol] = {
-          symbol: params.symbol,
+        state.positions[targetKey] = {
+          symbol: instId,
           side: params.side,
           size: params.qty,
           avgPrice: fillPrice,
@@ -317,11 +354,10 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
 
     this.paperStore.save(state);
 
-    // Save simulated order record
     const simOrder = {
       orderLinkId: params.orderLinkId,
       exchangeOrderId,
-      symbol: params.symbol,
+      symbol: instId,
       side: params.side,
       qty: params.qty,
       filledQty: params.qty,
@@ -332,13 +368,12 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     };
     this.simulatedOrders.set(params.orderLinkId, simOrder);
 
-    // Trigger simulated WS callbacks asynchronously to mirror exchange behavior
     setTimeout(() => {
       this.onOrderUpdate?.({
         orderLinkId: params.orderLinkId,
         orderId: exchangeOrderId,
         orderStatus: 'Filled',
-        symbol: params.symbol,
+        symbol: instId,
         side: params.side,
         qty: params.qty.toString(),
         cumExecQty: params.qty.toString(),
@@ -347,7 +382,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
       });
 
       this.onExecutionUpdate?.({
-        symbol: params.symbol,
+        symbol: instId,
         execPrice: fillPrice,
         execQty: params.qty,
         orderLinkId: params.orderLinkId,
@@ -394,46 +429,79 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     return true;
   }
 
-  public initWebSocket(symbols: string[] = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']): void {
+  public initWebSocket(symbols: string[] = ['BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP']): void {
     if (this.wsClient) return;
 
     try {
-      this.wsClient = new WebsocketClient({
-        market: 'v5',
-        testnet: true,
-      });
+      this.wsClient = new WebSocket(this.wsBaseUrl);
 
-      (this.wsClient as any).on('update', (data: any) => {
-        const topic = data.topic || '';
-        if (topic.startsWith('tickers.')) {
-          const tickerData = data.data;
-          const symbol = tickerData?.symbol;
-          const lastPrice = parseFloat(tickerData?.lastPrice || '0');
-          if (symbol && !isNaN(lastPrice) && lastPrice > 0) {
-            this.latestPrices.set(symbol, lastPrice);
-            this.onTickerUpdate?.(symbol, lastPrice);
-          }
-        }
-      });
-
-      (this.wsClient as any).on('open', () => {
+      this.wsClient.on('open', () => {
         this.isWsConnected = true;
-        this.onConnectionChange?.(true, 'Paper Market Data WebSocket connected');
-        for (const s of symbols) {
-          try {
-            this.wsClient?.subscribeV5(`tickers.${s}`, 'linear');
-          } catch (e) {
-            // ignore
+        this.onConnectionChange?.(true, 'OKX EEA Paper Market Data WebSocket connected');
+
+        if (this.pingInterval) clearInterval(this.pingInterval);
+        this.pingInterval = setInterval(() => {
+          if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {
+            this.wsClient.send('ping');
           }
-        }
+        }, 20000);
+
+        this.subscribeSymbols(symbols);
       });
 
-      (this.wsClient as any).on('close', () => {
+      this.wsClient.on('message', (data: WebSocket.Data) => {
+        const text = data.toString();
+        if (text === 'pong') return;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed.arg?.channel === 'tickers' && Array.isArray(parsed.data)) {
+            for (const item of parsed.data) {
+              const instId = item.instId;
+              const lastPrice = parseFloat(item.last);
+              if (instId && !isNaN(lastPrice) && lastPrice > 0) {
+                this.latestPrices.set(instId, lastPrice);
+                this.onTickerUpdate?.(instId, lastPrice);
+              }
+            }
+          }
+        } catch {}
+      });
+
+      this.wsClient.on('close', () => {
         this.isWsConnected = false;
-        this.onConnectionChange?.(false, 'Paper Market Data WebSocket disconnected');
+        this.onConnectionChange?.(false, 'OKX EEA Paper Market Data WebSocket disconnected');
+      });
+
+      this.wsClient.on('error', (err) => {
+        console.warn('[PaperAdapter] WebSocket notice:', err.message || err);
       });
     } catch (err) {
-      console.warn('[PaperAdapter] WebSocket initialization notice:', err);
+      console.warn('[PaperAdapter] WebSocket initialization error:', err);
+    }
+  }
+
+  public subscribeSymbols(symbols: string[]) {
+    if (!this.wsClient || this.wsClient.readyState !== WebSocket.OPEN) {
+      symbols.forEach((s) => this.subscribedSymbols.add(this.normalizeSymbol(s)));
+      return;
+    }
+
+    const newArgs: any[] = [];
+    for (const raw of symbols) {
+      const instId = this.normalizeSymbol(raw);
+      if (!this.subscribedSymbols.has(instId)) {
+        this.subscribedSymbols.add(instId);
+        newArgs.push({ channel: 'tickers', instId });
+      }
+    }
+
+    if (newArgs.length > 0) {
+      this.wsClient.send(
+        JSON.stringify({
+          op: 'subscribe',
+          args: newArgs,
+        })
+      );
     }
   }
 
@@ -448,12 +516,14 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   }
 
   public close(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = undefined;
+    }
     if (this.wsClient) {
       try {
-        this.wsClient.closeAll();
-      } catch (e) {
-        // ignore
-      }
+        this.wsClient.close();
+      } catch (e) {}
       this.wsClient = undefined;
     }
     this.isWsConnected = false;

@@ -64,7 +64,7 @@ export class RiskEngine {
     // Calculate trade size based on risk percentage of shared capital
     const targetSizeUSDT = currentEquity * (config.riskPerTradePct / 100);
 
-    // Minimum notional value for Bybit is 5 USDT
+    // Minimum notional value for OKX is 5 USDT
     if (targetSizeUSDT < 5) {
       return {
         approved: false,
