@@ -152,6 +152,7 @@ export interface OrderRecord {
   side: OrderSide;
   orderType: 'Market' | 'Limit';
   qty: number;
+  ctVal?: number;
   sizeUSDT: number;
   status: OrderStatus;
   fillPrice?: number;
@@ -184,6 +185,7 @@ export interface Position {
   side: OrderSide;
   qty: number;
   entryPrice: number;
+  ctVal?: number;
   sizeUSDT: number;
   status: PositionStatus;
   entryTime: number;
@@ -197,6 +199,8 @@ export interface Position {
   highestPrice?: number;
   lowestPrice?: number;
   stopLossPrice?: number;
+  currentPrice?: number;
+  holdingTimeMinutes?: number;
   profile: ProfileType;
   source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';
   executionMode: ExecutionMode;
@@ -228,6 +232,7 @@ export interface EquityDataPoint {
 }
 
 export interface EquityTrailingState {
+  isEnabled?: boolean;
   isActive: boolean;
   activationPrice: number;
   activationPct: number;
@@ -248,6 +253,7 @@ export interface PerformanceMetrics {
   avgWin: number;
   avgLoss: number;
   maxDrawdownPct: number;
+  totalFeesPaid: number;
 }
 
 export interface BotStatusResponse {
@@ -257,6 +263,13 @@ export interface BotStatusResponse {
   profileConfig: ProfileConfig;
   profiles?: Record<ProfileType, ProfileConfig>;
   equity: number;
+  initialEquity?: number;
+  walletBalance?: number;
+  freeBalance?: number;
+  marginInvested?: number;
+  unrealizedPnL?: number;
+  totalProfit?: number;
+  totalProfitPct?: number;
   equityHistory?: EquityDataPoint[];
   sessionRealizedPnL?: number;
   performanceMetrics?: PerformanceMetrics;
@@ -266,6 +279,7 @@ export interface BotStatusResponse {
   lastSyncTime: number;
   scannerStats?: ScannerStats;
   marketRegime?: string;
+  marketSentiment?: string;
   equityTrailingState?: EquityTrailingState;
 }
 

@@ -61,24 +61,40 @@ export class RiskEngine {
       };
     }
 
-    // Calculate trade size based on risk percentage of shared capital
-    const targetSizeUSDT = currentEquity * (config.riskPerTradePct / 100);
+    // 5. Free Balance & Margin Allocation Check (TradeBot 4 Accounting Logic)
+    // Formula: Margin (Invested) + Free Balance = Total Equity - Unrealized PnL (Wallet Balance)
+    const marginInvested = activePositions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
+    const unrealizedPnL = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+    const walletBalance = currentEquity - unrealizedPnL;
+    const freeBalance = Math.max(0, walletBalance - marginInvested);
+
+    if (freeBalance < 5) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `Insufficient Free Balance ($${freeBalance.toFixed(2)} available). Margin locked: $${marginInvested.toFixed(2)} across ${activePositions.length} position(s). Minimum 5 USDT required for new entry.`,
+      };
+    }
+
+    // Desired trade size based on risk percentage of shared capital
+    const desiredSizeUSDT = currentEquity * (config.riskPerTradePct / 100);
+
+    // Strict Free Balance Cap: The position size can never exceed available free balance (with 5% buffer for fees/slippage)
+    const maxAllocatableSize = freeBalance * 0.95;
+    const targetSizeUSDT = Math.min(desiredSizeUSDT, maxAllocatableSize);
 
     // Minimum notional value for OKX is 5 USDT
     if (targetSizeUSDT < 5) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Calculated trade size ($${targetSizeUSDT.toFixed(2)}) is below minimum exchange threshold (5 USDT)`,
+        reason: `Remaining Free Balance ($${freeBalance.toFixed(2)}) is insufficient for minimum trade size (5 USDT). Current margin allocated: $${marginInvested.toFixed(2)}.`,
       };
     }
 
-    // Cap at 95% of equity to preserve margin for slippage and trading fees
-    const cappedSizeUSDT = Math.min(targetSizeUSDT, currentEquity * 0.95);
-
     return {
       approved: true,
-      sizeUSDT: parseFloat(cappedSizeUSDT.toFixed(2)),
+      sizeUSDT: parseFloat(targetSizeUSDT.toFixed(2)),
     };
   }
 }

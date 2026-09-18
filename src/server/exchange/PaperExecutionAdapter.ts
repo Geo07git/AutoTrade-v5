@@ -221,15 +221,27 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     return fallback;
   }
 
-  public async formatQuantity(symbol: string, desiredQty: number, currentPrice: number): Promise<number> {
-    const filter = await this.getInstrumentFilter(symbol);
-    const step = filter.qtyStep;
-    const ctVal = filter.ctVal || 1;
+  public getCachedCtVal(symbol: string): number {
+    const instId = this.normalizeSymbol(symbol);
+    const filter = this.instrumentFilters.get(instId) || this.instrumentFilters.get(symbol);
+    return filter?.ctVal && filter.ctVal > 0 ? filter.ctVal : 1;
+  }
 
-    let contracts = desiredQty;
-    if (desiredQty < filter.minOrderQty && ctVal > 0 && ctVal < 1) {
-      contracts = desiredQty / ctVal;
-    }
+  public async formatQuantity(
+    symbol: string,
+    desiredQty: number,
+    currentPrice: number,
+    isAlreadyContracts: boolean = false
+  ): Promise<number> {
+    const filter = await this.getInstrumentFilter(symbol);
+    const step = filter.qtyStep || 1;
+    const ctVal = filter.ctVal && filter.ctVal > 0 ? filter.ctVal : 1;
+
+    // In OKX SWAPs, order size 'sz' represents number of contracts.
+    // desiredQty is initially expressed in base tokens (e.g. 250 DOGE or 0.05 BTC).
+    // Convert base tokens to number of contracts: contracts = desiredQty / ctVal.
+    // If isAlreadyContracts is true (e.g. closing an existing position), desiredQty is already in contracts.
+    const contracts = isAlreadyContracts ? desiredQty : desiredQty / ctVal;
 
     const stepStr = step.toString();
     const decimals = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;

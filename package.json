@@ -3,13 +3,32 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron.js",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "com.bloomberg.tradebot5",
+    "productName": "Bloomberg TradeBot Pro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron.js",
+      "dist/**/*",
+      "server.ts",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis", "portable"]
+    }
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -33,6 +52,8 @@
     "@types/node": "^22.14.0",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

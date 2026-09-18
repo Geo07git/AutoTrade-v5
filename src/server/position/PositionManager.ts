@@ -15,9 +15,14 @@ export class PositionManager {
   private initialEquity: number = 200.0;
   private equityProtCount: number = 0;
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
+  private ctValResolver: (symbol: string) => number = () => 1;
 
   constructor(auditLogger: (type: AuditLogType, message: string, details?: any) => void) {
     this.auditLogger = auditLogger;
+  }
+
+  public setCtValResolver(resolver: (symbol: string) => number): void {
+    this.ctValResolver = resolver;
   }
 
   public getActivePositions(): Position[] {
@@ -29,17 +34,19 @@ export class PositionManager {
   }
 
   public getEquityTrailingState(config: ProfileConfig, currentEquity: number) {
-    const activationPrice = this.initialEquity * (1 + (config.equityProtectionActivationPct || 0) / 100);
-    const isActive = this.highestEquity >= activationPrice;
+    const isEnabled = (config.equityProtectionActivationPct || 0) > 0 && (config.equityTrailingDrawdownPct || 0) > 0;
+    const activationPrice = isEnabled ? this.initialEquity * (1 + (config.equityProtectionActivationPct || 0) / 100) : this.initialEquity;
+    const isActive = isEnabled && this.highestEquity >= activationPrice;
     
     let sellThreshold: number | null = null;
-    if (isActive && config.equityTrailingDrawdownPct) {
+    if (isActive && config.equityTrailingDrawdownPct && config.equityTrailingDrawdownPct > 0) {
       sellThreshold = this.highestEquity * (1 - config.equityTrailingDrawdownPct / 100);
     }
     
     const currentDrawdownPct = isActive ? ((this.highestEquity - currentEquity) / this.highestEquity) * 100 : 0;
     
     return {
+      isEnabled,
       isActive,
       activationPrice,
       activationPct: config.equityProtectionActivationPct || 0,
@@ -89,10 +96,18 @@ export class PositionManager {
   public setActivePositions(positions: Position[]) {
     this.activePositions = positions
       .filter((p) => p.status === 'OPEN')
-      .map((p) => ({
-        ...p,
-        qty: p.qty && !isNaN(p.qty) && p.qty > 0 ? p.qty : parseFloat((p.sizeUSDT / (p.entryPrice || 1)).toFixed(4)),
-      }));
+      .map((p) => {
+        const ctVal = p.ctVal || 1;
+        const validQty = p.qty && !isNaN(p.qty) && p.qty > 0
+          ? p.qty
+          : parseFloat((p.sizeUSDT / ((p.entryPrice || 1) * ctVal)).toFixed(4));
+        return {
+          ...p,
+          ctVal,
+          qty: validQty,
+          sizeUSDT: parseFloat((validQty * (p.entryPrice || 1) * ctVal).toFixed(2)),
+        };
+      });
   }
 
   public setClosedHistory(history: Position[]) {
@@ -112,7 +127,7 @@ export class PositionManager {
   ): Promise<Position | null> {
     const entryPrice = fillPriceOverride && fillPriceOverride > 0
       ? fillPriceOverride
-      : (order.fillPrice && order.fillPrice > 0 ? order.fillPrice : (order.sizeUSDT / order.qty));
+      : (order.fillPrice && order.fillPrice > 0 ? order.fillPrice : (order.qty > 0 ? (order.sizeUSDT / ((order.ctVal || 1) * order.qty)) : 0));
 
     const filledQty = incrementalQty !== undefined
       ? incrementalQty
@@ -122,10 +137,11 @@ export class PositionManager {
       return null;
     }
 
-    const realSizeUSDT = filledQty * entryPrice;
+    const ctVal = order.ctVal || 1;
+    const realSizeUSDT = filledQty * entryPrice * ctVal;
     const feeToAdd = feeIncrement !== undefined
       ? feeIncrement
-      : (order.cumFee !== undefined ? order.cumFee : parseFloat((realSizeUSDT * 0.00055).toFixed(4)));
+      : (order.cumFee !== undefined ? order.cumFee : parseFloat((realSizeUSDT * 0.0005).toFixed(4)));
 
     // Check if position already exists for this symbol (add incremental quantity)
     const existing = this.activePositions.find((p) => p.symbol === order.symbol && p.status === 'OPEN');
@@ -136,7 +152,8 @@ export class PositionManager {
       const avgEntryPrice = (existing.qty * existing.entryPrice + filledQty * entryPrice) / totalQty;
       existing.qty = parseFloat(totalQty.toFixed(6));
       existing.entryPrice = parseFloat(avgEntryPrice.toFixed(4));
-      existing.sizeUSDT = parseFloat((existing.qty * existing.entryPrice).toFixed(2));
+      existing.ctVal = existing.ctVal || ctVal;
+      existing.sizeUSDT = parseFloat((existing.qty * existing.entryPrice * (existing.ctVal || 1)).toFixed(2));
       existing.entryFee = parseFloat(((existing.entryFee || 0) + feeToAdd).toFixed(4));
       existing.highestPrice = Math.max(existing.highestPrice || avgEntryPrice, entryPrice);
       existing.lowestPrice = Math.min(existing.lowestPrice || avgEntryPrice, entryPrice);
@@ -158,6 +175,7 @@ export class PositionManager {
       side: order.side,
       qty: parseFloat(filledQty.toFixed(6)),
       entryPrice: parseFloat(entryPrice.toFixed(4)),
+      ctVal,
       sizeUSDT: parseFloat(realSizeUSDT.toFixed(2)),
       entryFee: parseFloat(feeToAdd.toFixed(4)),
       exitFee: 0,
@@ -196,17 +214,21 @@ export class PositionManager {
     orderManager: OrderManager,
     currentEquity: number
   ) {
-    // Equity Protection Check
+    // Equity Protection Check (Disabled if either activationPct or trailingDrawdownPct is <= 0)
     this.updateHighestEquity(currentEquity);
     
-    if (config.equityProtectionActivationPct !== undefined && config.equityTrailingDrawdownPct !== undefined) {
+    const isEquityProtectionEnabled = 
+      (config.equityProtectionActivationPct ?? 0) > 0 && 
+      (config.equityTrailingDrawdownPct ?? 0) > 0;
+
+    if (isEquityProtectionEnabled) {
       const peakEquity = this.getHighestEquity();
       const activationEquity = this.initialEquity * (1 + config.equityProtectionActivationPct / 100);
       
       // If we ever hit activationEquity, the peakEquity will naturally be >= activationEquity
       if (peakEquity >= activationEquity) {
         const drawdownFromPeak = (peakEquity - currentEquity) / peakEquity * 100;
-        if (drawdownFromPeak >= config.equityTrailingDrawdownPct) {
+        if (drawdownFromPeak >= config.equityTrailingDrawdownPct && this.activePositions.length > 0) {
           this.auditLogger('KILL_SWITCH_ENGAGED', `Equity Protection triggered! Drawdown of ${drawdownFromPeak.toFixed(2)}% exceeded limit of ${config.equityTrailingDrawdownPct}%. Closing all positions.`, {
             peakEquity,
             currentEquity,
@@ -238,6 +260,9 @@ export class PositionManager {
       const currentPrice = currentPrices[pos.symbol];
       if (!currentPrice || currentPrice <= 0) continue;
 
+      pos.currentPrice = currentPrice;
+      pos.holdingTimeMinutes = parseFloat(((Date.now() - pos.entryTime) / 60000).toFixed(1));
+
       // Update High/Low excursions
       pos.highestPrice = Math.max(pos.highestPrice || pos.entryPrice, currentPrice);
       pos.lowestPrice = Math.min(pos.lowestPrice || pos.entryPrice, currentPrice);
@@ -248,6 +273,8 @@ export class PositionManager {
         ? ((currentPrice - pos.entryPrice) / pos.entryPrice) * 100
         : ((pos.entryPrice - currentPrice) / pos.entryPrice) * 100;
       pos.pnlPct = parseFloat(pnlPct.toFixed(2));
+      const ctVal = pos.ctVal || 1;
+      pos.sizeUSDT = parseFloat((pos.qty * pos.entryPrice * ctVal).toFixed(2));
       pos.pnl = parseFloat(((pos.sizeUSDT * pnlPct) / 100).toFixed(2));
 
       // Initialize stopLossPrice if undefined
@@ -391,41 +418,24 @@ export class PositionManager {
       : ((pos.entryPrice - exitPrice) / pos.entryPrice) * 100;
     pos.pnlPct = parseFloat(finalPnlPct.toFixed(2));
 
-    // Gross PnL strictly from price movement
-    // Folosim valoarea reală de intrare pentru a evita problemele de sincronizare a sizeUSDT
-    const realNotional = pos.qty * pos.entryPrice;
-    const grossPnl = (realNotional * finalPnlPct) / 100;
+    // Gross PnL strictly from price movement taking ctVal into account
+    const ctVal = pos.ctVal || 1;
+    const realNotional = pos.qty * pos.entryPrice * ctVal;
+    const grossPnl = isBuy
+      ? (exitPrice - pos.entryPrice) * pos.qty * ctVal
+      : (pos.entryPrice - exitPrice) * pos.qty * ctVal;
     
-    // Circuit Breaker: Dacă PnL-ul este aberant de mare (> 50% din notional), limităm/logăm eroarea
-    if (Math.abs(grossPnl) > realNotional * 0.5) {
-      this.auditLogger('CRITICAL_CALC_ERROR', `Anomalie PnL detectată pentru ${pos.symbol}: GrossPnL $${grossPnl.toFixed(2)} față de notional $${realNotional.toFixed(2)}. Limitând la 50%. Detalii Poziție: Qty=${pos.qty}, Entry=$${pos.entryPrice}, Exit=$${exitPrice}, Side=${pos.side}, SizeUSDT_Captured=${pos.sizeUSDT}`, {
-        symbol: pos.symbol,
-        grossPnl,
-        realNotional,
-        qty: pos.qty,
-        entryPrice: pos.entryPrice,
-        exitPrice,
-        side: pos.side,
-        sizeUSDT_Captured: pos.sizeUSDT
-      });
-      pos.grossPnl = parseFloat((Math.sign(grossPnl) * realNotional * 0.5).toFixed(4));
-    } else {
-      pos.grossPnl = parseFloat(grossPnl.toFixed(4));
-    }
+    pos.grossPnl = parseFloat((isNaN(grossPnl) ? 0 : grossPnl).toFixed(4));
 
-    // Fees: Entry Fee + Exit Fee
+    // Fees: Entry Fee + Exit Fee (0.05% OKX taker standard)
     const entryFee = pos.entryFee || 0;
-    const exitNotional = pos.qty * exitPrice;
-    const resolvedExitFee = exitFee !== undefined ? exitFee : parseFloat((exitNotional * 0.00055).toFixed(4));
+    const exitNotional = pos.qty * exitPrice * ctVal;
+    const resolvedExitFee = exitFee !== undefined ? exitFee : parseFloat((exitNotional * 0.0005).toFixed(4));
     pos.exitFee = parseFloat(resolvedExitFee.toFixed(4));
 
     // Net PnL = grossPnl - (entryFee + exitFee)
-    // Protecție: Comisioanele totale nu pot depăși 5% din dimensiunea poziției (pentru a preveni bug-uri de calcul în volatilitate)
-    const maxAllowedFee = pos.sizeUSDT * 0.05;
-    const actualTotalFee = Math.min(entryFee + resolvedExitFee, maxAllowedFee);
-    
-    const netPnl = grossPnl - actualTotalFee;
-    pos.pnl = parseFloat(netPnl.toFixed(2));
+    const netPnl = pos.grossPnl - (entryFee + resolvedExitFee);
+    pos.pnl = parseFloat((isNaN(netPnl) ? 0 : netPnl).toFixed(2));
 
     this.activePositions.splice(index, 1);
     this.closedHistory.unshift(pos);
@@ -455,8 +465,9 @@ export class PositionManager {
       return this.markPositionClosed(posId, exitPrice, Date.now(), 'PARTIAL_CLOSE_COMPLETED');
     }
 
+    const ctVal = pos.ctVal || 1;
     pos.qty = remainingQty;
-    pos.sizeUSDT = parseFloat((remainingQty * pos.entryPrice).toFixed(2));
+    pos.sizeUSDT = parseFloat((remainingQty * pos.entryPrice * ctVal).toFixed(2));
 
     this.auditLogger(
       'POSITION_UPDATED',
@@ -512,6 +523,9 @@ export class PositionManager {
       }
 
       // Check quantity mismatch
+      const ctVal = localPos.ctVal || this.ctValResolver(localPos.symbol) || 1;
+      localPos.ctVal = ctVal;
+
       if (Math.abs(localPos.qty - okxPos.size) > 1e-6) {
         discrepancies++;
         this.auditLogger(
@@ -520,7 +534,7 @@ export class PositionManager {
           { symbol: localPos.symbol, oldQty: localPos.qty, newQty: okxPos.size }
         );
         localPos.qty = okxPos.size;
-        localPos.sizeUSDT = okxPos.size * localPos.entryPrice;
+        localPos.sizeUSDT = parseFloat((okxPos.size * localPos.entryPrice * ctVal).toFixed(2));
       }
 
       // Check side mismatch
@@ -544,7 +558,7 @@ export class PositionManager {
           { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: okxPos.avgPrice }
         );
         localPos.entryPrice = okxPos.avgPrice;
-        localPos.sizeUSDT = localPos.qty * okxPos.avgPrice;
+        localPos.sizeUSDT = parseFloat((localPos.qty * okxPos.avgPrice * ctVal).toFixed(2));
       }
 
       // Remove from map so we know it's matched
@@ -558,7 +572,8 @@ export class PositionManager {
       discrepancies++;
       const side = unmappedOkxPos.side.toUpperCase() as 'BUY' | 'SELL';
       const entryPrice = unmappedOkxPos.avgPrice || unmappedOkxPos.markPrice;
-      const sizeUSDT = unmappedOkxPos.size * entryPrice;
+      const ctVal = this.ctValResolver(symbol) || 1;
+      const sizeUSDT = parseFloat((unmappedOkxPos.size * entryPrice * ctVal).toFixed(2));
 
       const importedPos: Position = {
         id: `okx_sync_${Date.now()}_${symbol}`,
@@ -566,6 +581,7 @@ export class PositionManager {
         side,
         qty: unmappedOkxPos.size,
         entryPrice,
+        ctVal,
         sizeUSDT,
         status: 'OPEN',
         entryTime: unmappedOkxPos.updatedTime || Date.now(),

@@ -25,7 +25,8 @@ export interface IExecutionAdapter {
   getKlines(symbol: string, interval: string, limit?: number): Promise<Kline[]>;
   getTickerPrice(symbol: string): Promise<number | null>;
   getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter>;
-  formatQuantity(symbol: string, desiredQty: number, currentPrice: number): Promise<number>;
+  getCachedCtVal?(symbol: string): number;
+  formatQuantity(symbol: string, desiredQty: number, currentPrice: number, isAlreadyContracts?: boolean): Promise<number>;
   getOpenPositions(settleCoin?: string): Promise<OKXRawPosition[]>;
   submitOrder(params: {
     symbol: string;

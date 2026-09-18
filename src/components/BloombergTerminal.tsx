@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis, CartesianGrid } from 'recharts';
 import {
   BotStatusResponse,
   AuditLog,
@@ -92,7 +92,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
 
-  const [activeScreen, setActiveScreen] = useState<'PORT' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET'>('PORT');
+  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO'>('PORT');
+  const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
+
+  const toggleExpandPosition = (id: string) => {
+    setExpandedPositionIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const [commandInput, setCommandInput] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([
     'SYSTEM BOOT: BLOOMBERG TERMINAL V5.0 SECURE DESK INITIALIZED',
@@ -129,6 +135,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [chartSymbol, setChartSymbol] = useState('BTCUSDT');
   const [symbolSearchQuery, setSymbolSearchQuery] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
+  const [lang, setLang] = useState<'EN' | 'RO'>('RO');
 
   const allUniverseSymbols = Array.from(new Set([
     'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
@@ -248,7 +255,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.status,
       o.realizedPnl !== undefined ? o.realizedPnl : '',
       o.realizedPnlPct !== undefined ? o.realizedPnlPct : '',
-      o.cumFee !== undefined ? o.cumFee : (o.sizeUSDT * 0.00055).toFixed(4),
+      o.cumFee !== undefined ? o.cumFee : (o.sizeUSDT * 0.0005).toFixed(4),
       o.entryPrice || '',
       o.exitReasonDetail || '',
       o.holdingTimeMinutes || '',
@@ -474,7 +481,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     const action = parts[0];
 
     if (action === 'HELP') {
-      response = 'AVAILABLE COMMANDS: START, STOP, SCALP, MOMENTUM, SCAN, RESET, KILL, SAVELOG, CLEARLOG, CLEAR, PORT, TAPE, BLOT, SET';
+      response = 'AVAILABLE COMMANDS: START, STOP, SCALP, MOMENTUM, SCAN, RESET, KILL, SAVELOG, CLEARLOG, CLEAR, PORT, POS, SCAN, BLOT, SET';
     } else if (action === 'SCALP') {
       onSwitchProfile('SCALP');
       response = 'PROFILE SWITCHED TO SCALP (15m/60m, Aggressive)';
@@ -504,10 +511,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       return;
     } else if (action === 'PORT' || action === 'F1') {
       setActiveScreen('PORT');
-      response = 'SWITCHED TO F1: PORTFOLIO & POSITIONS';
-    } else if (action === 'TAPE' || action === 'F2') {
-      setActiveScreen('TAPE');
-      response = 'SWITCHED TO F2: REAL-TIME TAPE';
+      response = 'SWITCHED TO F1: PORTFOLIO & RISK';
+    } else if (action === 'POS' || action === 'TAPE' || action === 'F2') {
+      setActiveScreen('POS');
+      response = 'SWITCHED TO F2: OPEN POSITIONS';
     } else if (action === 'SCAN' || action === 'F3') {
       setActiveScreen('SCAN');
       response = 'SWITCHED TO F3: MARKET SCANNER';
@@ -552,8 +559,38 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   };
 
   const positions = status?.positions || [];
-  const totalPnL = positions.reduce((acc, p) => acc + (p.pnl || 0), 0);
-  const lockedCapital = positions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
+  const currentEquity = status?.equity !== undefined ? status.equity : 200.0;
+  const initialEquity = status?.initialEquity !== undefined ? status.initialEquity : 200.0;
+  const activePositions = positions.filter((p) => p.status === 'OPEN');
+
+  const marginInvested = status?.marginInvested !== undefined
+    ? status.marginInvested
+    : activePositions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
+
+  const unrealizedPnL = status?.unrealizedPnL !== undefined
+    ? status.unrealizedPnL
+    : activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+
+  const unrealizedPnLPct = marginInvested > 0 ? (unrealizedPnL / marginInvested) * 100 : 0;
+
+  const walletBalance = status?.walletBalance !== undefined
+    ? status.walletBalance
+    : (currentEquity - unrealizedPnL);
+
+  const freeBalance = status?.freeBalance !== undefined
+    ? status.freeBalance
+    : Math.max(0, walletBalance - marginInvested);
+
+  const totalProfit = status?.totalProfit !== undefined
+    ? status.totalProfit
+    : (currentEquity - initialEquity);
+
+  const totalProfitPct = status?.totalProfitPct !== undefined
+    ? status.totalProfitPct
+    : (initialEquity > 0 ? (totalProfit / initialEquity) * 100 : 0);
+
+  const totalPnL = unrealizedPnL;
+  const lockedCapital = marginInvested;
   const isKillSwitch = status?.config?.killSwitchEngaged;
 
   return (
@@ -655,17 +692,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <span>[1:PORT]</span>
-            <span className="hidden sm:inline">Positions ({positions.length})</span>
+            <span className="hidden sm:inline">Portfolio &amp; Risk</span>
           </button>
 
           <button
-            onClick={() => setActiveScreen('TAPE')}
+            onClick={() => setActiveScreen('POS')}
             className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'TAPE' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              activeScreen === 'POS' || activeScreen === 'TAPE' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
             }`}
           >
-            <span>[2:TAPE]</span>
-            <span className="hidden sm:inline">Time &amp; Sales</span>
+            <span>[2:POS]</span>
+            <span className="hidden sm:inline">Open Positions ({positions.length})</span>
           </button>
 
           <button
@@ -697,6 +734,36 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <span>[5:SET]</span>
             <span className="hidden sm:inline">Parameters</span>
           </button>
+
+          <button
+            onClick={() => setActiveScreen('INFO')}
+            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
+              activeScreen === 'INFO' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+            }`}
+          >
+            <span>[6:INFO]</span>
+            <span className="hidden sm:inline">{lang === 'EN' ? 'App Info & Build' : 'Info & Executabil'}</span>
+          </button>
+
+          {/* Language Switcher Switch (EN / RO) */}
+          <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0 ml-2">
+            <button
+              onClick={() => setLang('EN')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                lang === 'EN' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang('RO')}
+              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                lang === 'RO' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+              }`}
+            >
+              RO
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
@@ -754,42 +821,119 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <Terminal className="w-4 h-4 text-amber-500" />
                   <span className="font-bold text-sm tracking-wider">F1: ACTIVE PORTFOLIO &amp; POSITIONS</span>
                 </div>
-                <span className="text-xs text-slate-400">{positions.length} Open Positions</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-slate-400">{positions.length} Open Positions</span>
+                  <button
+                    onClick={() => onResetPaper()}
+                    className="bg-zinc-900 hover:bg-zinc-800 text-amber-400 hover:text-amber-300 px-2 py-0.5 rounded border border-amber-500/30 text-[11px] flex items-center space-x-1"
+                    title="Resetează contul Paper la $200.00 curat"
+                  >
+                    <span>RESET CONT $200</span>
+                  </button>
+                </div>
               </div>
 
-              {/* PORTFOLIO METRICS */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <div className="bg-black border border-amber-500/20 p-3 rounded">
-                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">SESSION REALIZED PNL</div>
-                  <div className={`text-lg font-bold ${(status?.sessionRealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {(status?.sessionRealizedPnL || 0) >= 0 ? '+' : ''}${(status?.sessionRealizedPnL || 0).toFixed(2)}
+              {/* TRADEBOT 4 ACCOUNTING METRICS (DYNAMIC LANG) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                {/* 1. FREE BALANCE */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                    {lang === 'EN' ? 'FREE BALANCE' : 'SOLD DISPONIBIL'}
+                  </div>
+                  <div className="text-base sm:text-xl font-bold font-mono text-amber-400">
+                    ${freeBalance.toFixed(2)}
                   </div>
                 </div>
-                <div className="bg-black border border-amber-500/20 p-3 rounded">
-                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">TOTAL EXPOSURE (USDT)</div>
-                  <div className="text-lg font-bold text-cyan-400">
-                    ${lockedCapital.toFixed(2)}
+
+                {/* 2. MARGIN (INVESTED) */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                    {lang === 'EN' ? 'MARGIN (INVESTED)' : 'MARJĂ INVESTITĂ'}
+                  </div>
+                  <div className="text-base sm:text-xl font-bold font-mono text-amber-400">
+                    ${marginInvested.toFixed(2)}
                   </div>
                 </div>
-                <div className="bg-black border border-amber-500/20 p-3 rounded">
-                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">WIN RATE</div>
-                  <div className="text-lg font-bold text-amber-400">
-                    {status?.performanceMetrics?.winRate !== undefined ? `${status.performanceMetrics.winRate}%` : '0.00%'}
-                    <span className="text-[10px] text-slate-500 font-normal ml-1">({status?.performanceMetrics?.winningTrades || 0}W / {status?.performanceMetrics?.losingTrades || 0}L)</span>
+
+                {/* 3. TOTAL EQUITY */}
+                <div className="bg-black border border-emerald-500/50 p-2 sm:p-3 rounded shadow-[0_0_12px_rgba(16,185,129,0.12)]">
+                  <div className="text-emerald-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                    {lang === 'EN' ? 'TOTAL EQUITY' : 'VALOARE TOTALĂ (EQUITY)'}
+                  </div>
+                  <div className="text-base sm:text-xl font-bold font-mono text-emerald-400">
+                    ${currentEquity.toFixed(2)}
                   </div>
                 </div>
-                <div className="bg-black border border-amber-500/20 p-3 rounded">
-                  <div className="text-slate-400 text-[10px] tracking-wider mb-1">PROFIT FACTOR</div>
-                  <div className="text-lg font-bold text-amber-400">
-                    {status?.performanceMetrics?.profitFactor !== undefined ? status.performanceMetrics.profitFactor : '0.00'}
+
+                {/* 4. UNREALIZED PNL */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                    {lang === 'EN' ? 'UNREALIZED PNL' : 'PNL NEREALIZAT'}
+                  </div>
+                  <div className={`text-sm sm:text-lg font-bold font-mono ${unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
+                    <span className="text-[10px] sm:text-xs ml-0.5 font-normal opacity-90">
+                      ({unrealizedPnL >= 0 ? '+' : ''}{unrealizedPnLPct.toFixed(2)}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. TOTAL PROFIT */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                    {lang === 'EN' ? 'TOTAL PROFIT' : 'PROFIT TOTAL'}
+                  </div>
+                  <div className={`text-sm sm:text-lg font-bold font-mono ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
+                    <span className="text-[10px] sm:text-xs ml-0.5 font-normal opacity-90">
+                      ({totalProfit >= 0 ? '+' : ''}{totalProfitPct.toFixed(2)}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 6. ACTIVE POSITIONS */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                    <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider">
+                      {lang === 'EN' ? 'ACTIVE POSITIONS' : 'POZIȚII ACTIVE'}
+                    </div>
+                    <div className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950/60 border border-amber-500/40 text-amber-300">
+                      {status?.marketSentiment ? (lang === 'EN' ? status.marketSentiment.replace('BULLISH', 'BULLISH').replace('BEARISH', 'BEARISH').replace('NEUTRAL', 'NEUTRAL') : status.marketSentiment) : (lang === 'EN' ? 'OKX NEUTRAL' : 'OKX NEUTRU')}
+                    </div>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <div className="text-base sm:text-xl font-bold font-mono text-cyan-400">
+                      {activePositions.length} <span className="text-[10px] text-zinc-500 font-normal">/ 5 max</span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400 font-mono">
+                      Cap: {Math.round((activePositions.length / 5) * 100)}%
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* ADVANCED STATS SUB-GRID */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4 bg-black border border-amber-500/20 p-3 rounded text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4 bg-black border border-amber-500/20 p-3 rounded text-xs">
                 <div>
-                  <div className="text-slate-500 text-[10px]">EXPECTANCY (AVG/TR)</div>
+                  <div className="text-slate-500 text-[10px]">SESSION REALIZED</div>
+                  <div className={`font-bold ${(status?.sessionRealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {(status?.sessionRealizedPnL || 0) >= 0 ? '+' : ''}${(status?.sessionRealizedPnL || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">WIN RATE</div>
+                  <div className="font-bold text-amber-400">
+                    {status?.performanceMetrics?.winRate !== undefined ? `${status.performanceMetrics.winRate}%` : '0.00%'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">PROFIT FACTOR</div>
+                  <div className="font-bold text-amber-400">
+                    {status?.performanceMetrics?.profitFactor !== undefined ? status.performanceMetrics.profitFactor : '0.00'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-[10px]">EXPECTANCY</div>
                   <div className={`font-bold ${(status?.performanceMetrics?.expectancy || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {(status?.performanceMetrics?.expectancy || 0) >= 0 ? '+' : ''}${status?.performanceMetrics?.expectancy?.toFixed(2) || '0.00'}
                   </div>
@@ -801,13 +945,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">AVG WIN / LOSS</div>
-                  <div className="font-bold text-zinc-300">
-                    +${status?.performanceMetrics?.avgWin?.toFixed(2) || '0.00'} / -${status?.performanceMetrics?.avgLoss?.toFixed(2) || '0.00'}
+                  <div className="text-slate-500 text-[10px]">TOTAL FEES (FEE)</div>
+                  <div className="font-bold text-rose-400">
+                    -${status?.performanceMetrics?.totalFeesPaid?.toFixed(2) || '0.00'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">TOTAL CLOSED TRADES</div>
+                  <div className="text-slate-500 text-[10px]">CLOSED TRADES</div>
                   <div className="font-bold text-amber-300">
                     {status?.performanceMetrics?.totalClosed || 0}
                   </div>
@@ -821,7 +965,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
                     <h3 className="font-bold text-amber-500 uppercase tracking-wider text-sm flex items-center gap-2">
                       EQUITY TRAILING PROTECTION
-                      {status.equityTrailingState.isActive ? (
+                      {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0 ? (
+                        <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px]">
+                          DEZACTIVAT (PRAG 0%)
+                        </span>
+                      ) : status.equityTrailingState.isActive ? (
                         <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/50 px-2 py-0.5 rounded text-[10px]">
                           ACTIV - URMĂREȘTE VÂRFUL
                         </span>
@@ -834,9 +982,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                   
                   <p className="text-xs text-slate-400 mb-4">
-                    {status.equityTrailingState.isActive 
-                      ? `Urmărirea este activă. Se va închide automat la o retragere de ${status.equityTrailingState.drawdownLimitPct.toFixed(2)}% din vârful atins. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
-                      : `Urmărirea se activează când contul atinge $${status.equityTrailingState.activationPrice.toFixed(2)} (+${status.equityTrailingState.activationPct.toFixed(2)}%). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`}
+                    {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0
+                      ? 'Protecția de capital este DEZACTIVATĂ (setată la 0%). Pozițiile sunt controlate exclusiv de Stop-Loss, Trailing Stop și Take-Profit individuale.'
+                      : status.equityTrailingState.isActive 
+                        ? `Urmărirea este activă. Se va închide automat la o retragere de ${status.equityTrailingState.drawdownLimitPct.toFixed(2)}% din vârful atins. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
+                        : `Urmărirea se activează când contul atinge $${status.equityTrailingState.activationPrice.toFixed(2)} (+${status.equityTrailingState.activationPct.toFixed(2)}%). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`}
                   </p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
@@ -870,122 +1020,474 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               )}
 
-              {/* EQUITY HISTORY CHART */}
-              {status?.equityHistory && status.equityHistory.length > 1 && (
-                <div className="mb-4 bg-black border border-amber-500/20 p-2 rounded h-32 relative">
-                  <span className="absolute top-1 left-2 text-[10px] text-amber-600 font-bold tracking-widest z-10">24H EQUITY CURVE</span>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={status.equityHistory}>
-                      <YAxis domain={['auto', 'auto']} hide />
-                      <Line 
-                        type="monotone" 
-                        dataKey="equity" 
-                        stroke="#10b981" 
-                        strokeWidth={1.5} 
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              {/* OKX Market Sentiment Card mimicking user screenshot */}
+              <div className="mt-4 bg-zinc-950 border border-amber-500/30 p-4 rounded flex flex-col items-center justify-center font-mono">
+                <div className="text-[11px] text-zinc-400 tracking-wider mb-3">SENTIMENT SCORE</div>
+                
+                {(() => {
+                  const sentimentStr = status?.marketSentiment || 'NEUTRAL';
+                  let score = 78;
+                  let label = 'Lăcomie';
+                  let color = '#10b981'; // emerald
+                  if (sentimentStr.includes('BEARISH')) {
+                    score = 22;
+                    label = 'Frică';
+                    color = '#f43f5e';
+                  } else if (sentimentStr.includes('NEUTRAL')) {
+                    score = 50;
+                    label = 'Neutru';
+                    color = '#f59e0b';
+                  }
 
-              {positions.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-12 space-y-2">
-                  <Activity className="w-8 h-8 opacity-40 animate-pulse" />
-                  <p className="text-xs tracking-wider">NO ACTIVE POSITIONS. SCANNING UNIVERSE FOR MOMENTUM SIGNALS...</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto flex-1">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-amber-500/20 text-amber-400/80">
-                        <th className="py-2 px-2">Symbol</th>
-                        <th className="py-2 px-2">Side</th>
-                        <th className="py-2 px-2">Qty</th>
-                        <th className="py-2 px-2">Entry</th>
-                        <th className="py-2 px-2">Size</th>
-                        <th className="py-2 px-2">PnL (Net)</th>
-                        <th className="py-2 px-2 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-900 font-mono">
-                      {positions.map((pos) => {
-                        const isProfit = (pos.pnl || 0) >= 0;
-                        return (
-                          <tr key={pos.id} className="hover:bg-zinc-900/50">
-                            <td className="py-2.5 px-2 font-bold text-amber-300">
-                              {pos.symbol}
-                              {(pos.entryFee || 0) > 0 && (
-                                <span className="block text-[9px] text-zinc-500 font-normal">
-                                  Fee: -${pos.entryFee?.toFixed(2)}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${pos.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                                {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-2">{pos.qty.toFixed(4)}</td>
-                            <td className="py-2.5 px-2">${pos.entryPrice.toLocaleString()}</td>
-                            <td className="py-2.5 px-2">${pos.sizeUSDT.toFixed(2)}</td>
-                            <td className={`py-2.5 px-2 font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {isProfit ? '+' : ''}${pos.pnl?.toFixed(2) || '0.00'} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2) || '0.00'}%)
-                              {pos.grossPnl !== undefined && pos.grossPnl !== pos.pnl && (
-                                <span className="block text-[9px] text-zinc-500 font-normal mt-0.5">
-                                  Gross: {pos.grossPnl >= 0 ? '+' : ''}${pos.grossPnl.toFixed(2)}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-right">
-                              <button
-                                onClick={() => {
-                                  onClosePosition(pos.symbol);
-                                }}
-                                className="bg-rose-900 hover:bg-rose-800 text-white px-2 py-0.5 rounded text-[10px] font-bold tracking-wider"
-                              >
-                                CLOSE
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                  // Semi-circle gauge calculation
+                  const angle = (score / 100) * 180 - 90;
+                  const rad = (angle * Math.PI) / 180;
+                  const cx = 70;
+                  const cy = 60;
+                  const r = 46;
+                  const nx = cx + r * Math.sin(rad);
+                  const ny = cy - r * Math.cos(rad);
+
+                  return (
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-36 h-20 flex items-end justify-center mb-2">
+                        <svg className="w-36 h-36 absolute -top-4" viewBox="0 0 140 100">
+                          {/* Arc segments for Red, Yellow, Green */}
+                          <path d="M 20 60 A 46 46 0 0 1 50 25" fill="none" stroke="#f43f5e" strokeWidth="10" strokeLinecap="round" />
+                          <path d="M 52 24 A 46 46 0 0 1 88 24" fill="none" stroke="#f59e0b" strokeWidth="10" strokeLinecap="round" />
+                          <path d="M 90 25 A 46 46 0 0 1 120 60" fill="none" stroke="#10b981" strokeWidth="10" strokeLinecap="round" />
+                          {/* Needle line */}
+                          <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
+                          <circle cx={cx} cy={cy} r="5" fill="#ffffff" />
+                        </svg>
+                      </div>
+                      <div className="text-3xl font-bold font-serif text-white tracking-wide mt-1">
+                        {score}
+                      </div>
+                      <div className="text-sm font-medium tracking-wide mt-0.5" style={{ color }}>
+                        {label}
+                      </div>
+                      <div className="text-[10px] text-zinc-500 mt-2">
+                        Calculat pe baza semnalelor active din lista de urmărire.
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
 
-          {activeScreen === 'TAPE' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
-              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
-                <div className="flex items-center space-x-2">
-                  <Activity className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold text-sm tracking-wider">F2: REAL-TIME TIME &amp; SALES TAPE</span>
-                </div>
-                <span className="text-xs text-slate-400">Live Tick Stream</span>
+          {activeScreen === 'INFO' && (
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-4 sm:p-6 flex flex-col h-full min-h-[520px] font-mono text-zinc-300 space-y-6">
+              <div className="flex items-center space-x-2 border-b border-amber-500/30 pb-3">
+                <Info className="w-5 h-5 text-amber-500" />
+                <h2 className="text-base font-bold text-amber-400 tracking-wider">
+                  {lang === 'EN' ? 'DESK INFORMATION & ELECTRON BUILD GUIDE' : 'INFORMAȚII DESK & GHID BUILD EXECUTABIL ELECTRON'}
+                </h2>
               </div>
 
-              <div className="overflow-y-auto flex-1 max-h-[500px] space-y-1 font-mono text-xs">
-                {tapeItems.map((item, idx) => (
-                  <div key={item.id + idx} className="flex items-center justify-between bg-zinc-900/60 px-3 py-1.5 rounded border border-amber-500/10 hover:border-amber-500/30">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-slate-500">{item.timestamp}</span>
-                      <span className="font-bold text-amber-300">{item.symbol}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${item.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                        {item.side === 'BUY' ? 'LONG' : 'SHORT'}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <span className="text-zinc-100 font-bold">${item.price.toLocaleString()}</span>
-                      <span className="text-amber-500/80 text-[11px]">{item.size}</span>
-                      <span className="text-slate-400 text-[10px] bg-black px-1.5 py-0.5 rounded border border-zinc-800">{item.type}</span>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
+                {/* Left Column: Local Execution */}
+                <div className="bg-black border border-zinc-800 p-4 rounded space-y-3">
+                  <h3 className="font-bold text-amber-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span>{lang === 'EN' ? '1. Running Locally' : '1. Rulare Locală'}</span>
+                  </h3>
+                  <p className="text-zinc-400">
+                    {lang === 'EN' 
+                      ? 'To run the entire Bloomberg TradeBot stack locally on your machine with full API integration:'
+                      : 'Pentru a rula întreaga aplicație Bloomberg TradeBot local pe calculatorul tău cu integrare API completă:'}
+                  </p>
+                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-amber-300 font-mono text-[11px] space-y-1">
+                    <div># 1. Install dependencies</div>
+                    <div className="text-white">npm install</div>
+                    <div className="pt-1"># 2. Start development server</div>
+                    <div className="text-white">npm run dev</div>
                   </div>
-                ))}
+                  <p className="text-[11px] text-zinc-500">
+                    {lang === 'EN'
+                      ? 'The server runs on http://localhost:3000 with Express backend and Vite frontend.'
+                      : 'Serverul rulează pe http://localhost:3000 cu backend Express și frontend Vite.'}
+                  </p>
+                </div>
+
+                {/* Right Column: Electron & .exe Build */}
+                <div className="bg-black border border-zinc-800 p-4 rounded space-y-3">
+                  <h3 className="font-bold text-amber-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>{lang === 'EN' ? '2. Building Windows .exe (Electron)' : '2. Generare Executabil Windows (.exe)'}</span>
+                  </h3>
+                  <p className="text-zinc-400">
+                    {lang === 'EN'
+                      ? 'Electron is fully configured. You can test in desktop mode or package a standalone executable installer (.exe):'
+                      : 'Electron este configurat complet. Poți testa în mod desktop sau poți genera pachetul instalabil (.exe):'}
+                  </p>
+                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-amber-300 font-mono text-[11px] space-y-1">
+                    <div># Test app in Electron desktop window</div>
+                    <div className="text-white">npm run electron:dev</div>
+                    <div className="pt-1"># Build Windows .exe installer & portable</div>
+                    <div className="text-white">npm run electron:build</div>
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    {lang === 'EN'
+                      ? 'Outputs will be generated in the /release directory (NSIS installer & portable binaries).'
+                      : 'Fișierele generate vor fi salvate în directorul /release (instalator NSIS și binar portabil).'}
+                  </p>
+                </div>
               </div>
+
+              <div className="bg-amber-950/20 border border-amber-500/30 p-3 rounded text-[11px] text-amber-300/90 flex items-start space-x-2 mt-auto">
+                <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-400">Notă Bloomberg Desk:</strong> Acest terminal asigură un mediu de tranzacționare cu risc controlat, feed-uri live de la OKX și execuție automatizată în timp real. Asigurați-vă că aveți jetoanele de control configurate corect.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(activeScreen === 'POS' || activeScreen === 'TAPE') && (
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[480px]">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
+                <div className="flex items-center space-x-2">
+                  <Activity className="w-4 h-4 text-amber-500" />
+                  <span className="font-bold text-sm tracking-wider text-amber-400">
+                    F2: OPEN POSITIONS &amp; ACTIVE EXPOSURE
+                  </span>
+                  <span className="text-xs bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono">
+                    {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3 text-xs font-mono">
+                  <span className="text-zinc-400">
+                    Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
+                  </span>
+                  <span className="text-zinc-400">
+                    PnL Nerealizat:{' '}
+                    <strong className={unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Instructions banner */}
+              <div className="bg-black/60 border border-amber-500/20 rounded px-2.5 py-1.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
+                <div className="flex items-center space-x-1.5">
+                  <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Apasă pe oricare poziție pentru a extinde detaliile complete (preț actual, minute deținere, stare trailing).</span>
+                </div>
+                {positions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allExpanded = positions.every((p) => expandedPositionIds[p.id]);
+                      const newMap: Record<string, boolean> = {};
+                      if (!allExpanded) {
+                        positions.forEach((p) => { newMap[p.id] = true; });
+                      }
+                      setExpandedPositionIds(newMap);
+                    }}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold shrink-0"
+                  >
+                    {positions.every((p) => expandedPositionIds[p.id]) ? 'Restrânge Toate' : 'Extinde Toate'}
+                  </button>
+                )}
+              </div>
+
+              {/* Empty state */}
+              {positions.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-16 space-y-3">
+                  <Activity className="w-10 h-10 opacity-30 animate-pulse text-amber-500" />
+                  <p className="text-sm font-bold tracking-wider text-zinc-400">NU EXISTĂ POZIȚII DESCHISE ÎN ACEST MOMENT</p>
+                  <p className="text-xs text-zinc-600 max-w-md text-center">
+                    Scannerul OKX monitorizează continuu piața. În momentul în care un activ atinge scorul momentum configurat (&gt;={profileConfig?.minMomentumScore ?? 60}), botul va deschide automat poziția.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onTriggerScan()}
+                    className="mt-2 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 rounded text-xs font-bold transition-all"
+                  >
+                    Lansează Scanare Manuală Acum (F3)
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto flex-1 space-y-2">
+                  {positions.map((pos) => {
+                    const isExpanded = !!expandedPositionIds[pos.id];
+                    const isProfit = (pos.pnl || 0) >= 0;
+                    const curPrice = pos.currentPrice || pos.entryPrice;
+                    const holdingMinutes = pos.holdingTimeMinutes !== undefined
+                      ? pos.holdingTimeMinutes
+                      : parseFloat(((Date.now() - pos.entryTime) / 60000).toFixed(1));
+                    
+                    // Trailing evaluation
+                    const isBuy = pos.side.toUpperCase() === 'BUY';
+                    const peakPnlPct = isBuy
+                      ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
+                      : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
+                    const trailingActThreshold = profileConfig?.trailingActivationPct ?? 1.5;
+                    const isTrailActive = peakPnlPct >= trailingActThreshold;
+
+                    // Break Even evaluation
+                    const isBreakEvenActive = isBuy
+                      ? (pos.stopLossPrice !== undefined && pos.stopLossPrice > pos.entryPrice)
+                      : (pos.stopLossPrice !== undefined && pos.stopLossPrice < pos.entryPrice);
+
+                    // State label
+                    let stateBadge = {
+                      label: isTrailActive ? 'TRAIL ACTIV' : isBreakEvenActive ? 'BE ASIGURAT' : isProfit ? 'ÎN PROFIT' : 'ÎN PIERDERE',
+                      bg: isTrailActive
+                        ? 'bg-purple-950 text-purple-300 border-purple-500/50'
+                        : isBreakEvenActive
+                        ? 'bg-blue-950 text-blue-300 border-blue-500/50'
+                        : isProfit
+                        ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
+                        : 'bg-rose-950 text-rose-300 border-rose-500/50'
+                    };
+
+                    return (
+                      <div
+                        key={pos.id}
+                        className={`rounded border transition-all ${
+                          isExpanded
+                            ? 'bg-zinc-900 border-amber-500/60 shadow-lg shadow-black/40'
+                            : 'bg-zinc-950/80 border-amber-500/20 hover:border-amber-500/40'
+                        }`}
+                      >
+                        {/* Summary Header Row */}
+                        <div
+                          onClick={() => toggleExpandPosition(pos.id)}
+                          className="p-2.5 flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <button
+                              type="button"
+                              className="text-amber-400 p-0.5 rounded hover:bg-amber-500/20"
+                              title={isExpanded ? 'Restrânge' : 'Extinde detalii'}
+                            >
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+
+                            <div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="font-bold text-amber-300 text-sm font-mono">{pos.symbol}</span>
+                                <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded ${
+                                  pos.side === 'BUY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-600/40' : 'bg-rose-950 text-rose-400 border border-rose-600/40'
+                                }`}>
+                                  {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadTradingViewChart(pos.symbol);
+                                  }}
+                                  className="text-[9px] bg-zinc-800 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-400 px-1.5 py-0.2 rounded border border-zinc-700 font-mono"
+                                  title="Afișează graficul pe acest simbol"
+                                >
+                                  CHART
+                                </button>
+                              </div>
+                              <div className="text-[10px] text-zinc-500 font-mono">
+                                Cant: {pos.qty.toFixed(4)} | Dim: ${pos.sizeUSDT.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Metrics */}
+                          <div className="flex items-center space-x-3 sm:space-x-5 text-xs font-mono">
+                            <div>
+                              <div className="text-[9px] text-zinc-500">PREȚ INTRARE</div>
+                              <div className="font-bold text-zinc-300">${pos.entryPrice.toLocaleString()}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-[9px] text-zinc-500">PREȚ ACTUAL</div>
+                              <div className="font-bold text-white">${curPrice.toLocaleString()}</div>
+                            </div>
+
+                            <div>
+                              <div className="text-[9px] text-zinc-500">PNL NET</div>
+                              <div className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isProfit ? '+' : ''}${pos.pnl?.toFixed(2) || '0.00'} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2) || '0.00'}%)
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[9px] text-zinc-500">DEȚINERE</div>
+                              <div className="text-cyan-400 font-bold flex items-center space-x-0.5">
+                                <Clock className="w-3 h-3 inline-block" />
+                                <span>{Math.floor(holdingMinutes)}m</span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[9px] text-zinc-500">STARE</div>
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${stateBadge.bg}`}>
+                                {stateBadge.label}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => onClosePosition(pos.symbol)}
+                                className="bg-rose-900 hover:bg-rose-700 text-white px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors shadow-sm"
+                              >
+                                CLOSE
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Detail Panel */}
+                        {isExpanded && (
+                          <div className="border-t border-amber-500/20 bg-black/60 p-3 text-xs font-mono space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                              {/* Panel 1: Preț Actual & Evoluție */}
+                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                                <div className="text-[10px] font-bold text-amber-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                                  <span>PREȚ ACTUAL &amp; EXCURSIE</span>
+                                  <TrendingUp className="w-3 h-3 text-amber-500" />
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Preț Intrare:</span>
+                                  <span className="text-zinc-200">${pos.entryPrice.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Preț Actual:</span>
+                                  <span className="text-white font-bold">${curPrice.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Diferență Netă:</span>
+                                  <span className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {isProfit ? '+' : ''}${(curPrice - pos.entryPrice).toFixed(4)} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2)}%)
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Maxim Atins:</span>
+                                  <span className="text-emerald-400">${(pos.highestPrice || pos.entryPrice).toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Minim Atins:</span>
+                                  <span className="text-rose-400">${(pos.lowestPrice || pos.entryPrice).toLocaleString()}</span>
+                                </div>
+                              </div>
+
+                              {/* Panel 2: Minute de Deținere & Timing */}
+                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                                <div className="text-[10px] font-bold text-cyan-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                                  <span>MINUTE DEȚINERE &amp; TIMING</span>
+                                  <Clock className="w-3 h-3 text-cyan-400" />
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Timp Scurs:</span>
+                                  <span className="text-cyan-300 font-bold">{holdingMinutes.toFixed(1)} minute</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Deschis la:</span>
+                                  <span className="text-zinc-300">{new Date(pos.entryTime).toLocaleTimeString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Dată intrare:</span>
+                                  <span className="text-zinc-400">{new Date(pos.entryTime).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Limită Max Hold:</span>
+                                  <span className="text-amber-400">
+                                    {profileConfig?.maxHoldingTimeMinutes && profileConfig.maxHoldingTimeMinutes > 0
+                                      ? `${profileConfig.maxHoldingTimeMinutes}m (${(profileConfig.maxHoldingTimeMinutes - holdingMinutes).toFixed(1)}m rămase)`
+                                      : 'Fără limită'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Panel 3: Stare Risc & Trailing */}
+                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                                <div className="text-[10px] font-bold text-purple-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                                  <span>STARE RISC &amp; TRAILING</span>
+                                  <Zap className="w-3 h-3 text-purple-400" />
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Trailing Stop:</span>
+                                  <span className={`font-bold ${isTrailActive ? 'text-purple-300' : 'text-zinc-500'}`}>
+                                    {isTrailActive ? 'ACTIV (URMĂREȘTE)' : 'AȘTEPTARE ACTIVARE'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Prag Activare:</span>
+                                  <span className="text-zinc-300">+{trailingActThreshold}% (Vârf: +{peakPnlPct.toFixed(2)}%)</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Distanță Retragere:</span>
+                                  <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.4}%</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Break-Even (BE):</span>
+                                  <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
+                                    {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 1}%)`}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Hard Stop Loss:</span>
+                                  <span className="text-rose-400">
+                                    {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 2.5}%)` : `-${profileConfig?.hardStopLossPct ?? 2.5}%`}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Panel 4: Financiar & Ordine */}
+                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                                <div className="text-[10px] font-bold text-emerald-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                                  <span>FINANCIAR &amp; CONTRACT</span>
+                                  <DollarSign className="w-3 h-3 text-emerald-400" />
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Valoare Marjă:</span>
+                                  <span className="text-amber-400 font-bold">${pos.sizeUSDT.toFixed(2)} USDT</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">Comision Intrare:</span>
+                                  <span className="text-zinc-300">
+                                    {pos.entryFee !== undefined ? `-$${pos.entryFee.toFixed(3)}` : 'Inclus (0.05%)'}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-zinc-400">PnL Gross vs Net:</span>
+                                  <span className="text-zinc-200">
+                                    Gross: ${pos.grossPnl?.toFixed(2) ?? pos.pnl?.toFixed(2)} | Net: ${pos.pnl?.toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Regim / Profil:</span>
+                                  <span className="text-zinc-400">{pos.marketRegime || 'MOMENTUM'} | {pos.profile}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Mod Execuție:</span>
+                                  <span className="text-amber-400 font-bold">{pos.executionMode}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-zinc-800 flex justify-end space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => onClosePosition(pos.symbol)}
+                                className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded font-bold text-xs flex items-center space-x-1 shadow"
+                              >
+                                <Square className="w-3 h-3" />
+                                <span>ÎNCHIDE POZIȚIA IMEDIAT (MARKET CLOSE)</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1192,8 +1694,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       const isProfit = (ord.realizedPnl ?? 0) >= 0;
                       const isCloseOrder = ord.intent !== 'ENTRY';
                       
-                      // Fallback fee calculation if not present: 0.055% taker fee
-                      const feeUSDT = ord.cumFee !== undefined ? ord.cumFee : (ord.sizeUSDT * 0.00055);
+                      // Fallback fee calculation if not present: 0.05% OKX standard taker fee
+                      const feeUSDT = ord.cumFee !== undefined ? ord.cumFee : (ord.sizeUSDT * 0.0005);
 
                       return (
                         <React.Fragment key={ord.id}>
@@ -1612,7 +2114,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Equity Protection Activation</span>
-                      <span className="font-bold text-amber-400">+{Number(equityProtAct).toFixed(1)}%</span>
+                      <span className={`font-bold ${Number(equityProtAct) === 0 ? 'text-zinc-400' : 'text-amber-400'}`}>
+                        {Number(equityProtAct) === 0 ? 'DEZACTIVAT (0%)' : `+${Number(equityProtAct).toFixed(1)}%`}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -1623,23 +2127,31 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       onChange={(e) => setEquityProtAct(Number(e.target.value))}
                       className="w-full accent-amber-500 cursor-pointer"
                     />
+                    <div className="text-[10px] text-zinc-500">
+                      Setează 0% pentru a dezactiva complet această regulă.
+                    </div>
                   </div>
 
                   {/* Equity Trailing Drawdown - step 0.05 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300">Equity Trailing Drawdown</span>
-                      <span className="font-bold text-rose-400">-{Number(equityTrailingDraw).toFixed(2)}%</span>
+                      <span className={`font-bold ${Number(equityTrailingDraw) === 0 ? 'text-zinc-400' : 'text-rose-400'}`}>
+                        {Number(equityTrailingDraw) === 0 ? 'DEZACTIVAT (0%)' : `-${Number(equityTrailingDraw).toFixed(2)}%`}
+                      </span>
                     </div>
                     <input
                       type="range"
-                      min="0.05"
+                      min="0"
                       max="10"
                       step="0.05"
                       value={equityTrailingDraw}
                       onChange={(e) => setEquityTrailingDraw(Number(e.target.value))}
                       className="w-full accent-rose-500 cursor-pointer"
                     />
+                    <div className="text-[10px] text-zinc-500">
+                      Setează 0% pentru a dezactiva complet această regulă.
+                    </div>
                   </div>
 
                   {/* Cooldown Minutes - step 1 */}
@@ -1683,10 +2195,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
         </div>
 
-        {/* RIGHT MODULE PANEL: AUDIT LOGS & TRADINGVIEW CHART (6 Cols on LG) */}
+        {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG) */}
         <div className="lg:col-span-6 flex flex-col space-y-2">
           {/* TradingView Widget */}
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[460px]">
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[520px]">
             <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2 relative">
               <span className="font-bold text-xs tracking-wider text-amber-400">MARKET CHART ({chartSymbol})</span>
               <div className="relative">
@@ -1744,12 +2256,67 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </div>
           </div>
 
-          {/* Audit Logs / System Events */}
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[320px]">
+          {/* EQUITY HISTORY CHART (MOVED BELOW TRADINGVIEW CHART) */}
+          {status?.equityHistory && status.equityHistory.length > 0 && (
+            <div className="bg-zinc-950 border border-amber-500/30 p-3 rounded h-[285px] relative flex flex-col font-mono">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <span className="text-[10px] text-amber-400 font-bold tracking-widest flex items-center space-x-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>24H EQUITY CURVE &amp; PERFORMANCE</span>
+                </span>
+                <div className="text-[10px] text-zinc-400 space-x-2">
+                  <span>Min: <strong className="text-rose-400">${Math.min(...status.equityHistory.map(h => h.equity)).toFixed(2)}</strong></span>
+                  <span>Max: <strong className="text-emerald-400">${Math.max(...status.equityHistory.map(h => h.equity)).toFixed(2)}</strong></span>
+                </div>
+              </div>
+              <div className="flex-1 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={status.equityHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                    <XAxis 
+                      dataKey="time" 
+                      tickFormatter={(time) => new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      stroke="#71717a" 
+                      fontSize={9} 
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      domain={['auto', 'auto']} 
+                      stroke="#71717a" 
+                      fontSize={9} 
+                      tickLine={false}
+                      tickFormatter={(val) => `$${val}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#09090b', borderColor: '#d97706', borderRadius: '4px', fontSize: '10px', color: '#fcd34d' }}
+                      formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Equity']}
+                      labelFormatter={(label) => new Date(label).toLocaleTimeString()}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="equity" 
+                      stroke="#10b981" 
+                      strokeWidth={2} 
+                      dot={false}
+                      activeDot={{ r: 4, fill: '#10b981' }}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (12 Cols on LG - WIDENED ACROSS FULL SCREEN) */}
+        <div className="lg:col-span-12">
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-2 mb-2">
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center space-x-2">
+                <Terminal className="w-4 h-4 text-amber-500" />
                 <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
-                <span className="text-[10px] text-slate-400 font-mono">({logs.length})</span>
+                <span className="text-[10px] text-slate-400 font-mono">({logs.length} evenimente)</span>
+                <span className="text-[10px] text-zinc-500 hidden sm:inline">— Feed derulabil în timp real (5 vizibile)</span>
               </div>
 
               <div className="flex items-center space-x-1.5">
@@ -1757,7 +2324,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   type="button"
                   onClick={handleExportLogs}
                   disabled={logs.length === 0}
-                  className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   title="Exportă feed-ul de audit în format CSV / Excel"
                 >
                   <Download className="w-3 h-3" />
@@ -1769,29 +2336,29 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     type="button"
                     onClick={() => setShowClearLogsConfirm(true)}
                     disabled={logs.length === 0}
-                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Șterge feed-ul de evenimente"
                   >
                     <Trash2 className="w-3 h-3" />
                     <span>CLEAR LOG</span>
                   </button>
                 ) : (
-                  <div className="flex items-center space-x-1 bg-rose-950 border border-rose-500 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                    <span className="text-rose-200">Ștergi?</span>
+                  <div className="flex items-center space-x-1 bg-rose-950 border border-rose-500 px-2 py-0.5 rounded text-[10px] font-mono">
+                    <span className="text-rose-200 font-bold">Ștergi istoricul?</span>
                     <button
                       type="button"
                       onClick={() => {
                         setShowClearLogsConfirm(false);
                         if (onClearLogs) onClearLogs();
                       }}
-                      className="px-1.5 py-0.2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold"
+                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold"
                     >
                       DA
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowClearLogsConfirm(false)}
-                      className="px-1.5 py-0.2 bg-zinc-800 text-zinc-300 rounded"
+                      className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded"
                     >
                       NU
                     </button>
@@ -1799,16 +2366,51 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 )}
               </div>
             </div>
-            <div className="overflow-y-auto flex-1 space-y-1 font-mono text-[11px] pr-1">
-              {logs.slice(0, 40).map((log) => (
-                <div key={log.id} className="bg-black p-1.5 rounded border border-zinc-900 hover:border-amber-500/20">
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
-                    <span className="font-bold text-amber-500">{log.type}</span>
-                    <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  </div>
-                  <div className="text-zinc-300 mt-0.5">{log.message}</div>
+
+            {/* Scrollable event list sized for 5 events */}
+            <div className="overflow-y-auto max-h-[195px] space-y-1 font-mono text-[11px] pr-1">
+              {logs.length === 0 ? (
+                <div className="p-4 text-center text-zinc-600 text-xs">
+                  Niciun eveniment de audit înregistrat încă.
                 </div>
-              ))}
+              ) : (
+                logs.map((log) => {
+                  let badgeColor = 'bg-zinc-800 text-zinc-300 border-zinc-700';
+                  if (log.type === 'ORDER_FILLED' || log.type === 'POSITION_CLOSED') {
+                    badgeColor = 'bg-emerald-950 text-emerald-300 border-emerald-600/50';
+                  } else if (log.type === 'RISK_REJECTED' || log.type === 'SYSTEM_ERROR') {
+                    badgeColor = 'bg-rose-950 text-rose-300 border-rose-600/50';
+                  } else if (log.type === 'POSITION_OPENED' || log.type === 'ORDER_SUBMITTED') {
+                    badgeColor = 'bg-amber-950 text-amber-300 border-amber-600/50';
+                  } else if (log.type === 'SCANNER_RUN' || log.type === 'POSITION_UPDATED') {
+                    badgeColor = 'bg-blue-950 text-blue-300 border-blue-600/50';
+                  }
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="bg-black/90 p-1.5 px-2.5 rounded border border-zinc-900 hover:border-amber-500/30 flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center space-x-2.5 flex-1 min-w-0">
+                        <span className="text-[10px] text-slate-500 shrink-0">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${badgeColor}`}>
+                          {log.type}
+                        </span>
+                        <span className="text-zinc-200 truncate text-[11px]">
+                          {log.message}
+                        </span>
+                      </div>
+                      {log.details && (
+                        <span className="text-[9px] text-zinc-500 shrink-0 hidden md:inline">
+                          {typeof log.details === 'string' ? log.details : JSON.stringify(log.details).slice(0, 50)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

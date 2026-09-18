@@ -2,5 +2,45 @@
   "activeProfile": "MOMENTUM",
   "testnet": true,
   "killSwitchEngaged": false,
-  "executionMode": "PAPER"
+  "executionMode": "PAPER",
+  "profiles": {
+    "SCALP": {
+      "type": "SCALP",
+      "timeframes": [
+        "15",
+        "60"
+      ],
+      "riskPerTradePct": 15,
+      "maxOpenPositions": 3,
+      "trailingActivationPct": 1,
+      "trailingDistancePct": 0.3,
+      "breakEvenActivationPct": 0.5,
+      "takeProfitPct": 3,
+      "hardStopLossPct": 1,
+      "equityProtectionActivationPct": 1,
+      "equityTrailingDrawdownPct": 0.25,
+      "minMomentumScore": 72,
+      "maxHoldingTimeMinutes": 30,
+      "cooldownMinutes": 10
+    },
+    "MOMENTUM": {
+      "type": "MOMENTUM",
+      "timeframes": [
+        "60",
+        "240"
+      ],
+      "riskPerTradePct": 10,
+      "maxOpenPositions": 20,
+      "trailingActivationPct": 1.5,
+      "trailingDistancePct": 0.4,
+      "breakEvenActivationPct": 1,
+      "takeProfitPct": 0,
+      "hardStopLossPct": 2.5,
+      "equityProtectionActivationPct": 0,
+      "equityTrailingDrawdownPct": 0,
+      "minMomentumScore": 60,
+      "maxHoldingTimeMinutes": 60,
+      "cooldownMinutes": 5
+    }
+  }
 }

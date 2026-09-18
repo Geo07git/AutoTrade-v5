@@ -132,8 +132,10 @@ export class OrderManager {
     }
 
     // 3. Quantity calculation & precision formatting according to exchange lot rules
+    const filter = await this.exchange.getInstrumentFilter(signal.symbol);
+    const ctVal = filter.ctVal && filter.ctVal > 0 ? filter.ctVal : 1;
     const targetQty = riskApproval.sizeUSDT / currentPrice;
-    const formattedQty = await this.exchange.formatQuantity(signal.symbol, targetQty, currentPrice);
+    const formattedQty = await this.exchange.formatQuantity(signal.symbol, targetQty, currentPrice, false);
 
     if (formattedQty <= 0) {
       const err = `Formatted quantity for ${signal.symbol} is 0 (below minOrderQty)`;
@@ -142,6 +144,7 @@ export class OrderManager {
     }
 
     const clientOrderId = `tb5_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const actualNotional = formattedQty * ctVal * currentPrice;
 
     // 4. Create Order Record (CREATED)
     const orderRecord: OrderRecord = {
@@ -150,7 +153,8 @@ export class OrderManager {
       side: signal.side,
       orderType: 'Market',
       qty: formattedQty,
-      sizeUSDT: formattedQty * currentPrice,
+      ctVal,
+      sizeUSDT: parseFloat(actualNotional.toFixed(2)),
       status: 'CREATED',
       cumFilledQty: 0,
       processedFilledQty: 0,
@@ -260,12 +264,15 @@ export class OrderManager {
 
     // Quantity to close equals the open position quantity
     const estPrice = currentPrice || position.entryPrice;
+    const filter = await this.exchange.getInstrumentFilter(position.symbol);
+    const ctVal = position.ctVal || filter.ctVal || 1;
     const rawQty = position.qty && !isNaN(position.qty) && position.qty > 0
       ? position.qty
-      : (position.sizeUSDT / (position.entryPrice || 1));
-    const formattedQty = await this.exchange.formatQuantity(position.symbol, rawQty, estPrice);
+      : (position.sizeUSDT / ((position.entryPrice || 1) * ctVal));
+    const formattedQty = await this.exchange.formatQuantity(position.symbol, rawQty, estPrice, true);
 
     const holdingTimeMinutes = position.entryTime ? parseFloat(((Date.now() - position.entryTime) / 60000).toFixed(1)) : 0;
+    const actualCloseNotional = formattedQty * ctVal * estPrice;
 
     const closeOrder: OrderRecord = {
       id: clientOrderId,
@@ -273,7 +280,8 @@ export class OrderManager {
       side: closeSide,
       orderType: 'Market',
       qty: formattedQty,
-      sizeUSDT: formattedQty * estPrice,
+      ctVal,
+      sizeUSDT: parseFloat(actualCloseNotional.toFixed(2)),
       status: 'CREATED',
       createdTime: Date.now(),
       updatedTime: Date.now(),
@@ -329,7 +337,7 @@ export class OrderManager {
         const exitTime = closeOrder.updatedTime || Date.now();
 
         if (closeOrder.cumFee === undefined) {
-          closeOrder.cumFee = parseFloat((closeOrder.sizeUSDT * 0.00055).toFixed(4));
+          closeOrder.cumFee = parseFloat((closeOrder.sizeUSDT * 0.0005).toFixed(4));
         }
 
         const closedPos = await this.positionManager.markPositionClosed(
