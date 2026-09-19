@@ -101,6 +101,9 @@ export interface AppConfig {
   watchlist?: string[];
   scannerFilter?: UniverseFilterConfig;
   profiles?: Record<ProfileType, ProfileConfig>;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  telegramAlertsEnabled?: boolean;
 }
 
 export interface ProfileConfig {
@@ -118,6 +121,7 @@ export interface ProfileConfig {
   minMomentumScore?: number;
   maxHoldingTimeMinutes?: number;
   cooldownMinutes?: number;
+  sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
 }
 
 export interface Kline {
@@ -201,6 +205,7 @@ export interface Position {
   stopLossPrice?: number;
   currentPrice?: number;
   holdingTimeMinutes?: number;
+  exitReasonDetail?: string;
   profile: ProfileType;
   source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';
   executionMode: ExecutionMode;
@@ -280,6 +285,8 @@ export interface BotStatusResponse {
   scannerStats?: ScannerStats;
   marketRegime?: string;
   marketSentiment?: string;
+  marketSentimentScore?: number;
+  telegramActive?: boolean;
   equityTrailingState?: EquityTrailingState;
 }
 

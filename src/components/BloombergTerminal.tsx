@@ -38,6 +38,14 @@ import {
   Info,
   Download,
   Trash2,
+  Key,
+  Radio,
+  CheckCircle2,
+  XCircle,
+  Lock,
+  Unlock,
+  Wifi,
+  ExternalLink,
 } from 'lucide-react';
 
 interface BloombergTerminalProps {
@@ -54,6 +62,8 @@ interface BloombergTerminalProps {
   onTriggerScan: () => void;
   onClearLogs?: () => void;
   onClearOrders?: () => void;
+  onUpdateCredentials?: (apiKey: string, secretKey: string, passphrase: string, testnet: boolean) => Promise<{ success: boolean; error?: string }>;
+  onTestOKXConnection?: (creds?: any) => Promise<any>;
   controlToken: string;
   onUpdateControlToken: (token: string) => void;
   errorMessage: string | null;
@@ -84,6 +94,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onTriggerScan,
   onClearLogs,
   onClearOrders,
+  onUpdateCredentials,
+  onTestOKXConnection,
   controlToken,
   onUpdateControlToken,
   errorMessage,
@@ -94,6 +106,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO'>('PORT');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
+
+  // OKX Gateway & Mode Switch State
+  const [showOKXModal, setShowOKXModal] = useState<boolean>(false);
+  const [okxKeyInput, setOkxKeyInput] = useState<string>('');
+  const [okxSecretInput, setOkxSecretInput] = useState<string>('');
+  const [okxPassphraseInput, setOkxPassphraseInput] = useState<string>('');
+  const [okxTestnetInput, setOkxTestnetInput] = useState<boolean>(true);
+  const [isTestingOKX, setIsTestingOKX] = useState<boolean>(false);
+  const [okxTestFeedback, setOkxTestFeedback] = useState<{
+    tested: boolean;
+    reachable?: boolean;
+    authenticated?: boolean;
+    equity?: number;
+    error?: string;
+  } | null>(null);
+  const [isSavingOKX, setIsSavingOKX] = useState<boolean>(false);
+  const [okxSaveMessage, setOkxSaveMessage] = useState<string | null>(null);
+  const [showLiveConfirm, setShowLiveConfirm] = useState<boolean>(false);
+  const [liveDisclaimerChecked, setLiveDisclaimerChecked] = useState<boolean>(false);
 
   const toggleExpandPosition = (id: string) => {
     setExpandedPositionIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -126,6 +157,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 60);
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
+  const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [showClearOrdersConfirm, setShowClearOrdersConfirm] = useState(false);
@@ -136,6 +170,97 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [symbolSearchQuery, setSymbolSearchQuery] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
   const [lang, setLang] = useState<'EN' | 'RO'>('RO');
+
+  // Pre-fill OKX credential fields from status config if available
+  useEffect(() => {
+    if (status?.config?.okxApiKey && !okxKeyInput) {
+      setOkxKeyInput(status.config.okxApiKey);
+    }
+    if (status?.config?.okxPassphrase && !okxPassphraseInput) {
+      setOkxPassphraseInput(status.config.okxPassphrase);
+    }
+    if (status?.config?.testnet !== undefined) {
+      setOkxTestnetInput(status.config.testnet);
+    }
+  }, [status?.config]);
+
+  const handleSwitchExecutionModeWithCheck = (mode: ExecutionMode) => {
+    if (status?.positions && status.positions.length > 0) {
+      alert(`Nu poți comuta modul în timp ce există ${status.positions.length} poziție(i) deschise. Închide mai întâi toate pozițiile active!`);
+      return;
+    }
+    if (mode === 'LIVE') {
+      setShowLiveConfirm(true);
+      return;
+    }
+    onSwitchMode(mode);
+  };
+
+  const handleConfirmLiveMode = () => {
+    setShowLiveConfirm(false);
+    onSwitchMode('LIVE');
+  };
+
+  const handleRunOKXTest = async (overrideCreds?: any) => {
+    setIsTestingOKX(true);
+    setOkxTestFeedback(null);
+    try {
+      if (onTestOKXConnection) {
+        const credsToSend = overrideCreds || (okxKeyInput && okxSecretInput ? {
+          apiKey: okxKeyInput,
+          secretKey: okxSecretInput,
+          passphrase: okxPassphraseInput,
+          isDemo: okxTestnetInput,
+        } : undefined);
+        const result = await onTestOKXConnection(credsToSend);
+        setOkxTestFeedback({
+          tested: true,
+          reachable: result.reachable,
+          authenticated: result.authenticated,
+          equity: result.equity,
+          error: result.error,
+        });
+      }
+    } catch (err: any) {
+      setOkxTestFeedback({
+        tested: true,
+        reachable: false,
+        authenticated: false,
+        error: err.message || 'Eroare la testare',
+      });
+    } finally {
+      setIsTestingOKX(false);
+    }
+  };
+
+  const handleSaveOKXCredentials = async () => {
+    if (!okxKeyInput.trim() || !okxSecretInput.trim()) {
+      alert('Te rugăm să completezi atât OKX API Key cât și OKX Secret Key!');
+      return;
+    }
+    setIsSavingOKX(true);
+    setOkxSaveMessage(null);
+    try {
+      if (onUpdateCredentials) {
+        const res = await onUpdateCredentials(
+          okxKeyInput.trim(),
+          okxSecretInput.trim(),
+          okxPassphraseInput.trim(),
+          okxTestnetInput
+        );
+        if (res.success) {
+          setOkxSaveMessage('✅ Cheile API OKX au fost salvate și verificate cu succes!');
+          setTimeout(() => setOkxSaveMessage(null), 5000);
+        } else {
+          setOkxSaveMessage(`❌ Eroare: ${res.error || 'Eroare la salvare'}`);
+        }
+      }
+    } catch (err: any) {
+      setOkxSaveMessage(`❌ Eroare: ${err.message || 'Eroare la salvare'}`);
+    } finally {
+      setIsSavingOKX(false);
+    }
+  };
 
   const allUniverseSymbols = Array.from(new Set([
     'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
@@ -294,7 +419,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
     equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 0) ||
     equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0) ||
-    cooldownMins !== (profileConfig.cooldownMinutes ?? 5)
+    cooldownMins !== (profileConfig.cooldownMinutes ?? 5) ||
+    sentimentThreshold !== (profileConfig.sentimentThreshold ?? 1.5)
   ) : false;
 
   // Sync local state when profileConfig or activeProfile changes, but NOT if there are unsaved settings
@@ -312,6 +438,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
       setCooldownMins(profileConfig.cooldownMinutes ?? 5);
+      setSentimentThreshold(profileConfig.sentimentThreshold ?? 1.5);
       setSettingsSavedMessage(null);
     }
   }, [profileConfig, activeProfile, hasUnsavedSettings]);
@@ -330,6 +457,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       equityProtectionActivationPct: equityProtAct,
       equityTrailingDrawdownPct: equityTrailingDraw,
       cooldownMinutes: cooldownMins,
+      sentimentThreshold,
     });
     setSettingsSavedMessage('Modificările au fost salvate cu succes!');
     setTimeout(() => setSettingsSavedMessage(null), 3500);
@@ -349,6 +477,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
     setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
     setCooldownMins(profileConfig.cooldownMinutes ?? 5);
+    setSentimentThreshold(profileConfig.sentimentThreshold ?? 1.5);
     setSettingsSavedMessage(null);
   };
 
@@ -593,10 +722,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const lockedCapital = marginInvested;
   const isKillSwitch = status?.config?.killSwitchEngaged;
 
+  // Sentiment threshold calculations & cross state
+  const sentimentScore = status?.marketSentimentScore ?? 0;
+  const currentSentimentThreshold = profileConfig?.sentimentThreshold ?? 1.5;
+  const isSentimentCrossed = Math.abs(sentimentScore) >= currentSentimentThreshold;
+  const isBullishSentiment = (status?.marketSentiment?.includes('BULLISH') || sentimentScore >= currentSentimentThreshold);
+  const isBearishSentiment = (status?.marketSentiment?.includes('BEARISH') || sentimentScore <= -currentSentimentThreshold);
+
   return (
     <div className="min-h-screen bg-black text-amber-500 font-mono flex flex-col select-none overflow-x-hidden">
-      {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
-      <header className="bg-amber-600 text-black px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 md:gap-0">
+      {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
+      <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0">
+        {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
+        <header className="bg-amber-600 text-black px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 md:gap-0">
         <div className="flex items-center justify-between md:justify-start w-full md:w-auto space-x-2 md:space-x-3">
           <span className="bg-black text-amber-500 px-3 py-1 rounded text-base tracking-widest font-black border border-amber-500/50">
             <span className="hidden sm:inline">BLOOMBERG // TRADEBOT v5.0 PRO</span>
@@ -604,7 +742,38 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </span>
           <span className="hidden lg:inline">DESK: SECURE-QUANT-01</span>
           <span className="hidden lg:inline">|</span>
-          <span className="hidden md:inline">FEED: {status?.config?.executionMode || 'PAPER'} (TESTNET)</span>
+          {/* INTERACTIVE MODE SWITCHER BADGE */}
+          <button
+            onClick={() => setShowOKXModal(true)}
+            className={`px-2 py-0.5 rounded text-xs font-bold border flex items-center space-x-1.5 transition-all shadow-sm ${
+              status?.executionMode === 'LIVE'
+                ? 'bg-rose-950/90 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
+                : status?.executionMode === 'TESTNET'
+                ? 'bg-amber-950/90 text-amber-300 border-amber-500 hover:bg-amber-900'
+                : 'bg-emerald-950/90 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
+            }`}
+            title="Comută modul de execuție (PAPER / TESTNET / LIVE) sau configurează cheile OKX"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                status?.executionMode === 'LIVE'
+                  ? 'bg-rose-400 animate-ping'
+                  : status?.executionMode === 'TESTNET'
+                  ? 'bg-amber-400'
+                  : 'bg-emerald-400'
+              }`}
+            />
+            <span>
+              {status?.executionMode === 'LIVE'
+                ? 'FEED: 🔴 OKX LIVE'
+                : status?.executionMode === 'TESTNET'
+                ? 'FEED: 🟡 OKX DEMO'
+                : 'FEED: 🟢 PAPER'}
+            </span>
+            <span className="text-[10px] bg-black/60 px-1 py-0.2 rounded border border-white/20 text-zinc-300">
+              MOD ▾
+            </span>
+          </button>
           <span className="hidden md:inline">|</span>
           <span className="font-mono text-[10px] bg-black text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/50">{status?.marketRegime || 'BTC: --'}</span>
           <button
@@ -626,6 +795,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </span>
           </div>
           <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => setShowOKXModal(true)}
+              className="bg-black text-amber-400 hover:bg-zinc-900 px-2 py-0.5 rounded border border-amber-500/50 flex items-center space-x-1 text-xs font-bold shadow-sm"
+              title="Configurează Conexiunea OKX & Modul de Execuție"
+            >
+              <Key className="w-3 h-3 text-amber-400" />
+              <span className="hidden sm:inline">CONEXIUNE OKX</span>
+              <span className="sm:hidden">OKX</span>
+            </button>
             <button
               onClick={() => setShowTokenModal(true)}
               className="bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-xs"
@@ -787,6 +965,42 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
           </div>
 
+          {/* Telegram Status & Quick Action */}
+          <button
+            onClick={async () => {
+              setTelegramTesting(true);
+              try {
+                const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                const res = await fetch('/api/bot/telegram/test', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+                  body: JSON.stringify({ type: 'hourly' }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                  setTelegramStatusMsg('Raport orar expediat cu succes pe Telegram!');
+                } else {
+                  setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verificați cheile BOT_TOKEN/CHAT_ID'));
+                }
+              } catch (e: any) {
+                setTelegramStatusMsg('Eroare conexiune server API');
+              } finally {
+                setTelegramTesting(false);
+                setTimeout(() => setTelegramStatusMsg(null), 4000);
+              }
+            }}
+            disabled={telegramTesting}
+            className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors flex items-center space-x-1 shrink-0 ${
+              status?.telegramActive
+                ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
+            }`}
+            title="Apasă pentru a trimite un raport orar de test pe Telegram"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>{telegramTesting ? 'TRIMIT...' : status?.telegramActive ? 'TG: ACTIV' : 'TG: STANDBY'}</span>
+          </button>
+
           {/* Kill Switch */}
           <button
             onClick={onToggleKillSwitch}
@@ -800,6 +1014,40 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       </div>
 
+      {/* TELEGRAM STATUS MESSAGE BANNER */}
+      {telegramStatusMsg && (
+        <div className="px-4 py-2 text-xs flex items-center justify-between border-b bg-sky-950/90 text-sky-200 border-sky-700 font-mono">
+          <div className="flex items-center space-x-2">
+            <Send className="w-4 h-4 text-sky-400 shrink-0" />
+            <span>{telegramStatusMsg}</span>
+          </div>
+          <button onClick={() => setTelegramStatusMsg(null)} className="text-sky-400 hover:text-white text-[10px]">✕</button>
+        </div>
+      )}
+
+      {/* SENTIMENT THRESHOLD CROSSING NOTIFICATION BANNER */}
+      {isSentimentCrossed && (
+        <div className={`px-4 py-2 text-xs flex items-center justify-between border-b font-mono transition-all animate-pulse ${
+          isBullishSentiment
+            ? 'bg-emerald-950/90 text-emerald-200 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+            : 'bg-rose-950/90 text-rose-200 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+        }`}>
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className={`w-4 h-4 ${isBullishSentiment ? 'text-emerald-400' : 'text-rose-400'} shrink-0`} />
+            <span className="font-bold">
+              {lang === 'EN'
+                ? `GLOBAL SENTIMENT THRESHOLD TRIGGERED: ${status?.marketSentiment} | Configured Threshold: ±${currentSentimentThreshold.toFixed(1)}%`
+                : `ALERTĂ PRAG SENTIMENT GLOBAL: ${status?.marketSentiment} | Prag Configurat: ±${currentSentimentThreshold.toFixed(1)}%`}
+            </span>
+          </div>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            isBullishSentiment ? 'bg-emerald-800 text-white border border-emerald-400' : 'bg-rose-800 text-white border border-rose-400'
+          }`}>
+            {isBullishSentiment ? (lang === 'EN' ? 'BULLISH MOMENTUM' : 'IMPULS BULLISH') : (lang === 'EN' ? 'BEARISH CAUTION' : 'ATENȚIE BEARISH')}
+          </span>
+        </div>
+      )}
+
       {/* ALERTS NOTIFICATION BANNER */}
       {(errorMessage || successMessage) && (
         <div className={`px-4 py-2 text-xs flex items-center justify-between border-b ${errorMessage ? 'bg-rose-950/80 text-rose-300 border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'}`}>
@@ -809,6 +1057,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
       )}
+      </div>
 
       {/* 4. MAIN TERMINAL WORKSPACE GRID */}
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 p-2 bg-black overflow-y-auto">
@@ -891,14 +1140,42 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
 
-                {/* 6. ACTIVE POSITIONS */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded flex flex-col justify-between">
+                {/* 6. ACTIVE POSITIONS & OKX SENTIMENT */}
+                <div className={`border p-2 sm:p-3 rounded flex flex-col justify-between transition-all ${
+                  isSentimentCrossed
+                    ? isBullishSentiment
+                      ? 'bg-emerald-950/25 border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                      : 'bg-rose-950/25 border-rose-500/70 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
+                    : 'bg-black border-zinc-800'
+                }`}>
                   <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                     <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider">
                       {lang === 'EN' ? 'ACTIVE POSITIONS' : 'POZIȚII ACTIVE'}
                     </div>
-                    <div className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950/60 border border-amber-500/40 text-amber-300">
-                      {status?.marketSentiment ? (lang === 'EN' ? status.marketSentiment.replace('BULLISH', 'BULLISH').replace('BEARISH', 'BEARISH').replace('NEUTRAL', 'NEUTRAL') : status.marketSentiment) : (lang === 'EN' ? 'OKX NEUTRAL' : 'OKX NEUTRU')}
+                    <div className={`flex items-center gap-2 rounded px-2.5 py-1 text-xs font-mono border transition-all ${
+                      isSentimentCrossed
+                        ? isBullishSentiment
+                          ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.35)] animate-pulse'
+                          : 'bg-rose-950/90 border-rose-500 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.35)] animate-pulse'
+                        : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                    }`}>
+                      <span className="font-bold">
+                        {status?.marketSentiment ? (lang === 'EN' ? status.marketSentiment.replace('BULLISH', 'BULLISH').replace('BEARISH', 'BEARISH').replace('NEUTRAL', 'NEUTRAL') : status.marketSentiment) : (lang === 'EN' ? 'OKX NEUTRAL' : 'OKX NEUTRU')}
+                      </span>
+                      {isSentimentCrossed && (
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                          isBullishSentiment ? 'bg-emerald-800 text-white' : 'bg-rose-800 text-white'
+                        }`}>
+                          PRAG ±{currentSentimentThreshold.toFixed(1)}%
+                        </span>
+                      )}
+                      <button onClick={async () => {
+                          const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                          await fetch('/api/bot/sentiment/refresh', { method: 'POST', headers: { 'x-bot-token': token } });
+                          onRefresh();
+                      }} className="hover:text-white transition-colors p-0.5" title="Reîmprospătează sentimentul global OKX">
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-baseline justify-between">
@@ -1104,35 +1381,30 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <div className="pt-1"># 2. Start development server</div>
                     <div className="text-white">npm run dev</div>
                   </div>
-                  <p className="text-[11px] text-zinc-500">
-                    {lang === 'EN'
-                      ? 'The server runs on http://localhost:3000 with Express backend and Vite frontend.'
-                      : 'Serverul rulează pe http://localhost:3000 cu backend Express și frontend Vite.'}
-                  </p>
                 </div>
 
-                {/* Right Column: Electron & .exe Build */}
+                {/* Right Column: Oracle Cloud (Ubuntu) Installation */}
                 <div className="bg-black border border-zinc-800 p-4 rounded space-y-3">
-                  <h3 className="font-bold text-amber-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
+                  <h3 className="font-bold text-emerald-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>{lang === 'EN' ? '2. Building Windows .exe (Electron)' : '2. Generare Executabil Windows (.exe)'}</span>
+                    <span>{lang === 'EN' ? '2. Oracle Cloud (Ubuntu) Setup' : '2. Configurare Oracle Cloud (Ubuntu)'}</span>
                   </h3>
                   <p className="text-zinc-400">
-                    {lang === 'EN'
-                      ? 'Electron is fully configured. You can test in desktop mode or package a standalone executable installer (.exe):'
-                      : 'Electron este configurat complet. Poți testa în mod desktop sau poți genera pachetul instalabil (.exe):'}
+                    {lang === 'EN' 
+                      ? 'To deploy the application on an Oracle Cloud Ubuntu instance:'
+                      : 'Pentru a instala aplicația pe un server Oracle Cloud (Ubuntu):'}
                   </p>
-                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-amber-300 font-mono text-[11px] space-y-1">
-                    <div># Test app in Electron desktop window</div>
-                    <div className="text-white">npm run electron:dev</div>
-                    <div className="pt-1"># Build Windows .exe installer & portable</div>
-                    <div className="text-white">npm run electron:build</div>
+                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-emerald-300 font-mono text-[11px] space-y-1">
+                    <div># 1. Update & Node.js</div>
+                    <div className="text-white">sudo apt update && sudo apt install -y curl pm2</div>
+                    <div className="text-white">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash</div>
+                    <div className="text-white">nvm install --lts</div>
+                    <div className="pt-1"># 2. Run with PM2</div>
+                    <div className="text-white">git clone &lt;repo&gt; && cd &lt;repo&gt;</div>
+                    <div className="text-white">npm install && npm run build</div>
+                    <div className="text-white">pm2 start ecosystem.config.js</div>
+                    <div className="text-white">pm2 save && pm2 startup</div>
                   </div>
-                  <p className="text-[11px] text-zinc-500">
-                    {lang === 'EN'
-                      ? 'Outputs will be generated in the /release directory (NSIS installer & portable binaries).'
-                      : 'Fișierele generate vor fi salvate în directorul /release (instalator NSIS și binar portabil).'}
-                  </p>
                 </div>
               </div>
 
@@ -1147,53 +1419,55 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           {(activeScreen === 'POS' || activeScreen === 'TAPE') && (
             <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[480px]">
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
-                <div className="flex items-center space-x-2">
-                  <Activity className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold text-sm tracking-wider text-amber-400">
-                    F2: OPEN POSITIONS &amp; ACTIVE EXPOSURE
-                  </span>
-                  <span className="text-xs bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono">
-                    {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
-                  </span>
+              {/* Frozen Header for POS */}
+              <div className="sticky top-0 z-10 bg-zinc-950 pb-1">
+                <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="w-4 h-4 text-amber-500" />
+                    <span className="font-bold text-sm tracking-wider text-amber-400">
+                      F2: OPEN POSITIONS &amp; ACTIVE EXPOSURE
+                    </span>
+                    <span className="text-xs bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono">
+                      {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-3 text-xs font-mono">
+                    <span className="text-zinc-400">
+                      Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
+                    </span>
+                    <span className="text-zinc-400">
+                      PnL Nerealizat:{' '}
+                      <strong className={unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                        {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
+                      </strong>
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-3 text-xs font-mono">
-                  <span className="text-zinc-400">
-                    Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
-                  </span>
-                  <span className="text-zinc-400">
-                    PnL Nerealizat:{' '}
-                    <strong className={unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
-                    </strong>
-                  </span>
+                {/* Instructions banner */}
+                <div className="bg-black/60 border border-amber-500/20 rounded px-2.5 py-1.5 mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
+                  <div className="flex items-center space-x-1.5">
+                    <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Apasă pe oricare poziție pentru a extinde detaliile complete (preț actual, minute deținere, stare trailing).</span>
+                  </div>
+                  {positions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allExpanded = positions.every((p) => expandedPositionIds[p.id]);
+                        const newMap: Record<string, boolean> = {};
+                        if (!allExpanded) {
+                          positions.forEach((p) => { newMap[p.id] = true; });
+                        }
+                        setExpandedPositionIds(newMap);
+                      }}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold shrink-0"
+                    >
+                      {positions.every((p) => expandedPositionIds[p.id]) ? 'Restrânge Toate' : 'Extinde Toate'}
+                    </button>
+                  )}
                 </div>
-              </div>
-
-              {/* Instructions banner */}
-              <div className="bg-black/60 border border-amber-500/20 rounded px-2.5 py-1.5 mb-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
-                <div className="flex items-center space-x-1.5">
-                  <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Apasă pe oricare poziție pentru a extinde detaliile complete (preț actual, minute deținere, stare trailing).</span>
-                </div>
-                {positions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const allExpanded = positions.every((p) => expandedPositionIds[p.id]);
-                      const newMap: Record<string, boolean> = {};
-                      if (!allExpanded) {
-                        positions.forEach((p) => { newMap[p.id] = true; });
-                      }
-                      setExpandedPositionIds(newMap);
-                    }}
-                    className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold shrink-0"
-                  >
-                    {positions.every((p) => expandedPositionIds[p.id]) ? 'Restrânge Toate' : 'Extinde Toate'}
-                  </button>
-                )}
               </div>
 
               {/* Empty state */}
@@ -1213,7 +1487,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto flex-1 space-y-2">
+                <div className="overflow-y-auto flex-1 max-h-[580px] space-y-2 pr-1">
                   {positions.map((pos) => {
                     const isExpanded = !!expandedPositionIds[pos.id];
                     const isProfit = (pos.pnl || 0) >= 0;
@@ -1581,33 +1855,65 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-zinc-900/80 rounded p-3 border border-amber-500/20">
-                  <div className="text-xs font-bold text-amber-400 mb-2">TOP SCANNED OPPORTUNITIES</div>
-                  <div className="space-y-2">
-                    {status?.scannerStats?.topOpportunities?.length ? (
-                      status.scannerStats.topOpportunities.map((opp) => (
-                        <div key={opp.symbol} className="flex items-center justify-between bg-black p-2 rounded border border-zinc-800 text-xs">
-                          <div className="flex items-center space-x-3">
-                            <span className="font-bold text-amber-300">#{opp.rank} {opp.symbol}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              opp.side === 'SELL' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
-                            }`}>
-                              {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
-                            </span>
-                            <span className="text-slate-400">${opp.price}</span>
-                            <span className="text-emerald-400">RVOL: {opp.rvol}x</span>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <span className="text-amber-500 font-bold">Score: {opp.score}/100</span>
-                            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${opp.isEligible ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`}>
-                              {opp.isEligible ? 'ELIGIBLE' : 'FILTERED'}
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-zinc-500 text-xs py-4 text-center">No live scanner data cached yet. Click "RUN SCAN NOW".</div>
-                    )}
+                <div className="bg-zinc-900/80 rounded border border-amber-500/20 overflow-hidden flex flex-col">
+                  <div className="text-xs font-bold text-amber-400 p-2.5 border-b border-amber-500/30 flex items-center justify-between bg-zinc-950">
+                    <span className="tracking-wide">TOP SCANNED OPPORTUNITIES ({status?.scannerStats?.topOpportunities?.length || 0})</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">OKX Universe Real-time Feed</span>
+                  </div>
+                  <div className="overflow-y-auto overflow-x-auto max-h-[380px] relative">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 z-10 bg-zinc-950 border-b border-amber-500/40 text-amber-400 shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        <tr>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Rank</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Symbol</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Direcție</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Preț Curent</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">RVOL</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Scor Momentum</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-right">Eligibilitate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/80 font-mono">
+                        {status?.scannerStats?.topOpportunities?.length ? (
+                          status.scannerStats.topOpportunities.map((opp) => (
+                            <tr key={opp.symbol} className="hover:bg-zinc-800/40 transition-colors">
+                              <td className="py-2 px-3 text-slate-400 text-[11px]">#{opp.rank}</td>
+                              <td className="py-2 px-3 font-bold text-amber-300">
+                                <button
+                                  type="button"
+                                  onClick={() => loadTradingViewChart(opp.symbol)}
+                                  className="hover:underline text-left"
+                                  title="Afișează grafic"
+                                >
+                                  {opp.symbol}
+                                </button>
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  opp.side === 'SELL' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                                }`}>
+                                  {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-slate-300 font-mono">${opp.price}</td>
+                              <td className="py-2 px-3 text-emerald-400 font-bold">{opp.rvol}x</td>
+                              <td className="py-2 px-3 text-amber-400 font-bold">{opp.score}/100</td>
+                              <td className="py-2 px-3 text-right">
+                                <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${opp.isEligible ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'}`}>
+                                  {opp.isEligible ? 'ELIGIBLE' : 'FILTERED'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="text-zinc-500 text-xs py-8 text-center">
+                              Nu există date de scanare în cache. Apasă "RUN SCAN NOW".
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -1672,23 +1978,31 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
 
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-amber-500/20 text-amber-400/80">
-                      <th className="py-2 px-2">ID</th>
-                      <th className="py-2 px-2">Symbol</th>
-                      <th className="py-2 px-2">Side</th>
-                      <th className="py-2 px-2">Intent</th>
-                      <th className="py-2 px-2">Size ($)</th>
-                      <th className="py-2 px-2">Status</th>
-                      <th className="py-2 px-2">PnL / Exit Log</th>
-                      <th className="py-2 px-2 text-right">Time</th>
-                      <th className="py-2 px-2 text-center">Log</th>
+              {/* Scrollable Blotter Table with Frozen Sticky Header */}
+              <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[580px] border border-zinc-800 rounded relative">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 z-20 bg-zinc-950 shadow-[0_2px_4px_rgba(0,0,0,0.8)] border-b border-amber-500/40">
+                    <tr className="text-amber-400 font-bold">
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">ID</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">Symbol</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">Side</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">Intent</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">Size ($)</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">Status</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0">PnL / Exit Log</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0 text-right">Time</th>
+                      <th className="py-2.5 px-2.5 bg-zinc-950 sticky top-0 text-center">Log</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900 font-mono">
-                    {orders.slice(0, 30).map((ord) => {
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-12 text-center text-zinc-500 font-mono text-xs">
+                          Nu există ordine executate înregistrate în această sesiune.
+                        </td>
+                      </tr>
+                    ) : (
+                      orders.map((ord) => {
                       const isExpanded = expandedOrderId === ord.id;
                       const hasPnl = ord.realizedPnl !== undefined;
                       const isProfit = (ord.realizedPnl ?? 0) >= 0;
@@ -1891,7 +2205,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           )}
                         </React.Fragment>
                       );
-                    })}
+                    }))}
                   </tbody>
                 </table>
               </div>
@@ -1952,6 +2266,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <span>TrailingAct: <strong className="text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong></span>
                   <span>TrailingDist: <strong className="text-purple-400">-{profileConfig?.trailingDistancePct ?? 0.4}%</strong></span>
                   <span>MinScore: <strong className="text-cyan-400">{profileConfig?.minMomentumScore ?? 60}</strong></span>
+                  <span>Prag Sentiment: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
                 </div>
               </div>
 
@@ -2170,8 +2485,315 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       className="w-full accent-cyan-500 cursor-pointer"
                     />
                   </div>
+
+                  {/* Global Sentiment Alert Threshold - step 0.1 */}
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Prag Alertă Sentiment Global (OKX)</span>
+                      <span className="font-bold text-amber-300">±{Number(sentimentThreshold).toFixed(1)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="5.0"
+                      step="0.1"
+                      value={sentimentThreshold}
+                      onChange={(e) => setSentimentThreshold(Number(e.target.value))}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                    <div className="text-[10px] text-zinc-500">
+                      Declanșează alerte vizuale în terminal și notificări Telegram când media ponderată de sentiment global OKX depășește acest prag procentual.
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* ========================================================================= */}
+              {/* 🎛️ EXECUTION MODE & OKX CONNECTION DESK (3-WAY SWITCH, KEYS, TEST PING) */}
+              {/* ========================================================================= */}
+              <div className="bg-zinc-950 border-2 border-amber-500/60 rounded p-4 mt-4 shadow-lg space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1.5 bg-amber-500/10 rounded border border-amber-500/30">
+                      <Key className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-amber-400 font-bold text-sm tracking-wider flex items-center space-x-2">
+                        <span>CONEXIUNE OKX &amp; MOD DE EXECUȚIE</span>
+                        <span className={`px-2 py-0.2 rounded text-[10px] font-mono border ${
+                          status?.executionMode === 'LIVE'
+                            ? 'bg-rose-950 text-rose-300 border-rose-500 animate-pulse'
+                            : status?.executionMode === 'TESTNET'
+                            ? 'bg-amber-950 text-amber-300 border-amber-500'
+                            : 'bg-emerald-950 text-emerald-300 border-emerald-500'
+                        }`}>
+                          MOD ACTIV: {status?.executionMode || 'PAPER'}
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-zinc-400">
+                        Comută între simulare fără risc, OKX Demo (Testnet) și OKX Live (cont real cu fonduri reale).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleRunOKXTest()}
+                      disabled={isTestingOKX}
+                      className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-300 rounded text-xs font-bold flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                      title="Verifică conexiunea REST API și autentificarea pe OKX"
+                    >
+                      <Wifi className={`w-3.5 h-3.5 ${isTestingOKX ? 'animate-pulse text-amber-400' : ''}`} />
+                      <span>{isTestingOKX ? 'SE TESTEAZĂ...' : 'TESTEAZĂ PING OKX'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3-WAY SEGMENTED MODE SELECTOR */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* OPTION 1: PAPER */}
+                  <div
+                    onClick={() => handleSwitchExecutionModeWithCheck('PAPER')}
+                    className={`cursor-pointer p-3 rounded border transition-all flex flex-col justify-between ${
+                      status?.executionMode === 'PAPER'
+                        ? 'bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-950/50 ring-1 ring-emerald-500'
+                        : 'bg-zinc-900/60 border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-900'
+                    }`}
+                  >
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-emerald-400 flex items-center space-x-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                          <span>1. SIMULARE PAPER</span>
+                        </span>
+                        {status?.executionMode === 'PAPER' && (
+                          <span className="text-[10px] bg-emerald-950 text-emerald-300 px-1.5 py-0.2 rounded border border-emerald-600/60 font-bold">
+                            ACTIV
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed">
+                        Execuție locală fără risc. Capital virtual $200.00 USDT, prețuri reale în timp real din feed-ul OKX, simulare slippage și comisioane 0.05%.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchExecutionModeWithCheck('PAPER');
+                      }}
+                      className={`w-full py-1 rounded text-xs font-bold transition-all ${
+                        status?.executionMode === 'PAPER'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 cursor-default'
+                          : 'bg-zinc-800 hover:bg-emerald-600 hover:text-black text-zinc-300'
+                      }`}
+                    >
+                      {status?.executionMode === 'PAPER' ? '✓ MOD CURENT ACTIV' : 'COMUTĂ LA PAPER'}
+                    </button>
+                  </div>
+
+                  {/* OPTION 2: OKX TESTNET (DEMO) */}
+                  <div
+                    onClick={() => handleSwitchExecutionModeWithCheck('TESTNET')}
+                    className={`cursor-pointer p-3 rounded border transition-all flex flex-col justify-between ${
+                      status?.executionMode === 'TESTNET'
+                        ? 'bg-amber-950/40 border-amber-500 shadow-md shadow-amber-950/50 ring-1 ring-amber-500'
+                        : 'bg-zinc-900/60 border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900'
+                    }`}
+                  >
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-amber-400 flex items-center space-x-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                          <span>2. OKX TESTNET (DEMO)</span>
+                        </span>
+                        {status?.executionMode === 'TESTNET' && (
+                          <span className="text-[10px] bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded border border-amber-600/60 font-bold">
+                            ACTIV
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed">
+                        Conexiune via API la <strong>Simulated Trading OKX</strong> (header <code>x-simulated-trading: 1</code>). Testează ordinele și WebSocket-urile reale pe OKX fără risc financiar.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchExecutionModeWithCheck('TESTNET');
+                      }}
+                      className={`w-full py-1 rounded text-xs font-bold transition-all ${
+                        status?.executionMode === 'TESTNET'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 cursor-default'
+                          : 'bg-zinc-800 hover:bg-amber-500 hover:text-black text-zinc-300'
+                      }`}
+                    >
+                      {status?.executionMode === 'TESTNET' ? '✓ MOD CURENT ACTIV' : 'COMUTĂ LA OKX DEMO'}
+                    </button>
+                  </div>
+
+                  {/* OPTION 3: OKX LIVE (REAL) */}
+                  <div
+                    onClick={() => handleSwitchExecutionModeWithCheck('LIVE')}
+                    className={`cursor-pointer p-3 rounded border transition-all flex flex-col justify-between ${
+                      status?.executionMode === 'LIVE'
+                        ? 'bg-rose-950/40 border-rose-500 shadow-md shadow-rose-950/50 ring-1 ring-rose-500'
+                        : 'bg-zinc-900/60 border-zinc-800 hover:border-rose-500/50 hover:bg-zinc-900'
+                    }`}
+                  >
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-rose-400 flex items-center space-x-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block animate-ping"></span>
+                          <span>3. OKX LIVE (CONT REAL)</span>
+                        </span>
+                        {status?.executionMode === 'LIVE' && (
+                          <span className="text-[10px] bg-rose-950 text-rose-300 px-1.5 py-0.2 rounded border border-rose-600/60 font-bold animate-pulse">
+                            LIVE REAL
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-300 leading-relaxed">
+                        Execuție de ordine reale pe bursa <strong>OKX USDT SWAP Perpetuals</strong> cu fonduri reale din cont. Necesită chei API cu permisiuni de tranzacționare.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchExecutionModeWithCheck('LIVE');
+                      }}
+                      className={`w-full py-1 rounded text-xs font-bold transition-all ${
+                        status?.executionMode === 'LIVE'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 cursor-default'
+                          : 'bg-zinc-800 hover:bg-rose-600 hover:text-white text-zinc-300'
+                      }`}
+                    >
+                      {status?.executionMode === 'LIVE' ? '✓ MOD LIVE ACTIV' : 'COMUTĂ LA OKX LIVE (REAL)'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* OKX CREDENTIALS CONFIGURATION & TEST ACCORDION / CARD */}
+                <div className="bg-black/90 p-3.5 rounded border border-amber-500/30 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-amber-400 font-bold text-xs flex items-center space-x-2">
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      <span>CONFIGURARE CHEI API OKX (PENTRU TESTNET ȘI LIVE)</span>
+                    </span>
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      Stare Server: {status?.config?.okxApiKey ? '🟢 CHEI CONFIGURATE' : '⚪ CHEI LIPSĂ (SAU ÎN MEDIU)'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block text-zinc-400 text-[10px] mb-1 font-mono">OKX_API_KEY</label>
+                      <input
+                        type="text"
+                        value={okxKeyInput}
+                        onChange={(e) => setOkxKeyInput(e.target.value)}
+                        placeholder="Cheie API OKX (ex: 81a9f4...)"
+                        className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-zinc-400 text-[10px] mb-1 font-mono">OKX_SECRET_KEY</label>
+                      <input
+                        type="password"
+                        value={okxSecretInput}
+                        onChange={(e) => setOkxSecretInput(e.target.value)}
+                        placeholder="Secret Key OKX..."
+                        className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-zinc-400 text-[10px] mb-1 font-mono">OKX_PASSPHRASE</label>
+                      <input
+                        type="password"
+                        value={okxPassphraseInput}
+                        onChange={(e) => setOkxPassphraseInput(e.target.value)}
+                        placeholder="Passphrase OKX..."
+                        className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1 border-t border-zinc-900">
+                    <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={okxTestnetInput}
+                        onChange={(e) => setOkxTestnetInput(e.target.checked)}
+                        className="accent-amber-500 cursor-pointer"
+                      />
+                      <span>Activează header-ul <code>x-simulated-trading: 1</code> (Mod Simulated / Demo)</span>
+                    </label>
+
+                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => handleRunOKXTest()}
+                        disabled={isTestingOKX}
+                        className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                      >
+                        <Wifi className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{isTestingOKX ? 'TESTARE...' : 'TESTEAZĂ CHEI'}</span>
+                      </button>
+
+                      <button
+                        onClick={handleSaveOKXCredentials}
+                        disabled={isSavingOKX || !okxKeyInput || !okxSecretInput}
+                        className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isSavingOKX ? 'SALVARE...' : 'SALVEAZĂ CHEI PE BOT'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {okxSaveMessage && (
+                    <div className="p-2 rounded bg-zinc-900 border border-amber-500/40 text-xs font-mono text-amber-300">
+                      {okxSaveMessage}
+                    </div>
+                  )}
+
+                  {/* Test Feedback Display */}
+                  {okxTestFeedback && okxTestFeedback.tested && (
+                    <div className={`p-2.5 rounded border text-xs font-mono space-y-1 ${
+                      okxTestFeedback.authenticated
+                        ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300'
+                        : okxTestFeedback.reachable
+                        ? 'bg-amber-950/50 border-amber-500/50 text-amber-300'
+                        : 'bg-rose-950/50 border-rose-500/50 text-rose-300'
+                    }`}>
+                      <div className="font-bold flex items-center space-x-2">
+                        {okxTestFeedback.authenticated ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        )}
+                        <span>REZULTAT TEST CONEXIUNE OKX:</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                        <div>• Ping Rețea: <strong>{okxTestFeedback.reachable ? '✅ CONECTAT' : '❌ INACCESIBIL'}</strong></div>
+                        <div>• Autentificare Chei: <strong>{okxTestFeedback.authenticated ? '✅ VALIDE' : '❌ EȘUATĂ / NEAUTORIZAT'}</strong></div>
+                        <div>• Sold Detectat: <strong>{okxTestFeedback.equity !== undefined ? `$${okxTestFeedback.equity.toFixed(2)} USDT` : '--'}</strong></div>
+                      </div>
+                      {okxTestFeedback.error && (
+                        <div className="text-[11px] text-rose-300 pt-1">
+                          ⚠️ Detalii eroare: {okxTestFeedback.error}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-zinc-400 leading-relaxed pt-1">
+                    💡 <strong>Configurare Permanentă Server:</strong> Poți seta cheile o singură dată în variabilele de mediu (Cloud Run / fișier <code>.env</code>):
+                    <code className="ml-1 text-amber-400">OKX_API_KEY</code>, <code className="text-amber-400">OKX_SECRET_KEY</code>, <code className="text-amber-400">OKX_PASSPHRASE</code>. Botul le va detecta și încărca automat la pornire!
+                  </div>
+                </div>
+              </div>
 
               {/* Mobile bottom Save bar for easy reach */}
               {hasUnsavedSettings && (
@@ -2191,6 +2813,215 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeScreen === 'INFO' && (
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 gap-2">
+                <div className="flex items-center space-x-2">
+                  <Info className="w-4 h-4 text-amber-500" />
+                  <span className="font-bold text-sm tracking-wider">F6: TELEGRAM ALERTS &amp; BOT OPERATIONAL HUB</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold font-mono border ${
+                    status?.telegramActive
+                      ? 'bg-sky-950/80 text-sky-300 border-sky-500'
+                      : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                  }`}>
+                    {status?.telegramActive ? '● TELEGRAM: CONECTAT & ACTIV' : '○ TELEGRAM: STANDBY'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Telegram Integration Overview Card */}
+              <div className="bg-black border border-sky-500/30 rounded p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-sky-400 font-bold text-xs">
+                    <Send className="w-4 h-4" />
+                    <span>ALERTE TELEGRAM NON-BLOCKING (ORARE &amp; EVENIMENTE CRITICE)</span>
+                  </div>
+                  <span className="text-[10px] bg-sky-950 text-sky-300 px-2 py-0.5 rounded border border-sky-800 font-mono">
+                    ASYNC PROTOCOL
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-300 leading-relaxed">
+                  Alertele Telegram rulează pe un fir de execuție complet asincron, garantând conform cerinței că procesul de scanare și tranzacționare al botului <strong>nu este niciodată influențat sau blocat</strong> de rețeaua Telegram.
+                </p>
+
+                {/* Quick Test Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      setTelegramTesting(true);
+                      try {
+                        const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                        const res = await fetch('/api/bot/telegram/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+                          body: JSON.stringify({ type: 'hourly' }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setTelegramStatusMsg('Raport orar transmis cu succes pe Telegram!');
+                        } else {
+                          setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verifică BOT_TOKEN/CHAT_ID'));
+                        }
+                      } catch (e: any) {
+                        setTelegramStatusMsg('Eroare la trimiterea raportului orar');
+                      } finally {
+                        setTelegramTesting(false);
+                        setTimeout(() => setTelegramStatusMsg(null), 4000);
+                      }
+                    }}
+                    disabled={telegramTesting}
+                    className="px-3 py-1.5 bg-sky-950 hover:bg-sky-900 border border-sky-500/50 text-sky-200 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>TRIMITE RAPORT ORAR (TEST)</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setTelegramTesting(true);
+                      try {
+                        const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                        const res = await fetch('/api/bot/telegram/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+                          body: JSON.stringify({ type: 'daily' }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setTelegramStatusMsg('Rezumat zilnic transmis cu succes pe Telegram!');
+                        } else {
+                          setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verifică BOT_TOKEN/CHAT_ID'));
+                        }
+                      } catch (e: any) {
+                        setTelegramStatusMsg('Eroare la trimiterea rezumatului zilnic');
+                      } finally {
+                        setTelegramTesting(false);
+                        setTimeout(() => setTelegramStatusMsg(null), 4000);
+                      }
+                    }}
+                    disabled={telegramTesting}
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>TRIMITE REZUMAT ZILNIC (TEST)</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setTelegramTesting(true);
+                      try {
+                        const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                        const res = await fetch('/api/bot/telegram/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+                          body: JSON.stringify({ type: 'guide' }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setTelegramStatusMsg('Ghidul de comenzi a fost trimis pe Telegram!');
+                        } else {
+                          setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verifică BOT_TOKEN/CHAT_ID'));
+                        }
+                      } catch (e: any) {
+                        setTelegramStatusMsg('Eroare la trimiterea ghidului');
+                      } finally {
+                        setTelegramTesting(false);
+                        setTimeout(() => setTelegramStatusMsg(null), 4000);
+                      }
+                    }}
+                    disabled={telegramTesting}
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    <span>TRIMITE GHID COMENZI</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Interactive Telegram Commands Grid */}
+              <div className="bg-black border border-amber-500/20 rounded p-3 space-y-2">
+                <div className="text-amber-400 font-bold text-xs flex items-center space-x-1.5">
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>COMENZI TELEGRAM DISPONIBILE (INTEROGĂRI &amp; CONTROL ÎN TIMP REAL)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/portofoliu</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Afișează balanța liberă, capitalul total (Equity) și PnL-ul nerealizat curent.</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/stare</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Verifică starea botului, profilul activ, regimul BTC și sentimentul global OKX.</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/pozitii</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Listează toate pozițiile deschise cu preț intrare, preț curent și PnL% în timp real.</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/jurnal</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Ultimele 5 ordine și tranzacții executate cu rezultatele PnL.</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-rose-400 font-bold">/pauza</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Activează Kill Switch-ul de urgență (blochează deschiderea de noi poziții).</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-emerald-400 font-bold">/porneste</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Dezactivează Kill Switch-ul și reia tranzacționarea automată normală.</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/cumpara SIMBOL [SUMA]</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Deschide manual un ordin LONG pe OKX (ex: <code>/cumpara BTCUSDT 20</code>).</p>
+                    </div>
+                  </div>
+                  <div className="bg-zinc-950 p-2 rounded border border-zinc-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-amber-400 font-bold">/vinde SIMBOL</span>
+                      <p className="text-[11px] text-zinc-400 font-sans mt-0.5">Închide manual poziția pe simbolul specificat (ex: <code>/vinde BTCUSDT</code>).</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Automatic Event Notifications Info */}
+              <div className="bg-black border border-zinc-800 rounded p-3 text-xs space-y-2">
+                <div className="text-slate-400 font-bold flex items-center space-x-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <span>EVENIMENTE CRITICE NOTIFICATE AUTOMAT PE TELEGRAM:</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-zinc-300 font-mono">
+                  <div className="p-2 bg-zinc-900 rounded border border-zinc-800">
+                    <span className="text-rose-400 font-bold block">🚨 KILL SWITCH</span>
+                    Notificare instantă când Kill Switch-ul este activat sau dezactivat.
+                  </div>
+                  <div className="p-2 bg-zinc-900 rounded border border-zinc-800">
+                    <span className="text-cyan-400 font-bold block">🔄 RESET CONT</span>
+                    Notificare când contul este resetat la $200.00 capital curat.
+                  </div>
+                  <div className="p-2 bg-zinc-900 rounded border border-zinc-800">
+                    <span className="text-emerald-400 font-bold block">⚡ PRAG SENTIMENT</span>
+                    Alertă automată când sentimentul pieței OKX trece peste ±{currentSentimentThreshold.toFixed(1)}%.
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -2452,6 +3283,335 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold"
               >
                 SAVE TOKEN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* 🚀 OKX CONNECTION & EXECUTION MODE GATEWAY MODAL (ALL SCREENS)     */}
+      {/* ================================================================= */}
+      {showOKXModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-zinc-950 border-2 border-amber-500 rounded p-5 max-w-2xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-amber-500/30 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-amber-500/10 rounded border border-amber-500/40">
+                  <Key className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-amber-400 font-bold text-base tracking-wider flex items-center space-x-2">
+                    <span>PANOU CONEXIUNE OKX &amp; COMUTATOR MOD</span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Alege modul de tranzacționare și testează conexiunea directă cu bursa OKX.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOKXModal(false)}
+                className="text-zinc-500 hover:text-zinc-200 text-lg px-2 py-0.5 rounded hover:bg-zinc-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Current Active Mode Banner */}
+            <div className={`p-3 rounded border flex items-center justify-between font-mono text-xs ${
+              status?.executionMode === 'LIVE'
+                ? 'bg-rose-950/60 border-rose-500 text-rose-300'
+                : status?.executionMode === 'TESTNET'
+                ? 'bg-amber-950/60 border-amber-500 text-amber-300'
+                : 'bg-emerald-950/60 border-emerald-500 text-emerald-300'
+            }`}>
+              <div className="flex items-center space-x-2">
+                <span className={`w-3 h-3 rounded-full ${
+                  status?.executionMode === 'LIVE'
+                    ? 'bg-rose-400 animate-ping'
+                    : status?.executionMode === 'TESTNET'
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-400'
+                }`} />
+                <span>
+                  MOD CURENT ACTIV: <strong>{status?.executionMode || 'PAPER'}</strong>
+                  {status?.executionMode === 'TESTNET' ? ' (OKX SIMULATED DEMO)' : status?.executionMode === 'LIVE' ? ' (OKX LIVE TRADING)' : ' (SIMULARE LOCALĂ)'}
+                </span>
+              </div>
+              <span className="text-[11px] opacity-80">
+                Capital: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'} USDT
+              </span>
+            </div>
+
+            {/* 3 Mode Selection Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Paper */}
+              <div
+                onClick={() => handleSwitchExecutionModeWithCheck('PAPER')}
+                className={`p-3 rounded border cursor-pointer transition-all flex flex-col justify-between ${
+                  status?.executionMode === 'PAPER'
+                    ? 'bg-emerald-950/50 border-emerald-500 ring-1 ring-emerald-500'
+                    : 'bg-zinc-900 border-zinc-800 hover:border-emerald-500/40'
+                }`}
+              >
+                <div className="space-y-1 mb-2">
+                  <span className="text-xs font-bold text-emerald-400 block">🟢 PAPER (SIMULARE)</span>
+                  <p className="text-[11px] text-zinc-300 leading-tight">
+                    Fără risc. $200 virtual, comisioane 0.05%, prețuri reale OKX.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSwitchExecutionModeWithCheck('PAPER');
+                  }}
+                  className={`w-full py-1 rounded text-xs font-bold ${
+                    status?.executionMode === 'PAPER'
+                      ? 'bg-emerald-600 text-black cursor-default'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-emerald-600 hover:text-black'
+                  }`}
+                >
+                  {status?.executionMode === 'PAPER' ? '✓ ACTIV' : 'COMUTĂ'}
+                </button>
+              </div>
+
+              {/* Testnet */}
+              <div
+                onClick={() => handleSwitchExecutionModeWithCheck('TESTNET')}
+                className={`p-3 rounded border cursor-pointer transition-all flex flex-col justify-between ${
+                  status?.executionMode === 'TESTNET'
+                    ? 'bg-amber-950/50 border-amber-500 ring-1 ring-amber-500'
+                    : 'bg-zinc-900 border-zinc-800 hover:border-amber-500/40'
+                }`}
+              >
+                <div className="space-y-1 mb-2">
+                  <span className="text-xs font-bold text-amber-400 block">🟡 OKX TESTNET (DEMO)</span>
+                  <p className="text-[11px] text-zinc-300 leading-tight">
+                    Simulated Trading API OKX. Fără bani reali. Header simulated activ.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSwitchExecutionModeWithCheck('TESTNET');
+                  }}
+                  className={`w-full py-1 rounded text-xs font-bold ${
+                    status?.executionMode === 'TESTNET'
+                      ? 'bg-amber-500 text-black cursor-default'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-amber-500 hover:text-black'
+                  }`}
+                >
+                  {status?.executionMode === 'TESTNET' ? '✓ ACTIV' : 'COMUTĂ'}
+                </button>
+              </div>
+
+              {/* Live */}
+              <div
+                onClick={() => handleSwitchExecutionModeWithCheck('LIVE')}
+                className={`p-3 rounded border cursor-pointer transition-all flex flex-col justify-between ${
+                  status?.executionMode === 'LIVE'
+                    ? 'bg-rose-950/50 border-rose-500 ring-1 ring-rose-500'
+                    : 'bg-zinc-900 border-zinc-800 hover:border-rose-500/40'
+                }`}
+              >
+                <div className="space-y-1 mb-2">
+                  <span className="text-xs font-bold text-rose-400 block">🔴 OKX LIVE (REAL)</span>
+                  <p className="text-[11px] text-zinc-300 leading-tight">
+                    Cont Real OKX. Tranzacționare cu capital real USDT SWAP.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSwitchExecutionModeWithCheck('LIVE');
+                  }}
+                  className={`w-full py-1 rounded text-xs font-bold ${
+                    status?.executionMode === 'LIVE'
+                      ? 'bg-rose-600 text-white cursor-default'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-rose-600 hover:text-white'
+                  }`}
+                >
+                  {status?.executionMode === 'LIVE' ? '✓ ACTIV (LIVE)' : 'COMUTĂ'}
+                </button>
+              </div>
+            </div>
+
+            {/* OKX API Key Form */}
+            <div className="bg-black/90 p-3.5 rounded border border-amber-500/30 space-y-3">
+              <span className="text-amber-400 font-bold text-xs flex items-center space-x-1.5">
+                <Key className="w-3.5 h-3.5" />
+                <span>CREDENTIALE OKX (API KEY, SECRET, PASSPHRASE)</span>
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label className="block text-zinc-400 text-[10px] mb-1">OKX_API_KEY</label>
+                  <input
+                    type="text"
+                    value={okxKeyInput}
+                    onChange={(e) => setOkxKeyInput(e.target.value)}
+                    placeholder="API Key OKX"
+                    className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 text-[10px] mb-1">OKX_SECRET_KEY</label>
+                  <input
+                    type="password"
+                    value={okxSecretInput}
+                    onChange={(e) => setOkxSecretInput(e.target.value)}
+                    placeholder="Secret Key"
+                    className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 text-[10px] mb-1">OKX_PASSPHRASE</label>
+                  <input
+                    type="password"
+                    value={okxPassphraseInput}
+                    onChange={(e) => setOkxPassphraseInput(e.target.value)}
+                    placeholder="Passphrase"
+                    className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-zinc-900">
+                <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={okxTestnetInput}
+                    onChange={(e) => setOkxTestnetInput(e.target.checked)}
+                    className="accent-amber-500 cursor-pointer"
+                  />
+                  <span>Mod Testnet Demo (<code>x-simulated-trading: 1</code>)</span>
+                </label>
+
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleRunOKXTest()}
+                    disabled={isTestingOKX}
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                  >
+                    <Wifi className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isTestingOKX ? 'TESTARE...' : 'TESTEAZĂ CHEI'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleSaveOKXCredentials}
+                    disabled={isSavingOKX || !okxKeyInput || !okxSecretInput}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{isSavingOKX ? 'SALVARE...' : 'SALVEAZĂ CHEI'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {okxSaveMessage && (
+                <div className="p-2 rounded bg-zinc-900 border border-amber-500/40 text-xs font-mono text-amber-300">
+                  {okxSaveMessage}
+                </div>
+              )}
+
+              {/* Feedback Display */}
+              {okxTestFeedback && okxTestFeedback.tested && (
+                <div className={`p-2.5 rounded border text-xs font-mono space-y-1 ${
+                  okxTestFeedback.authenticated
+                    ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300'
+                    : okxTestFeedback.reachable
+                    ? 'bg-amber-950/60 border-amber-500 text-amber-300'
+                    : 'bg-rose-950/60 border-rose-500 text-rose-300'
+                }`}>
+                  <div className="font-bold flex items-center space-x-1.5">
+                    {okxTestFeedback.authenticated ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    )}
+                    <span>REZULTAT TEST CONEXIUNE OKX:</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                    <div>• Ping API: <strong>{okxTestFeedback.reachable ? '✅ OK' : '❌ FAIL'}</strong></div>
+                    <div>• Autentificare: <strong>{okxTestFeedback.authenticated ? '✅ VALIDE' : '❌ EȘUATĂ'}</strong></div>
+                    <div>• Sold USDT: <strong>{okxTestFeedback.equity !== undefined ? `$${okxTestFeedback.equity.toFixed(2)}` : '--'}</strong></div>
+                  </div>
+                  {okxTestFeedback.error && (
+                    <div className="text-[11px] text-rose-300 pt-1">
+                      ⚠️ Eroare: {okxTestFeedback.error}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowOKXModal(false)}
+                className="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded text-xs font-bold"
+              >
+                ÎNCHIDE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* ⚠️ LIVE TRADING CONFIRMATION SAFETY MODAL                         */}
+      {/* ================================================================= */}
+      {showLiveConfirm && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-md">
+          <div className="bg-zinc-950 border-2 border-rose-500 rounded p-5 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center space-x-2 text-rose-400 border-b border-rose-500/40 pb-3">
+              <AlertTriangle className="w-6 h-6 text-rose-500 animate-bounce" />
+              <h3 className="font-black text-sm tracking-wider">
+                CONFIRMARE ACTIVARE MOD OKX LIVE (CONT REAL)
+              </h3>
+            </div>
+
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Ești pe cale să comuți botul în modul <strong>LIVE</strong>.
+              În acest mod, orice semnal de intrare generat de scaner va trimite <strong>ordine reale pe bursa OKX USDT SWAP Perpetuals folosind bani reali din contul tău</strong>.
+            </p>
+
+            <div className="bg-rose-950/40 border border-rose-500/40 rounded p-3 text-xs space-y-1.5 font-mono text-rose-200">
+              <div>⚠️ Asigură-te că:</div>
+              <div>1. Ai testat mai întâi strategia în mod PAPER sau TESTNET.</div>
+              <div>2. Cheile API introduse sunt corecte și au permisiune de tranzacționare.</div>
+              <div>3. Procentul de risc (Risk per trade) și Stop Loss-ul sunt setate conservator.</div>
+            </div>
+
+            <label className="flex items-start space-x-2.5 text-xs text-zinc-200 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={liveDisclaimerChecked}
+                onChange={(e) => setLiveDisclaimerChecked(e.target.checked)}
+                className="accent-rose-500 mt-0.5"
+              />
+              <span>Înțeleg riscul tranzacționării reale și confirm activarea modului LIVE pe OKX.</span>
+            </label>
+
+            <div className="flex justify-end space-x-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowLiveConfirm(false);
+                  setLiveDisclaimerChecked(false);
+                }}
+                className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-bold"
+              >
+                ANULEAZĂ
+              </button>
+              <button
+                onClick={handleConfirmLiveMode}
+                disabled={!liveDisclaimerChecked}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-rose-950"
+              >
+                CONFIRMĂ &amp; ACTIVEAZĂ LIVE
               </button>
             </div>
           </div>

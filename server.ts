@@ -3,6 +3,7 @@ import path from 'path';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { tradeBot } from './src/server/pipeline/TradeBot';
+import { telegramService } from './src/server/telegram/TelegramService';
 
 const CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || 'tradebot5_admin_token';
 
@@ -82,24 +83,17 @@ async function startServer() {
       executionMode: status.executionMode,
       state: status.state,
       testnet: status.config.testnet,
-      isLiveBlocked: true,
+      hasCredentials: tradeBot.hasOKXCredentials(),
     });
   });
 
-  // Switch execution mode: PAPER | TESTNET | LIVE (LIVE is strictly blocked!)
+  // Switch execution mode: PAPER | TESTNET | LIVE
   app.post('/api/bot/mode', requireControlAuth, async (req, res) => {
     const { mode } = req.body;
 
-    // STRICT SECURITY: LIVE mode is completely blocked
-    if (mode === 'LIVE' || mode === 'MAINNET') {
-      return res.status(403).json({
-        error: 'LIVE trading is strictly blocked and disabled for safety reasons.',
-      });
-    }
-
-    if (mode !== 'PAPER' && mode !== 'TESTNET') {
+    if (mode !== 'PAPER' && mode !== 'TESTNET' && mode !== 'LIVE') {
       return res.status(400).json({
-        error: 'Invalid execution mode. Allowed modes: PAPER, TESTNET.',
+        error: 'Mod de execuție invalid. Moduri permise: PAPER, TESTNET, LIVE.',
       });
     }
 
@@ -171,25 +165,56 @@ async function startServer() {
     res.json({ success: true, killSwitchEngaged: engaged });
   });
 
-  // Update OKX API credentials (STRICT TESTNET / DEMO ONLY)
+  // Update OKX API credentials
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
     const { apiKey, apiSecret, secretKey, passphrase, testnet } = req.body;
-    if (testnet === false) {
-      return res.status(403).json({
-        error: 'Mainnet is permanently blocked and disabled in this version. Only Testnet/Demo is permitted.',
-      });
-    }
     const finalSecret = secretKey || apiSecret;
     const finalPassphrase = passphrase || '';
     if (!apiKey || !finalSecret) {
-      return res.status(400).json({ error: 'apiKey and secretKey (or apiSecret) are required' });
+      return res.status(400).json({ error: 'apiKey și secretKey sunt obligatorii.' });
     }
     try {
-      await tradeBot.updateCredentials(apiKey, finalSecret, finalPassphrase, true);
-      res.json({ success: true, message: 'Credentials updated and reconnected on OKX EEA Testnet/Demo' });
+      const isTestnet = testnet !== false;
+      await tradeBot.updateCredentials(apiKey, finalSecret, finalPassphrase, isTestnet);
+      res.json({
+        success: true,
+        message: `Cheile API OKX au fost salvate și conectate (Mod rețea: ${isTestnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`,
+        status: tradeBot.getStatus(),
+      });
     } catch (err: any) {
-      res.status(400).json({ error: err.message || 'Failed to update credentials' });
+      res.status(400).json({ error: err.message || 'Eroare la actualizarea cheilor API OKX' });
     }
+  });
+
+  // Test OKX connection with current or provided credentials
+  app.post('/api/bot/okx/test-connection', requireControlAuth, async (req, res) => {
+    try {
+      const { apiKey, secretKey, passphrase, isDemo } = req.body || {};
+      const result = await tradeBot.testOKXConnection(
+        apiKey && secretKey ? { apiKey, secretKey, passphrase, isDemo } : undefined
+      );
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Eroare la testarea conexiunii OKX' });
+    }
+  });
+
+  // OKX credentials status
+  app.get('/api/bot/okx/status', (req, res) => {
+    const status = tradeBot.getStatus();
+    const config = status.config;
+    const hasCreds = tradeBot.hasOKXCredentials();
+    const maskedKey = config.okxApiKey
+      ? `${config.okxApiKey.slice(0, 4)}...${config.okxApiKey.slice(-4)}`
+      : (process.env.OKX_API_KEY ? 'CONFIGURAT_IN_ENV' : '');
+
+    res.json({
+      hasCredentials: hasCreds,
+      apiKeyMasked: maskedKey,
+      hasPassphrase: Boolean(config.okxPassphrase || process.env.OKX_PASSPHRASE),
+      executionMode: status.executionMode,
+      isTestnet: config.testnet,
+    });
   });
 
   // Force manual reconciliation
@@ -215,6 +240,60 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Scan failed' });
     }
+  });
+
+  // Get current market sentiment & score independently
+  app.get('/api/bot/sentiment', (req, res) => {
+    const status = tradeBot.getStatus();
+    res.json({
+      sentiment: status.marketSentiment,
+      score: status.marketSentimentScore,
+      updatedAt: Date.now(),
+    });
+  });
+
+  // Force manual market sentiment refresh
+  app.post('/api/bot/sentiment/refresh', requireControlAuth, async (req, res) => {
+    try {
+      await tradeBot.refreshMarketSentiment();
+      res.json({
+        success: true,
+        sentiment: tradeBot.getStatus().marketSentiment,
+        score: tradeBot.getStatus().marketSentimentScore,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Sentiment refresh failed' });
+    }
+  });
+
+  // Telegram test alert or report dispatch
+  app.post('/api/bot/telegram/test', requireControlAuth, async (req, res) => {
+    try {
+      const type = req.body?.type || 'hourly';
+      if (type === 'hourly') {
+        const now = new Date();
+        const prevHour = (now.getHours() - 1 + 24) % 24;
+        const prevStr = `${prevHour.toString().padStart(2, '0')}:00`;
+        const currStr = `${now.getHours().toString().padStart(2, '0')}:00`;
+        await telegramService.sendHourlyReport(prevStr, currStr);
+      } else if (type === 'daily') {
+        await telegramService.sendDailySummary();
+      } else if (type === 'guide') {
+        await telegramService.sendMessage(telegramService.getCommandGuideText());
+      } else {
+        await telegramService.sendMessage('🔔 TEST NOTIFICARE — TradeBot 5 conectat cu succes la Telegram!');
+      }
+      res.json({ success: true, active: telegramService.isConfigured() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Telegram test failed' });
+    }
+  });
+
+  // Telegram credentials update
+  app.post('/api/bot/telegram/config', requireControlAuth, (req, res) => {
+    const { token, chatId } = req.body;
+    telegramService.updateCredentials(token, chatId);
+    res.json({ success: true, active: telegramService.isConfigured() });
   });
 
   // Update Universe Filter configuration

@@ -38,20 +38,20 @@ export class OrderManager {
 
   public getOrders(): OrderRecord[] {
     const list = Array.from(this.orders.values()).sort((a, b) => b.createdTime - a.createdTime);
-    if (list.length > 200) {
-      // Keep only 200 most recent
+    if (list.length > 1000) {
+      // Keep only 1000 most recent
       this.orders.clear();
-      for (const o of list.slice(0, 200)) {
+      for (const o of list.slice(0, 1000)) {
         this.orders.set(o.id, o);
       }
-      return list.slice(0, 200);
+      return list.slice(0, 1000);
     }
     return list;
   }
 
   public setOrders(orders: OrderRecord[]) {
     this.orders.clear();
-    for (const order of (orders || []).slice(0, 200)) {
+    for (const order of (orders || []).slice(0, 1000)) {
       if (order && order.id) {
         this.orders.set(order.id, order);
       }

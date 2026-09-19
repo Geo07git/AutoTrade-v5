@@ -23,6 +23,7 @@ import { OrderManager } from '../order/OrderManager';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { MarketScanner } from '../scanner/MarketScanner';
+import { telegramService } from '../telegram/TelegramService';
 
 const DEFAULT_CONFIG: AppConfig = {
   executionMode: 'PAPER', // Default safe mode: Full simulation without OKX API keys
@@ -53,6 +54,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     minMomentumScore: 72,
     maxHoldingTimeMinutes: 30,
     cooldownMinutes: 10,
+    sentimentThreshold: 1.5,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
@@ -69,6 +71,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     minMomentumScore: 82,
     maxHoldingTimeMinutes: 240,
     cooldownMinutes: 60,
+    sentimentThreshold: 2.0,
   },
 };
 
@@ -101,6 +104,10 @@ export class TradeBot {
   private isProcessingTick: boolean = false;
   private marketRegime: string = 'BTC: --';
   private regimeInterval?: NodeJS.Timeout;
+  private marketSentiment: string = 'OKX NEUTRAL (+0.00%)';
+  private marketSentimentScore: number = 0;
+  private sentimentInterval?: NodeJS.Timeout;
+  private lastSentimentAlertTime: number = 0;
 
   private getProfiles(): Record<ProfileType, ProfileConfig> {
     const config = this.configStore.get();
@@ -199,6 +206,25 @@ export class TradeBot {
 
     // Setup WebSocket event hooks
     this.setupAdapterListeners(this.activeAdapter);
+
+    // Setup Telegram bot delegate
+    telegramService.setBotDelegate({
+      getStatus: () => this.getStatus(),
+      getClosedPositions: () => this.positionManager.getClosedHistory(),
+      getActivePositions: () => this.positionManager.getActivePositions(),
+      getOrders: () => this.orderManager.getOrders(),
+      getAuditLogs: () => this.auditStore.get(),
+      toggleKillSwitch: async () => {
+        const engaged = await this.toggleKillSwitch();
+        return { success: true, killSwitchEngaged: engaged };
+      },
+      executeManualOrder: (sym, side, qty) => this.executeManualOrder(sym, side, qty),
+      closePositionManually: (sym) => this.closePositionManually(sym),
+      setExecutionMode: (mode) => this.setExecutionMode(mode as any),
+    });
+    if (appConfig.telegramBotToken) {
+      telegramService.updateCredentials(appConfig.telegramBotToken, appConfig.telegramChatId);
+    }
   }
 
   private setupAdapterListeners(adapter: IExecutionAdapter) {
@@ -262,6 +288,14 @@ export class TradeBot {
     if (this.regimeInterval) clearInterval(this.regimeInterval);
     this.regimeInterval = setInterval(() => this.updateMarketRegime(), 60000); // every minute
     setTimeout(() => this.updateMarketRegime(), 2000);
+
+    // Watcher for global market sentiment (every 30 seconds)
+    if (this.sentimentInterval) clearInterval(this.sentimentInterval);
+    this.sentimentInterval = setInterval(() => this.updateMarketSentiment(), 30000);
+    setTimeout(() => this.updateMarketSentiment(), 1500);
+
+    // Start background Telegram services (hourly alerts, commands)
+    telegramService.start();
   }
 
   private async updateMarketRegime() {
@@ -280,6 +314,64 @@ export class TradeBot {
     } catch (err) {
       console.warn('[TradeBot] Failed to update BTC market regime:', err);
     }
+  }
+
+  private async updateMarketSentiment() {
+    try {
+      const benchmarkSymbols = ['BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP'];
+      const changes: number[] = [];
+
+      for (const instId of benchmarkSymbols) {
+        try {
+          const res = await fetch(`https://eea.okx.com/api/v5/market/ticker?instId=${instId}`);
+          const data = await res.json();
+          if (data && data.code === '0' && Array.isArray(data.data) && data.data.length > 0) {
+            const item = data.data[0];
+            const last = parseFloat(item.last || '0');
+            const open24h = parseFloat(item.open24h || '0');
+            if (open24h > 0) {
+              const pcnt = ((last - open24h) / open24h) * 100;
+              changes.push(pcnt);
+            }
+          }
+        } catch (symErr) {
+          // ignore individual symbol ticker failure
+        }
+      }
+
+      if (changes.length > 0) {
+        const avgScore = changes.reduce((a, b) => a + b, 0) / changes.length;
+        this.marketSentimentScore = parseFloat(avgScore.toFixed(2));
+        const profile = this.getActiveProfileConfig();
+        const threshold = profile.sentimentThreshold ?? 1.5;
+
+        const sign = avgScore >= 0 ? '+' : '';
+        if (avgScore >= threshold) {
+          this.marketSentiment = `OKX BULLISH (${sign}${avgScore.toFixed(2)}%)`;
+        } else if (avgScore <= -threshold) {
+          this.marketSentiment = `OKX BEARISH (${avgScore.toFixed(2)}%)`;
+        } else {
+          this.marketSentiment = `OKX NEUTRAL (${sign}${avgScore.toFixed(2)}%)`;
+        }
+
+        // Trigger notification if threshold crossed
+        if (Math.abs(avgScore) >= threshold) {
+          const now = Date.now();
+          if (now - this.lastSentimentAlertTime > 15 * 60 * 1000) {
+            this.lastSentimentAlertTime = now;
+            const alertMsg = `⚡ SENTIMENT GLOBAL ALERT: Sentimentul pieței OKX a depășit pragul de ±${threshold}%: ${this.marketSentiment}`;
+            this.logAudit('SYSTEM', alertMsg);
+            telegramService.sendMessage(alertMsg);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[TradeBot] Failed to update market sentiment:', err);
+    }
+  }
+
+  public async refreshMarketSentiment() {
+    await this.updateMarketSentiment();
   }
 
   public async connectAndRecover() {
@@ -563,24 +655,28 @@ export class TradeBot {
 
   /**
    * Set execution mode: PAPER | TESTNET | LIVE
-   * STRICT SECURITY: LIVE mode is completely blocked!
    */
   public async setExecutionMode(mode: ExecutionMode): Promise<{ success: boolean; error?: string }> {
-    if (mode === 'LIVE') {
-      const msg = 'LIVE trading is strictly blocked and disabled for safety reasons.';
-      this.logAudit('SYSTEM', `Operator attempt to switch to LIVE mode blocked: ${msg}`);
-      return { success: false, error: msg };
-    }
-
     const activePositions = this.positionManager.getActivePositions();
     if (activePositions.length > 0) {
-      const err = `Cannot switch execution mode to ${mode} while ${activePositions.length} position(s) are open. Close all positions first.`;
+      const err = `Nu se poate comuta modul de execuție în ${mode} cât timp există ${activePositions.length} poziție(i) deschise. Închide mai întâi toate pozițiile active.`;
       this.logAudit('SYSTEM', `Mode switch rejected: ${err}`, { activePositionsCount: activePositions.length });
       return { success: false, error: err };
     }
 
     const config = this.configStore.get();
-    if (config.executionMode === mode) {
+
+    // Verify credentials if switching to TESTNET or LIVE
+    if (mode === 'TESTNET' || mode === 'LIVE') {
+      const hasCreds = this.hasOKXCredentials();
+      if (!hasCreds) {
+        const err = `Cheile API OKX (API Key, Secret Key, Passphrase) lipsesc. Configurează-le mai întâi în panoul de Conexiune OKX sau în variabilele de mediu.`;
+        this.logAudit('SYSTEM', `Mode switch rejected: ${err}`);
+        return { success: false, error: err };
+      }
+    }
+
+    if (config.executionMode === mode && ((mode === 'TESTNET' && config.testnet) || (mode === 'LIVE' && !config.testnet))) {
       return { success: true };
     }
 
@@ -590,10 +686,26 @@ export class TradeBot {
     }
 
     config.executionMode = mode;
+    config.testnet = mode !== 'LIVE';
     this.configStore.save(config);
 
     // Switch active execution adapter
-    this.activeAdapter = mode === 'TESTNET' ? this.okxAdapter : this.paperAdapter;
+    if (mode === 'TESTNET') {
+      const key = config.okxApiKey || process.env.OKX_API_KEY || '';
+      const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
+      const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
+      this.okxAdapter.updateCredentials(key, secret, pass, true);
+      this.activeAdapter = this.okxAdapter;
+    } else if (mode === 'LIVE') {
+      const key = config.okxApiKey || process.env.OKX_API_KEY || '';
+      const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
+      const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
+      this.okxAdapter.updateCredentials(key, secret, pass, false);
+      this.activeAdapter = this.okxAdapter;
+    } else {
+      this.activeAdapter = this.paperAdapter;
+    }
+
     this.orderManager.setExecutionAdapter(this.activeAdapter, mode);
 
     // Rebind scanner to active adapter
@@ -608,7 +720,10 @@ export class TradeBot {
     }
 
     this.setupAdapterListeners(this.activeAdapter);
-    this.logAudit('MODE_CHANGED', `Execution mode switched to [${mode}]. Reconnecting execution engine...`);
+    this.logAudit(
+      'MODE_CHANGED',
+      `Modul de execuție a fost comutat la [${mode}] (${mode === 'TESTNET' ? 'OKX Demo Simulated Trading' : mode === 'LIVE' ? 'OKX Real Trading' : 'Simulare Locală Paper'}). Reconectare motor...`
+    );
 
     await this.connectAndRecover();
     return { success: true };
@@ -709,25 +824,42 @@ export class TradeBot {
   }
 
   /**
-   * Update OKX API credentials (STRICT TESTNET / DEMO ONLY)
+   * Update OKX API credentials
    */
   public async updateCredentials(apiKey: string, secretKey: string, passphrase: string, testnet: boolean = true) {
-    if (testnet === false) {
-      throw new Error('Mainnet is permanently blocked and disabled in this version. Only Testnet/Demo is permitted.');
-    }
     const config = this.configStore.get();
     config.okxApiKey = apiKey.trim();
     config.okxSecretKey = secretKey.trim();
     config.okxPassphrase = passphrase.trim();
-    config.testnet = true; // STRICT HARD LOCK: Testnet only
+    config.testnet = testnet;
     this.configStore.save();
 
-    this.okxAdapter.updateCredentials(apiKey, secretKey, passphrase, true);
-    this.logAudit('SYSTEM', 'Updated OKX EEA API credentials (Network: OKX Demo/Simulated).');
+    this.okxAdapter.updateCredentials(apiKey, secretKey, passphrase, testnet);
+    this.logAudit('SYSTEM', `Chei API OKX actualizate cu succes (Mod rețea: ${testnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`);
 
-    if (config.executionMode === 'TESTNET') {
+    if (config.executionMode === 'TESTNET' || config.executionMode === 'LIVE') {
       await this.connectAndRecover();
     }
+  }
+
+  public hasOKXCredentials(): boolean {
+    const config = this.configStore.get();
+    const hasInConfig = Boolean(config.okxApiKey && config.okxSecretKey && config.okxPassphrase);
+    const hasInEnv = Boolean(process.env.OKX_API_KEY && process.env.OKX_SECRET_KEY && process.env.OKX_PASSPHRASE);
+    return hasInConfig || hasInEnv;
+  }
+
+  public async testOKXConnection(creds?: { apiKey?: string; secretKey?: string; passphrase?: string; isDemo?: boolean }) {
+    if (creds && creds.apiKey && creds.secretKey) {
+      const tempAdapter = new OKXAdapter(
+        creds.apiKey,
+        creds.secretKey,
+        creds.passphrase || '',
+        creds.isDemo ?? true
+      );
+      return await tempAdapter.testConnection();
+    }
+    return await this.okxAdapter.testConnection();
   }
 
   private logAudit(type: AuditLogType, message: string, details?: any) {
@@ -746,6 +878,9 @@ export class TradeBot {
     }
     this.auditStore.save();
     console.log(`[TradeBot][${type}] ${message}`);
+
+    // Non-blocking Telegram notification
+    telegramService.notifyEvent(type, message, details);
   }
 
   public getStatus(): BotStatusResponse {
@@ -867,18 +1002,14 @@ export class TradeBot {
       sessionRealizedPnL,
       performanceMetrics,
       positions: activePositions,
-      orders: this.orderManager.getOrders().slice(0, 200),
+      orders: this.orderManager.getOrders().slice(0, 1000),
       connected: this.state === 'READY' || this.state === 'TRADING',
       lastSyncTime: this.lastSyncTime,
       scannerStats: this.marketScanner.getStats(),
       marketRegime: this.marketRegime,
-      marketSentiment: (() => {
-        const activeCount = activePositions.length;
-        const totalPnl = unrealizedPnL;
-        if (activeCount >= 3 && totalPnl > 0) return 'OKX BULLISH';
-        if (activeCount >= 3 && totalPnl < 0) return 'OKX BEARISH';
-        return 'OKX NEUTRAL';
-      })(),
+      marketSentiment: this.marketSentiment,
+      marketSentimentScore: this.marketSentimentScore,
+      telegramActive: telegramService.isConfigured(),
       equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity),
     };
   }
@@ -889,6 +1020,76 @@ export class TradeBot {
 
   public async triggerManualScan(): Promise<ScannedOpportunity[]> {
     return this.marketScanner.scan(this.getActiveProfile());
+  }
+
+  public async executeManualOrder(
+    symbol: string,
+    side: 'BUY' | 'SELL',
+    requestedQty?: number
+  ): Promise<{ success: boolean; error?: string }> {
+    const config = this.configStore.get();
+    if (config.killSwitchEngaged) {
+      return { success: false, error: 'Cannot execute order: Kill Switch is currently engaged.' };
+    }
+
+    let price = this.latestPrices[symbol];
+    if (!price || price <= 0) {
+      try {
+        const tickerPrice = await this.activeAdapter.getTickerPrice(symbol);
+        if (tickerPrice && tickerPrice > 0) {
+          price = tickerPrice;
+        }
+      } catch (err: any) {
+        return { success: false, error: `Failed to fetch live price for ${symbol}` };
+      }
+    }
+
+    if (!price || price <= 0) {
+      return { success: false, error: `Invalid price for ${symbol}` };
+    }
+
+    const profile = this.getActiveProfileConfig();
+    const activePositions = this.positionManager.getActivePositions();
+    if (activePositions.length >= profile.maxOpenPositions) {
+      return { success: false, error: `Maximum open positions reached (${profile.maxOpenPositions})` };
+    }
+
+    // Determine size in USDT
+    let sizeUSDT = (this.currentEquity * (profile.riskPerTradePct || 10)) / 100;
+    if (requestedQty && requestedQty > 0) {
+      sizeUSDT = requestedQty * price;
+    }
+
+    const manualSignal = {
+      symbol,
+      side,
+      score: 90,
+      profile: profile.type,
+      timestamp: Date.now(),
+      reasons: { manual: true, trigger: 'Telegram/Manual command' },
+    };
+
+    const riskApproval = {
+      approved: true,
+      sizeUSDT: parseFloat(sizeUSDT.toFixed(2)),
+      reason: 'Manual order override approved',
+    };
+
+    const result = await this.orderManager.executeSignalOrder({
+      signal: manualSignal,
+      riskApproval,
+      currentPrice: price,
+      profile: profile.type,
+      marketRegime: this.marketRegime,
+    });
+
+    if (result.success) {
+      this.orderStore.save(this.orderManager.getOrders());
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.logAudit('ORDER_SUBMITTED', `Manual ${side} order executed for ${symbol} (Size: $${sizeUSDT.toFixed(2)})`);
+    }
+
+    return result;
   }
 
   public async closePositionManually(symbol: string): Promise<{ success: boolean; error?: string }> {

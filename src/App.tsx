@@ -78,10 +78,35 @@ export default function App() {
     }
   };
 
+  // Dedicated fetcher for OKX global market sentiment score
+  const fetchSentiment = async () => {
+    try {
+      const res = await fetch('/api/bot/sentiment');
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.sentiment) {
+          setStatus((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  marketSentiment: data.sentiment,
+                  marketSentimentScore: data.score,
+                }
+              : null
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching global sentiment:', err);
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
     fetchLogs();
     fetchOrders();
+    fetchSentiment();
 
     const interval = setInterval(() => {
       fetchStatus();
@@ -89,17 +114,18 @@ export default function App() {
       fetchOrders();
     }, 3000);
 
-    return () => clearInterval(interval);
+    // Dedicated polling interval for fetching global sentiment independently
+    const sentimentInterval = setInterval(fetchSentiment, 10000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(sentimentInterval);
+    };
   }, []);
 
   const switchExecutionMode = async (mode: ExecutionMode) => {
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    if (mode === 'LIVE') {
-      setErrorMessage('LIVE trading is strictly blocked and disabled for safety reasons.');
-      return;
-    }
 
     try {
       const res = await fetch('/api/bot/mode', {
@@ -110,14 +136,63 @@ export default function App() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMessage(data.error || 'Failed to switch execution mode');
+        setErrorMessage(data.error || 'Eroare la schimbarea modului de execuție');
       } else {
-        setSuccessMessage(`Switched execution mode to ${mode}`);
+        setSuccessMessage(`Modul de execuție a fost schimbat în ${mode}`);
         await fetchStatus();
         await fetchLogs();
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to switch execution mode');
+      setErrorMessage(err.message || 'Eroare la schimbarea modului');
+    }
+  };
+
+  const handleUpdateCredentials = async (
+    apiKey: string,
+    secretKey: string,
+    passphrase: string,
+    testnet: boolean
+  ): Promise<{ success: boolean; error?: string }> => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const res = await fetch('/api/bot/credentials', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ apiKey, secretKey, passphrase, testnet }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const err = data.error || 'Eroare la salvarea cheilor OKX';
+        setErrorMessage(err);
+        return { success: false, error: err };
+      }
+      setSuccessMessage(data.message || 'Cheile OKX au fost salvate și verificate.');
+      await fetchStatus();
+      await fetchLogs();
+      return { success: true };
+    } catch (err: any) {
+      const errMsg = err.message || 'Eroare de rețea la salvarea cheilor';
+      setErrorMessage(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const handleTestOKXConnection = async (creds?: {
+    apiKey?: string;
+    secretKey?: string;
+    passphrase?: string;
+    isDemo?: boolean;
+  }) => {
+    try {
+      const res = await fetch('/api/bot/okx/test-connection', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(creds || {}),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return { reachable: false, authenticated: false, error: err.message || 'Eroare la testarea conexiunii OKX' };
     }
   };
 
@@ -304,6 +379,8 @@ export default function App() {
       onTriggerScan={handleTriggerScan}
       onClearLogs={handleClearLogs}
       onClearOrders={handleClearOrders}
+      onUpdateCredentials={handleUpdateCredentials}
+      onTestOKXConnection={handleTestOKXConnection}
       controlToken={controlToken}
       onUpdateControlToken={handleUpdateControlToken}
       errorMessage={errorMessage}
