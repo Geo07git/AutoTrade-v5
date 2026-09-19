@@ -172,7 +172,7 @@ export class PositionManager {
     const newPosition: Position = {
       id: `pos_${Date.now()}_${order.symbol}`,
       symbol: order.symbol,
-      side: order.side,
+      side: order.side.toUpperCase() === 'SELL' ? 'SELL' : 'BUY',
       qty: parseFloat(filledQty.toFixed(6)),
       entryPrice: parseFloat(entryPrice.toFixed(4)),
       ctVal,
@@ -242,7 +242,7 @@ export class PositionManager {
               position: pos,
               reason: 'EQUITY_PROTECTION',
               currentPrice: currentPrices[pos.symbol] || pos.entryPrice,
-              exitReasonDetail: `Equity Protection Drawdown: -${drawdownFromPeak.toFixed(2)}% de la vârful capitalului ($${peakEquity.toFixed(2)})`,
+              exitReasonDetail: `Equity Protection declanșat: Drawdown de -${drawdownFromPeak.toFixed(2)}% de la vârful capitalului ($${peakEquity.toFixed(2)}) (limită permisă: -${config.equityTrailingDrawdownPct}%)`,
               triggerStopValue: config.equityTrailingDrawdownPct,
             });
           }
@@ -290,7 +290,7 @@ export class PositionManager {
                 position: pos,
                 reason: 'TAKE_PROFIT',
                 currentPrice,
-                exitReasonDetail: `Take-Profit declanșat: ținta de +${pnlPct.toFixed(2)}% a fost atinsă`,
+                exitReasonDetail: `Take-Profit atins la +${pnlPct.toFixed(2)}% (țintă setată: +${config.takeProfitPct}%)`,
               });
               continue;
           }
@@ -299,24 +299,30 @@ export class PositionManager {
       // Break-Even Logic
       if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && pos.stopLossPrice < pos.entryPrice) {
           pos.stopLossPrice = pos.entryPrice * 1.0005; // Move SL to entry + 0.05% buffer
+          pos.isBreakEvenTriggered = true;
           this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
       } else if (pos.side === 'SELL' && pnlPct >= config.breakEvenActivationPct && (pos.stopLossPrice === undefined || pos.stopLossPrice > pos.entryPrice)) {
           pos.stopLossPrice = pos.entryPrice * 0.9995;
+          pos.isBreakEvenTriggered = true;
           this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
       }
 
-      // 1. Hard Stop Loss Check
+      // 1. Hard Stop Loss Check (or Break-Even Stop Check if SL was moved)
       if ((pos.side === 'BUY' && currentPrice <= pos.stopLossPrice) || (pos.side === 'SELL' && currentPrice >= pos.stopLossPrice)) {
         this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at ${currentPrice}`, {
           symbol: pos.symbol,
           currentPrice,
         });
 
+        const exitReasonText = pos.isBreakEvenTriggered
+          ? `Break-Even Stop atins la prețul $${currentPrice.toFixed(4)} (SL mutat la pragul de intrare după atingerea țintei BE, PnL înregistrat: ${pnlPct.toFixed(2)}%)`
+          : `Stop-Loss hard atins la prețul $${currentPrice.toFixed(4)} (Limită pierdere setată: -${config.hardStopLossPct}%, PnL înregistrat: ${pnlPct.toFixed(2)}%)`;
+
         await orderManager.executeCloseOrder({
           position: pos,
           reason: 'STOP_LOSS',
           currentPrice,
-          exitReasonDetail: `Stop-Loss triggered`,
+          exitReasonDetail: exitReasonText,
         });
         continue;
       }
@@ -340,7 +346,7 @@ export class PositionManager {
               position: pos,
               reason: 'TRAILING_STOP',
               currentPrice,
-              exitReasonDetail: `Trailing Stop declanșat: retragere ${retracementFromPeakPct.toFixed(2)}% din vârful de +${peakPnlPct.toFixed(2)}% (distanță: ${config.trailingDistancePct}%)`,
+              exitReasonDetail: `Trailing stop declanșat la vârful de +${peakPnlPct.toFixed(2)}%, retragere la ${pnlPct.toFixed(2)}% (dist= ${retracementFromPeakPct.toFixed(2)}% / setat ${config.trailingDistancePct}%)`,
               triggerStopValue: config.trailingDistancePct,
               trailingPeakPct: parseFloat(peakPnlPct.toFixed(2)),
               trailingDistancePct: parseFloat(retracementFromPeakPct.toFixed(2)),
@@ -363,7 +369,7 @@ export class PositionManager {
               position: pos,
               reason: 'TRAILING_STOP',
               currentPrice,
-              exitReasonDetail: `Trailing Stop Short declanșat: retragere ${retracementFromTroughPct.toFixed(2)}% din minim (distanță: ${config.trailingDistancePct}%)`,
+              exitReasonDetail: `Trailing stop Short declanșat la minimul de +${peakPnlPct.toFixed(2)}%, retragere la ${pnlPct.toFixed(2)}% (dist= ${retracementFromTroughPct.toFixed(2)}% / setat ${config.trailingDistancePct}%)`,
               triggerStopValue: config.trailingDistancePct,
               trailingPeakPct: parseFloat(peakPnlPct.toFixed(2)),
               trailingDistancePct: parseFloat(retracementFromTroughPct.toFixed(2)),
@@ -386,7 +392,7 @@ export class PositionManager {
             position: pos,
             reason: 'TIME_STOP',
             currentPrice,
-            exitReasonDetail: `Time Stop: Durata maximă de menținere (${config.maxHoldingTimeMinutes} min) a fost atinsă (${heldMinutes.toFixed(1)}m)`,
+            exitReasonDetail: `Time Stop expirat: poziția a fost menținută ${heldMinutes.toFixed(1)} minute (limită maximă configurată: ${config.maxHoldingTimeMinutes} min, PnL final: ${pnlPct.toFixed(2)}%)`,
           });
           continue;
         }

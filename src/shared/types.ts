@@ -181,6 +181,7 @@ export interface OrderRecord {
   trailingDistancePct?: number;
   holdingTimeMinutes?: number;
   marketRegime?: string;
+  positionSide?: OrderSide;
 }
 
 export interface Position {
@@ -203,6 +204,7 @@ export interface Position {
   highestPrice?: number;
   lowestPrice?: number;
   stopLossPrice?: number;
+  isBreakEvenTriggered?: boolean;
   currentPrice?: number;
   holdingTimeMinutes?: number;
   exitReasonDetail?: string;

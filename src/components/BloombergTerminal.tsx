@@ -339,6 +339,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const getOrderTradeSide = (ord: OrderRecord) => {
+    if (ord.positionSide) return ord.positionSide;
+    if (ord.intent === 'ENTRY') return ord.side;
+    return ord.side === 'BUY' ? 'SELL' : 'BUY';
+  };
+
   const handleExportOrders = () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const headers = [
@@ -369,7 +375,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.id,
       o.exchangeOrderId || '',
       o.symbol,
-      o.side === 'BUY' ? 'LONG' : 'SHORT',
+      getOrderTradeSide(o) === 'BUY' ? 'LONG' : 'SHORT',
       o.intent,
       o.profile,
       o.executionMode,
@@ -3027,7 +3033,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
 
         {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG) */}
-        <div className="lg:col-span-6 flex flex-col space-y-2">
+        <div className="hidden lg:flex lg:col-span-6 flex-col space-y-2">
           {/* TradingView Widget */}
           <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[520px]">
             <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2 relative">

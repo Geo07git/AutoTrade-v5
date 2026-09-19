@@ -294,6 +294,7 @@ export class OrderManager {
       trailingPeakPct,
       trailingDistancePct,
       holdingTimeMinutes,
+      positionSide: position.side,
     };
 
     this.orders.set(clientOrderId, closeOrder);
