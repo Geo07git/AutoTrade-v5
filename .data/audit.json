@@ -1,1171 +1,316 @@
 [
   {
-    "id": "1789884238768_raum",
-    "timestamp": 1789884238768,
-    "type": "SYSTEM",
-    "message": "TradeBot 5 starting sequence initiated in [PAPER] mode..."
-  },
-  {
-    "id": "1789884230595_q1bj",
-    "timestamp": 1789884230595,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.96s. Scanned: 100/100 pairs. Candidates: 0. Top: DOOD-USDT-SWAP (62.1), ZAMA-USDT-SWAP (60.6), ZIL-USDT-SWAP (59.4), CASHCAT-USDT-SWAP (53.7), PONS-USDT-SWAP (53.3).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 62.1,
-          "rvol": 0.37,
-          "price": 0.001896
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 60.6,
-          "rvol": 0.03,
-          "price": 0.0828
-        },
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 59.4,
-          "rvol": 0.55,
-          "price": 0.003699
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 53.7,
-          "rvol": 0.36,
-          "price": 0.172
-        },
-        {
-          "symbol": "PONS-USDT-SWAP",
-          "score": 53.3,
-          "rvol": 0.13,
-          "price": 0.5974
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884225685_09sv",
-    "timestamp": 1789884225685,
+    "id": "1789903048106_6qfy",
+    "timestamp": 1789903048106,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789884225636_gxpf",
-    "timestamp": 1789884225636,
+    "id": "1789903048008_huzo",
+    "timestamp": 1789903048008,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789884212553_fwoh",
-    "timestamp": 1789884212553,
+    "id": "1789903034826_y8tz",
+    "timestamp": 1789903034826,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: ONE-USDT-SWAP +46 @ $0.0043 (cum: 46/46)",
+    "details": {
+      "orderId": "tb5_1789903034772_4xp1",
+      "symbol": "ONE-USDT-SWAP",
+      "incrementalQty": 46,
+      "cumFilledQty": 46,
+      "totalQty": 46,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789903034825_f7x5",
+    "timestamp": 1789903034825,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for ONE-USDT-SWAP",
+    "details": {
+      "symbol": "ONE-USDT-SWAP",
+      "execPrice": 0.0043409,
+      "execQty": 46,
+      "orderLinkId": "tb5_1789903034772_4xp1"
+    }
+  },
+  {
+    "id": "1789903034824_dxs7",
+    "timestamp": 1789903034824,
+    "type": "POSITION_OPENED",
+    "message": "Opened BUY position on ONE-USDT-SWAP: 46 contracts @ $0.0043 ($19.97) [Fee: $0.01]",
+    "details": {
+      "positionId": "pos_1789903034824_ONE-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
+      "side": "BUY",
+      "qty": 46,
+      "entryPrice": 0.0043,
+      "sizeUSDT": 19.97,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789903034774_fxjh",
+    "timestamp": 1789903034774,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789903034774_rwn8) for tb5_1789903034772_4xp1",
+    "details": {
+      "orderId": "tb5_1789903034772_4xp1",
+      "exchangeOrderId": "paper_ord_1789903034774_rwn8"
+    }
+  },
+  {
+    "id": "1789903034772_vavv",
+    "timestamp": 1789903034772,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market BUY ONE-USDT-SWAP (Qty: 46) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789903034772_4xp1",
+      "symbol": "ONE-USDT-SWAP",
+      "side": "BUY",
+      "qty": 46,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789903034739_dhum",
+    "timestamp": 1789903034739,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved BUY ONE-USDT-SWAP for $20.13 (PAPER mode)",
+    "details": {
+      "symbol": "ONE-USDT-SWAP",
+      "sizeUSDT": 20.13,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789903034739_qoqg",
+    "timestamp": 1789903034739,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ONE-USDT-SWAP (Score: 65.7/100, Rank #2)",
+    "details": {
+      "symbol": "ONE-USDT-SWAP",
+      "side": "BUY",
+      "score": 65.7,
+      "profile": "SCALP",
+      "rank": 2
+    }
+  },
+  {
+    "id": "1789903034738_kv8z",
+    "timestamp": 1789903034738,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: ONE-USDT-SWAP (Momentum Score: 65.7/100, RVOL: 0.18x, 24h Vol: $77284.6M)",
+    "details": {
+      "symbol": "ONE-USDT-SWAP",
+      "rank": 2,
+      "score": 65.7,
+      "rvol": 0.18,
+      "atrExpansion": 0.71,
+      "price": 0.0043379,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789903034737_ui58",
+    "timestamp": 1789903034737,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.92s. Scanned: 100/100 pairs. Candidates: 0. Top: ZAMA-USDT-SWAP (60.5), DOOD-USDT-SWAP (60.1), ZIL-USDT-SWAP (59.1), CASHCAT-USDT-SWAP (54.1), STRK-USDT-SWAP (53.6).",
+    "message": "Market Scan completed in 1.73s. Scanned: 100/100 pairs. Candidates: 3. Top: MUBARAK-USDT-SWAP (65.9), ONE-USDT-SWAP (65.7), AKE-USDT-SWAP (63.2), LAB-USDT-SWAP (56.4), ALLO-USDT-SWAP (52.7).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 0,
+      "candidatesCount": 3,
       "topRanked": [
         {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 60.5,
-          "rvol": 0.03,
-          "price": 0.0829
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 60.1,
-          "rvol": 0.36,
-          "price": 0.001893
-        },
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 59.1,
-          "rvol": 0.53,
-          "price": 0.003706
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 54.1,
-          "rvol": 0.36,
-          "price": 0.1719
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 53.6,
-          "rvol": 0.04,
-          "price": 0.0456
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884210688_6eln",
-    "timestamp": 1789884210688,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884210635_bwbw",
-    "timestamp": 1789884210635,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884200837_2jks",
-    "timestamp": 1789884200837,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.20s. Scanned: 100/100 pairs. Candidates: 0. Top: ZAMA-USDT-SWAP (60.5), DOOD-USDT-SWAP (60.1), ZIL-USDT-SWAP (59.1), CASHCAT-USDT-SWAP (54.1), STRK-USDT-SWAP (53.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 60.5,
-          "rvol": 0.03,
-          "price": 0.0829
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 60.1,
-          "rvol": 0.36,
-          "price": 0.001893
-        },
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 59.1,
-          "rvol": 0.53,
-          "price": 0.003706
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 54.1,
-          "rvol": 0.36,
-          "price": 0.1719
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 53.6,
-          "rvol": 0.04,
-          "price": 0.0456
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884195942_xqka",
-    "timestamp": 1789884195942,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884195635_qezs",
-    "timestamp": 1789884195635,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884182419_l3ko",
-    "timestamp": 1789884182419,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.78s. Scanned: 100/100 pairs. Candidates: 0. Top: ZIL-USDT-SWAP (58.3), DOOD-USDT-SWAP (57.0), ZAMA-USDT-SWAP (56.7), STRK-USDT-SWAP (52.1), PONS-USDT-SWAP (52.1).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 58.3,
-          "rvol": 0.46,
-          "price": 0.003708
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 57,
-          "rvol": 0.3,
-          "price": 0.001891
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 56.7,
-          "rvol": 0.02,
-          "price": 0.08215
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 52.1,
-          "rvol": 0.02,
-          "price": 0.04554
-        },
-        {
-          "symbol": "PONS-USDT-SWAP",
-          "score": 52.1,
-          "rvol": 0.12,
-          "price": 0.5983
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884180676_yemz",
-    "timestamp": 1789884180676,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884180635_b79g",
-    "timestamp": 1789884180635,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884170394_h64i",
-    "timestamp": 1789884170394,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.76s. Scanned: 100/100 pairs. Candidates: 0. Top: ZIL-USDT-SWAP (58.3), DOOD-USDT-SWAP (57.0), PONS-USDT-SWAP (56.9), ZAMA-USDT-SWAP (56.7), STRK-USDT-SWAP (52.1).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 58.3,
-          "rvol": 0.46,
-          "price": 0.003708
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 57,
-          "rvol": 0.3,
-          "price": 0.001891
-        },
-        {
-          "symbol": "PONS-USDT-SWAP",
-          "score": 56.9,
-          "rvol": 0.09,
-          "price": 0.5929
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 56.7,
-          "rvol": 0.02,
-          "price": 0.08215
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 52.1,
-          "rvol": 0.02,
-          "price": 0.04554
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884165685_pwo6",
-    "timestamp": 1789884165685,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884165634_zmix",
-    "timestamp": 1789884165634,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884152533_p402",
-    "timestamp": 1789884152533,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.90s. Scanned: 100/100 pairs. Candidates: 0. Top: PONS-USDT-SWAP (56.9), ZAMA-USDT-SWAP (55.7), DOOD-USDT-SWAP (52.9), CASHCAT-USDT-SWAP (51.5), STRK-USDT-SWAP (49.5).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "PONS-USDT-SWAP",
-          "score": 56.9,
-          "rvol": 0.09,
-          "price": 0.5929
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 55.7,
-          "rvol": 0.01,
-          "price": 0.08206
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 52.9,
-          "rvol": 0.25,
-          "price": 0.001884
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 51.5,
-          "rvol": 0.32,
-          "price": 0.1723
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 49.5,
-          "rvol": 0.02,
-          "price": 0.04543
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884150670_zevz",
-    "timestamp": 1789884150670,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884150633_dvge",
-    "timestamp": 1789884150633,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884140525_wmq7",
-    "timestamp": 1789884140525,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.89s. Scanned: 100/100 pairs. Candidates: 0. Top: ZAMA-USDT-SWAP (55.7), DOOD-USDT-SWAP (52.9), CASHCAT-USDT-SWAP (51.5), STRK-USDT-SWAP (49.5), ZIL-USDT-SWAP (49.0).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 55.7,
-          "rvol": 0.01,
-          "price": 0.08206
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 52.9,
-          "rvol": 0.25,
-          "price": 0.001884
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 51.5,
-          "rvol": 0.32,
-          "price": 0.1723
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 49.5,
-          "rvol": 0.02,
-          "price": 0.04543
-        },
-        {
-          "symbol": "ZIL-USDT-SWAP",
-          "score": 49,
-          "rvol": 0.12,
-          "price": 0.003744
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884135682_rf7f",
-    "timestamp": 1789884135682,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884135633_abqv",
-    "timestamp": 1789884135633,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884122367_bl0o",
-    "timestamp": 1789884122367,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.74s. Scanned: 100/100 pairs. Candidates: 0. Top: DOOD-USDT-SWAP (53.6), SOPH-USDT-SWAP (47.4), CNPY-USDT-SWAP (46.3), ZAMA-USDT-SWAP (44.4), CASHCAT-USDT-SWAP (44.4).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 53.6,
-          "rvol": 0.22,
-          "price": 0.001886
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 47.4,
-          "rvol": 0.12,
-          "price": 0.004378
-        },
-        {
-          "symbol": "CNPY-USDT-SWAP",
-          "score": 46.3,
-          "rvol": 0.04,
-          "price": 0.3981
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 44.4,
-          "rvol": 0.01,
-          "price": 0.08107
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 44.4,
-          "rvol": 0.32,
-          "price": 0.1728
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884120674_j3vo",
-    "timestamp": 1789884120674,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884120632_tkvr",
-    "timestamp": 1789884120632,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884110309_devk",
-    "timestamp": 1789884110309,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.68s. Scanned: 100/100 pairs. Candidates: 0. Top: DOOD-USDT-SWAP (53.6), CNPY-USDT-SWAP (48.4), SOPH-USDT-SWAP (47.4), ZAMA-USDT-SWAP (44.4), CASHCAT-USDT-SWAP (44.4).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 53.6,
-          "rvol": 0.22,
-          "price": 0.001886
-        },
-        {
-          "symbol": "CNPY-USDT-SWAP",
-          "score": 48.4,
-          "rvol": 0.03,
-          "price": 0.3973
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 47.4,
-          "rvol": 0.12,
-          "price": 0.004378
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 44.4,
-          "rvol": 0.01,
-          "price": 0.08107
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 44.4,
-          "rvol": 0.32,
-          "price": 0.1728
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884105696_4t7t",
-    "timestamp": 1789884105696,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884105631_segg",
-    "timestamp": 1789884105631,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884092321_cmbi",
-    "timestamp": 1789884092321,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.69s. Scanned: 100/100 pairs. Candidates: 0. Top: CASHCAT-USDT-SWAP (53.0), DOOD-USDT-SWAP (51.5), CNPY-USDT-SWAP (48.4), SOPH-USDT-SWAP (47.1), ONE-USDT-SWAP (46.1).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 53,
-          "rvol": 0.31,
-          "price": 0.172
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 51.5,
-          "rvol": 0.06,
-          "price": 0.001887
-        },
-        {
-          "symbol": "CNPY-USDT-SWAP",
-          "score": 48.4,
-          "rvol": 0.03,
-          "price": 0.3973
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 47.1,
-          "rvol": 0.08,
-          "price": 0.004381
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 65.9,
+          "rvol": 0.63,
+          "price": 0.032737
         },
         {
           "symbol": "ONE-USDT-SWAP",
-          "score": 46.1,
-          "rvol": 0.02,
-          "price": 0.0040254
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884090669_ku6u",
-    "timestamp": 1789884090669,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884090630_cpc9",
-    "timestamp": 1789884090630,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884080887_0ip3",
-    "timestamp": 1789884080887,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.26s. Scanned: 100/100 pairs. Candidates: 0. Top: CASHCAT-USDT-SWAP (53.0), DOOD-USDT-SWAP (51.5), SOPH-USDT-SWAP (47.1), ONE-USDT-SWAP (46.1), ZAMA-USDT-SWAP (44.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 53,
-          "rvol": 0.31,
-          "price": 0.172
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 51.5,
-          "rvol": 0.06,
-          "price": 0.001887
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 47.1,
-          "rvol": 0.08,
-          "price": 0.004381
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 46.1,
-          "rvol": 0.02,
-          "price": 0.0040254
-        },
-        {
-          "symbol": "ZAMA-USDT-SWAP",
-          "score": 44.6,
-          "rvol": 0,
-          "price": 0.08108
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884075929_6psp",
-    "timestamp": 1789884075929,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884075630_33r4",
-    "timestamp": 1789884075630,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884062543_jlaa",
-    "timestamp": 1789884062543,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.91s. Scanned: 100/100 pairs. Candidates: 0. Top: CASHCAT-USDT-SWAP (52.4), DOOD-USDT-SWAP (51.0), ONE-USDT-SWAP (47.7), STRK-USDT-SWAP (42.1), SOPH-USDT-SWAP (41.8).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 52.4,
-          "rvol": 0.3,
-          "price": 0.1721
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 51,
-          "rvol": 0.06,
-          "price": 0.001886
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 47.7,
-          "rvol": 0.01,
-          "price": 0.0040328
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 42.1,
-          "rvol": 0,
-          "price": 0.04519
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 41.8,
-          "rvol": 0.07,
-          "price": 0.00437
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884060671_r5dz",
-    "timestamp": 1789884060671,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884060629_7pne",
-    "timestamp": 1789884060629,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884050136_o9r0",
-    "timestamp": 1789884050136,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.51s. Scanned: 100/100 pairs. Candidates: 0. Top: CASHCAT-USDT-SWAP (52.4), DOOD-USDT-SWAP (51.0), ONE-USDT-SWAP (47.7), STRK-USDT-SWAP (42.1), SOPH-USDT-SWAP (41.8).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 52.4,
-          "rvol": 0.3,
-          "price": 0.1721
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 51,
-          "rvol": 0.06,
-          "price": 0.001886
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 47.7,
-          "rvol": 0.01,
-          "price": 0.0040328
-        },
-        {
-          "symbol": "STRK-USDT-SWAP",
-          "score": 42.1,
-          "rvol": 0,
-          "price": 0.04519
-        },
-        {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 41.8,
-          "rvol": 0.07,
-          "price": 0.00437
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884045992_8inb",
-    "timestamp": 1789884045992,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884045951_ipo9",
-    "timestamp": 1789884045951,
-    "type": "UNIVERSE_REFRESH",
-    "message": "Dynamic Universe refreshed: 467 active USDT SWAP Perpetuals discovered from OKX EEA.",
-    "details": {
-      "totalCount": 467,
-      "previousCount": 467
-    }
-  },
-  {
-    "id": "1789884045629_evw1",
-    "timestamp": 1789884045629,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884032967_aefy",
-    "timestamp": 1789884032967,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 2.34s. Scanned: 100/100 pairs. Candidates: 0. Top: CASHCAT-USDT-SWAP (52.7), DOOD-USDT-SWAP (44.4), AKE-USDT-SWAP (43.2), ROBO-USDT-SWAP (43.2), SOPH-USDT-SWAP (42.7).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
-          "score": 52.7,
-          "rvol": 0.28,
-          "price": 0.172
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 44.4,
-          "rvol": 0.01,
-          "price": 0.00188
+          "score": 65.7,
+          "rvol": 0.18,
+          "price": 0.0043379
         },
         {
           "symbol": "AKE-USDT-SWAP",
-          "score": 43.2,
-          "rvol": 0.01,
-          "price": 0.06383
+          "score": 63.2,
+          "rvol": 0.26,
+          "price": 0.05475
         },
         {
-          "symbol": "ROBO-USDT-SWAP",
-          "score": 43.2,
-          "rvol": 0.01,
-          "price": 0.009538
+          "symbol": "LAB-USDT-SWAP",
+          "score": 56.4,
+          "rvol": 0.45,
+          "price": 0.0512
         },
         {
-          "symbol": "SOPH-USDT-SWAP",
-          "score": 42.7,
-          "rvol": 0.05,
-          "price": 0.004373
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789884030677_n7x0",
-    "timestamp": 1789884030677,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789884030628_xxys",
-    "timestamp": 1789884030628,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789884020735_11ub",
-    "timestamp": 1789884020735,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.11s. Scanned: 100/100 pairs. Candidates: 0. Top: USELESS-USDT-SWAP (67.1), BILL-USDT-SWAP (66.5), CNPY-USDT-SWAP (62.7), CASHCAT-USDT-SWAP (52.7), GPS-USDT-SWAP (47.5).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 0,
-      "topRanked": [
-        {
-          "symbol": "USELESS-USDT-SWAP",
-          "score": 67.1,
-          "rvol": 0.72,
-          "price": 0.26092
-        },
-        {
-          "symbol": "BILL-USDT-SWAP",
-          "score": 66.5,
-          "rvol": 1.14,
-          "price": 0.01396
-        },
-        {
-          "symbol": "CNPY-USDT-SWAP",
-          "score": 62.7,
-          "rvol": 0.52,
-          "price": 0.3994
-        },
-        {
-          "symbol": "CASHCAT-USDT-SWAP",
+          "symbol": "ALLO-USDT-SWAP",
           "score": 52.7,
-          "rvol": 0.28,
-          "price": 0.172
-        },
-        {
-          "symbol": "GPS-USDT-SWAP",
-          "score": 47.5,
-          "rvol": 0.48,
-          "price": 0.010743
+          "rvol": 0.47,
+          "price": 0.26071
         }
       ]
     }
   },
   {
-    "id": "1789884015926_vncl",
-    "timestamp": 1789884015926,
+    "id": "1789903033315_vgpa",
+    "timestamp": 1789903033316,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789884015628_qlkj",
-    "timestamp": 1789884015628,
+    "id": "1789903033008_av6d",
+    "timestamp": 1789903033008,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789884002180_fswv",
-    "timestamp": 1789884002180,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
+    "id": "1789903024086_fmol",
+    "timestamp": 1789903024086,
+    "type": "POSITION_CLOSED",
+    "message": "Position AKE-USDT-SWAP closed on PAPER at $0.0548 (TAKE_PROFIT) - Net PnL: +$1.35 (Gross: +$1.36, Fees: -$0.0171)",
     "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
+      "positionId": "pos_1789902872965_AKE-USDT-SWAP",
+      "symbol": "AKE-USDT-SWAP",
+      "exitPrice": 0.05475,
+      "reason": "TAKE_PROFIT",
+      "pnl": 1.35,
+      "pnlPct": 7.67,
+      "grossPnl": 1.365,
+      "entryFee": 0.0089,
+      "exitFee": 0.0082,
+      "totalFees": 0.0171,
+      "fee": 0.008212500000000001
     }
   },
   {
-    "id": "1789884002179_pcbu",
-    "timestamp": 1789884002179,
+    "id": "1789903023336_n5ku",
+    "timestamp": 1789903023336,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for AKE-USDT-SWAP",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "execPrice": 0.05475,
+      "execQty": 3,
+      "orderLinkId": "tb5_close_1789903023284_14rn"
+    }
+  },
+  {
+    "id": "1789903023285_wyrm",
+    "timestamp": 1789903023285,
+    "type": "ORDER_ACCEPTED",
+    "message": "Close order accepted by PAPER (ID: paper_ord_1789903023285_hk2g) for AKE-USDT-SWAP",
+    "details": {
+      "orderId": "tb5_close_1789903023284_14rn",
+      "exchangeOrderId": "paper_ord_1789903023285_hk2g"
+    }
+  },
+  {
+    "id": "1789903023284_29bn",
+    "timestamp": 1789903023284,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for AKE-USDT-SWAP (TAKE_PROFIT) - Side: Buy, Qty: 3 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1789903023284_14rn",
+      "symbol": "AKE-USDT-SWAP",
+      "reason": "TAKE_PROFIT",
+      "qty": 3,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789903023284_wqyg",
+    "timestamp": 1789903023284,
+    "type": "POSITION_UPDATED",
+    "message": "Take-Profit triggered for AKE-USDT-SWAP at +7.67%"
+  },
+  {
+    "id": "1789903023283_i5zw",
+    "timestamp": 1789903023283,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($4.04 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($4.04 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789884002179_bl3q",
-    "timestamp": 1789884002179,
+    "id": "1789903023283_lnlq",
+    "timestamp": 1789903023283,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate ONE-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($4.04 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($4.04 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789884002178_512d",
-    "timestamp": 1789884002178,
+    "id": "1789903023282_9dfl",
+    "timestamp": 1789903023282,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
+    "message": "Momentum Engine confirmed BUY signal on candidate ONE-USDT-SWAP (Score: 65.7/100, Rank #2)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
+      "score": 65.7,
+      "profile": "SCALP",
       "rank": 2
     }
   },
   {
-    "id": "1789884002178_1epp",
-    "timestamp": 1789884002178,
+    "id": "1789903023281_g91l",
+    "timestamp": 1789903023281,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.53x, 24h Vol: $70.3M)",
+    "message": "Dynamic Candidate #2 Selected: ONE-USDT-SWAP (Momentum Score: 65.7/100, RVOL: 0.18x, 24h Vol: $77293.5M)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "rank": 2,
-      "score": 99.9,
-      "rvol": 5.53,
-      "atrExpansion": 3.56,
-      "price": 0.03526,
-      "profile": "MOMENTUM"
+      "score": 65.7,
+      "rvol": 0.18,
+      "atrExpansion": 0.71,
+      "price": 0.0043379,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789884002177_p5ap",
-    "timestamp": 1789884002177,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789884002177_uxf5",
-    "timestamp": 1789884002177,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.46 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789884002175_j3dk",
-    "timestamp": 1789884002175,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789884002174_qp9u",
-    "timestamp": 1789884002174,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $619.2M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001879,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789884002173_p20n",
-    "timestamp": 1789884002173,
+    "id": "1789903023280_x9uq",
+    "timestamp": 1789903023280,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.55s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.3), TRIA-USDT-SWAP (73.1).",
+    "message": "Market Scan completed in 5.27s. Scanned: 100/100 pairs. Candidates: 3. Top: MUBARAK-USDT-SWAP (65.9), ONE-USDT-SWAP (65.7), AKE-USDT-SWAP (63.2), LAB-USDT-SWAP (56.4), ALLO-USDT-SWAP (52.7).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
@@ -1173,2152 +318,2644 @@
       "candidatesCount": 3,
       "topRanked": [
         {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001879
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.53,
-          "price": 0.03526
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04761
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 65.9,
+          "rvol": 0.63,
+          "price": 0.032737
         },
         {
           "symbol": "ONE-USDT-SWAP",
-          "score": 81.3,
-          "rvol": 1.14,
-          "price": 0.0039989
+          "score": 65.7,
+          "rvol": 0.18,
+          "price": 0.0043379
         },
         {
-          "symbol": "TRIA-USDT-SWAP",
-          "score": 73.1,
-          "rvol": 1.99,
-          "price": 0.004066
+          "symbol": "AKE-USDT-SWAP",
+          "score": 63.2,
+          "rvol": 0.26,
+          "price": 0.05475
+        },
+        {
+          "symbol": "LAB-USDT-SWAP",
+          "score": 56.4,
+          "rvol": 0.45,
+          "price": 0.0512
+        },
+        {
+          "symbol": "ALLO-USDT-SWAP",
+          "score": 52.7,
+          "rvol": 0.47,
+          "price": 0.26071
         }
       ]
     }
   },
   {
-    "id": "1789884000669_0bn8",
-    "timestamp": 1789884000669,
+    "id": "1789903018074_ty4d",
+    "timestamp": 1789903018074,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789884000627_xc3n",
-    "timestamp": 1789884000627,
+    "id": "1789903018007_as6r",
+    "timestamp": 1789903018007,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883990983_7ltl",
-    "timestamp": 1789883990983,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883990982_nwro",
-    "timestamp": 1789883990982,
+    "id": "1789903004718_ly1o",
+    "timestamp": 1789903004718,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($3.60 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($3.60 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883990980_94nb",
-    "timestamp": 1789883990980,
+    "id": "1789903004717_eu4q",
+    "timestamp": 1789903004717,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate ONE-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($3.60 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($3.60 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883990980_pc2r",
-    "timestamp": 1789883990980,
+    "id": "1789903004716_2z8d",
+    "timestamp": 1789903004716,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
+    "message": "Momentum Engine confirmed BUY signal on candidate ONE-USDT-SWAP (Score: 60.3/100, Rank #2)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
+      "score": 60.3,
+      "profile": "SCALP",
       "rank": 2
     }
   },
   {
-    "id": "1789883990979_zz05",
-    "timestamp": 1789883990979,
+    "id": "1789903004714_wx78",
+    "timestamp": 1789903004714,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.53x, 24h Vol: $70.2M)",
+    "message": "Dynamic Candidate #2 Selected: ONE-USDT-SWAP (Momentum Score: 60.3/100, RVOL: 0.12x, 24h Vol: $77280.1M)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "rank": 2,
-      "score": 99.9,
-      "rvol": 5.53,
-      "atrExpansion": 3.56,
-      "price": 0.03526,
-      "profile": "MOMENTUM"
+      "score": 60.3,
+      "rvol": 0.12,
+      "atrExpansion": 0.55,
+      "price": 0.0043046,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883990979_2rfd",
-    "timestamp": 1789883990979,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883990978_v8q8",
-    "timestamp": 1789883990978,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883990977_1a9a",
-    "timestamp": 1789883990977,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883990977_ljka",
-    "timestamp": 1789883990977,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $618.9M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001879,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883990976_43tw",
-    "timestamp": 1789883990976,
+    "id": "1789903004713_5zq4",
+    "timestamp": 1789903004713,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.35s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.3), TRIA-USDT-SWAP (73.1).",
+    "message": "Market Scan completed in 1.70s. Scanned: 100/100 pairs. Candidates: 2. Top: MUBARAK-USDT-SWAP (62.9), ONE-USDT-SWAP (60.3), AKE-USDT-SWAP (59.5), RLS-USDT-SWAP (56.0), LAB-USDT-SWAP (54.1).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 3,
+      "candidatesCount": 2,
       "topRanked": [
         {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001879
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.53,
-          "price": 0.03526
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04761
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 62.9,
+          "rvol": 0.24,
+          "price": 0.032785
         },
         {
           "symbol": "ONE-USDT-SWAP",
-          "score": 81.3,
-          "rvol": 1.14,
-          "price": 0.0039989
+          "score": 60.3,
+          "rvol": 0.12,
+          "price": 0.0043046
         },
         {
-          "symbol": "TRIA-USDT-SWAP",
-          "score": 73.1,
-          "rvol": 1.99,
-          "price": 0.004066
+          "symbol": "AKE-USDT-SWAP",
+          "score": 59.5,
+          "rvol": 0.14,
+          "price": 0.05821
+        },
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 56,
+          "rvol": 1.75,
+          "price": 0.002236
+        },
+        {
+          "symbol": "LAB-USDT-SWAP",
+          "score": 54.1,
+          "rvol": 0.35,
+          "price": 0.05123
         }
       ]
     }
   },
   {
-    "id": "1789883985924_jmln",
-    "timestamp": 1789883985924,
+    "id": "1789903003352_84uk",
+    "timestamp": 1789903003352,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789883985626_a948",
-    "timestamp": 1789883985626,
+    "id": "1789903003010_dec8",
+    "timestamp": 1789903003010,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883972071_2vc2",
-    "timestamp": 1789883972071,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883972070_8k0k",
-    "timestamp": 1789883972070,
+    "id": "1789902993860_qpxk",
+    "timestamp": 1789902993860,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($3.98 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($3.98 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883972070_huzj",
-    "timestamp": 1789883972070,
+    "id": "1789902993859_y531",
+    "timestamp": 1789902993859,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate ONE-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($3.98 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ONE-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($3.98 available). Margin locked: $196.84 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883972069_exdq",
-    "timestamp": 1789883972069,
+    "id": "1789902993859_gvkr",
+    "timestamp": 1789902993859,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 99.2/100, Rank #2)",
+    "message": "Momentum Engine confirmed BUY signal on candidate ONE-USDT-SWAP (Score: 60.3/100, Rank #2)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "side": "BUY",
-      "score": 99.2,
-      "profile": "MOMENTUM",
+      "score": 60.3,
+      "profile": "SCALP",
       "rank": 2
     }
   },
   {
-    "id": "1789883972069_vd8l",
-    "timestamp": 1789883972069,
+    "id": "1789902993858_lobb",
+    "timestamp": 1789902993858,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: DOOD-USDT-SWAP (Momentum Score: 99.2/100, RVOL: 10x, 24h Vol: $618.8M)",
+    "message": "Dynamic Candidate #2 Selected: ONE-USDT-SWAP (Momentum Score: 60.3/100, RVOL: 0.12x, 24h Vol: $77245.1M)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
+      "symbol": "ONE-USDT-SWAP",
       "rank": 2,
-      "score": 99.2,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001874,
-      "profile": "MOMENTUM"
+      "score": 60.3,
+      "rvol": 0.12,
+      "atrExpansion": 0.55,
+      "price": 0.0043046,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883972068_kjba",
-    "timestamp": 1789883972068,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902993109_boif",
+    "timestamp": 1789902993109,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: MUBARAK-USDT-SWAP +5 @ $0.0327 (cum: 5/5)",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "orderId": "tb5_1789902993055_m45s",
+      "symbol": "MUBARAK-USDT-SWAP",
+      "incrementalQty": 5,
+      "cumFilledQty": 5,
+      "totalQty": 5,
+      "status": "FILLED",
+      "source": "WS"
     }
   },
   {
-    "id": "1789883972068_s23q",
-    "timestamp": 1789883972068,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902993108_7kx7",
+    "timestamp": 1789902993108,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for MUBARAK-USDT-SWAP",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "MUBARAK-USDT-SWAP",
+      "execPrice": 0.032726,
+      "execQty": 5,
+      "orderLinkId": "tb5_1789902993055_m45s"
     }
   },
   {
-    "id": "1789883972067_xqci",
-    "timestamp": 1789883972067,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #1)",
+    "id": "1789902993107_opf3",
+    "timestamp": 1789902993107,
+    "type": "POSITION_OPENED",
+    "message": "Opened BUY position on MUBARAK-USDT-SWAP: 5 contracts @ $0.0327 ($16.36) [Fee: $0.0082]",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "positionId": "pos_1789902993107_MUBARAK-USDT-SWAP",
+      "symbol": "MUBARAK-USDT-SWAP",
       "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
+      "qty": 5,
+      "entryPrice": 0.0327,
+      "sizeUSDT": 16.36,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902993056_dr6k",
+    "timestamp": 1789902993056,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902993056_5yex) for tb5_1789902993055_m45s",
+    "details": {
+      "orderId": "tb5_1789902993055_m45s",
+      "exchangeOrderId": "paper_ord_1789902993056_5yex"
+    }
+  },
+  {
+    "id": "1789902993055_4koa",
+    "timestamp": 1789902993055,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market BUY MUBARAK-USDT-SWAP (Qty: 5) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902993055_m45s",
+      "symbol": "MUBARAK-USDT-SWAP",
+      "side": "BUY",
+      "qty": 5,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902993018_paku",
+    "timestamp": 1789902993018,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved BUY MUBARAK-USDT-SWAP for $19.32 (PAPER mode)",
+    "details": {
+      "symbol": "MUBARAK-USDT-SWAP",
+      "sizeUSDT": 19.32,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902993018_hhck",
+    "timestamp": 1789902993018,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate MUBARAK-USDT-SWAP (Score: 62.9/100, Rank #1)",
+    "details": {
+      "symbol": "MUBARAK-USDT-SWAP",
+      "side": "BUY",
+      "score": 62.9,
+      "profile": "SCALP",
       "rank": 1
     }
   },
   {
-    "id": "1789883972066_jmgc",
-    "timestamp": 1789883972066,
+    "id": "1789902993017_0lsk",
+    "timestamp": 1789902993017,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.41x, 24h Vol: $70.0M)",
+    "message": "Dynamic Candidate #1 Selected: MUBARAK-USDT-SWAP (Momentum Score: 62.9/100, RVOL: 0.24x, 24h Vol: $61.1M)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "MUBARAK-USDT-SWAP",
       "rank": 1,
-      "score": 99.9,
-      "rvol": 5.41,
-      "atrExpansion": 3.43,
-      "price": 0.03539,
-      "profile": "MOMENTUM"
+      "score": 62.9,
+      "rvol": 0.24,
+      "atrExpansion": 1.02,
+      "price": 0.032785,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883972065_no9l",
-    "timestamp": 1789883972065,
+    "id": "1789902993016_x67w",
+    "timestamp": 1789902993016,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.44s. Scanned: 100/100 pairs. Candidates: 3. Top: S-USDT-SWAP (99.9), DOOD-USDT-SWAP (99.2), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.2), TRIA-USDT-SWAP (73.1).",
+    "message": "Market Scan completed in 5.01s. Scanned: 97/100 pairs. Candidates: 2. Top: MUBARAK-USDT-SWAP (62.9), ONE-USDT-SWAP (60.3), AKE-USDT-SWAP (59.5), RLS-USDT-SWAP (56.0), LAB-USDT-SWAP (54.1).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "scannedCount": 97,
+      "candidatesCount": 2,
+      "topRanked": [
+        {
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 62.9,
+          "rvol": 0.24,
+          "price": 0.032785
+        },
+        {
+          "symbol": "ONE-USDT-SWAP",
+          "score": 60.3,
+          "rvol": 0.12,
+          "price": 0.0043046
+        },
+        {
+          "symbol": "AKE-USDT-SWAP",
+          "score": 59.5,
+          "rvol": 0.14,
+          "price": 0.05821
+        },
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 56,
+          "rvol": 1.75,
+          "price": 0.002236
+        },
+        {
+          "symbol": "LAB-USDT-SWAP",
+          "score": 54.1,
+          "rvol": 0.35,
+          "price": 0.05123
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789902988061_dywo",
+    "timestamp": 1789902988061,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "IOST-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1789902988006_daem",
+    "timestamp": 1789902988006,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1789902974322_gjg8",
+    "timestamp": 1789902974322,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: RLS-USDT-SWAP (Momentum Score: 61.8/100, RVOL: 1.73x, 24h Vol: $324.5M)",
+    "details": {
+      "symbol": "RLS-USDT-SWAP",
+      "rank": 1,
+      "score": 61.8,
+      "rvol": 1.73,
+      "atrExpansion": 1.49,
+      "price": 0.002239,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902974321_83cc",
+    "timestamp": 1789902974321,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.31s. Scanned: 100/100 pairs. Candidates: 1. Top: RLS-USDT-SWAP (61.8), AKE-USDT-SWAP (58.5), MUBARAK-USDT-SWAP (52.2), ONE-USDT-SWAP (51.1), LAB-USDT-SWAP (47.0).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 3,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 61.8,
+          "rvol": 1.73,
+          "price": 0.002239
+        },
+        {
+          "symbol": "AKE-USDT-SWAP",
+          "score": 58.5,
+          "rvol": 0.09,
+          "price": 0.05855
+        },
+        {
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 52.2,
+          "rvol": 0.13,
+          "price": 0.032671
+        },
+        {
+          "symbol": "ONE-USDT-SWAP",
+          "score": 51.1,
+          "rvol": 0.07,
+          "price": 0.0042377
+        },
+        {
+          "symbol": "LAB-USDT-SWAP",
+          "score": 47,
+          "rvol": 0.07,
+          "price": 0.05125
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789902973632_fz0t",
+    "timestamp": 1789902973632,
+    "type": "POSITION_CLOSED",
+    "message": "Position OL-USDT-SWAP closed on PAPER at $0.0065 (TIME_STOP) - Net PnL: +$0.20 (Gross: +$0.22, Fees: -$0.0183)",
+    "details": {
+      "positionId": "pos_1789899372786_OL-USDT-SWAP",
+      "symbol": "OL-USDT-SWAP",
+      "exitPrice": 0.006521,
+      "reason": "TIME_STOP",
+      "pnl": 0.2,
+      "pnlPct": 1.2,
+      "grossPnl": 0.2212,
+      "entryFee": 0.0092,
+      "exitFee": 0.0091,
+      "totalFees": 0.0183,
+      "fee": 0.009129400000000001
+    }
+  },
+  {
+    "id": "1789902973061_7vlp",
+    "timestamp": 1789902973061,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "IOST-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1789902973006_3s27",
+    "timestamp": 1789902973006,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1789902972883_x80o",
+    "timestamp": 1789902972883,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for OL-USDT-SWAP",
+    "details": {
+      "symbol": "OL-USDT-SWAP",
+      "execPrice": 0.006521,
+      "execQty": 28,
+      "orderLinkId": "tb5_close_1789902972787_kon8"
+    }
+  },
+  {
+    "id": "1789902972831_n4ra",
+    "timestamp": 1789902972831,
+    "type": "ORDER_ACCEPTED",
+    "message": "Close order accepted by PAPER (ID: paper_ord_1789902972831_2c4b) for OL-USDT-SWAP",
+    "details": {
+      "orderId": "tb5_close_1789902972787_kon8",
+      "exchangeOrderId": "paper_ord_1789902972831_2c4b"
+    }
+  },
+  {
+    "id": "1789902972830_mur0",
+    "timestamp": 1789902972830,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for OL-USDT-SWAP (TIME_STOP) - Side: Buy, Qty: 28 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1789902972787_kon8",
+      "symbol": "OL-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 28,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902972786_86fy",
+    "timestamp": 1789902972786,
+    "type": "RISK_REJECTED",
+    "message": "Max holding time of 60m exceeded for OL-USDT-SWAP. Closing position.",
+    "details": {
+      "symbol": "OL-USDT-SWAP",
+      "heldMinutes": 60,
+      "currentPrice": 0.006521
+    }
+  },
+  {
+    "id": "1789902963643_a46m",
+    "timestamp": 1789902963643,
+    "type": "POSITION_UPDATED",
+    "message": "Break-Even triggered for AKE-USDT-SWAP: SL moved to entry."
+  },
+  {
+    "id": "1789902963642_tiol",
+    "timestamp": 1789902963642,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: RLS-USDT-SWAP (Momentum Score: 61.8/100, RVOL: 1.73x, 24h Vol: $324.5M)",
+    "details": {
+      "symbol": "RLS-USDT-SWAP",
+      "rank": 1,
+      "score": 61.8,
+      "rvol": 1.73,
+      "atrExpansion": 1.49,
+      "price": 0.002239,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902963641_bnrz",
+    "timestamp": 1789902963641,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 5.64s. Scanned: 100/100 pairs. Candidates: 1. Top: RLS-USDT-SWAP (61.8), AKE-USDT-SWAP (58.5), MUBARAK-USDT-SWAP (52.2), ONE-USDT-SWAP (51.1), LAB-USDT-SWAP (47.0).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 61.8,
+          "rvol": 1.73,
+          "price": 0.002239
+        },
+        {
+          "symbol": "AKE-USDT-SWAP",
+          "score": 58.5,
+          "rvol": 0.09,
+          "price": 0.05855
+        },
+        {
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 52.2,
+          "rvol": 0.13,
+          "price": 0.032671
+        },
+        {
+          "symbol": "ONE-USDT-SWAP",
+          "score": 51.1,
+          "rvol": 0.07,
+          "price": 0.0042377
+        },
+        {
+          "symbol": "LAB-USDT-SWAP",
+          "score": 47,
+          "rvol": 0.07,
+          "price": 0.05125
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789902958310_zoqy",
+    "timestamp": 1789902958310,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "IOST-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1789902958005_r8on",
+    "timestamp": 1789902958005,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1789902944558_b4ww",
+    "timestamp": 1789902944558,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: RLS-USDT-SWAP (Momentum Score: 65.1/100, RVOL: 1.71x, 24h Vol: $324.5M)",
+    "details": {
+      "symbol": "RLS-USDT-SWAP",
+      "rank": 1,
+      "score": 65.1,
+      "rvol": 1.71,
+      "atrExpansion": 1.49,
+      "price": 0.002245,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902944557_0yep",
+    "timestamp": 1789902944557,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.55s. Scanned: 100/100 pairs. Candidates: 1. Top: RLS-USDT-SWAP (65.1), AKE-USDT-SWAP (55.9), ONE-USDT-SWAP (52.9), MUBARAK-USDT-SWAP (47.6), ALLO-USDT-SWAP (44.8).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 65.1,
+          "rvol": 1.71,
+          "price": 0.002245
+        },
+        {
+          "symbol": "AKE-USDT-SWAP",
+          "score": 55.9,
+          "rvol": 0.04,
+          "price": 0.05971
+        },
+        {
+          "symbol": "ONE-USDT-SWAP",
+          "score": 52.9,
+          "rvol": 0.05,
+          "price": 0.0042559
+        },
+        {
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 47.6,
+          "rvol": 0.12,
+          "price": 0.032611
+        },
+        {
+          "symbol": "ALLO-USDT-SWAP",
+          "score": 44.8,
+          "rvol": 0.14,
+          "price": 0.25741
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789902943325_yhrn",
+    "timestamp": 1789902943325,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "IOST-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1789902943005_3dwf",
+    "timestamp": 1789902943005,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1789902932992_6me3",
+    "timestamp": 1789902932992,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: RLS-USDT-SWAP (Momentum Score: 65.1/100, RVOL: 1.71x, 24h Vol: $324.5M)",
+    "details": {
+      "symbol": "RLS-USDT-SWAP",
+      "rank": 1,
+      "score": 65.1,
+      "rvol": 1.71,
+      "atrExpansion": 1.49,
+      "price": 0.002245,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902932991_ixis",
+    "timestamp": 1789902932991,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 4.99s. Scanned: 100/100 pairs. Candidates: 1. Top: RLS-USDT-SWAP (65.1), AKE-USDT-SWAP (55.9), ONE-USDT-SWAP (52.9), MUBARAK-USDT-SWAP (47.6), ALLO-USDT-SWAP (44.8).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 1,
+      "topRanked": [
+        {
+          "symbol": "RLS-USDT-SWAP",
+          "score": 65.1,
+          "rvol": 1.71,
+          "price": 0.002245
+        },
+        {
+          "symbol": "AKE-USDT-SWAP",
+          "score": 55.9,
+          "rvol": 0.04,
+          "price": 0.05971
+        },
+        {
+          "symbol": "ONE-USDT-SWAP",
+          "score": 52.9,
+          "rvol": 0.05,
+          "price": 0.0042559
+        },
+        {
+          "symbol": "MUBARAK-USDT-SWAP",
+          "score": 47.6,
+          "rvol": 0.12,
+          "price": 0.032611
+        },
+        {
+          "symbol": "ALLO-USDT-SWAP",
+          "score": 44.8,
+          "rvol": 0.14,
+          "price": 0.25741
+        }
+      ]
+    }
+  },
+  {
+    "id": "1789902928309_91g5",
+    "timestamp": 1789902928309,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "IOST-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1789902928005_jozd",
+    "timestamp": 1789902928005,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1789902915503_jy7o",
+    "timestamp": 1789902915503,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #17 Selected: ONDO-USDT-SWAP (Momentum Score: 60.1/100, RVOL: 1.35x, 24h Vol: $165.7M)",
+    "details": {
+      "symbol": "ONDO-USDT-SWAP",
+      "rank": 17,
+      "score": 60.1,
+      "rvol": 1.35,
+      "atrExpansion": 0.88,
+      "price": 0.4118,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902915502_lqgb",
+    "timestamp": 1789902915502,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902915502_jnzf",
+    "timestamp": 1789902915502,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ENA-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902915501_bfm6",
+    "timestamp": 1789902915501,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ENA-USDT-SWAP (Score: 61.6/100, Rank #16)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "side": "BUY",
+      "score": 61.6,
+      "profile": "SCALP",
+      "rank": 16
+    }
+  },
+  {
+    "id": "1789902915500_m3mb",
+    "timestamp": 1789902915500,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: ENA-USDT-SWAP (Momentum Score: 61.6/100, RVOL: 0.89x, 24h Vol: $878.1M)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "rank": 16,
+      "score": 61.6,
+      "rvol": 0.89,
+      "atrExpansion": 0.96,
+      "price": 0.20423,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902915151_em9y",
+    "timestamp": 1789902915151,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #15 Selected: ADA-USDT-SWAP (Momentum Score: 62.7/100, RVOL: 2.07x, 24h Vol: $248.1M)",
+    "details": {
+      "symbol": "ADA-USDT-SWAP",
+      "rank": 15,
+      "score": 62.7,
+      "rvol": 2.07,
+      "atrExpansion": 1.16,
+      "price": 0.2199,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902914799_zcyj",
+    "timestamp": 1789902914799,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: NOT-USDT-SWAP (Momentum Score: 64.1/100, RVOL: 2.12x, 24h Vol: $1346.5M)",
+    "details": {
+      "symbol": "NOT-USDT-SWAP",
+      "rank": 13,
+      "score": 64.1,
+      "rvol": 2.12,
+      "atrExpansion": 1.39,
+      "price": 0.0004593,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902914798_xcmd",
+    "timestamp": 1789902914798,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902914798_z31e",
+    "timestamp": 1789902914798,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RVN-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902914797_iydn",
+    "timestamp": 1789902914797,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate RVN-USDT-SWAP (Score: 64.6/100, Rank #12)",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "side": "SELL",
+      "score": 64.6,
+      "profile": "SCALP",
+      "rank": 12
+    }
+  },
+  {
+    "id": "1789902914796_k55x",
+    "timestamp": 1789902914796,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #12 Selected: RVN-USDT-SWAP (Momentum Score: 64.6/100, RVOL: 0.96x, 24h Vol: $460.0M)",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "rank": 12,
+      "score": 64.6,
+      "rvol": 0.96,
+      "atrExpansion": 0.74,
+      "price": 0.002196,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902914796_kez5",
+    "timestamp": 1789902914796,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902914795_yl6g",
+    "timestamp": 1789902914795,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.25 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902914795_qpf3",
+    "timestamp": 1789902914795,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PUMP-USDT-SWAP (Score: 65.1/100, Rank #11)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "side": "BUY",
+      "score": 65.1,
+      "profile": "SCALP",
+      "rank": 11
+    }
+  },
+  {
+    "id": "1789902914794_6ehw",
+    "timestamp": 1789902914794,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: PUMP-USDT-SWAP (Momentum Score: 65.1/100, RVOL: 0.69x, 24h Vol: $17089.6M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 11,
+      "score": 65.1,
+      "rvol": 0.69,
+      "atrExpansion": 0.92,
+      "price": 0.00405,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902914441_akzr",
+    "timestamp": 1789902914441,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: CAP-USDT-SWAP (Momentum Score: 66.5/100, RVOL: 2.24x, 24h Vol: $1224.4M)",
+    "details": {
+      "symbol": "CAP-USDT-SWAP",
+      "rank": 9,
+      "score": 66.5,
+      "rvol": 2.24,
+      "atrExpansion": 2.29,
+      "price": 0.04538,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902914440_r11k",
+    "timestamp": 1789902914440,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 1.44s. Scanned: 100/100 pairs. Candidates: 17. Top: S-USDT-SWAP (99.2), AKE-USDT-SWAP (97.5), ZIL-USDT-SWAP (82.9), STRK-USDT-SWAP (71.4), ZAMA-USDT-SWAP (70.1).",
+    "details": {
+      "totalUniverse": 467,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 17,
       "topRanked": [
         {
           "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.41,
-          "price": 0.03539
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
           "score": 99.2,
-          "rvol": 10,
-          "price": 0.001874
+          "rvol": 3.5,
+          "price": 0.036
         },
         {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04761
+          "symbol": "AKE-USDT-SWAP",
+          "score": 97.5,
+          "rvol": 2.51,
+          "price": 0.05959
         },
         {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.2,
-          "rvol": 1.13,
-          "price": 0.0040153
+          "symbol": "ZIL-USDT-SWAP",
+          "score": 82.9,
+          "rvol": 1.22,
+          "price": 0.003611
         },
         {
-          "symbol": "TRIA-USDT-SWAP",
-          "score": 73.1,
-          "rvol": 1.98,
-          "price": 0.004066
+          "symbol": "STRK-USDT-SWAP",
+          "score": 71.4,
+          "rvol": 1.2,
+          "price": 0.04631
+        },
+        {
+          "symbol": "ZAMA-USDT-SWAP",
+          "score": 70.1,
+          "rvol": 0.81,
+          "price": 0.08723
         }
       ]
     }
   },
   {
-    "id": "1789883970663_sx71",
-    "timestamp": 1789883970663,
+    "id": "1789902913059_616i",
+    "timestamp": 1789902913059,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789883970626_tr1b",
-    "timestamp": 1789883970626,
+    "id": "1789902913004_oz8z",
+    "timestamp": 1789902913004,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883960760_91ae",
-    "timestamp": 1789883960760,
+    "id": "1789902904463_ko5d",
+    "timestamp": 1789902904463,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
+    "message": "Dynamic Candidate #18 Selected: ONDO-USDT-SWAP (Momentum Score: 60.1/100, RVOL: 1.35x, 24h Vol: $165.7M)",
     "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
+      "symbol": "ONDO-USDT-SWAP",
+      "rank": 18,
+      "score": 60.1,
+      "rvol": 1.35,
+      "atrExpansion": 0.88,
+      "price": 0.4118,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883960760_qxty",
-    "timestamp": 1789883960760,
+    "id": "1789902904462_obob",
+    "timestamp": 1789902904462,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883960759_eyno",
-    "timestamp": 1789883960759,
+    "id": "1789902904462_lire",
+    "timestamp": 1789902904462,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate ENA-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883960759_knx2",
-    "timestamp": 1789883960759,
+    "id": "1789902904461_5c09",
+    "timestamp": 1789902904461,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 99.2/100, Rank #2)",
+    "message": "Momentum Engine confirmed BUY signal on candidate ENA-USDT-SWAP (Score: 61.6/100, Rank #17)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
+      "symbol": "ENA-USDT-SWAP",
       "side": "BUY",
-      "score": 99.2,
-      "profile": "MOMENTUM",
-      "rank": 2
+      "score": 61.6,
+      "profile": "SCALP",
+      "rank": 17
     }
   },
   {
-    "id": "1789883960758_7vk7",
-    "timestamp": 1789883960758,
+    "id": "1789902904460_ofoa",
+    "timestamp": 1789902904460,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: DOOD-USDT-SWAP (Momentum Score: 99.2/100, RVOL: 10x, 24h Vol: $618.7M)",
+    "message": "Dynamic Candidate #17 Selected: ENA-USDT-SWAP (Momentum Score: 61.6/100, RVOL: 0.89x, 24h Vol: $878.7M)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 2,
-      "score": 99.2,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001874,
-      "profile": "MOMENTUM"
+      "symbol": "ENA-USDT-SWAP",
+      "rank": 17,
+      "score": 61.6,
+      "rvol": 0.89,
+      "atrExpansion": 0.96,
+      "price": 0.20423,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883960757_6uy2",
-    "timestamp": 1789883960757,
+    "id": "1789902904119_orr0",
+    "timestamp": 1789902904119,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: BICO-USDT-SWAP (Momentum Score: 62.2/100, RVOL: 1.41x, 24h Vol: $173.0M)",
+    "details": {
+      "symbol": "BICO-USDT-SWAP",
+      "rank": 16,
+      "score": 62.2,
+      "rvol": 1.41,
+      "atrExpansion": 1.21,
+      "price": 0.02039,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902904052_467z",
+    "timestamp": 1789902904052,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #15 Selected: ADA-USDT-SWAP (Momentum Score: 62.7/100, RVOL: 2.07x, 24h Vol: $248.1M)",
+    "details": {
+      "symbol": "ADA-USDT-SWAP",
+      "rank": 15,
+      "score": 62.7,
+      "rvol": 2.07,
+      "atrExpansion": 1.16,
+      "price": 0.2199,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902903700_v9on",
+    "timestamp": 1789902903700,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: NOT-USDT-SWAP (Momentum Score: 64.1/100, RVOL: 2.12x, 24h Vol: $1346.7M)",
+    "details": {
+      "symbol": "NOT-USDT-SWAP",
+      "rank": 13,
+      "score": 64.1,
+      "rvol": 2.12,
+      "atrExpansion": 1.39,
+      "price": 0.0004593,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902903699_lwlf",
+    "timestamp": 1789902903699,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883960757_oc6n",
-    "timestamp": 1789883960757,
+    "id": "1789902903698_x464",
+    "timestamp": 1789902903698,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate RVN-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883960756_vccf",
-    "timestamp": 1789883960756,
+    "id": "1789902903697_2ynj",
+    "timestamp": 1789902903697,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #1)",
+    "message": "Momentum Engine confirmed SELL signal on candidate RVN-USDT-SWAP (Score: 64.6/100, Rank #12)",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 1
+      "symbol": "RVN-USDT-SWAP",
+      "side": "SELL",
+      "score": 64.6,
+      "profile": "SCALP",
+      "rank": 12
     }
   },
   {
-    "id": "1789883960756_ya38",
-    "timestamp": 1789883960756,
+    "id": "1789902903697_37ba",
+    "timestamp": 1789902903697,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.41x, 24h Vol: $69.8M)",
+    "message": "Dynamic Candidate #12 Selected: RVN-USDT-SWAP (Momentum Score: 64.6/100, RVOL: 0.96x, 24h Vol: $460.0M)",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 1,
-      "score": 99.9,
-      "rvol": 5.41,
-      "atrExpansion": 3.43,
-      "price": 0.03539,
-      "profile": "MOMENTUM"
+      "symbol": "RVN-USDT-SWAP",
+      "rank": 12,
+      "score": 64.6,
+      "rvol": 0.96,
+      "atrExpansion": 0.74,
+      "price": 0.002196,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883960755_qm6i",
-    "timestamp": 1789883960755,
+    "id": "1789902903696_fbhe",
+    "timestamp": 1789902903696,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902903695_e04z",
+    "timestamp": 1789902903695,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($0.89 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902903695_u396",
+    "timestamp": 1789902903695,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PUMP-USDT-SWAP (Score: 65.1/100, Rank #11)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "side": "BUY",
+      "score": 65.1,
+      "profile": "SCALP",
+      "rank": 11
+    }
+  },
+  {
+    "id": "1789902903694_s9kb",
+    "timestamp": 1789902903694,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: PUMP-USDT-SWAP (Momentum Score: 65.1/100, RVOL: 0.69x, 24h Vol: $17090.0M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 11,
+      "score": 65.1,
+      "rvol": 0.69,
+      "atrExpansion": 0.92,
+      "price": 0.00405,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902903486_8d51",
+    "timestamp": 1789902903486,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: CAP-USDT-SWAP (Momentum Score: 66.5/100, RVOL: 2.24x, 24h Vol: $1224.4M)",
+    "details": {
+      "symbol": "CAP-USDT-SWAP",
+      "rank": 9,
+      "score": 66.5,
+      "rvol": 2.24,
+      "atrExpansion": 2.29,
+      "price": 0.04538,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902903485_7gsc",
+    "timestamp": 1789902903485,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.13s. Scanned: 100/100 pairs. Candidates: 3. Top: S-USDT-SWAP (99.9), DOOD-USDT-SWAP (99.2), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.2), TRIA-USDT-SWAP (73.1).",
+    "message": "Market Scan completed in 5.48s. Scanned: 100/100 pairs. Candidates: 18. Top: S-USDT-SWAP (99.2), AKE-USDT-SWAP (97.5), ZIL-USDT-SWAP (82.9), STRK-USDT-SWAP (71.4), ZAMA-USDT-SWAP (70.1).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 3,
+      "candidatesCount": 18,
       "topRanked": [
         {
           "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.41,
-          "price": 0.03539
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
           "score": 99.2,
-          "rvol": 10,
-          "price": 0.001874
+          "rvol": 3.5,
+          "price": 0.036
         },
         {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04761
+          "symbol": "AKE-USDT-SWAP",
+          "score": 97.5,
+          "rvol": 2.51,
+          "price": 0.05959
         },
         {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.2,
-          "rvol": 1.13,
-          "price": 0.0040153
+          "symbol": "ZIL-USDT-SWAP",
+          "score": 82.9,
+          "rvol": 1.22,
+          "price": 0.003611
         },
         {
-          "symbol": "TRIA-USDT-SWAP",
-          "score": 73.1,
-          "rvol": 1.98,
-          "price": 0.004066
+          "symbol": "STRK-USDT-SWAP",
+          "score": 71.4,
+          "rvol": 1.2,
+          "price": 0.04631
+        },
+        {
+          "symbol": "ZAMA-USDT-SWAP",
+          "score": 70.1,
+          "rvol": 0.81,
+          "price": 0.08723
         }
       ]
     }
   },
   {
-    "id": "1789883955673_d6i0",
-    "timestamp": 1789883955673,
+    "id": "1789902898308_wf06",
+    "timestamp": 1789902898308,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789883955626_phu4",
-    "timestamp": 1789883955626,
+    "id": "1789902898004_h9ft",
+    "timestamp": 1789902898004,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883942196_z1nt",
-    "timestamp": 1789883942196,
+    "id": "1789902886050_m4x2",
+    "timestamp": 1789902886050,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
+    "message": "Dynamic Candidate #20 Selected: ONDO-USDT-SWAP (Momentum Score: 60.4/100, RVOL: 1.34x, 24h Vol: $165.7M)",
     "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04759,
-      "profile": "MOMENTUM"
+      "symbol": "ONDO-USDT-SWAP",
+      "rank": 20,
+      "score": 60.4,
+      "rvol": 1.34,
+      "atrExpansion": 0.88,
+      "price": 0.4119,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883942195_p8jf",
-    "timestamp": 1789883942195,
+    "id": "1789902885987_kn32",
+    "timestamp": 1789902885987,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ADA-USDT-SWAP (Momentum Score: 61.7/100, RVOL: 2.01x, 24h Vol: $248.1M)",
+    "details": {
+      "symbol": "ADA-USDT-SWAP",
+      "rank": 19,
+      "score": 61.7,
+      "rvol": 2.01,
+      "atrExpansion": 1.16,
+      "price": 0.2197,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902885789_s3v3",
+    "timestamp": 1789902885789,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #18 Selected: BICO-USDT-SWAP (Momentum Score: 62.2/100, RVOL: 1.41x, 24h Vol: $173.0M)",
+    "details": {
+      "symbol": "BICO-USDT-SWAP",
+      "rank": 18,
+      "score": 62.2,
+      "rvol": 1.41,
+      "atrExpansion": 1.21,
+      "price": 0.02039,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902885579_cw85",
+    "timestamp": 1789902885579,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: NOT-USDT-SWAP (Momentum Score: 64.1/100, RVOL: 2.12x, 24h Vol: $1346.7M)",
+    "details": {
+      "symbol": "NOT-USDT-SWAP",
+      "rank": 16,
+      "score": 64.1,
+      "rvol": 2.12,
+      "atrExpansion": 1.39,
+      "price": 0.0004593,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902885578_r963",
+    "timestamp": 1789902885578,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883942195_fxec",
-    "timestamp": 1789883942195,
+    "id": "1789902885578_0x2i",
+    "timestamp": 1789902885578,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883942194_2we2",
-    "timestamp": 1789883942194,
+    "id": "1789902885577_mej0",
+    "timestamp": 1789902885577,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
+    "message": "Momentum Engine confirmed BUY signal on candidate PUMP-USDT-SWAP (Score: 64.5/100, Rank #15)",
     "details": {
-      "symbol": "S-USDT-SWAP",
+      "symbol": "PUMP-USDT-SWAP",
       "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
+      "score": 64.5,
+      "profile": "SCALP",
+      "rank": 15
     }
   },
   {
-    "id": "1789883942194_6m34",
-    "timestamp": 1789883942194,
+    "id": "1789902885577_w0an",
+    "timestamp": 1789902885577,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.33x, 24h Vol: $70.1M)",
+    "message": "Dynamic Candidate #15 Selected: PUMP-USDT-SWAP (Momentum Score: 64.5/100, RVOL: 0.67x, 24h Vol: $17086.2M)",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.33,
-      "atrExpansion": 3.43,
-      "price": 0.03527,
-      "profile": "MOMENTUM"
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 15,
+      "score": 64.5,
+      "rvol": 0.67,
+      "atrExpansion": 0.92,
+      "price": 0.004049,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883942193_op8y",
-    "timestamp": 1789883942193,
+    "id": "1789902885576_gcc4",
+    "timestamp": 1789902885576,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883942193_8bsk",
-    "timestamp": 1789883942193,
+    "id": "1789902885575_0y8u",
+    "timestamp": 1789902885575,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "message": "Candidate RVN-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.50 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.15 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
     }
   },
   {
-    "id": "1789883942192_f12x",
-    "timestamp": 1789883942192,
+    "id": "1789902885575_2fhx",
+    "timestamp": 1789902885575,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
+    "message": "Momentum Engine confirmed SELL signal on candidate RVN-USDT-SWAP (Score: 64.6/100, Rank #14)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
+      "symbol": "RVN-USDT-SWAP",
+      "side": "SELL",
+      "score": 64.6,
+      "profile": "SCALP",
+      "rank": 14
     }
   },
   {
-    "id": "1789883942190_os0w",
-    "timestamp": 1789883942190,
+    "id": "1789902885574_ka7h",
+    "timestamp": 1789902885574,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $620.1M)",
+    "message": "Dynamic Candidate #14 Selected: RVN-USDT-SWAP (Momentum Score: 64.6/100, RVOL: 0.96x, 24h Vol: $460.0M)",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001878,
-      "profile": "MOMENTUM"
+      "symbol": "RVN-USDT-SWAP",
+      "rank": 14,
+      "score": 64.6,
+      "rvol": 0.96,
+      "atrExpansion": 0.74,
+      "price": 0.002196,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883942190_dx41",
-    "timestamp": 1789883942190,
+    "id": "1789902885292_xp9t",
+    "timestamp": 1789902885292,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: CAP-USDT-SWAP (Momentum Score: 67/100, RVOL: 2.19x, 24h Vol: $1224.4M)",
+    "details": {
+      "symbol": "CAP-USDT-SWAP",
+      "rank": 11,
+      "score": 67,
+      "rvol": 2.19,
+      "atrExpansion": 2.29,
+      "price": 0.04541,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902884948_zz7x",
+    "timestamp": 1789902884948,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: HUMA-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 1.15x, 24h Vol: $62.0M)",
+    "details": {
+      "symbol": "HUMA-USDT-SWAP",
+      "rank": 7,
+      "score": 72.2,
+      "rvol": 1.15,
+      "atrExpansion": 1.42,
+      "price": 0.0229,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902884604_cm0r",
+    "timestamp": 1789902884604,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: ALLO-USDT-SWAP (Momentum Score: 84.2/100, RVOL: 6.11x, 24h Vol: $72.9M)",
+    "details": {
+      "symbol": "ALLO-USDT-SWAP",
+      "rank": 4,
+      "score": 84.2,
+      "rvol": 6.11,
+      "atrExpansion": 4.16,
+      "price": 0.26001,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902884604_pqqu",
+    "timestamp": 1789902884604,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.57s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.1), SIGN-USDT-SWAP (79.8).",
+    "message": "Market Scan completed in 1.60s. Scanned: 100/100 pairs. Candidates: 20. Top: S-USDT-SWAP (99.2), UB-USDT-SWAP (98.2), AKE-USDT-SWAP (97.4), ALLO-USDT-SWAP (84.2), ZIL-USDT-SWAP (81.5).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 3,
+      "candidatesCount": 20,
       "topRanked": [
         {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001878
-        },
-        {
           "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.33,
-          "price": 0.03527
+          "score": 99.2,
+          "rvol": 3.49,
+          "price": 0.03603
         },
         {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04759
+          "symbol": "UB-USDT-SWAP",
+          "score": 98.2,
+          "rvol": 2.79,
+          "price": 0.17405
         },
         {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.1,
-          "rvol": 1.13,
-          "price": 0.0040206
+          "symbol": "AKE-USDT-SWAP",
+          "score": 97.4,
+          "rvol": 2.47,
+          "price": 0.05932
         },
         {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 79.8,
-          "rvol": 1.38,
-          "price": 0.011837
+          "symbol": "ALLO-USDT-SWAP",
+          "score": 84.2,
+          "rvol": 6.11,
+          "price": 0.26001
+        },
+        {
+          "symbol": "ZIL-USDT-SWAP",
+          "score": 81.5,
+          "rvol": 1.1,
+          "price": 0.003615
         }
       ]
     }
   },
   {
-    "id": "1789883940663_3iwq",
-    "timestamp": 1789883940663,
+    "id": "1789902883066_2axt",
+    "timestamp": 1789902883066,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789883940624_ayai",
-    "timestamp": 1789883940624,
+    "id": "1789902883004_j66j",
+    "timestamp": 1789902883004,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883930969_njzi",
-    "timestamp": 1789883930969,
+    "id": "1789902879725_p7wz",
+    "timestamp": 1789902879725,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.68x, 24h Vol: $65.7M)",
+    "message": "Dynamic Candidate #20 Selected: ONDO-USDT-SWAP (Momentum Score: 60.4/100, RVOL: 1.34x, 24h Vol: $165.7M)",
     "details": {
-      "symbol": "MAGIC-USDT-SWAP",
+      "symbol": "ONDO-USDT-SWAP",
+      "rank": 20,
+      "score": 60.4,
+      "rvol": 1.34,
+      "atrExpansion": 0.88,
+      "price": 0.4119,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902879433_cg6j",
+    "timestamp": 1789902879433,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ADA-USDT-SWAP (Momentum Score: 61.7/100, RVOL: 2.01x, 24h Vol: $248.0M)",
+    "details": {
+      "symbol": "ADA-USDT-SWAP",
+      "rank": 19,
+      "score": 61.7,
+      "rvol": 2.01,
+      "atrExpansion": 1.16,
+      "price": 0.2197,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902879072_3squ",
+    "timestamp": 1789902879072,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #18 Selected: BICO-USDT-SWAP (Momentum Score: 62.2/100, RVOL: 1.41x, 24h Vol: $173.0M)",
+    "details": {
+      "symbol": "BICO-USDT-SWAP",
+      "rank": 18,
+      "score": 62.2,
+      "rvol": 1.41,
+      "atrExpansion": 1.21,
+      "price": 0.02039,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902878687_lixt",
+    "timestamp": 1789902878687,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: NOT-USDT-SWAP (Momentum Score: 64.1/100, RVOL: 2.12x, 24h Vol: $1346.7M)",
+    "details": {
+      "symbol": "NOT-USDT-SWAP",
+      "rank": 16,
+      "score": 64.1,
+      "rvol": 2.12,
+      "atrExpansion": 1.39,
+      "price": 0.0004593,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902878687_qk9x",
+    "timestamp": 1789902878687,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902878686_oi1p",
+    "timestamp": 1789902878686,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902878686_sp0y",
+    "timestamp": 1789902878686,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PUMP-USDT-SWAP (Score: 64.5/100, Rank #15)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "side": "BUY",
+      "score": 64.5,
+      "profile": "SCALP",
+      "rank": 15
+    }
+  },
+  {
+    "id": "1789902878685_ovp4",
+    "timestamp": 1789902878685,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #15 Selected: PUMP-USDT-SWAP (Momentum Score: 64.5/100, RVOL: 0.67x, 24h Vol: $17086.1M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 15,
+      "score": 64.5,
+      "rvol": 0.67,
+      "atrExpansion": 0.92,
+      "price": 0.004049,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902878684_wnp3",
+    "timestamp": 1789902878684,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902878684_mfax",
+    "timestamp": 1789902878684,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RVN-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry.",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "reason": "Insufficient Free Balance ($1.21 available). Margin locked: $198.97 across 12 position(s). Minimum 5 USDT required for new entry."
+    }
+  },
+  {
+    "id": "1789902878683_zeip",
+    "timestamp": 1789902878683,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate RVN-USDT-SWAP (Score: 64.6/100, Rank #14)",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "side": "SELL",
+      "score": 64.6,
+      "profile": "SCALP",
+      "rank": 14
+    }
+  },
+  {
+    "id": "1789902878682_ou52",
+    "timestamp": 1789902878682,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #14 Selected: RVN-USDT-SWAP (Momentum Score: 64.6/100, RVOL: 0.96x, 24h Vol: $460.0M)",
+    "details": {
+      "symbol": "RVN-USDT-SWAP",
+      "rank": 14,
+      "score": 64.6,
+      "rvol": 0.96,
+      "atrExpansion": 0.74,
+      "price": 0.002196,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902877932_6107",
+    "timestamp": 1789902877932,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: ZAMA-USDT-SWAP +12 @ $0.0872 (cum: 12/12)",
+    "details": {
+      "orderId": "tb5_1789902877879_jx3w",
+      "symbol": "ZAMA-USDT-SWAP",
+      "incrementalQty": 12,
+      "cumFilledQty": 12,
+      "totalQty": 12,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902877931_mif4",
+    "timestamp": 1789902877931,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for ZAMA-USDT-SWAP",
+    "details": {
+      "symbol": "ZAMA-USDT-SWAP",
+      "execPrice": 0.08722,
+      "execQty": 12,
+      "orderLinkId": "tb5_1789902877879_jx3w"
+    }
+  },
+  {
+    "id": "1789902877930_1wz8",
+    "timestamp": 1789902877930,
+    "type": "POSITION_OPENED",
+    "message": "Opened BUY position on ZAMA-USDT-SWAP: 12 contracts @ $0.0872 ($10.47) [Fee: $0.0052]",
+    "details": {
+      "positionId": "pos_1789902877930_ZAMA-USDT-SWAP",
+      "symbol": "ZAMA-USDT-SWAP",
+      "side": "BUY",
+      "qty": 12,
+      "entryPrice": 0.0872,
+      "sizeUSDT": 10.47,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902877880_k5jx",
+    "timestamp": 1789902877880,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902877880_xxtt) for tb5_1789902877879_jx3w",
+    "details": {
+      "orderId": "tb5_1789902877879_jx3w",
+      "exchangeOrderId": "paper_ord_1789902877880_xxtt"
+    }
+  },
+  {
+    "id": "1789902877879_yxi0",
+    "timestamp": 1789902877879,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market BUY ZAMA-USDT-SWAP (Qty: 12) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902877879_jx3w",
+      "symbol": "ZAMA-USDT-SWAP",
+      "side": "BUY",
+      "qty": 12,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902877841_0bro",
+    "timestamp": 1789902877841,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved BUY ZAMA-USDT-SWAP for $11.09 (PAPER mode)",
+    "details": {
+      "symbol": "ZAMA-USDT-SWAP",
+      "sizeUSDT": 11.09,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902877841_6kia",
+    "timestamp": 1789902877841,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ZAMA-USDT-SWAP (Score: 65.9/100, Rank #13)",
+    "details": {
+      "symbol": "ZAMA-USDT-SWAP",
+      "side": "BUY",
+      "score": 65.9,
+      "profile": "SCALP",
+      "rank": 13
+    }
+  },
+  {
+    "id": "1789902877840_6y3a",
+    "timestamp": 1789902877840,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: ZAMA-USDT-SWAP (Momentum Score: 65.9/100, RVOL: 0.8x, 24h Vol: $1223.3M)",
+    "details": {
+      "symbol": "ZAMA-USDT-SWAP",
+      "rank": 13,
+      "score": 65.9,
+      "rvol": 0.8,
+      "atrExpansion": 1.09,
+      "price": 0.08722,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902877089_ib96",
+    "timestamp": 1789902877089,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: GPS-USDT-SWAP +194 @ $0.0103 (cum: 194/194)",
+    "details": {
+      "orderId": "tb5_1789902877036_9cc6",
+      "symbol": "GPS-USDT-SWAP",
+      "incrementalQty": 194,
+      "cumFilledQty": 194,
+      "totalQty": 194,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902877089_1jr9",
+    "timestamp": 1789902877089,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for GPS-USDT-SWAP",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "execPrice": 0.010275,
+      "execQty": 194,
+      "orderLinkId": "tb5_1789902877036_9cc6"
+    }
+  },
+  {
+    "id": "1789902877087_1tpg",
+    "timestamp": 1789902877087,
+    "type": "POSITION_OPENED",
+    "message": "Opened SELL position on GPS-USDT-SWAP: 194 contracts @ $0.0103 ($19.93) [Fee: $0.01]",
+    "details": {
+      "positionId": "pos_1789902877087_GPS-USDT-SWAP",
+      "symbol": "GPS-USDT-SWAP",
+      "side": "SELL",
+      "qty": 194,
+      "entryPrice": 0.0103,
+      "sizeUSDT": 19.93,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902877037_n9x4",
+    "timestamp": 1789902877037,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902877037_9kj5) for tb5_1789902877036_9cc6",
+    "details": {
+      "orderId": "tb5_1789902877036_9cc6",
+      "exchangeOrderId": "paper_ord_1789902877037_9kj5"
+    }
+  },
+  {
+    "id": "1789902877036_56lw",
+    "timestamp": 1789902877036,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market SELL GPS-USDT-SWAP (Qty: 194) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902877036_9cc6",
+      "symbol": "GPS-USDT-SWAP",
+      "side": "SELL",
+      "qty": 194,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902876992_btoy",
+    "timestamp": 1789902876992,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved SELL GPS-USDT-SWAP for $20.03 (PAPER mode)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "sizeUSDT": 20.03,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902876992_jke5",
+    "timestamp": 1789902876992,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate GPS-USDT-SWAP (Score: 66.0/100, Rank #12)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "side": "SELL",
+      "score": 66,
+      "profile": "SCALP",
+      "rank": 12
+    }
+  },
+  {
+    "id": "1789902876991_1a2x",
+    "timestamp": 1789902876991,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #12 Selected: GPS-USDT-SWAP (Momentum Score: 66/100, RVOL: 0.58x, 24h Vol: $142.8M)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "rank": 12,
+      "score": 66,
+      "rvol": 0.58,
+      "atrExpansion": 1.15,
+      "price": 0.010275,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902876922_mic8",
+    "timestamp": 1789902876922,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: CAP-USDT-SWAP (Momentum Score: 67/100, RVOL: 2.19x, 24h Vol: $1224.3M)",
+    "details": {
+      "symbol": "CAP-USDT-SWAP",
+      "rank": 11,
+      "score": 67,
+      "rvol": 2.19,
+      "atrExpansion": 2.29,
+      "price": 0.04541,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902876172_9x1p",
+    "timestamp": 1789902876172,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: SAHARA-USDT-SWAP +230 @ $0.0087 (cum: 230/230)",
+    "details": {
+      "orderId": "tb5_1789902876119_xru5",
+      "symbol": "SAHARA-USDT-SWAP",
+      "incrementalQty": 230,
+      "cumFilledQty": 230,
+      "totalQty": 230,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902876171_vw4k",
+    "timestamp": 1789902876171,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for SAHARA-USDT-SWAP",
+    "details": {
+      "symbol": "SAHARA-USDT-SWAP",
+      "execPrice": 0.008685,
+      "execQty": 230,
+      "orderLinkId": "tb5_1789902876119_xru5"
+    }
+  },
+  {
+    "id": "1789902876170_gxl0",
+    "timestamp": 1789902876170,
+    "type": "POSITION_OPENED",
+    "message": "Opened SELL position on SAHARA-USDT-SWAP: 230 contracts @ $0.0087 ($19.98) [Fee: $0.01]",
+    "details": {
+      "positionId": "pos_1789902876170_SAHARA-USDT-SWAP",
+      "symbol": "SAHARA-USDT-SWAP",
+      "side": "SELL",
+      "qty": 230,
+      "entryPrice": 0.0087,
+      "sizeUSDT": 19.98,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902876120_vqcs",
+    "timestamp": 1789902876120,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902876120_jtsr) for tb5_1789902876119_xru5",
+    "details": {
+      "orderId": "tb5_1789902876119_xru5",
+      "exchangeOrderId": "paper_ord_1789902876120_jtsr"
+    }
+  },
+  {
+    "id": "1789902876119_laun",
+    "timestamp": 1789902876119,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market SELL SAHARA-USDT-SWAP (Qty: 230) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902876119_xru5",
+      "symbol": "SAHARA-USDT-SWAP",
+      "side": "SELL",
+      "qty": 230,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902876087_xrk0",
+    "timestamp": 1789902876087,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved SELL SAHARA-USDT-SWAP for $20.03 (PAPER mode)",
+    "details": {
+      "symbol": "SAHARA-USDT-SWAP",
+      "sizeUSDT": 20.03,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902876086_msoj",
+    "timestamp": 1789902876086,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate SAHARA-USDT-SWAP (Score: 67.3/100, Rank #9)",
+    "details": {
+      "symbol": "SAHARA-USDT-SWAP",
+      "side": "SELL",
+      "score": 67.3,
+      "profile": "SCALP",
+      "rank": 9
+    }
+  },
+  {
+    "id": "1789902876086_6ehn",
+    "timestamp": 1789902876086,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: SAHARA-USDT-SWAP (Momentum Score: 67.3/100, RVOL: 1.71x, 24h Vol: $86.4M)",
+    "details": {
+      "symbol": "SAHARA-USDT-SWAP",
+      "rank": 9,
+      "score": 67.3,
+      "rvol": 1.71,
+      "atrExpansion": 1.28,
+      "price": 0.008685,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902875336_lwf3",
+    "timestamp": 1789902875336,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: STRK-USDT-SWAP +432 @ $0.0463 (cum: 432/432)",
+    "details": {
+      "orderId": "tb5_1789902875283_iu74",
+      "symbol": "STRK-USDT-SWAP",
+      "incrementalQty": 432,
+      "cumFilledQty": 432,
+      "totalQty": 432,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902875336_3e1w",
+    "timestamp": 1789902875336,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for STRK-USDT-SWAP",
+    "details": {
+      "symbol": "STRK-USDT-SWAP",
+      "execPrice": 0.04631,
+      "execQty": 432,
+      "orderLinkId": "tb5_1789902875283_iu74"
+    }
+  },
+  {
+    "id": "1789902875334_psyb",
+    "timestamp": 1789902875334,
+    "type": "POSITION_OPENED",
+    "message": "Opened BUY position on STRK-USDT-SWAP: 432 contracts @ $0.0463 ($20.01) [Fee: $0.01]",
+    "details": {
+      "positionId": "pos_1789902875334_STRK-USDT-SWAP",
+      "symbol": "STRK-USDT-SWAP",
+      "side": "BUY",
+      "qty": 432,
+      "entryPrice": 0.0463,
+      "sizeUSDT": 20.01,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902875284_hr14",
+    "timestamp": 1789902875284,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902875284_zmht) for tb5_1789902875283_iu74",
+    "details": {
+      "orderId": "tb5_1789902875283_iu74",
+      "exchangeOrderId": "paper_ord_1789902875284_zmht"
+    }
+  },
+  {
+    "id": "1789902875283_xxh5",
+    "timestamp": 1789902875283,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market BUY STRK-USDT-SWAP (Qty: 432) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902875283_iu74",
+      "symbol": "STRK-USDT-SWAP",
+      "side": "BUY",
+      "qty": 432,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902875249_qsj5",
+    "timestamp": 1789902875249,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved BUY STRK-USDT-SWAP for $20.03 (PAPER mode)",
+    "details": {
+      "symbol": "STRK-USDT-SWAP",
+      "sizeUSDT": 20.03,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902875248_w805",
+    "timestamp": 1789902875248,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate STRK-USDT-SWAP (Score: 71.9/100, Rank #8)",
+    "details": {
+      "symbol": "STRK-USDT-SWAP",
+      "side": "BUY",
+      "score": 71.9,
+      "profile": "SCALP",
+      "rank": 8
+    }
+  },
+  {
+    "id": "1789902875247_4jr9",
+    "timestamp": 1789902875247,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: STRK-USDT-SWAP (Momentum Score: 71.9/100, RVOL: 1.19x, 24h Vol: $983.7M)",
+    "details": {
+      "symbol": "STRK-USDT-SWAP",
+      "rank": 8,
+      "score": 71.9,
+      "rvol": 1.19,
+      "atrExpansion": 0.91,
+      "price": 0.04634,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902875040_79vd",
+    "timestamp": 1789902875040,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: HUMA-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 1.15x, 24h Vol: $62.0M)",
+    "details": {
+      "symbol": "HUMA-USDT-SWAP",
+      "rank": 7,
+      "score": 72.2,
+      "rvol": 1.15,
+      "atrExpansion": 1.42,
+      "price": 0.0229,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902874292_cjpv",
+    "timestamp": 1789902874292,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: ZIL-USDT-SWAP +55 @ $0.0036 (cum: 55/55)",
+    "details": {
+      "orderId": "tb5_1789902874237_vaq2",
+      "symbol": "ZIL-USDT-SWAP",
+      "incrementalQty": 55,
+      "cumFilledQty": 55,
+      "totalQty": 55,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902874291_d7yf",
+    "timestamp": 1789902874291,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for ZIL-USDT-SWAP",
+    "details": {
+      "symbol": "ZIL-USDT-SWAP",
+      "execPrice": 0.003624,
+      "execQty": 55,
+      "orderLinkId": "tb5_1789902874237_vaq2"
+    }
+  },
+  {
+    "id": "1789902874289_zdf6",
+    "timestamp": 1789902874289,
+    "type": "POSITION_OPENED",
+    "message": "Opened SELL position on ZIL-USDT-SWAP: 55 contracts @ $0.0036 ($19.93) [Fee: $0.01]",
+    "details": {
+      "positionId": "pos_1789902874289_ZIL-USDT-SWAP",
+      "symbol": "ZIL-USDT-SWAP",
+      "side": "SELL",
+      "qty": 55,
+      "entryPrice": 0.0036,
+      "sizeUSDT": 19.93,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902874238_oais",
+    "timestamp": 1789902874238,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902874237_qj4i) for tb5_1789902874237_vaq2",
+    "details": {
+      "orderId": "tb5_1789902874237_vaq2",
+      "exchangeOrderId": "paper_ord_1789902874237_qj4i"
+    }
+  },
+  {
+    "id": "1789902874237_mt6m",
+    "timestamp": 1789902874237,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market SELL ZIL-USDT-SWAP (Qty: 55) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902874237_vaq2",
+      "symbol": "ZIL-USDT-SWAP",
+      "side": "SELL",
+      "qty": 55,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902874203_oykn",
+    "timestamp": 1789902874203,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved SELL ZIL-USDT-SWAP for $20.03 (PAPER mode)",
+    "details": {
+      "symbol": "ZIL-USDT-SWAP",
+      "sizeUSDT": 20.03,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902874202_mrks",
+    "timestamp": 1789902874202,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ZIL-USDT-SWAP (Score: 81.5/100, Rank #5)",
+    "details": {
+      "symbol": "ZIL-USDT-SWAP",
+      "side": "SELL",
+      "score": 81.5,
+      "profile": "SCALP",
+      "rank": 5
+    }
+  },
+  {
+    "id": "1789902874202_cilh",
+    "timestamp": 1789902874202,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: ZIL-USDT-SWAP (Momentum Score: 81.5/100, RVOL: 1.1x, 24h Vol: $8313.3M)",
+    "details": {
+      "symbol": "ZIL-USDT-SWAP",
+      "rank": 5,
+      "score": 81.5,
+      "rvol": 1.1,
+      "atrExpansion": 1.1,
+      "price": 0.003615,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902873718_d4si",
+    "timestamp": 1789902873718,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: ALLO-USDT-SWAP (Momentum Score: 84.2/100, RVOL: 6.11x, 24h Vol: $72.9M)",
+    "details": {
+      "symbol": "ALLO-USDT-SWAP",
+      "rank": 4,
+      "score": 84.2,
+      "rvol": 6.11,
+      "atrExpansion": 4.16,
+      "price": 0.26001,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902872967_q1a5",
+    "timestamp": 1789902872967,
+    "type": "ORDER_FILLED",
+    "message": "Confirmed fill via WS: AKE-USDT-SWAP +3 @ $0.0593 (cum: 3/3)",
+    "details": {
+      "orderId": "tb5_1789902872913_2usd",
+      "symbol": "AKE-USDT-SWAP",
+      "incrementalQty": 3,
+      "cumFilledQty": 3,
+      "totalQty": 3,
+      "status": "FILLED",
+      "source": "WS"
+    }
+  },
+  {
+    "id": "1789902872966_fokp",
+    "timestamp": 1789902872966,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for AKE-USDT-SWAP",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "execPrice": 0.05932,
+      "execQty": 3,
+      "orderLinkId": "tb5_1789902872913_2usd"
+    }
+  },
+  {
+    "id": "1789902872965_kl15",
+    "timestamp": 1789902872965,
+    "type": "POSITION_OPENED",
+    "message": "Opened SELL position on AKE-USDT-SWAP: 3 contracts @ $0.0593 ($17.80) [Fee: $0.0089]",
+    "details": {
+      "positionId": "pos_1789902872965_AKE-USDT-SWAP",
+      "symbol": "AKE-USDT-SWAP",
+      "side": "SELL",
+      "qty": 3,
+      "entryPrice": 0.0593,
+      "sizeUSDT": 17.8,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1789902872914_9v8l",
+    "timestamp": 1789902872914,
+    "type": "ORDER_ACCEPTED",
+    "message": "Order accepted by PAPER (ID: paper_ord_1789902872914_edwx) for tb5_1789902872913_2usd",
+    "details": {
+      "orderId": "tb5_1789902872913_2usd",
+      "exchangeOrderId": "paper_ord_1789902872914_edwx"
+    }
+  },
+  {
+    "id": "1789902872913_xp10",
+    "timestamp": 1789902872913,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Market SELL AKE-USDT-SWAP (Qty: 3) via PAPER Adapter",
+    "details": {
+      "orderId": "tb5_1789902872913_2usd",
+      "symbol": "AKE-USDT-SWAP",
+      "side": "SELL",
+      "qty": 3,
+      "mode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902872875_ee0w",
+    "timestamp": 1789902872875,
+    "type": "RISK_APPROVED",
+    "message": "Risk Engine approved SELL AKE-USDT-SWAP for $20.03 (PAPER mode)",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "sizeUSDT": 20.03,
+      "profile": "SCALP",
+      "executionMode": "PAPER"
+    }
+  },
+  {
+    "id": "1789902872875_shl8",
+    "timestamp": 1789902872875,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate AKE-USDT-SWAP (Score: 97.4/100, Rank #3)",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "side": "SELL",
+      "score": 97.4,
+      "profile": "SCALP",
+      "rank": 3
+    }
+  },
+  {
+    "id": "1789902872874_mn1a",
+    "timestamp": 1789902872874,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: AKE-USDT-SWAP (Momentum Score: 97.4/100, RVOL: 2.47x, 24h Vol: $9373.4M)",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
       "rank": 3,
-      "score": 88,
-      "rvol": 9.68,
-      "atrExpansion": 3.61,
-      "price": 0.04759,
-      "profile": "MOMENTUM"
+      "score": 97.4,
+      "rvol": 2.47,
+      "atrExpansion": 1.69,
+      "price": 0.05932,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1789883930969_8my7",
-    "timestamp": 1789883930969,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883930968_fgfm",
-    "timestamp": 1789883930968,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883930968_sjpp",
-    "timestamp": 1789883930968,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883930967_srb0",
-    "timestamp": 1789883930967,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.33x, 24h Vol: $70.0M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.33,
-      "atrExpansion": 3.43,
-      "price": 0.03527,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883930966_uzs2",
-    "timestamp": 1789883930966,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883930965_zu7i",
-    "timestamp": 1789883930965,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883930964_wf0x",
-    "timestamp": 1789883930964,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883930964_irra",
-    "timestamp": 1789883930964,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $620.1M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001878,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883930963_egzr",
-    "timestamp": 1789883930963,
+    "id": "1789902872873_m0oj",
+    "timestamp": 1789902872873,
     "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.34s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.1), SIGN-USDT-SWAP (79.8).",
+    "message": "Market Scan completed in 4.87s. Scanned: 100/100 pairs. Candidates: 20. Top: S-USDT-SWAP (99.2), UB-USDT-SWAP (98.2), AKE-USDT-SWAP (97.4), ALLO-USDT-SWAP (84.2), ZIL-USDT-SWAP (81.5).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "scannedCount": 100,
-      "candidatesCount": 3,
+      "candidatesCount": 20,
       "topRanked": [
         {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001878
-        },
-        {
           "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.33,
-          "price": 0.03527
+          "score": 99.2,
+          "rvol": 3.49,
+          "price": 0.03603
         },
         {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.68,
-          "price": 0.04759
+          "symbol": "UB-USDT-SWAP",
+          "score": 98.2,
+          "rvol": 2.79,
+          "price": 0.17405
         },
         {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.1,
-          "rvol": 1.13,
-          "price": 0.0040206
+          "symbol": "AKE-USDT-SWAP",
+          "score": 97.4,
+          "rvol": 2.47,
+          "price": 0.05932
         },
         {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 79.8,
-          "rvol": 1.38,
-          "price": 0.011837
+          "symbol": "ALLO-USDT-SWAP",
+          "score": 84.2,
+          "rvol": 6.11,
+          "price": 0.26001
+        },
+        {
+          "symbol": "ZIL-USDT-SWAP",
+          "score": 81.5,
+          "rvol": 1.1,
+          "price": 0.003615
         }
       ]
     }
   },
   {
-    "id": "1789883925921_x15j",
-    "timestamp": 1789883925921,
+    "id": "1789902868060_zaya",
+    "timestamp": 1789902868060,
     "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
+    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $2.0M USDT).",
     "details": {
       "totalUniverse": 467,
       "eligibleCount": 100,
       "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
+      "minVolumeUSDT": 2000000,
       "topSymbols": [
         "ONE-USDT-SWAP",
         "PUMP-USDT-SWAP",
         "BOME-USDT-SWAP",
         "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
+        "IOST-USDT-SWAP"
       ]
     }
   },
   {
-    "id": "1789883925623_euxu",
-    "timestamp": 1789883925623,
+    "id": "1789902868003_u73p",
+    "timestamp": 1789902868003,
     "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
   },
   {
-    "id": "1789883912129_h7ir",
-    "timestamp": 1789883912129,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.67x, 24h Vol: $65.7M)",
+    "id": "1789902863782_e5b5",
+    "timestamp": 1789902863782,
+    "type": "POSITION_CLOSED",
+    "message": "Position SEI-USDT-SWAP closed on PAPER at $0.0472 (TIME_STOP) - Net PnL: +$0.03 (Gross: +$0.04, Fees: -$0.0094)",
     "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.67,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
+      "positionId": "pos_1789899262930_SEI-USDT-SWAP",
+      "symbol": "SEI-USDT-SWAP",
+      "exitPrice": 0.04721,
+      "reason": "TIME_STOP",
+      "pnl": 0.03,
+      "pnlPct": 0.4,
+      "grossPnl": 0.038,
+      "entryFee": 0.0047,
+      "exitFee": 0.0047,
+      "totalFees": 0.0094,
+      "fee": 0.004721
     }
   },
   {
-    "id": "1789883912129_462j",
-    "timestamp": 1789883912129,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902863032_2m1g",
+    "timestamp": 1789902863032,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for SEI-USDT-SWAP",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "SEI-USDT-SWAP",
+      "execPrice": 0.04721,
+      "execQty": 20,
+      "orderLinkId": "tb5_close_1789902862944_i3jd"
     }
   },
   {
-    "id": "1789883912128_p8sp",
-    "timestamp": 1789883912128,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902862980_5wt9",
+    "timestamp": 1789902862980,
+    "type": "ORDER_ACCEPTED",
+    "message": "Close order accepted by PAPER (ID: paper_ord_1789902862980_k0m5) for SEI-USDT-SWAP",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "orderId": "tb5_close_1789902862944_i3jd",
+      "exchangeOrderId": "paper_ord_1789902862980_k0m5"
     }
   },
   {
-    "id": "1789883912127_31ij",
-    "timestamp": 1789883912127,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 99.8/100, Rank #2)",
+    "id": "1789902862979_9e4u",
+    "timestamp": 1789902862979,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for SEI-USDT-SWAP (TIME_STOP) - Side: Buy, Qty: 20 via PAPER",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.8,
-      "profile": "MOMENTUM",
-      "rank": 2
+      "orderId": "tb5_close_1789902862944_i3jd",
+      "symbol": "SEI-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 20,
+      "mode": "PAPER"
     }
   },
   {
-    "id": "1789883912123_7d1a",
-    "timestamp": 1789883912123,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: DOOD-USDT-SWAP (Momentum Score: 99.8/100, RVOL: 10x, 24h Vol: $620.0M)",
+    "id": "1789902862943_ihoq",
+    "timestamp": 1789902862943,
+    "type": "RISK_REJECTED",
+    "message": "Max holding time of 60m exceeded for SEI-USDT-SWAP. Closing position.",
     "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 2,
-      "score": 99.8,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001876,
-      "profile": "MOMENTUM"
+      "symbol": "SEI-USDT-SWAP",
+      "heldMinutes": 60,
+      "currentPrice": 0.04721
     }
   },
   {
-    "id": "1789883912122_kb5e",
-    "timestamp": 1789883912122,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902862942_amvq",
+    "timestamp": 1789902862942,
+    "type": "POSITION_CLOSED",
+    "message": "Position CHZ-USDT-SWAP closed on PAPER at $0.0147 (TIME_STOP) - Net PnL: $-0.06 (Gross: $-0.04, Fees: -$0.0198)",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "positionId": "pos_1789899262084_CHZ-USDT-SWAP",
+      "symbol": "CHZ-USDT-SWAP",
+      "exitPrice": 0.01473,
+      "reason": "TIME_STOP",
+      "pnl": -0.06,
+      "pnlPct": -0.2,
+      "grossPnl": -0.0405,
+      "entryFee": 0.0099,
+      "exitFee": 0.0099,
+      "totalFees": 0.0198,
+      "fee": 0.00994275
     }
   },
   {
-    "id": "1789883912122_m88g",
-    "timestamp": 1789883912122,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
+    "id": "1789902862193_5on3",
+    "timestamp": 1789902862193,
+    "type": "ORDER_FILLED",
+    "message": "Execution confirmed for CHZ-USDT-SWAP",
     "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.47 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
+      "symbol": "CHZ-USDT-SWAP",
+      "execPrice": 0.01473,
+      "execQty": 135,
+      "orderLinkId": "tb5_close_1789902862103_3qji"
     }
   },
   {
-    "id": "1789883912120_8p00",
-    "timestamp": 1789883912120,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #1)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883912118_3z6d",
-    "timestamp": 1789883912118,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.28x, 24h Vol: $69.9M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 1,
-      "score": 99.9,
-      "rvol": 5.28,
-      "atrExpansion": 3.43,
-      "price": 0.03525,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883912117_21wv",
-    "timestamp": 1789883912117,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.49s. Scanned: 100/100 pairs. Candidates: 3. Top: S-USDT-SWAP (99.9), DOOD-USDT-SWAP (99.8), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.1), SIGN-USDT-SWAP (79.8).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.28,
-          "price": 0.03525
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 99.8,
-          "rvol": 10,
-          "price": 0.001876
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.67,
-          "price": 0.04761
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.1,
-          "rvol": 1.13,
-          "price": 0.0040379
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 79.8,
-          "rvol": 1.38,
-          "price": 0.011837
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883910662_1bb2",
-    "timestamp": 1789883910662,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883910623_rd8k",
-    "timestamp": 1789883910623,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883900908_x3aj",
-    "timestamp": 1789883900908,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.67x, 24h Vol: $65.7M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.67,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883900908_fac1",
-    "timestamp": 1789883900908,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883900907_rp0p",
-    "timestamp": 1789883900907,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883900907_34t3",
-    "timestamp": 1789883900907,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 99.8/100, Rank #2)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.8,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883900906_vmze",
-    "timestamp": 1789883900906,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: DOOD-USDT-SWAP (Momentum Score: 99.8/100, RVOL: 10x, 24h Vol: $619.6M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 2,
-      "score": 99.8,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001876,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883900904_ylan",
-    "timestamp": 1789883900904,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883900904_50aq",
-    "timestamp": 1789883900904,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.48 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883900903_mccc",
-    "timestamp": 1789883900903,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #1)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883900902_pbgs",
-    "timestamp": 1789883900902,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.28x, 24h Vol: $69.8M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 1,
-      "score": 99.9,
-      "rvol": 5.28,
-      "atrExpansion": 3.43,
-      "price": 0.03525,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883900901_umb3",
-    "timestamp": 1789883900901,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 5.28s. Scanned: 100/100 pairs. Candidates: 3. Top: S-USDT-SWAP (99.9), DOOD-USDT-SWAP (99.8), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.1), SIGN-USDT-SWAP (79.8).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.28,
-          "price": 0.03525
-        },
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 99.8,
-          "rvol": 10,
-          "price": 0.001876
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.67,
-          "price": 0.04761
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81.1,
-          "rvol": 1.13,
-          "price": 0.0040379
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 79.8,
-          "rvol": 1.38,
-          "price": 0.011837
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883895922_t005",
-    "timestamp": 1789883895922,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883895623_huun",
-    "timestamp": 1789883895623,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883882184_zgok",
-    "timestamp": 1789883882184,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.66x, 24h Vol: $65.7M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.66,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883882183_51c8",
-    "timestamp": 1789883882183,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883882183_cp7c",
-    "timestamp": 1789883882183,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883882182_k1gm",
-    "timestamp": 1789883882182,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883882181_wf7m",
-    "timestamp": 1789883882181,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.17x, 24h Vol: $69.6M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.17,
-      "atrExpansion": 3.43,
-      "price": 0.03525,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883882181_pf54",
-    "timestamp": 1789883882181,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883882180_up5a",
-    "timestamp": 1789883882180,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.49 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883882179_4ip8",
-    "timestamp": 1789883882179,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883882178_6aep",
-    "timestamp": 1789883882178,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $618.8M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001878,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883882177_2l1j",
-    "timestamp": 1789883882177,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.55s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.0), SIGN-USDT-SWAP (77.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001878
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.17,
-          "price": 0.03525
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.66,
-          "price": 0.04761
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81,
-          "rvol": 1.12,
-          "price": 0.0040072
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 77.6,
-          "rvol": 1.37,
-          "price": 0.011816
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883880663_5iu5",
-    "timestamp": 1789883880663,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883880623_5p5p",
-    "timestamp": 1789883880623,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883870490_9y09",
-    "timestamp": 1789883870490,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.66x, 24h Vol: $65.7M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.66,
-      "atrExpansion": 3.61,
-      "price": 0.04761,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883870490_yo9q",
-    "timestamp": 1789883870490,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883870489_ox01",
-    "timestamp": 1789883870489,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883870489_2ogo",
-    "timestamp": 1789883870489,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883870488_owrb",
-    "timestamp": 1789883870488,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.17x, 24h Vol: $69.6M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.17,
-      "atrExpansion": 3.43,
-      "price": 0.03525,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883870488_50x8",
-    "timestamp": 1789883870488,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883870487_elqx",
-    "timestamp": 1789883870487,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883870486_bwlt",
-    "timestamp": 1789883870486,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883870486_9sur",
-    "timestamp": 1789883870486,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $617.3M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001878,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883870485_xu9n",
-    "timestamp": 1789883870485,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.86s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.0), SIGN-USDT-SWAP (77.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001878
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.17,
-          "price": 0.03525
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.66,
-          "price": 0.04761
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81,
-          "rvol": 1.12,
-          "price": 0.0040072
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 77.6,
-          "rvol": 1.37,
-          "price": 0.011816
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883865674_3hop",
-    "timestamp": 1789883865674,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883865622_re0p",
-    "timestamp": 1789883865622,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883852097_fjde",
-    "timestamp": 1789883852097,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.64x, 24h Vol: $65.6M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.64,
-      "atrExpansion": 3.61,
-      "price": 0.04755,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883852096_wx9a",
-    "timestamp": 1789883852096,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883852096_2d8n",
-    "timestamp": 1789883852096,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883852095_0f04",
-    "timestamp": 1789883852095,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883852094_si36",
-    "timestamp": 1789883852094,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.16x, 24h Vol: $69.6M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.16,
-      "atrExpansion": 3.43,
-      "price": 0.03531,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883852093_ipmm",
-    "timestamp": 1789883852093,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883852093_bja8",
-    "timestamp": 1789883852093,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.45 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883852092_wmk6",
-    "timestamp": 1789883852092,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883852091_lceh",
-    "timestamp": 1789883852091,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $614.7M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001889,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883852090_7s35",
-    "timestamp": 1789883852090,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 1.47s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.0), SIGN-USDT-SWAP (77.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001889
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.16,
-          "price": 0.03531
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.64,
-          "price": 0.04755
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81,
-          "rvol": 1.12,
-          "price": 0.0040074
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 77.6,
-          "rvol": 1.37,
-          "price": 0.011816
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883850659_dnyq",
-    "timestamp": 1789883850659,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883850621_nbaa",
-    "timestamp": 1789883850621,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883840259_v6tx",
-    "timestamp": 1789883840259,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 88/100, RVOL: 9.64x, 24h Vol: $65.6M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 88,
-      "rvol": 9.64,
-      "atrExpansion": 3.61,
-      "price": 0.04755,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883840259_esq0",
-    "timestamp": 1789883840259,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883840258_uidp",
-    "timestamp": 1789883840258,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883840257_a99w",
-    "timestamp": 1789883840257,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883840257_c2yz",
-    "timestamp": 1789883840257,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.16x, 24h Vol: $69.6M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.16,
-      "atrExpansion": 3.43,
-      "price": 0.03531,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883840256_wkr7",
-    "timestamp": 1789883840256,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883840256_6yu0",
-    "timestamp": 1789883840256,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883840254_oc19",
-    "timestamp": 1789883840254,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883840253_g6az",
-    "timestamp": 1789883840253,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $607.4M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001889,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883840252_otbw",
-    "timestamp": 1789883840252,
-    "type": "SCAN_COMPLETED",
-    "message": "Market Scan completed in 4.63s. Scanned: 100/100 pairs. Candidates: 3. Top: DOOD-USDT-SWAP (100.0), S-USDT-SWAP (99.9), MAGIC-USDT-SWAP (88.0), ONE-USDT-SWAP (81.0), SIGN-USDT-SWAP (77.6).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "scannedCount": 100,
-      "candidatesCount": 3,
-      "topRanked": [
-        {
-          "symbol": "DOOD-USDT-SWAP",
-          "score": 100,
-          "rvol": 10,
-          "price": 0.001889
-        },
-        {
-          "symbol": "S-USDT-SWAP",
-          "score": 99.9,
-          "rvol": 5.16,
-          "price": 0.03531
-        },
-        {
-          "symbol": "MAGIC-USDT-SWAP",
-          "score": 88,
-          "rvol": 9.64,
-          "price": 0.04755
-        },
-        {
-          "symbol": "ONE-USDT-SWAP",
-          "score": 81,
-          "rvol": 1.12,
-          "price": 0.0040074
-        },
-        {
-          "symbol": "SIGN-USDT-SWAP",
-          "score": 77.6,
-          "rvol": 1.37,
-          "price": 0.011816
-        }
-      ]
-    }
-  },
-  {
-    "id": "1789883835666_jdsm",
-    "timestamp": 1789883835666,
-    "type": "UNIVERSE_FILTERED",
-    "message": "Universe filtered: 100 liquid candidates selected from 467 total (Min 24h Volume: $10.0M USDT).",
-    "details": {
-      "totalUniverse": 467,
-      "eligibleCount": 100,
-      "maxSymbols": 100,
-      "minVolumeUSDT": 10000000,
-      "topSymbols": [
-        "ONE-USDT-SWAP",
-        "PUMP-USDT-SWAP",
-        "BOME-USDT-SWAP",
-        "AKE-USDT-SWAP",
-        "HMSTR-USDT-SWAP"
-      ]
-    }
-  },
-  {
-    "id": "1789883835620_2hus",
-    "timestamp": 1789883835620,
-    "type": "SCAN_STARTED",
-    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
-  },
-  {
-    "id": "1789883822230_pykb",
-    "timestamp": 1789883822230,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #3 Selected: MAGIC-USDT-SWAP (Momentum Score: 87.7/100, RVOL: 9.62x, 24h Vol: $65.6M)",
-    "details": {
-      "symbol": "MAGIC-USDT-SWAP",
-      "rank": 3,
-      "score": 87.7,
-      "rvol": 9.62,
-      "atrExpansion": 3.61,
-      "price": 0.04748,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883822230_ak9o",
-    "timestamp": 1789883822230,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883822229_1qyp",
-    "timestamp": 1789883822229,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883822228_ivjx",
-    "timestamp": 1789883822228,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 99.9/100, Rank #2)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "side": "BUY",
-      "score": 99.9,
-      "profile": "MOMENTUM",
-      "rank": 2
-    }
-  },
-  {
-    "id": "1789883822228_prlu",
-    "timestamp": 1789883822228,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #2 Selected: S-USDT-SWAP (Momentum Score: 99.9/100, RVOL: 5.1x, 24h Vol: $69.5M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 2,
-      "score": 99.9,
-      "rvol": 5.1,
-      "atrExpansion": 3.43,
-      "price": 0.03519,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1789883822227_y0dn",
-    "timestamp": 1789883822227,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883822226_xdto",
-    "timestamp": 1789883822226,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate DOOD-USDT-SWAP rejected by Risk Engine: Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry.",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "reason": "Insufficient Free Balance ($1.42 available). Margin locked: $196.63 across 14 position(s). Minimum 5 USDT required for new entry."
-    }
-  },
-  {
-    "id": "1789883822225_qg2b",
-    "timestamp": 1789883822225,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate DOOD-USDT-SWAP (Score: 100.0/100, Rank #1)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "side": "BUY",
-      "score": 100,
-      "profile": "MOMENTUM",
-      "rank": 1
-    }
-  },
-  {
-    "id": "1789883822225_hynq",
-    "timestamp": 1789883822225,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #1 Selected: DOOD-USDT-SWAP (Momentum Score: 100/100, RVOL: 10x, 24h Vol: $605.8M)",
-    "details": {
-      "symbol": "DOOD-USDT-SWAP",
-      "rank": 1,
-      "score": 100,
-      "rvol": 10,
-      "atrExpansion": 3.11,
-      "price": 0.001913,
-      "profile": "MOMENTUM"
+    "id": "1789902862142_yil3",
+    "timestamp": 1789902862142,
+    "type": "ORDER_ACCEPTED",
+    "message": "Close order accepted by PAPER (ID: paper_ord_1789902862141_2ia5) for CHZ-USDT-SWAP",
+    "details": {
+      "orderId": "tb5_close_1789902862103_3qji",
+      "exchangeOrderId": "paper_ord_1789902862141_2ia5"
     }
   }
 ]

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="h-full overflow-hidden bg-black">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,9 +9,30 @@
     <meta property="og:description" content="A streamlined algorithmic trading application for OKX EEA USDT SWAP Perpetuals with Dynamic Universe discovery, Market Scanner ranking, and a unified Momentum Engine pipeline (SCALP / MOMENTUM)." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Shield against opaque cross-origin script errors (e.g. from third-party widgets)
+      window.addEventListener('error', function(event) {
+        if (!event || event.message === 'Script error.' || (typeof event.message === 'string' && event.message.includes('Script error'))) {
+          if (event.preventDefault) event.preventDefault();
+          if (event.stopPropagation) event.stopPropagation();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event && event.reason && typeof event.reason === 'string' && event.reason.includes('Script error')) {
+          if (event.preventDefault) event.preventDefault();
+          return true;
+        }
+      });
+      window.onerror = function(msg) {
+        if (msg === 'Script error.' || (typeof msg === 'string' && msg.includes('Script error'))) {
+          return true;
+        }
+      };
+    </script>
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="h-full w-full overflow-hidden bg-black text-amber-500 m-0 p-0">
+    <div id="root" class="h-full w-full overflow-hidden"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -34,6 +34,8 @@ import {
   Save,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Info,
   Download,
@@ -47,7 +49,6 @@ import {
   Wifi,
   ExternalLink,
 } from 'lucide-react';
-import { EquityCurve24hChart } from './EquityCurve24hChart';
 import { TradingViewChart } from './TradingViewChart';
 
 interface BloombergTerminalProps {
@@ -106,7 +107,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
 
-  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO'>('PORT');
+  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART'>('PORT');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
 
   // OKX Gateway & Mode Switch State
@@ -147,6 +148,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [scannerSaving, setScannerSaving] = useState(false);
   const [showScannerConfig, setShowScannerConfig] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const shortcutsRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const isDraggingShortcuts = useRef(false);
+  const dragStartX = useRef(0);
+  const dragScrollLeft = useRef(0);
   const [equityProtAct, setEquityProtAct] = useState(profileConfig?.equityProtectionActivationPct ?? 0);
   const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0);
   const [riskPerTrade, setRiskPerTrade] = useState(profileConfig?.riskPerTradePct ?? 10);
@@ -290,6 +297,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setChartSymbol(symbol);
     setSymbolSearchQuery('');
     setShowSymbolDropdown(false);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setActiveScreen('CHART');
+    }
   };
 
   // Helper to export data as CSV / Excel-compatible format
@@ -507,6 +517,73 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     };
   }, [tapeItems, TAPE_SCROLL_SPEED]);
 
+  // Check whether the shortcuts bar has overflow to the left or right
+  const checkShortcutsScroll = () => {
+    const el = shortcutsRef.current;
+    if (el) {
+      const hasOverflow = el.scrollWidth > el.clientWidth;
+      setCanScrollLeft(hasOverflow && el.scrollLeft > 6);
+      setCanScrollRight(hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 6);
+    }
+  };
+
+  useEffect(() => {
+    checkShortcutsScroll();
+    const el = shortcutsRef.current;
+    if (!el) return;
+
+    const onScroll = () => checkShortcutsScroll();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', checkShortcutsScroll);
+
+    const t1 = setTimeout(checkShortcutsScroll, 100);
+    const t2 = setTimeout(checkShortcutsScroll, 500);
+
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', checkShortcutsScroll);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [activeScreen, status?.positions?.length, lang, activeProfile]);
+
+  const scrollShortcuts = (direction: 'left' | 'right') => {
+    if (shortcutsRef.current) {
+      const delta = direction === 'left' ? -220 : 220;
+      shortcutsRef.current.scrollBy({ left: delta, behavior: 'smooth' });
+    }
+  };
+
+  const handleShortcutsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (shortcutsRef.current) {
+      if (e.deltaY !== 0) {
+        shortcutsRef.current.scrollLeft += e.deltaY;
+        checkShortcutsScroll();
+      }
+    }
+  };
+
+  const handleShortcutsMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!shortcutsRef.current) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    isDraggingShortcuts.current = true;
+    dragStartX.current = e.pageX - shortcutsRef.current.offsetLeft;
+    dragScrollLeft.current = shortcutsRef.current.scrollLeft;
+  };
+
+  const handleShortcutsMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingShortcuts.current || !shortcutsRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - shortcutsRef.current.offsetLeft;
+    const walk = (x - dragStartX.current) * 1.5;
+    shortcutsRef.current.scrollLeft = dragScrollLeft.current - walk;
+    checkShortcutsScroll();
+  };
+
+  const handleShortcutsMouseUp = () => {
+    isDraggingShortcuts.current = false;
+  };
+
   // Generate real-time tape stream items sorted descending by 24h price increase percentage
   useEffect(() => {
     const items: TapeItem[] = [];
@@ -715,13 +792,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const isBearishSentiment = (status?.marketSentiment?.includes('BEARISH') || sentimentScore <= -currentSentimentThreshold);
 
   return (
-    <div className="min-h-screen bg-black text-amber-500 font-mono flex flex-col overflow-x-hidden">
+    <div className="h-screen w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden select-none">
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
-      <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0">
+      <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
         {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
-        <header className="bg-amber-600 text-black px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 md:gap-0">
-        <div className="flex items-center justify-between md:justify-start w-full md:w-auto space-x-2 md:space-x-3">
-          <span className="bg-black text-amber-500 px-3 py-1 rounded text-base tracking-widest font-black border border-amber-500/50">
+        <header className="bg-amber-600 text-black px-2 sm:px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-1.5 md:gap-0 w-full max-w-full min-w-0">
+        <div className="flex items-center justify-between md:justify-start w-full md:w-auto space-x-1.5 sm:space-x-3">
+          <span className="bg-black text-amber-500 px-2 sm:px-3 py-0.5 sm:py-1 rounded text-xs sm:text-base tracking-widest font-black border border-amber-500/50 shrink-0">
             <span className="hidden sm:inline">BLOOMBERG // TRADEBOT v5.0 PRO</span>
             <span className="sm:hidden">BBG // TRADEBOT</span>
           </span>
@@ -730,7 +807,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           {/* INTERACTIVE MODE SWITCHER BADGE */}
           <button
             onClick={() => setShowOKXModal(true)}
-            className={`px-2 py-0.5 rounded text-xs font-bold border flex items-center space-x-1.5 transition-all shadow-sm ${
+            className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold border flex items-center space-x-1 sm:space-x-1.5 transition-all shadow-sm shrink-0 ${
               status?.executionMode === 'LIVE'
                 ? 'bg-rose-950/90 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
                 : status?.executionMode === 'TESTNET'
@@ -740,7 +817,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             title="Comută modul de execuție (PAPER / TESTNET / LIVE) sau configurează cheile OKX"
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full ${
                 status?.executionMode === 'LIVE'
                   ? 'bg-rose-400 animate-ping'
                   : status?.executionMode === 'TESTNET'
@@ -755,34 +832,34 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 ? 'FEED: 🟡 OKX DEMO'
                 : 'FEED: 🟢 PAPER'}
             </span>
-            <span className="text-[10px] bg-black/60 px-1 py-0.2 rounded border border-white/20 text-zinc-300">
+            <span className="text-[9px] sm:text-[10px] bg-black/60 px-1 py-0.2 rounded border border-white/20 text-zinc-300">
               MOD ▾
             </span>
           </button>
           <span className="hidden md:inline">|</span>
-          <span className="font-mono text-[10px] bg-black text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/50">{status?.marketRegime || 'BTC: --'}</span>
+          <span className="font-mono text-[9px] sm:text-[10px] bg-black text-amber-400 px-1 sm:px-1.5 py-0.5 rounded border border-amber-500/50 shrink-0">{status?.marketRegime || 'BTC: --'}</span>
           <button
             onClick={() => {
               onResetPaper();
             }}
-            className="md:hidden bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[10px]"
+            className="md:hidden bg-zinc-900 text-amber-400 hover:bg-black px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[9px] shrink-0"
           >
-            <span>RESET BAL</span>
+            <span>RESET</span>
           </button>
         </div>
-        <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-2 md:space-x-4">
-          <div className="flex items-center space-x-2 shrink-0">
-            <span className="bg-black/90 text-emerald-400 px-2 py-0.5 rounded text-base font-mono">
+        <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-1.5 sm:space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
+            <span className="bg-black/90 text-emerald-400 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono">
               EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
             </span>
-            <span className={`px-2 py-0.5 rounded text-base font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
             </span>
           </div>
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
             <button
               onClick={() => setShowOKXModal(true)}
-              className="bg-black text-amber-400 hover:bg-zinc-900 px-2 py-0.5 rounded border border-amber-500/50 flex items-center space-x-1 text-xs font-bold shadow-sm"
+              className="bg-black text-amber-400 hover:bg-zinc-900 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/50 flex items-center space-x-1 text-[10px] sm:text-xs font-bold shadow-sm"
               title="Configurează Conexiunea OKX & Modul de Execuție"
             >
               <Key className="w-3 h-3 text-amber-400" />
@@ -791,7 +868,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
             <button
               onClick={() => setShowTokenModal(true)}
-              className="bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-xs"
+              className="bg-zinc-900 text-amber-400 hover:bg-black px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[10px] sm:text-xs"
               title="Set Bot Control Token"
             >
               <span>AUTH</span>
@@ -806,7 +883,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
             <button
               onClick={onRefresh}
-              className="bg-black text-amber-500 hover:bg-zinc-900 px-2 py-0.5 rounded flex items-center space-x-1 text-[11px]"
+              className="bg-black text-amber-500 hover:bg-zinc-900 px-1.5 sm:px-2 py-0.5 rounded flex items-center space-x-1 text-[10px] sm:text-[11px]"
             >
               <RefreshCw className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
               <span className="hidden sm:inline">SYNC</span>
@@ -816,7 +893,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       </header>
 
       {/* 2. REAL-TIME TICKER TAPE (AUTO-SCROLLING 24H % DESC) */}
-      <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative">
+      <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative w-full max-w-full min-w-0">
         {/* Antet fix pe stânga */}
         <div className="flex items-center space-x-1.5 text-amber-400 font-bold shrink-0 z-20 bg-zinc-950 pr-3 border-r border-amber-500/30 shadow-[4px_0_10px_rgba(0,0,0,0.9)]">
           <Activity className="w-3.5 h-3.5 animate-pulse text-amber-500" />
@@ -845,158 +922,206 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       </div>
 
-      {/* 3. FUNCTION KEY SHORTCUTS BAR (SCROLLABLE IN PHONE VIEW) */}
-      <div className="bg-zinc-900 border-b border-amber-500/30 px-3 py-1.5 flex items-center justify-between text-xs shrink-0 overflow-x-auto whitespace-nowrap gap-4">
-        <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
+      {/* 3. FUNCTION KEY SHORTCUTS BAR (SCROLLABLE & DRAGGABLE IN COMPACT/MOBILE VIEW) */}
+      <div className="relative w-full max-w-full min-w-0 bg-zinc-900 border-b border-amber-500/30 flex items-center group select-none">
+        {/* Left Scroll Chevron (shows when scrolled right) */}
+        {canScrollLeft && (
           <button
-            onClick={() => setActiveScreen('PORT')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'PORT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
+            type="button"
+            onClick={() => scrollShortcuts('left')}
+            className="absolute left-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-r border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            title="Derulează spre stânga"
           >
-            <span>[1:PORT]</span>
-            <span className="hidden sm:inline">Portfolio &amp; Risk</span>
+            <ChevronLeft className="w-4 h-4" />
           </button>
+        )}
 
-          <button
-            onClick={() => setActiveScreen('POS')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'POS' || activeScreen === 'TAPE' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
-          >
-            <span>[2:POS]</span>
-            <span className="hidden sm:inline">Open Positions ({positions.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveScreen('SCAN')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'SCAN' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
-          >
-            <span>[3:SCAN]</span>
-            <span className="hidden sm:inline">Universe Scanner</span>
-          </button>
-
-          <button
-            onClick={() => setActiveScreen('BLOT')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'BLOT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
-          >
-            <span>[4:BLOT]</span>
-            <span className="hidden sm:inline">Orders &amp; Audit</span>
-          </button>
-
-          <button
-            onClick={() => setActiveScreen('SET')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'SET' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
-          >
-            <span>[5:SET]</span>
-            <span className="hidden sm:inline">Parameters</span>
-          </button>
-
-          <button
-            onClick={() => setActiveScreen('INFO')}
-            className={`px-3 py-1 rounded font-bold text-xs transition-colors flex items-center space-x-1.5 shrink-0 ${
-              activeScreen === 'INFO' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
-            }`}
-          >
-            <span>[6:INFO]</span>
-            <span className="hidden sm:inline">{lang === 'EN' ? 'App Info & Build' : 'Info & Executabil'}</span>
-          </button>
-
-          {/* Language Switcher Switch (EN / RO) */}
-          <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0 ml-2">
+        {/* Scrollable Container with MouseWheel, Touch, Mouse Drag, and Styled Scrollbar */}
+        <div
+          ref={shortcutsRef}
+          onWheel={handleShortcutsWheel}
+          onMouseDown={handleShortcutsMouseDown}
+          onMouseMove={handleShortcutsMouseMove}
+          onMouseUp={handleShortcutsMouseUp}
+          onMouseLeave={handleShortcutsMouseUp}
+          className="w-full max-w-full min-w-0 overflow-x-auto terminal-scrollbar-x py-1 px-2 sm:px-3 flex items-center justify-between text-xs whitespace-nowrap gap-2 sm:gap-4 cursor-grab active:cursor-grabbing"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
             <button
-              onClick={() => setLang('EN')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                lang === 'EN' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+              onClick={() => setActiveScreen('PORT')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'PORT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
               }`}
             >
-              EN
+              <span>[1:PORT]</span>
+              <span className="hidden sm:inline">Portfolio &amp; Risk</span>
             </button>
+
             <button
-              onClick={() => setLang('RO')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                lang === 'RO' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+              onClick={() => setActiveScreen('POS')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'POS' || activeScreen === 'TAPE' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
               }`}
             >
-              RO
+              <span>[2:POS]</span>
+              <span className="hidden sm:inline">Open Positions ({positions.length})</span>
             </button>
+
+            <button
+              onClick={() => setActiveScreen('SCAN')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'SCAN' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+            >
+              <span>[3:SCAN]</span>
+              <span className="hidden sm:inline">Universe Scanner</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('BLOT')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'BLOT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+            >
+              <span>[4:BLOT]</span>
+              <span className="hidden sm:inline">Orders &amp; Audit</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('SET')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'SET' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+            >
+              <span>[5:SET]</span>
+              <span className="hidden sm:inline">Parameters</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('INFO')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'INFO' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+            >
+              <span>[6:INFO]</span>
+              <span className="hidden sm:inline">{lang === 'EN' ? 'App Info & Build' : 'Info & Executabil'}</span>
+            </button>
+
+            {/* MOBILE ONLY: CHART BUTTON */}
+            <button
+              onClick={() => setActiveScreen('CHART')}
+              className={`lg:hidden px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'CHART' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+              title="Afișează graficul TradingView pe ecran complet"
+            >
+              <span>[7:CHART]</span>
+              <span className="hidden sm:inline">TradingView</span>
+            </button>
+
+            {/* Language Switcher Switch (EN / RO) */}
+            <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0 ml-1 sm:ml-2">
+              <button
+                onClick={() => setLang('EN')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                  lang === 'EN' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLang('RO')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                  lang === 'RO' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+                }`}
+              >
+                RO
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center space-x-2 shrink-0">
-          {/* Profile Switcher */}
-          <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0">
-            <button
-              onClick={() => onSwitchProfile('SCALP')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                activeProfile === 'SCALP' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-              }`}
-            >
-              SCALP
-            </button>
-            <button
-              onClick={() => onSwitchProfile('MOMENTUM')}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-              }`}
-            >
-              MOMENTUM
-            </button>
-          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            {/* Profile Switcher */}
+            <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0">
+              <button
+                onClick={() => onSwitchProfile('SCALP')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                  activeProfile === 'SCALP' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+                }`}
+              >
+                SCALP
+              </button>
+              <button
+                onClick={() => onSwitchProfile('MOMENTUM')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                  activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
+                }`}
+              >
+                MOMENTUM
+              </button>
+            </div>
 
-          {/* Telegram Status & Quick Action */}
-          <button
-            onClick={async () => {
-              setTelegramTesting(true);
-              try {
-                const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
-                const res = await fetch('/api/bot/telegram/test', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
-                  body: JSON.stringify({ type: 'hourly' }),
-                });
-                const data = await res.json();
-                if (data.success) {
-                  setTelegramStatusMsg('Raport orar expediat cu succes pe Telegram!');
-                } else {
-                  setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verificați cheile BOT_TOKEN/CHAT_ID'));
+            {/* Telegram Status & Quick Action */}
+            <button
+              onClick={async () => {
+                setTelegramTesting(true);
+                try {
+                  const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                  const res = await fetch('/api/bot/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+                    body: JSON.stringify({ type: 'hourly' }),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setTelegramStatusMsg('Raport orar expediat cu succes pe Telegram!');
+                  } else {
+                    setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verificați cheile BOT_TOKEN/CHAT_ID'));
+                  }
+                } catch (e: any) {
+                  setTelegramStatusMsg('Eroare conexiune server API');
+                } finally {
+                  setTelegramTesting(false);
+                  setTimeout(() => setTelegramStatusMsg(null), 4000);
                 }
-              } catch (e: any) {
-                setTelegramStatusMsg('Eroare conexiune server API');
-              } finally {
-                setTelegramTesting(false);
-                setTimeout(() => setTelegramStatusMsg(null), 4000);
-              }
-            }}
-            disabled={telegramTesting}
-            className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors flex items-center space-x-1 shrink-0 ${
-              status?.telegramActive
-                ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
-            }`}
-            title="Apasă pentru a trimite un raport orar de test pe Telegram"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>{telegramTesting ? 'TRIMIT...' : status?.telegramActive ? 'TG: ACTIV' : 'TG: STANDBY'}</span>
-          </button>
+              }}
+              disabled={telegramTesting}
+              className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors flex items-center space-x-1 shrink-0 ${
+                status?.telegramActive
+                  ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
+                  : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
+              }`}
+              title="Apasă pentru a trimite un raport orar de test pe Telegram"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{telegramTesting ? 'TRIMIT...' : status?.telegramActive ? 'TG: ACTIV' : 'TG: STANDBY'}</span>
+            </button>
 
-          {/* Kill Switch */}
-          <button
-            onClick={onToggleKillSwitch}
-            className={`px-3 py-1 rounded font-bold text-xs border transition-colors flex items-center space-x-1 shrink-0 ${
-              isKillSwitch ? 'bg-rose-600 text-white border-rose-400 animate-pulse' : 'bg-zinc-950 text-rose-500 border-rose-500/50 hover:bg-rose-950/40'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>{isKillSwitch ? 'KILL SWITCH ENGAGED' : 'KILL SWITCH'}</span>
-          </button>
+            {/* Kill Switch */}
+            <button
+              onClick={onToggleKillSwitch}
+              className={`px-3 py-1 rounded font-bold text-xs border transition-colors flex items-center space-x-1 shrink-0 ${
+                isKillSwitch ? 'bg-rose-600 text-white border-rose-400 animate-pulse' : 'bg-zinc-950 text-rose-500 border-rose-500/50 hover:bg-rose-950/40'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{isKillSwitch ? 'KILL SWITCH ENGAGED' : 'KILL SWITCH'}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Right Scroll Chevron (shows when more content to the right) */}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollShortcuts('right')}
+            className="absolute right-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-l border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            title="Derulează spre dreapta"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* TELEGRAM STATUS MESSAGE BANNER */}
@@ -1044,12 +1169,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       )}
       </div>
 
-      {/* 4. MAIN TERMINAL WORKSPACE GRID */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 p-2 bg-black overflow-y-auto">
-        {/* LEFT / CENTER MODULE CONTENT (6 Cols on LG) */}
-        <div className="lg:col-span-6 flex flex-col space-y-2">
-          {activeScreen === 'PORT' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col flex-1 min-h-[300px]">
+      {/* 4. MAIN TERMINAL WORKSPACE (100% NO SCROLL IN FULLSCREEN) */}
+      <main className="flex-1 min-h-0 p-2 bg-black flex flex-col gap-2 overflow-hidden">
+        {/* UPPER ROW: LEFT ACTIVE SCREEN + RIGHT TRADINGVIEW CHART */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
+          {/* LEFT / CENTER MODULE CONTENT (12 Cols on Mobile, 6 Cols on LG) */}
+          <div className={`${activeScreen === 'CHART' ? 'hidden lg:flex' : 'col-span-12 flex'} lg:col-span-6 flex-col min-h-0 overflow-y-auto pr-0.5 space-y-2`}>
+            {activeScreen === 'PORT' && (
+              <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col min-h-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                 <div className="flex items-center space-x-2">
                   <Terminal className="w-4 h-4 text-amber-500" />
@@ -1068,9 +1195,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
 
               {/* TRADEBOT 4 ACCOUNTING METRICS (DYNAMIC LANG) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
                 {/* 1. FREE BALANCE */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
                   <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
                     {lang === 'EN' ? 'FREE BALANCE' : 'SOLD DISPONIBIL'}
                   </div>
@@ -1080,7 +1207,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 2. MARGIN (INVESTED) */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
                   <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
                     {lang === 'EN' ? 'MARGIN (INVESTED)' : 'MARJĂ INVESTITĂ'}
                   </div>
@@ -1090,7 +1217,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 3. TOTAL EQUITY */}
-                <div className="bg-black border border-emerald-500/50 p-2 sm:p-3 rounded shadow-[0_0_12px_rgba(16,185,129,0.12)]">
+                <div className="bg-black border border-emerald-500/50 p-2 sm:p-2.5 rounded shadow-[0_0_12px_rgba(16,185,129,0.12)]">
                   <div className="text-emerald-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
                     {lang === 'EN' ? 'TOTAL EQUITY' : 'VALOARE TOTALĂ (EQUITY)'}
                   </div>
@@ -1100,7 +1227,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 4. UNREALIZED PNL */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
                   <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
                     {lang === 'EN' ? 'UNREALIZED PNL' : 'PNL NEREALIZAT'}
                   </div>
@@ -1113,7 +1240,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 5. TOTAL PROFIT */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-3 rounded">
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
                   <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
                     {lang === 'EN' ? 'TOTAL PROFIT' : 'PROFIT TOTAL'}
                   </div>
@@ -1126,7 +1253,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 6. ACTIVE POSITIONS & OKX SENTIMENT */}
-                <div className={`border p-2 sm:p-3 rounded flex flex-col justify-between transition-all ${
+                <div className={`border p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all ${
                   isSentimentCrossed
                     ? isBullishSentiment
                       ? 'bg-emerald-950/25 border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
@@ -1175,15 +1302,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
 
               {/* ADVANCED STATS SUB-GRID */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4 bg-black border border-amber-500/20 p-3 rounded text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 mb-2 bg-black border border-amber-500/20 p-2 rounded text-xs">
                 <div>
-                  <div className="text-slate-500 text-[10px]">SESSION REALIZED</div>
+                  <div className="text-slate-400 text-[10px]">SESSION REALIZED</div>
                   <div className={`font-bold ${(status?.sessionRealizedPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {(status?.sessionRealizedPnL || 0) >= 0 ? '+' : ''}${(status?.sessionRealizedPnL || 0).toFixed(2)}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">WIN RATE</div>
+                  <div className="text-slate-400 text-[10px]">WIN RATE</div>
                   <div className="font-bold text-amber-400">
                     {status?.performanceMetrics?.winRate !== undefined 
                       ? `${status.performanceMetrics.winRate.toFixed(1)}% (${status.performanceMetrics.winningTrades || 0}W/${status.performanceMetrics.losingTrades || 0}L)` 
@@ -1191,7 +1318,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">PROFIT FACTOR</div>
+                  <div className="text-slate-400 text-[10px]">PROFIT FACTOR</div>
                   <div className="font-bold text-amber-400">
                     {status?.performanceMetrics?.profitFactor !== undefined 
                       ? `${status.performanceMetrics.profitFactor.toFixed(2)} ($${status.performanceMetrics.avgWin?.toFixed(0) || 0}/$${status.performanceMetrics.avgLoss?.toFixed(0) || 0})` 
@@ -1199,25 +1326,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">EXPECTANCY</div>
+                  <div className="text-slate-400 text-[10px]">EXPECTANCY</div>
                   <div className={`font-bold ${(status?.performanceMetrics?.expectancy || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {(status?.performanceMetrics?.expectancy || 0) >= 0 ? '+' : ''}${status?.performanceMetrics?.expectancy !== undefined ? status.performanceMetrics.expectancy.toFixed(2) : '0.00'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">MAX DRAWDOWN</div>
+                  <div className="text-slate-400 text-[10px]">MAX DRAWDOWN</div>
                   <div className="font-bold text-rose-400">
                     -{status?.performanceMetrics?.maxDrawdownPct !== undefined ? status.performanceMetrics.maxDrawdownPct.toFixed(2) : '0.00'}%
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">TOTAL FEES (FEE)</div>
+                  <div className="text-slate-400 text-[10px]">TOTAL FEES (FEE)</div>
                   <div className="font-bold text-rose-400">
                     -${status?.performanceMetrics?.totalFeesPaid?.toFixed(2) || '0.00'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-[10px]">CLOSED TRADES</div>
+                  <div className="text-slate-400 text-[10px]">CLOSED TRADES</div>
                   <div className="font-bold text-amber-300">
                     {status?.performanceMetrics?.totalClosed || 0}
                   </div>
@@ -1226,10 +1353,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
               {/* EQUITY TRAILING PROTECTION CARD */}
               {status?.equityTrailingState && (
-                <div className="bg-black border border-amber-500/20 rounded p-3 mb-2.5">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
-                    <h3 className="font-bold text-amber-500 uppercase tracking-wider text-sm flex items-center gap-2">
+                <div className="bg-black border border-amber-500/20 rounded p-2.5 mb-2">
+                  <div className="flex items-center space-x-2 mb-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+                    <h3 className="font-bold text-amber-500 uppercase tracking-wider text-xs flex items-center gap-2">
                       EQUITY TRAILING PROTECTION
                       {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0 ? (
                         <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px]">
@@ -1247,7 +1374,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </h3>
                   </div>
                   
-                  <p className="text-xs text-slate-400 mb-3">
+                  <p className="text-xs text-slate-400 mb-2">
                     {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0
                       ? 'Protecția de capital este DEZACTIVATĂ (setată la 0%). Pozițiile sunt controlate exclusiv de Stop-Loss, Trailing Stop și Take-Profit individuale.'
                       : status.equityTrailingState.isActive 
@@ -1257,19 +1384,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                     <div>
-                      <div className="text-zinc-500 tracking-wider mb-1">PRAG ACTIVARE</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">PRAG ACTIVARE</div>
                       <div className="font-bold text-emerald-400">
                         ${status.equityTrailingState.activationPrice.toFixed(2)} <span className="text-[10px]">(+{status.equityTrailingState.activationPct.toFixed(2)}%)</span>
                       </div>
                     </div>
                     <div>
-                      <div className="text-zinc-500 tracking-wider mb-1">HIGH-WATER MARK (PEAK)</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">HIGH-WATER MARK (PEAK)</div>
                       <div className="font-bold text-amber-100">
                         ${status.equityTrailingState.peakEquity.toFixed(2)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-zinc-500 tracking-wider mb-1">PRAG VÂNZARE</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">PRAG VÂNZARE</div>
                       <div className="font-bold text-zinc-300">
                         {status.equityTrailingState.sellThreshold 
                           ? `$${status.equityTrailingState.sellThreshold.toFixed(2)}`
@@ -1277,7 +1404,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </div>
                     </div>
                     <div>
-                      <div className="text-zinc-500 tracking-wider mb-1">RETRAGERE CURENTĂ</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">RETRAGERE CURENTĂ</div>
                       <div className="font-bold text-emerald-400">
                         {status.equityTrailingState.currentDrawdownPct.toFixed(2)}%
                       </div>
@@ -1419,84 +1546,100 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
 
           {activeScreen === 'INFO' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-4 sm:p-6 flex flex-col h-full min-h-[520px] font-mono text-zinc-300 space-y-6">
-              <div className="flex items-center space-x-2 border-b border-amber-500/30 pb-3">
-                <Info className="w-5 h-5 text-amber-500" />
-                <h2 className="text-base font-bold text-amber-400 tracking-wider">
-                  {lang === 'EN' ? 'DESK INFORMATION & ELECTRON BUILD GUIDE' : 'INFORMAȚII DESK & GHID BUILD EXECUTABIL ELECTRON'}
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 sm:p-4 flex flex-col flex-1 min-h-0 font-mono text-zinc-300 space-y-4">
+              <div className="flex items-center space-x-2 border-b border-amber-500/30 pb-2">
+                <Info className="w-4 h-4 text-amber-500" />
+                <h2 className="text-sm sm:text-base font-bold text-amber-400 tracking-wider">
+                  {lang === 'EN' ? 'DESK INFORMATION & PRODUCTION DEPLOYMENT GUIDE' : 'INFORMAȚII DESK & GHID LANSARE ÎN PRODUCȚIE'}
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
-                {/* Left Column: Local Execution */}
-                <div className="bg-black border border-zinc-800 p-4 rounded space-y-3">
-                  <h3 className="font-bold text-amber-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs leading-relaxed">
+                {/* 1: Local Execution */}
+                <div className="bg-black border border-zinc-800 p-3 rounded space-y-2">
+                  <h3 className="font-bold text-amber-400 text-xs border-b border-zinc-800 pb-1.5 flex items-center space-x-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    <span>{lang === 'EN' ? '1. Running Locally' : '1. Rulare Locală'}</span>
+                    <span>{lang === 'EN' ? '1. Local Execution' : '1. Rulare Locală'}</span>
                   </h3>
-                  <p className="text-zinc-400">
+                  <p className="text-zinc-400 text-[11px]">
                     {lang === 'EN' 
-                      ? 'To run the entire Bloomberg TradeBot stack locally on your machine with full API integration:'
-                      : 'Pentru a rula întreaga aplicație Bloomberg TradeBot local pe calculatorul tău cu integrare API completă:'}
+                      ? 'To run the Bloomberg TradeBot stack locally on your machine:'
+                      : 'Pentru a rula aplicația local pe calculatorul tău:'}
                   </p>
-                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-amber-300 font-mono text-[11px] space-y-1">
-                    <div># 1. Install dependencies</div>
+                  <div className="bg-zinc-900 p-2 rounded border border-zinc-800 text-amber-300 font-mono text-[10px] space-y-0.5">
+                    <div># 1. Dependențe</div>
                     <div className="text-white">npm install</div>
-                    <div className="pt-1"># 2. Start development server</div>
+                    <div className="pt-0.5"># 2. Pornire server dev</div>
                     <div className="text-white">npm run dev</div>
                   </div>
                 </div>
 
-                {/* Right Column: Oracle Cloud (Ubuntu) Installation */}
-                <div className="bg-black border border-zinc-800 p-4 rounded space-y-3">
-                  <h3 className="font-bold text-emerald-400 text-sm border-b border-zinc-800 pb-2 flex items-center space-x-2">
+                {/* 2: Oracle Cloud (Ubuntu) Installation */}
+                <div className="bg-black border border-zinc-800 p-3 rounded space-y-2">
+                  <h3 className="font-bold text-emerald-400 text-xs border-b border-zinc-800 pb-1.5 flex items-center space-x-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>{lang === 'EN' ? '2. Oracle Cloud (Ubuntu) Setup' : '2. Configurare Oracle Cloud (Ubuntu)'}</span>
+                    <span>{lang === 'EN' ? '2. Oracle Cloud (PM2)' : '2. Oracle Cloud (PM2)'}</span>
                   </h3>
-                  <p className="text-zinc-400">
+                  <p className="text-zinc-400 text-[11px]">
                     {lang === 'EN' 
-                      ? 'To deploy the application on an Oracle Cloud Ubuntu instance:'
-                      : 'Pentru a instala aplicația pe un server Oracle Cloud (Ubuntu):'}
+                      ? 'Deploy on an Ubuntu Cloud instance with 24/7 background execution:'
+                      : 'Instalare pe server Ubuntu cu rulare continuă 24/7 prin PM2:'}
                   </p>
-                  <div className="bg-zinc-900 p-2.5 rounded border border-zinc-800 text-emerald-300 font-mono text-[11px] space-y-1">
-                    <div># 1. Update & Node.js</div>
-                    <div className="text-white">sudo apt update && sudo apt install -y curl pm2</div>
-                    <div className="text-white">curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash</div>
-                    <div className="text-white">nvm install --lts</div>
-                    <div className="pt-1"># 2. Run with PM2</div>
-                    <div className="text-white">git clone &lt;repo&gt; && cd &lt;repo&gt;</div>
-                    <div className="text-white">npm install && npm run build</div>
+                  <div className="bg-zinc-900 p-2 rounded border border-zinc-800 text-emerald-300 font-mono text-[10px] space-y-0.5">
+                    <div># 1. Build producție</div>
+                    <div className="text-white">npm run build</div>
+                    <div className="pt-0.5"># 2. Lansare PM2</div>
                     <div className="text-white">pm2 start ecosystem.config.js</div>
                     <div className="text-white">pm2 save && pm2 startup</div>
                   </div>
                 </div>
+
+                {/* 3: Electron Desktop Executable */}
+                <div className="bg-black border border-zinc-800 p-3 rounded space-y-2">
+                  <h3 className="font-bold text-sky-400 text-xs border-b border-zinc-800 pb-1.5 flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                    <span>{lang === 'EN' ? '3. Electron Executable' : '3. Executabil Desktop Electron'}</span>
+                  </h3>
+                  <p className="text-zinc-400 text-[11px]">
+                    {lang === 'EN' 
+                      ? 'Compile standalone desktop application for Windows (.exe installer & portable):'
+                      : 'Compilare aplicație desktop nativă pentru Windows (.exe & portable):'}
+                  </p>
+                  <div className="bg-zinc-900 p-2 rounded border border-zinc-800 text-sky-300 font-mono text-[10px] space-y-0.5">
+                    <div># 1. Build applet bundle</div>
+                    <div className="text-white">npm run build</div>
+                    <div className="pt-0.5"># 2. Generare executabil .exe</div>
+                    <div className="text-white">npm run electron:build</div>
+                    <div className="text-zinc-400 text-[9px] pt-0.5">➔ Fisierele .exe se salvează în folderul release/</div>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-amber-950/20 border border-amber-500/30 p-3 rounded text-[11px] text-amber-300/90 flex items-start space-x-2 mt-auto">
+              <div className="bg-amber-950/20 border border-amber-500/30 p-2.5 rounded text-[11px] text-amber-300/90 flex items-start space-x-2 mt-auto">
                 <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-amber-400">Notă Bloomberg Desk:</strong> Acest terminal asigură un mediu de tranzacționare cu risc controlat, feed-uri live de la OKX și execuție automatizată în timp real. Asigurați-vă că aveți jetoanele de control configurate corect.
+                  <strong className="text-amber-400">Notă Bloomberg Desk:</strong> Aplicația este optimizată pentru rulare în producție 24/7. Modulul Electron integrează serverul automat și asigură o experiență trading fără browser, cu performanță maximă.
                 </div>
               </div>
             </div>
           )}
 
           {(activeScreen === 'POS' || activeScreen === 'TAPE') && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[480px]">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
               {/* Frozen Header for POS */}
               <div className="sticky top-0 z-10 bg-zinc-950 pb-1">
                 <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                   <div className="flex items-center space-x-2">
                     <Activity className="w-4 h-4 text-amber-500" />
-                    <span className="font-bold text-sm tracking-wider text-amber-400">
+                    <span className="font-bold text-xs sm:text-sm tracking-wider text-amber-400">
                       F2: OPEN POSITIONS &amp; ACTIVE EXPOSURE
                     </span>
-                    <span className="text-xs bg-amber-950 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-mono">
+                    <span className="text-[10px] sm:text-xs bg-amber-950 text-amber-300 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/40 font-mono">
                       {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
                     </span>
                   </div>
 
-                  <div className="flex items-center space-x-3 text-xs font-mono">
+                  <div className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-xs font-mono">
                     <span className="text-zinc-400">
                       Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
                     </span>
@@ -1536,10 +1679,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
               {/* Empty state */}
               {positions.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-16 space-y-3">
+                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-12 sm:py-16 space-y-3">
                   <Activity className="w-10 h-10 opacity-30 animate-pulse text-amber-500" />
-                  <p className="text-sm font-bold tracking-wider text-zinc-400">NU EXISTĂ POZIȚII DESCHISE ÎN ACEST MOMENT</p>
-                  <p className="text-xs text-zinc-600 max-w-md text-center">
+                  <p className="text-xs sm:text-sm font-bold tracking-wider text-zinc-400 text-center">NU EXISTĂ POZIȚII DESCHISE ÎN ACEST MOMENT</p>
+                  <p className="text-[11px] sm:text-xs text-zinc-600 max-w-md text-center">
                     Scannerul OKX monitorizează continuu piața. În momentul în care un activ atinge scorul momentum configurat (&gt;={profileConfig?.minMomentumScore ?? 60}), botul va deschide automat poziția.
                   </p>
                   <button
@@ -1551,7 +1694,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="overflow-y-auto flex-1 max-h-[580px] space-y-2 pr-1">
+                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 pr-1">
                   {positions.map((pos) => {
                     const isExpanded = !!expandedPositionIds[pos.id];
                     const isProfit = (pos.pnl || 0) >= 0;
@@ -1830,25 +1973,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
 
           {activeScreen === 'SCAN' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
-              <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-3">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
+              <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                 <div className="flex items-center space-x-2">
                   <Search className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold text-sm tracking-wider">F3: MARKET MOMENTUM SCANNER &amp; UNIVERSE</span>
+                  <span className="font-bold text-xs sm:text-sm tracking-wider">F3: MARKET MOMENTUM SCANNER &amp; UNIVERSE</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5 sm:space-x-2">
                   <button
                     onClick={() => setShowScannerConfig(!showScannerConfig)}
-                    className="bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/40 px-2 py-1 rounded text-xs font-bold flex items-center space-x-1"
+                    className="bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/40 px-2 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold flex items-center space-x-1"
                   >
                     <Sliders className="w-3.5 h-3.5" />
-                    <span>{showScannerConfig ? 'HIDE FILTERS' : 'SCANNER FILTERS'}</span>
+                    <span>{showScannerConfig ? 'HIDE FILTERS' : 'FILTERS'}</span>
                   </button>
                   <button
                     onClick={onTriggerScan}
-                    className="bg-amber-500 hover:bg-amber-400 text-black px-2 py-1 rounded text-xs font-bold"
+                    className="bg-amber-500 hover:bg-amber-400 text-black px-2 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold"
                   >
-                    RUN SCAN NOW
+                    SCAN NOW
                   </button>
                 </div>
               </div>
@@ -1919,12 +2062,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-zinc-900/80 rounded border border-amber-500/20 overflow-hidden flex flex-col">
-                  <div className="text-xs font-bold text-amber-400 p-2.5 border-b border-amber-500/30 flex items-center justify-between bg-zinc-950">
-                    <span className="tracking-wide">TOP SCANNED OPPORTUNITIES ({status?.scannerStats?.topOpportunities?.length || 0})</span>
-                    <span className="text-[10px] text-zinc-500 font-mono">OKX Universe Real-time Feed</span>
+                <div className="bg-zinc-900/80 rounded border border-amber-500/20 overflow-hidden flex flex-col flex-1 min-h-0">
+                  <div className="text-xs font-bold text-amber-400 p-2 sm:p-2.5 border-b border-amber-500/30 flex items-center justify-between bg-zinc-950">
+                    <span className="tracking-wide text-[11px] sm:text-xs">TOP SCANNED OPPORTUNITIES ({status?.scannerStats?.topOpportunities?.length || 0})</span>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">OKX Real-time</span>
                   </div>
-                  <div className="overflow-y-auto overflow-x-auto max-h-[380px] relative">
+                  <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0 relative">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="sticky top-0 z-10 bg-zinc-950 border-b border-amber-500/40 text-amber-400 shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                         <tr>
@@ -1985,25 +2128,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
 
           {activeScreen === 'BLOT' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/30 pb-2 mb-3">
                 <div className="flex items-center space-x-2">
                   <List className="w-4 h-4 text-amber-500" />
-                  <span className="font-bold text-sm tracking-wider">F4: ORDER EXECUTION BLOTTER &amp; AUDIT LOGS</span>
-                  <span className="text-xs text-slate-400 font-mono">({orders.length} Orders)</span>
+                  <span className="font-bold text-xs sm:text-sm tracking-wider">F4: ORDER EXECUTION BLOTTER &amp; AUDIT LOGS</span>
+                  <span className="text-[10px] sm:text-xs text-slate-400 font-mono">({orders.length} Orders)</span>
                 </div>
 
                 {/* Control Action Buttons: Save Log (CSV/Excel) & Clear Log */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5 sm:space-x-2">
                   <button
                     type="button"
                     onClick={handleExportOrders}
                     disabled={orders.length === 0}
-                    className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                     title="Exportă istoricul ordinelor în format CSV / Excel"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>SAVE LOG (EXCEL/CSV)</span>
+                    <Download className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                    <span>SAVE LOG</span>
                   </button>
 
                   {!showClearOrdersConfirm ? (
@@ -2011,10 +2154,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       type="button"
                       onClick={() => setShowClearOrdersConfirm(true)}
                       disabled={orders.length === 0}
-                      className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                      className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                       title="Șterge istoricul ordinelor curente"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                       <span>CLEAR LOG</span>
                     </button>
                   ) : (
@@ -2043,7 +2186,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
 
               {/* Scrollable Blotter Table with Frozen Sticky Header */}
-              <div className="overflow-y-auto overflow-x-auto flex-1 max-h-[580px] border border-zinc-800 rounded relative">
+              <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0 border border-zinc-800 rounded relative">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-20 bg-zinc-950 shadow-[0_2px_4px_rgba(0,0,0,0.8)] border-b border-amber-500/40">
                     <tr className="text-amber-400 font-bold">
@@ -2277,7 +2420,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
 
           {activeScreen === 'SET' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px]">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
                 <div className="flex items-center space-x-2">
                   <Sliders className="w-4 h-4 text-amber-500" />
@@ -2952,7 +3095,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
 
           {activeScreen === 'INFO' && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[450px] space-y-4">
+            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 gap-2">
                 <div className="flex items-center space-x-2">
                   <Info className="w-4 h-4 text-amber-500" />
@@ -3161,37 +3304,26 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           )}
         </div>
 
-        {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG) */}
-        <div className="flex lg:col-span-6 flex-col space-y-2">
-          <TradingViewChart
-            currentSymbol={chartSymbol}
-            onSymbolChange={(sym) => setChartSymbol(sym)}
-            availableSymbols={allUniverseSymbols}
-            lang={lang}
-          />
+          {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG, Hidden on Mobile unless CHART selected) */}
+          <div className={`${activeScreen === 'CHART' ? 'col-span-12 flex' : 'hidden'} lg:flex lg:col-span-6 flex-col min-h-0`}>
+            <TradingViewChart
+              currentSymbol={chartSymbol}
+              onSymbolChange={(sym) => setChartSymbol(sym)}
+              availableSymbols={allUniverseSymbols}
+              lang={lang}
+            />
+          </div>
         </div>
 
-        {/* FULL WIDTH 24H EQUITY CURVE CHART (12 Cols on LG) */}
-        <div className="col-span-1 lg:col-span-12">
-          <EquityCurve24hChart
-            equityHistory={status?.equityHistory}
-            currentEquity={currentEquity}
-            peakEquity={status?.equityTrailingState?.peakEquity}
-            baseEquity={200.0}
-            equityTrailingState={status?.equityTrailingState}
-            lang={lang}
-          />
-        </div>
-
-        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (12 Cols on LG - WIDENED ACROSS FULL SCREEN) */}
-        <div className="lg:col-span-12">
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col">
-            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-2 mb-2">
+        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (ADAPTIVE HEIGHT, FULL SCREEN FIT WITH ZERO PAGE SCROLL) */}
+        <div className="h-36 sm:h-44 lg:h-52 shrink-0 flex flex-col min-h-0">
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col h-full min-h-0 shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-1.5 mb-1.5 shrink-0">
               <div className="flex items-center space-x-2">
                 <Terminal className="w-4 h-4 text-amber-500" />
                 <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
                 <span className="text-[10px] text-slate-400 font-mono">({logs.length} evenimente)</span>
-                <span className="text-[10px] text-zinc-500 hidden sm:inline">— Feed derulabil în timp real (5 vizibile)</span>
+                <span className="text-[10px] text-zinc-500 hidden sm:inline">— Feed de audit în timp real</span>
               </div>
 
               <div className="flex items-center space-x-1.5">
@@ -3242,8 +3374,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
             </div>
 
-            {/* Scrollable event list sized for 5 events */}
-            <div className="overflow-y-auto max-h-[195px] space-y-1 font-mono text-[11px] pr-1">
+            {/* Scrollable event list adapted to fill available height cleanly */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 font-mono text-[11px] pr-1">
               {logs.length === 0 ? (
                 <div className="p-4 text-center text-zinc-600 text-xs">
                   Niciun eveniment de audit înregistrat încă.

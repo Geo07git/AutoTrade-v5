@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Search, RefreshCw, Maximize2, ExternalLink, TrendingUp, AlertCircle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Search, RefreshCw, ExternalLink, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface TradingViewChartProps {
   currentSymbol: string;
@@ -14,7 +14,6 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   availableSymbols = [],
   lang = 'RO',
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [interval, setInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('15');
@@ -49,32 +48,12 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     setChartKey((k) => k + 1);
   };
 
-  // Mount TradingView Widget
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Clear previous widget completely
-    container.innerHTML = '';
-
-    // Create the outer and inner widget container required by TradingView Advanced Chart script
-    const widgetInner = document.createElement('div');
-    widgetInner.className = 'tradingview-widget-container__widget';
-    widgetInner.style.height = '100%';
-    widgetInner.style.width = '100%';
-    container.appendChild(widgetInner);
-
-    // Format TradingView ticker
-    // Try OKX perpetual first: OKX:BTCUSDT.P, or if raw symbol doesn't end in USDT, append it
+  // Generate isolated HTML for the TradingView widget inside an iframe to prevent cross-origin script collisions
+  const iframeSrcDoc = useMemo(() => {
     let tvSymbol = `OKX:${cleanBase}.P`;
     if (!cleanBase.endsWith('USDT') && !cleanBase.endsWith('USD')) {
       tvSymbol = `OKX:${cleanBase}USDT.P`;
     }
-
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
-    script.type = 'text/javascript';
-    script.async = true;
 
     const config = {
       autosize: true,
@@ -94,22 +73,51 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       support_host: 'https://www.tradingview.com',
     };
 
-    script.innerHTML = JSON.stringify(config);
-    script.onerror = () => {
-      setHasError(true);
-    };
-
-    container.appendChild(script);
-
-    return () => {
-      if (container) {
-        container.innerHTML = '';
-      }
-    };
-  }, [cleanBase, interval, chartKey]);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+    }
+    .tradingview-widget-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    .tradingview-widget-container__widget {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <script>
+    // Suppress any cross-origin or script evaluation warnings inside the isolated iframe
+    window.onerror = function() { return true; };
+    window.addEventListener('error', function(e) { if (e && e.preventDefault) e.preventDefault(); return true; }, true);
+    window.addEventListener('unhandledrejection', function(e) { if (e && e.preventDefault) e.preventDefault(); return true; }, true);
+  </script>
+</head>
+<body>
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      ${JSON.stringify(config)}
+    </script>
+  </div>
+</body>
+</html>`;
+  }, [cleanBase, interval]);
 
   return (
-    <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-full min-h-[580px] font-mono shadow-2xl relative">
+    <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col h-full min-h-0 font-mono shadow-2xl relative">
       {/* 1. CHART CONTROLS & HEADER */}
       <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2.5 mb-2.5 gap-2">
         {/* Left: Active symbol & provider badge */}
@@ -235,7 +243,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       </div>
 
       {/* 3. TRADINGVIEW WIDGET CONTAINER */}
-      <div className="flex-1 w-full h-full min-h-[460px] relative rounded overflow-hidden bg-black border border-zinc-900">
+      <div className="flex-1 w-full h-full min-h-0 relative rounded overflow-hidden bg-black border border-zinc-900">
         {hasError ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-zinc-950">
             <AlertCircle className="w-8 h-8 text-rose-500" />
@@ -254,17 +262,16 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
             </button>
           </div>
         ) : (
-          <div
-            ref={containerRef}
-            id="tradingview-widget-container"
-            className="tradingview-widget-container w-full h-full"
-            style={{ height: '100%', width: '100%' }}
-          >
-            <div
-              className="tradingview-widget-container__widget"
-              style={{ height: '100%', width: '100%' }}
-            ></div>
-          </div>
+          <iframe
+            key={`${cleanBase}-${interval}-${chartKey}`}
+            id="tradingview-widget-iframe"
+            title={`TradingView Chart ${cleanBase}`}
+            srcDoc={iframeSrcDoc}
+            className="w-full h-full border-0 bg-black block"
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            loading="eager"
+            onError={() => setHasError(true)}
+          />
         )}
       </div>
 
