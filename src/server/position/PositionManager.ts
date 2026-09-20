@@ -298,11 +298,11 @@ export class PositionManager {
 
       // Break-Even Logic
       if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && pos.stopLossPrice < pos.entryPrice) {
-          pos.stopLossPrice = pos.entryPrice * 1.0005; // Move SL to entry + 0.05% buffer
+          pos.stopLossPrice = pos.entryPrice * 1.0025; // Move SL to entry + 0.25% buffer
           pos.isBreakEvenTriggered = true;
           this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
       } else if (pos.side === 'SELL' && pnlPct >= config.breakEvenActivationPct && (pos.stopLossPrice === undefined || pos.stopLossPrice > pos.entryPrice)) {
-          pos.stopLossPrice = pos.entryPrice * 0.9995;
+          pos.stopLossPrice = pos.entryPrice * 0.9975; // Move SL to entry - 0.25% buffer
           pos.isBreakEvenTriggered = true;
           this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL moved to entry.`);
       }

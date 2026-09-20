@@ -735,7 +735,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const isBearishSentiment = (status?.marketSentiment?.includes('BEARISH') || sentimentScore <= -currentSentimentThreshold);
 
   return (
-    <div className="min-h-screen bg-black text-amber-500 font-mono flex flex-col select-none overflow-x-hidden">
+    <div className="min-h-screen bg-black text-amber-500 font-mono flex flex-col overflow-x-hidden">
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0">
         {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
