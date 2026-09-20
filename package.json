@@ -22,7 +22,6 @@
     },
     "files": [
       "electron.cjs",
-      "electron.js",
       "dist/**/*",
       "server.ts",
       "package.json"
