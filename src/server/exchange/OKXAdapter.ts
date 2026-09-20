@@ -8,9 +8,9 @@ export class OKXAdapter implements IExecutionAdapter {
   private secretKey: string;
   private passphrase: string;
   private isDemo: boolean;
-  private restBaseUrl: string = 'https://eea.okx.com';
-  private wsBaseUrl: string = 'wss://wseea.okx.com:8443/ws/v5/public';
-  private wsPrivateUrl: string = 'wss://wseea.okx.com:8443/ws/v5/private';
+  private restBaseUrl: string = 'https://www.okx.com';
+  private wsBaseUrl: string = 'wss://ws.okx.com:8443/ws/v5/public';
+  private wsPrivateUrl: string = 'wss://ws.okx.com:8443/ws/v5/private';
 
   private wsPublic?: WebSocket;
   private wsPrivate?: WebSocket;

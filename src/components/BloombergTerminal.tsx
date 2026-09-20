@@ -339,10 +339,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const getOrderTradeSide = (ord: OrderRecord) => {
-    if (ord.positionSide) return ord.positionSide;
-    if (ord.intent === 'ENTRY') return ord.side;
-    return ord.side === 'BUY' ? 'SELL' : 'BUY';
+  const getOrderLabel = (ord: OrderRecord) => {
+    if (ord.intent !== 'ENTRY') return 'CLOSE';
+    return ord.side === 'BUY' ? 'LONG' : 'SHORT';
   };
 
   const handleExportOrders = () => {
@@ -1206,25 +1205,29 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 <div>
                   <div className="text-slate-500 text-[10px]">WIN RATE</div>
                   <div className="font-bold text-amber-400">
-                    {status?.performanceMetrics?.winRate !== undefined ? `${status.performanceMetrics.winRate}%` : '0.00%'}
+                    {status?.performanceMetrics?.winRate !== undefined 
+                      ? `${status.performanceMetrics.winRate.toFixed(1)}% (${status.performanceMetrics.winningTrades || 0}W/${status.performanceMetrics.losingTrades || 0}L)` 
+                      : '0.0% (0W/0L)'}
                   </div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-[10px]">PROFIT FACTOR</div>
                   <div className="font-bold text-amber-400">
-                    {status?.performanceMetrics?.profitFactor !== undefined ? status.performanceMetrics.profitFactor : '0.00'}
+                    {status?.performanceMetrics?.profitFactor !== undefined 
+                      ? `${status.performanceMetrics.profitFactor.toFixed(2)} ($${status.performanceMetrics.avgWin?.toFixed(0) || 0}/$${status.performanceMetrics.avgLoss?.toFixed(0) || 0})` 
+                      : '0.00 ($0/$0)'}
                   </div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-[10px]">EXPECTANCY</div>
                   <div className={`font-bold ${(status?.performanceMetrics?.expectancy || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {(status?.performanceMetrics?.expectancy || 0) >= 0 ? '+' : ''}${status?.performanceMetrics?.expectancy?.toFixed(2) || '0.00'}
+                    {(status?.performanceMetrics?.expectancy || 0) >= 0 ? '+' : ''}${status?.performanceMetrics?.expectancy !== undefined ? status.performanceMetrics.expectancy.toFixed(2) : '0.00'}
                   </div>
                 </div>
                 <div>
                   <div className="text-slate-500 text-[10px]">MAX DRAWDOWN</div>
                   <div className="font-bold text-rose-400">
-                    -{status?.performanceMetrics?.maxDrawdownPct?.toFixed(2) || '0.00'}%
+                    -{status?.performanceMetrics?.maxDrawdownPct !== undefined ? status.performanceMetrics.maxDrawdownPct.toFixed(2) : '0.00'}%
                   </div>
                 </div>
                 <div>
@@ -2023,8 +2026,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             <td className="py-2 px-2 text-slate-400 text-[10px]">{ord.id.substring(0, 8)}</td>
                             <td className="py-2 px-2 font-bold text-amber-300">{ord.symbol}</td>
                             <td className="py-2 px-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ord.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-                                {ord.side === 'BUY' ? 'LONG' : 'SHORT'}
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ord.intent !== 'ENTRY' ? 'bg-zinc-800 text-zinc-300' : (ord.side === 'BUY' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400')}`}>
+                                {ord.intent === 'ENTRY' ? (ord.side === 'BUY' ? 'LONG' : 'SHORT') : 'CLOSE'}
                               </span>
                             </td>
                             <td className="py-2 px-2">
@@ -2090,7 +2093,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     <div className="flex items-center space-x-2">
                                       <Info className="w-4 h-4 text-amber-400" />
                                       <span className="font-bold text-amber-400 uppercase tracking-wide">
-                                        DETALII EXECUȚIE ORDIN: {ord.symbol} ({ord.side === 'BUY' ? 'LONG' : 'SHORT'}) [{ord.id}]
+                                        DETALII EXECUȚIE ORDIN: {ord.symbol} ({ord.intent === 'ENTRY' ? (ord.side === 'BUY' ? 'LONG' : 'SHORT') : 'CLOSE'}) [{ord.id}]
                                       </span>
                                     </div>
                                     <div className="flex items-center space-x-3 text-[11px] text-zinc-400">
