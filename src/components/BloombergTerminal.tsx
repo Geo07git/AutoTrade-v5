@@ -47,6 +47,8 @@ import {
   Wifi,
   ExternalLink,
 } from 'lucide-react';
+import { EquityCurve24hChart } from './EquityCurve24hChart';
+import { TradingViewChart } from './TradingViewChart';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -288,28 +290,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setChartSymbol(symbol);
     setSymbolSearchQuery('');
     setShowSymbolDropdown(false);
-    const script = document.createElement('script');
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
-    script.async = true;
-    const cleanSym = symbol.replace(/-SWAP$/i, '').replace(/-/g, '');
-    script.innerHTML = JSON.stringify({
-      "autosize": true,
-      "symbol": `OKX:${cleanSym}.P`,
-      "interval": "D",
-      "timezone": "Etc/UTC",
-      "theme": "dark",
-      "style": "1",
-      "locale": "en",
-      "allow_symbol_change": true,
-      "calendar": false,
-      "support_host": "https://www.tradingview.com"
-    });
-    const container = document.getElementById('tradingview-widget-container');
-    if (container) {
-      container.innerHTML = '';
-      container.appendChild(script);
-    }
   };
 
   // Helper to export data as CSV / Excel-compatible format
@@ -374,7 +354,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.id,
       o.exchangeOrderId || '',
       o.symbol,
-      getOrderTradeSide(o) === 'BUY' ? 'LONG' : 'SHORT',
+      getOrderLabel(o),
       o.intent,
       o.profile,
       o.executionMode,
@@ -1246,7 +1226,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
               {/* EQUITY TRAILING PROTECTION CARD */}
               {status?.equityTrailingState && (
-                <div className="bg-black border border-amber-500/20 rounded p-3 mb-4">
+                <div className="bg-black border border-amber-500/20 rounded p-3 mb-2.5">
                   <div className="flex items-center space-x-2 mb-2">
                     <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
                     <h3 className="font-bold text-amber-500 uppercase tracking-wider text-sm flex items-center gap-2">
@@ -1267,7 +1247,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </h3>
                   </div>
                   
-                  <p className="text-xs text-slate-400 mb-4">
+                  <p className="text-xs text-slate-400 mb-3">
                     {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0
                       ? 'Protecția de capital este DEZACTIVATĂ (setată la 0%). Pozițiile sunt controlate exclusiv de Stop-Loss, Trailing Stop și Take-Profit individuale.'
                       : status.equityTrailingState.isActive 
@@ -1306,60 +1286,135 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               )}
 
-              {/* OKX Market Sentiment Card mimicking user screenshot */}
-              <div className="mt-4 bg-zinc-950 border border-amber-500/30 p-4 rounded flex flex-col items-center justify-center font-mono">
-                <div className="text-[11px] text-zinc-400 tracking-wider mb-3">SENTIMENT SCORE</div>
-                
-                {(() => {
-                  const sentimentStr = status?.marketSentiment || 'NEUTRAL';
-                  let score = 78;
-                  let label = 'Lăcomie';
-                  let color = '#10b981'; // emerald
-                  if (sentimentStr.includes('BEARISH')) {
-                    score = 22;
-                    label = 'Frică';
-                    color = '#f43f5e';
-                  } else if (sentimentStr.includes('NEUTRAL')) {
-                    score = 50;
-                    label = 'Neutru';
-                    color = '#f59e0b';
-                  }
+              {/* ACTIVE RISK & RULES HUD (PROPOSAL 2 - COMPLETE LIVE RULES INTEGRATION) */}
+              <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 font-mono shadow-lg">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-amber-500/20 pb-1.5 mb-2">
+                  <div className="flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <span className="font-bold text-[11px] text-amber-400 uppercase tracking-wider">
+                      {lang === 'EN' ? 'ACTIVE RISK & BOT RULES HUD' : 'REGULI ACTIVE DE RISC & PROTECȚIE (HUD)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                      PROFIL: {status?.currentProfile || 'SCALP'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-zinc-900 border border-zinc-700 text-zinc-300">
+                      MOD: {status?.executionMode || 'PAPER'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveScreen('SET')}
+                      className="text-[9px] text-amber-400 hover:text-amber-300 underline font-semibold pl-1"
+                      title="Deschide ecranul SET pentru modificarea regulilor"
+                    >
+                      [MODIFICĂ ÎN SET ➔]
+                    </button>
+                  </div>
+                </div>
 
-                  // Semi-circle gauge calculation
-                  const angle = (score / 100) * 180 - 90;
-                  const rad = (angle * Math.PI) / 180;
-                  const cx = 70;
-                  const cy = 60;
-                  const r = 46;
-                  const nx = cx + r * Math.sin(rad);
-                  const ny = cy - r * Math.cos(rad);
-
-                  return (
-                    <div className="flex flex-col items-center">
-                      <div className="relative w-36 h-20 flex items-end justify-center mb-2">
-                        <svg className="w-36 h-36 absolute -top-4" viewBox="0 0 140 100">
-                          {/* Arc segments for Red, Yellow, Green */}
-                          <path d="M 20 60 A 46 46 0 0 1 50 25" fill="none" stroke="#f43f5e" strokeWidth="10" strokeLinecap="round" />
-                          <path d="M 52 24 A 46 46 0 0 1 88 24" fill="none" stroke="#f59e0b" strokeWidth="10" strokeLinecap="round" />
-                          <path d="M 90 25 A 46 46 0 0 1 120 60" fill="none" stroke="#10b981" strokeWidth="10" strokeLinecap="round" />
-                          {/* Needle line */}
-                          <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#ffffff" strokeWidth="3" strokeLinecap="round" />
-                          <circle cx={cx} cy={cy} r="5" fill="#ffffff" />
-                        </svg>
-                      </div>
-                      <div className="text-3xl font-bold font-serif text-white tracking-wide mt-1">
-                        {score}
-                      </div>
-                      <div className="text-sm font-medium tracking-wide mt-0.5" style={{ color }}>
-                        {label}
-                      </div>
-                      <div className="text-[10px] text-zinc-500 mt-2">
-                        Calculat pe baza semnalelor active din lista de urmărire.
-                      </div>
+                {/* 4 Compact Columns containing ALL rules from SET */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px]">
+                  {/* Col 1: Alocare Capital */}
+                  <div className="bg-black/80 border border-zinc-800/80 rounded p-1.5 space-y-1">
+                    <div className="text-[9px] text-amber-500/90 font-bold uppercase tracking-wider border-b border-zinc-900 pb-0.5">
+                      1. ALOCARE RISC
                     </div>
-                  );
-                })()}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Risc/Trade:</span>
+                      <span className="font-bold text-amber-300">{profileConfig?.riskPerTradePct ?? 10}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Capacitate:</span>
+                      <span className="font-bold text-zinc-200">
+                        {status?.activePositions?.length || 0} / {profileConfig?.maxOpenPositions ?? 5}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Mărime est.:</span>
+                      <span className="font-bold text-emerald-400">
+                        ~${((currentEquity * (profileConfig?.riskPerTradePct ?? 10)) / 100).toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Col 2: Protecție Ieșire Poziție */}
+                  <div className="bg-black/80 border border-zinc-800/80 rounded p-1.5 space-y-1">
+                    <div className="text-[9px] text-rose-400/90 font-bold uppercase tracking-wider border-b border-zinc-900 pb-0.5">
+                      2. STOP-LOSS & BE
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Hard SL:</span>
+                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 2.5}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Break-Even:</span>
+                      <span className="font-bold text-amber-300">+{profileConfig?.breakEvenActivationPct ?? 1.0}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Take-Profit:</span>
+                      <span className="font-bold text-emerald-400">
+                        {!profileConfig?.takeProfitPct || profileConfig.takeProfitPct === 0 ? 'OFF (Trail)' : `+${profileConfig.takeProfitPct}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Col 3: Trailing Stop Poziție & Equity */}
+                  <div className="bg-black/80 border border-zinc-800/80 rounded p-1.5 space-y-1">
+                    <div className="text-[9px] text-purple-400/90 font-bold uppercase tracking-wider border-b border-zinc-900 pb-0.5">
+                      3. TRAILING STOP
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Act. Poziție:</span>
+                      <span className="font-bold text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Pas Urmărire:</span>
+                      <span className="font-bold text-purple-300">-{profileConfig?.trailingDistancePct ?? 0.4}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Trail Eq DD:</span>
+                      <span className="font-bold text-rose-400">
+                        {!profileConfig?.equityTrailingDrawdownPct ? 'OFF' : `-${profileConfig.equityTrailingDrawdownPct}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Col 4: Scanare, Timp & Sentiment */}
+                  <div className="bg-black/80 border border-zinc-800/80 rounded p-1.5 space-y-1">
+                    <div className="text-[9px] text-cyan-400/90 font-bold uppercase tracking-wider border-b border-zinc-900 pb-0.5">
+                      4. TIMP & FILTRE
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Min Score:</span>
+                      <span className="font-bold text-cyan-400">{profileConfig?.minMomentumScore ?? 60}/100</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Hold / CD:</span>
+                      <span className="font-bold text-amber-300">
+                        {profileConfig?.maxHoldingTimeMinutes ?? 60}m / {profileConfig?.cooldownMinutes ?? 5}m
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Sentiment:</span>
+                      <span className="font-bold text-zinc-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Micro-footer */}
+                <div className="mt-1.5 pt-1 border-t border-zinc-900 flex items-center justify-between text-[9px] text-slate-400">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Toate cele 12 reguli sunt aplicate activ în timp real</span>
+                  </div>
+                  <span className="text-slate-400">
+                    Bază Capital: <strong className="text-amber-300">$200.00</strong>
+                  </span>
+                </div>
               </div>
+
             </div>
           )}
 
@@ -2263,19 +2318,90 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
 
-              {/* ACTIVE RUNNING VALUES BANNER */}
-              <div className="bg-black border border-amber-500/40 rounded p-2.5 mb-3 flex flex-wrap items-center justify-between text-[11px] font-mono gap-2">
-                <div className="text-amber-300 font-bold flex items-center space-x-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
-                  <span>VALORI ACTIVE (CU CARE CALCULEAZĂ BOTUL ÎN TIMP REAL):</span>
+              {/* ACTIVE RUNNING VALUES BANNER (ALL ACTIVE RULES IN REAL-TIME) */}
+              <div className="bg-zinc-950 border border-amber-500/50 rounded p-3 mb-4 font-mono shadow-md">
+                <div className="flex flex-wrap items-center justify-between border-b border-amber-500/20 pb-2 mb-2.5 gap-2">
+                  <div className="text-amber-300 font-bold flex items-center space-x-2 text-xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                    <span>VALORI ACTIVE ÎN TIMP REAL (TOATE REGULILE CU CARE CALCULEAZĂ BOTUL):</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-[10px]">
+                    <span className="px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      PROFIL: {status?.currentProfile || 'SCALP'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded font-bold bg-zinc-900 text-zinc-300 border border-zinc-700">
+                      MOD: {status?.executionMode || 'PAPER'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-zinc-300">
-                  <span>Risk: <strong className="text-amber-400">{profileConfig?.riskPerTradePct ?? 10}%</strong></span>
-                  <span>StopLoss: <strong className="text-rose-400">-{profileConfig?.hardStopLossPct ?? 2.5}%</strong></span>
-                  <span>TrailingAct: <strong className="text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong></span>
-                  <span>TrailingDist: <strong className="text-purple-400">-{profileConfig?.trailingDistancePct ?? 0.4}%</strong></span>
-                  <span>MinScore: <strong className="text-cyan-400">{profileConfig?.minMomentumScore ?? 60}</strong></span>
-                  <span>Prag Sentiment: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-[11px]">
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Risc / Trade</span>
+                    <strong className="text-amber-400 text-xs">{profileConfig?.riskPerTradePct ?? 10}%</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Max Poziții</span>
+                    <strong className="text-zinc-200 text-xs">{profileConfig?.maxOpenPositions ?? 5} sloturi</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Hard Stop-Loss</span>
+                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 2.5}%</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Break-Even Act</span>
+                    <strong className="text-amber-300 text-xs">+{profileConfig?.breakEvenActivationPct ?? 1.0}%</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Trailing Act</span>
+                    <strong className="text-emerald-400 text-xs">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Trailing Dist</span>
+                    <strong className="text-purple-400 text-xs">-{profileConfig?.trailingDistancePct ?? 0.4}%</strong>
+                  </div>
+
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Take-Profit</span>
+                    <strong className="text-emerald-400 text-xs">
+                      {!profileConfig?.takeProfitPct || profileConfig.takeProfitPct === 0 ? 'OFF (Trailing)' : `+${profileConfig.takeProfitPct}%`}
+                    </strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Max Hold Time</span>
+                    <strong className="text-amber-300 text-xs">{profileConfig?.maxHoldingTimeMinutes ?? 60} min</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Equity Prot Act</span>
+                    <strong className="text-cyan-400 text-xs">
+                      {!profileConfig?.equityProtectionActivationPct ? 'OFF (0%)' : `+${profileConfig.equityProtectionActivationPct}%`}
+                    </strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Equity Trailing DD</span>
+                    <strong className="text-rose-400 text-xs">
+                      {!profileConfig?.equityTrailingDrawdownPct ? 'OFF (0%)' : `-${profileConfig.equityTrailingDrawdownPct}%`}
+                    </strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Min Momentum</span>
+                    <strong className="text-cyan-400 text-xs">{profileConfig?.minMomentumScore ?? 60}/100</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Cooldown Simbol</span>
+                    <strong className="text-zinc-300 text-xs">{profileConfig?.cooldownMinutes ?? 5} min</strong>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-2 border-t border-zinc-900 flex flex-wrap items-center justify-between text-[10px] text-zinc-400 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <span>Prag Alertă Sentiment OKX: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
+                    <span>•</span>
+                    <span>Timeframes: <strong className="text-zinc-200">{profileConfig?.timeframes?.join(', ') || '15m, 1h'}</strong></span>
+                  </div>
+                  <div className="text-zinc-500">
+                    Modificările glisoarelor de mai jos devin active după apăsarea butonului <strong>SAVE CHANGES</strong>.
+                  </div>
                 </div>
               </div>
 
@@ -3036,116 +3162,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
 
         {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG) */}
-        <div className="hidden lg:flex lg:col-span-6 flex-col space-y-2">
-          {/* TradingView Widget */}
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-3 flex flex-col h-[520px]">
-            <div className="flex items-center justify-between border-b border-amber-500/30 pb-2 mb-2 relative">
-              <span className="font-bold text-xs tracking-wider text-amber-400">MARKET CHART ({chartSymbol})</span>
-              <div className="relative">
-                <div className="flex items-center bg-black border border-amber-500/40 rounded px-1.5 py-0.5">
-                  <Search className="w-3 h-3 text-amber-500 mr-1" />
-                  <input
-                    type="text"
-                    placeholder="Caută simbol..."
-                    value={symbolSearchQuery}
-                    onFocus={() => setShowSymbolDropdown(true)}
-                    onChange={(e) => {
-                      setSymbolSearchQuery(e.target.value);
-                      setShowSymbolDropdown(true);
-                    }}
-                    className="bg-transparent text-amber-400 text-[10px] outline-none w-[130px]"
-                  />
-                </div>
-                {showSymbolDropdown && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-zinc-950 border border-amber-500/50 rounded shadow-xl max-h-60 overflow-y-auto z-50">
-                    <div className="p-1 text-[9px] text-zinc-500 border-b border-zinc-800">
-                      Simboluri Universe ({filteredSymbols.length})
-                    </div>
-                    {filteredSymbols.length > 0 ? (
-                      filteredSymbols.map((sym) => (
-                        <div
-                          key={sym}
-                          onClick={() => loadTradingViewChart(sym)}
-                          className={`px-2 py-1.5 text-[10px] cursor-pointer hover:bg-amber-500/20 text-amber-300 font-mono flex items-center justify-between ${
-                            chartSymbol === sym ? 'bg-amber-500/30 font-bold' : ''
-                          }`}
-                        >
-                          <span>{sym}</span>
-                          <span className="text-[9px] text-slate-500">OKX</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-2 text-[10px] text-zinc-500 text-center">Niciun simbol găsit</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div id="tradingview-widget-container" className="flex-1 w-full h-full"></div>
-            {/* Load default chart on mount */}
-            <div className="hidden">
-              {(() => {
-                setTimeout(() => {
-                  const container = document.getElementById('tradingview-widget-container');
-                  if (container && container.innerHTML === '') {
-                    loadTradingViewChart('BTCUSDT');
-                  }
-                }, 100);
-                return null;
-              })()}
-            </div>
-          </div>
+        <div className="flex lg:col-span-6 flex-col space-y-2">
+          <TradingViewChart
+            currentSymbol={chartSymbol}
+            onSymbolChange={(sym) => setChartSymbol(sym)}
+            availableSymbols={allUniverseSymbols}
+            lang={lang}
+          />
+        </div>
 
-          {/* EQUITY HISTORY CHART (MOVED BELOW TRADINGVIEW CHART) */}
-          {status?.equityHistory && status.equityHistory.length > 0 && (
-            <div className="bg-zinc-950 border border-amber-500/30 p-3 rounded h-[285px] relative flex flex-col font-mono">
-              <div className="flex items-center justify-between mb-1.5 px-0.5">
-                <span className="text-[10px] text-amber-400 font-bold tracking-widest flex items-center space-x-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>24H EQUITY CURVE &amp; PERFORMANCE</span>
-                </span>
-                <div className="text-[10px] text-zinc-400 space-x-2">
-                  <span>Min: <strong className="text-rose-400">${Math.min(...status.equityHistory.map(h => h.equity)).toFixed(2)}</strong></span>
-                  <span>Max: <strong className="text-emerald-400">${Math.max(...status.equityHistory.map(h => h.equity)).toFixed(2)}</strong></span>
-                </div>
-              </div>
-              <div className="flex-1 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={status.equityHistory} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis 
-                      dataKey="time" 
-                      tickFormatter={(time) => new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      stroke="#71717a" 
-                      fontSize={9} 
-                      tickLine={false}
-                    />
-                    <YAxis 
-                      domain={['auto', 'auto']} 
-                      stroke="#71717a" 
-                      fontSize={9} 
-                      tickLine={false}
-                      tickFormatter={(val) => `$${val}`}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#09090b', borderColor: '#d97706', borderRadius: '4px', fontSize: '10px', color: '#fcd34d' }}
-                      formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Equity']}
-                      labelFormatter={(label) => new Date(label).toLocaleTimeString()}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="equity" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#10b981' }}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
+        {/* FULL WIDTH 24H EQUITY CURVE CHART (12 Cols on LG) */}
+        <div className="col-span-1 lg:col-span-12">
+          <EquityCurve24hChart
+            equityHistory={status?.equityHistory}
+            currentEquity={currentEquity}
+            peakEquity={status?.equityTrailingState?.peakEquity}
+            baseEquity={200.0}
+            equityTrailingState={status?.equityTrailingState}
+            lang={lang}
+          />
         </div>
 
         {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (12 Cols on LG - WIDENED ACROSS FULL SCREEN) */}
