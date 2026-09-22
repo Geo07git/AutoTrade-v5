@@ -70,6 +70,8 @@ export interface ScannedOpportunity {
   priceChange24hPct: number;
   rvol: number;
   atrExpansion: number;
+  currentAtr?: number;
+  atrPct?: number;
   score: number;
   side: OrderSide;
   isEligible: boolean;
@@ -143,6 +145,10 @@ export interface TradeSignal {
   profile: ProfileType;
   timestamp: number;
   reasons: any;
+  currentPrice?: number;
+  currentAtr?: number;
+  atrPct?: number;
+  stopLossPrice?: number;
 }
 
 export interface RiskApproval {
@@ -150,6 +156,10 @@ export interface RiskApproval {
   sizeUSDT: number;
   estimatedQty?: number;
   reason?: string;
+  stopLossPrice?: number;
+  effectiveStopDistancePct?: number;
+  dollarRiskAtStop?: number;
+  atrPct?: number;
 }
 
 export interface OrderRecord {
@@ -162,6 +172,7 @@ export interface OrderRecord {
   ctVal?: number;
   sizeUSDT: number;
   status: OrderStatus;
+  stopLossPrice?: number;
   fillPrice?: number;
   filledQty?: number;
   cumFilledQty?: number;

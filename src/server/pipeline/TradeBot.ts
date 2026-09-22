@@ -30,7 +30,7 @@ const DEFAULT_CONFIG: AppConfig = {
   activeProfile: 'MOMENTUM',
   testnet: true,
   killSwitchEngaged: false,
-  invertSignals: true, // Experimental: Invert Long <-> Short signals active
+  invertSignals: false, // Default: FALSE. Signals strictly follow calculated momentum and HTF macro confluence
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
@@ -133,6 +133,12 @@ export class TradeBot {
     const appConfig = this.configStore.get();
     if (!appConfig.executionMode) {
       appConfig.executionMode = 'PAPER';
+      this.configStore.save(appConfig);
+    }
+    
+    // Ensure invertSignals is false by default to prevent unintentional signal fade
+    if (appConfig.invertSignals === undefined) {
+      appConfig.invertSignals = false;
       this.configStore.save(appConfig);
     }
     
@@ -579,15 +585,42 @@ export class TradeBot {
         }
 
         if (signal) {
+          // Ensure real-time price & ATR are attached to signal for Volatility Risk Sizing
+          signal.currentPrice = signal.currentPrice || candidate.price;
+          signal.currentAtr = signal.currentAtr || candidate.currentAtr;
+          signal.atrPct = signal.atrPct || candidate.atrPct;
+
           const originalSide = signal.side;
           if (config.invertSignals) {
             signal.side = originalSide === 'BUY' ? 'SELL' : 'BUY';
             candidate.side = signal.side;
+
+            // Recalculate HTF Macro Confluence for the POST-INVERSION direction
+            const htfTrend = signal.reasons?.htfTrend;
+            const postInvertHtfAligned = (signal.side === 'BUY' && htfTrend === 'BULLISH') ||
+                                         (signal.side === 'SELL' && htfTrend === 'BEARISH');
+            signal.reasons.htfAligned = postInvertHtfAligned;
+            signal.reasons.side = signal.side;
+
+            if (!postInvertHtfAligned) {
+              this.logAudit(
+                'SIGNAL_REJECTED',
+                `[EXPERIMENT INVERS] Semnalul ${originalSide} inversat în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) respins: Trendul HTF Macro (${htfTrend}) nu confirmă direcția inversată.`,
+                {
+                  symbol,
+                  originalSide,
+                  invertedSide: signal.side,
+                  htfTrend,
+                  postInvertHtfAligned: false,
+                }
+              );
+              continue;
+            }
           }
 
           const signalMessage = config.invertSignals
-            ? `[EXPERIMENT INVERS] Momentum Engine confirmat ${originalSide} ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Scor: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`
-            : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`;
+            ? `[EXPERIMENT INVERS] Momentum Engine confirmat ${originalSide} ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Scor: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+            : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`;
 
           this.logAudit(
             'SIGNAL_GENERATED',
@@ -600,10 +633,13 @@ export class TradeBot {
               score: signal.score,
               profile: config.activeProfile,
               rank: candidate.rank,
+              currentPrice: signal.currentPrice,
+              currentAtr: signal.currentAtr,
+              atrPct: signal.atrPct,
             }
           );
 
-          // Risk Engine: Mandatory gatekeeper validation with pending order check
+          // Risk Engine: Mandatory gatekeeper validation with volatility-based sizing (ATR) & pending order check
           const hasPending = this.orderManager.hasPendingOrderForSymbol(symbol);
           const riskApproval = this.riskEngine.validateSignal(
             signal,
@@ -630,7 +666,7 @@ export class TradeBot {
           const executionResult = await this.orderManager.executeSignalOrder({
             signal,
             riskApproval,
-            currentPrice: candidate.price,
+            currentPrice: signal.currentPrice || candidate.price,
             profile: config.activeProfile,
             marketRegime: this.marketRegime,
           });

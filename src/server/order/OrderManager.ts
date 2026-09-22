@@ -156,6 +156,7 @@ export class OrderManager {
       ctVal,
       sizeUSDT: parseFloat(actualNotional.toFixed(2)),
       status: 'CREATED',
+      stopLossPrice: riskApproval.stopLossPrice,
       cumFilledQty: 0,
       processedFilledQty: 0,
       createdTime: Date.now(),

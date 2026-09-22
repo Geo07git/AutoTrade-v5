@@ -183,6 +183,7 @@ export class PositionManager {
       entryTime: Date.now(),
       highestPrice: entryPrice,
       lowestPrice: entryPrice,
+      stopLossPrice: order.stopLossPrice,
       profile: order.profile,
       source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
       executionMode: order.executionMode || 'TESTNET',

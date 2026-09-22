@@ -61,12 +61,16 @@ export class MomentumEngine {
 
     // Reject signals exceeding the exhaustion threshold (maxMomentumScore) or below minimum threshold
     if (metrics.score >= metrics.threshold && metrics.score <= maxScore) {
+      const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
       return {
         symbol,
         side: metrics.side,
         score: metrics.score,
         profile: this.config.type,
         timestamp: Date.now(),
+        currentPrice: metrics.lastPrice,
+        currentAtr: metrics.currentAtr,
+        atrPct: parseFloat(atrPct.toFixed(2)),
         reasons: {
           score: metrics.score,
           threshold: metrics.threshold,
@@ -75,6 +79,9 @@ export class MomentumEngine {
           mom: metrics.mom,
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
+          currentAtr: metrics.currentAtr,
+          lastPrice: metrics.lastPrice,
+          atrPct: parseFloat(atrPct.toFixed(2)),
           htfTrend: metrics.htfTrend,
           htfAligned: metrics.htfAligned,
           factors: metrics.factors,
@@ -108,6 +115,7 @@ export class MomentumEngine {
     const signal = this.evaluate(symbol, klines, metrics);
 
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 85;
+    const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
 
     return {
       symbol,
@@ -116,9 +124,11 @@ export class MomentumEngine {
       priceChange24hPct: tickerData?.priceChange24hPct !== undefined ? tickerData.priceChange24hPct : metrics.mom,
       rvol: metrics.rvol,
       atrExpansion: metrics.atrExpansion,
+      currentAtr: metrics.currentAtr,
+      atrPct: parseFloat(atrPct.toFixed(2)),
       score: metrics.score,
       side: metrics.side,
-      isEligible: metrics.score >= metrics.threshold && metrics.score <= maxScore,
+      isEligible: metrics.score >= metrics.threshold && metrics.score <= maxScore && metrics.htfAligned,
       signal: signal || undefined,
       rank: 0,
       lastScannedTime: Date.now(),
