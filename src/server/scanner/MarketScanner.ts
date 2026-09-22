@@ -110,7 +110,8 @@ export class MarketScanner {
     tickersMap: Record<string, any>,
     mainTf: string,
     htf: string,
-    concurrency: number = 5
+    concurrency: number = 5,
+    invertSignals: boolean = false
   ): Promise<ScannedOpportunity[]> {
     const results: ScannedOpportunity[] = [];
     const queue = [...symbols];
@@ -139,6 +140,12 @@ export class MarketScanner {
             );
 
             if (opportunity) {
+              if (invertSignals) {
+                opportunity.side = opportunity.side === 'BUY' ? 'SELL' : 'BUY';
+                if (opportunity.signal) {
+                  opportunity.signal.side = opportunity.side;
+                }
+              }
               results.push(opportunity);
             }
           }
@@ -179,7 +186,11 @@ export class MarketScanner {
             );
             if (reevaluated) {
               cand.score = reevaluated.score;
-              cand.side = reevaluated.side;
+              const originalSide = reevaluated.side;
+              cand.side = invertSignals ? (originalSide === 'BUY' ? 'SELL' : 'BUY') : originalSide;
+              if (reevaluated.signal) {
+                reevaluated.signal.side = cand.side;
+              }
               cand.signal = reevaluated.signal;
               cand.isEligible = reevaluated.isEligible;
             }
@@ -201,7 +212,7 @@ export class MarketScanner {
    * 4. Rank candidates by momentum score descending
    * 5. Return ranked opportunities
    */
-  public async scan(profile: ProfileConfig): Promise<ScannedOpportunity[]> {
+  public async scan(profile: ProfileConfig, invertSignals: boolean = false): Promise<ScannedOpportunity[]> {
     if (this.isScanning) {
       return this.cachedOpportunities;
     }
@@ -240,7 +251,8 @@ export class MarketScanner {
         tickersMap,
         mainTf,
         htf,
-        5
+        5,
+        invertSignals
       );
 
       // 3. Rank opportunities descending by Momentum score

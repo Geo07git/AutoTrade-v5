@@ -412,6 +412,14 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             <span>ELIGIBLE</span>
                           </span>
+                        ) : opp.score > 82 ? (
+                          <span 
+                            title="Semnal respins de regula Anti-Exhaustion: Scorul depășește tavanul de siguranță (max 82/85)"
+                            className="text-[10px] px-2 py-0.5 rounded text-rose-400 bg-rose-950/80 border border-rose-800/80 font-bold inline-flex items-center gap-1"
+                          >
+                            <AlertCircle className="w-3 h-3 text-rose-400" />
+                            <span>BLOCKED (&gt;82)</span>
+                          </span>
                         ) : (
                           <span className="text-[10px] text-slate-600 font-semibold">
                             FILTERED

@@ -24,3 +24,34 @@
 .terminal-scrollbar-x::-webkit-scrollbar-thumb:hover {
   background: #f59e0b;
 }
+
+/* Monochrome High-Contrast Mode */
+.monochrome {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.monochrome * {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.monochrome .bg-black,
+.monochrome .bg-zinc-900,
+.monochrome .bg-zinc-950,
+.monochrome .bg-amber-950,
+.monochrome .bg-emerald-950,
+.monochrome .bg-rose-950 {
+  background-color: #000000 !important;
+}
+
+.monochrome *:not(.balance-metric):not(.pnl-metric):not(.profit-metric):not(.preserve-amber) {
+  color: #ffffff !important;
+}
+
+.monochrome .balance-metric,
+.monochrome .pnl-metric,
+.monochrome .profit-metric,
+.monochrome .preserve-amber {
+  color: #fbbf24 !important; /* Amber-400 */
+}
+

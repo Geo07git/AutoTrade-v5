@@ -43,6 +43,27 @@ export class RiskEngine {
       };
     }
 
+    // 4. Momentum Score Window Validation (Anti-Exhaustion Guard)
+    // Avoid entries when score is above maxMomentumScore (e.g. >= 85, where win rate dropped to 0-3%)
+    const maxScoreCap = config.maxMomentumScore !== undefined ? config.maxMomentumScore : 85;
+    const minScoreRequired = config.minMomentumScore !== undefined ? config.minMomentumScore : 57;
+
+    if (signal.score > maxScoreCap) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `MOMENTUM_EXHAUSTION_ZONE: Scorul ${signal.score.toFixed(1)} depășește tavanul maxim de siguranță (${maxScoreCap}/100). Mișcare supradestinsă (exhaustion top).`,
+      };
+    }
+
+    if (signal.score < minScoreRequired) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `Scorul semnalului (${signal.score.toFixed(1)}) este sub pragul minim configurat (${minScoreRequired}/100).`,
+      };
+    }
+
     // 4. Pending in-flight Order check (Prevents duplicate entries)
     if (hasPendingOrder) {
       return {

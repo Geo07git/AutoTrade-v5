@@ -1,0 +1,2690 @@
+[
+  {
+    "id": "1790011665624_jbg1",
+    "timestamp": 1790011665624,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011665623_8l27",
+    "timestamp": 1790011665623,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate UB-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011665622_34vz",
+    "timestamp": 1790011665622,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe UB-USDT-SWAP (Scor: 50.0/100, Rank #38)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 50,
+      "profile": "MOMENTUM",
+      "rank": 38
+    }
+  },
+  {
+    "id": "1790011665621_ia9t",
+    "timestamp": 1790011665621,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #38 Selected: UB-USDT-SWAP (Momentum Score: 50/100, RVOL: 0.22x, 24h Vol: $129.7M)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "rank": 38,
+      "score": 50,
+      "rvol": 0.22,
+      "atrExpansion": 0.56,
+      "price": 0.13599,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011665251_t2dc",
+    "timestamp": 1790011665251,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #37 Selected: MEGA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.56x, 24h Vol: $65.3M)",
+    "details": {
+      "symbol": "MEGA-USDT-SWAP",
+      "rank": 37,
+      "score": 50.1,
+      "rvol": 0.56,
+      "atrExpansion": 0.9,
+      "price": 0.04395,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664972_zsb1",
+    "timestamp": 1790011664972,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #35 Selected: ZORA-USDT-SWAP (Momentum Score: 50.2/100, RVOL: 0.68x, 24h Vol: $111.2M)",
+    "details": {
+      "symbol": "ZORA-USDT-SWAP",
+      "rank": 35,
+      "score": 50.2,
+      "rvol": 0.68,
+      "atrExpansion": 0.89,
+      "price": 0.008366,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664971_mi80",
+    "timestamp": 1790011664971,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PONS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664970_sswp",
+    "timestamp": 1790011664970,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PONS-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PONS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664969_opgx",
+    "timestamp": 1790011664969,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe PONS-USDT-SWAP (Scor: 51.1/100, Rank #34)",
+    "details": {
+      "symbol": "PONS-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 51.1,
+      "profile": "MOMENTUM",
+      "rank": 34
+    }
+  },
+  {
+    "id": "1790011664969_ybgv",
+    "timestamp": 1790011664969,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #34 Selected: PONS-USDT-SWAP (Momentum Score: 51.1/100, RVOL: 0.73x, 24h Vol: $94.2M)",
+    "details": {
+      "symbol": "PONS-USDT-SWAP",
+      "rank": 34,
+      "score": 51.1,
+      "rvol": 0.73,
+      "atrExpansion": 0.61,
+      "price": 0.5878,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664968_iswf",
+    "timestamp": 1790011664968,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664967_025j",
+    "timestamp": 1790011664967,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BILL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664966_792d",
+    "timestamp": 1790011664966,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe BILL-USDT-SWAP (Scor: 51.2/100, Rank #33)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 51.2,
+      "profile": "MOMENTUM",
+      "rank": 33
+    }
+  },
+  {
+    "id": "1790011664964_bcht",
+    "timestamp": 1790011664964,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #33 Selected: BILL-USDT-SWAP (Momentum Score: 51.2/100, RVOL: 0.46x, 24h Vol: $167.0M)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "rank": 33,
+      "score": 51.2,
+      "rvol": 0.46,
+      "atrExpansion": 0.65,
+      "price": 0.0136,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664580_k5xq",
+    "timestamp": 1790011664580,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #32 Selected: BLUR-USDT-SWAP (Momentum Score: 51.8/100, RVOL: 0.54x, 24h Vol: $76.0M)",
+    "details": {
+      "symbol": "BLUR-USDT-SWAP",
+      "rank": 32,
+      "score": 51.8,
+      "rvol": 0.54,
+      "atrExpansion": 0.72,
+      "price": 0.01982,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664579_hm86",
+    "timestamp": 1790011664579,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664578_ziy5",
+    "timestamp": 1790011664578,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FIL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011664576_6aqo",
+    "timestamp": 1790011664576,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe FIL-USDT-SWAP (Scor: 52.2/100, Rank #31)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 52.2,
+      "profile": "MOMENTUM",
+      "rank": 31
+    }
+  },
+  {
+    "id": "1790011664575_f4r7",
+    "timestamp": 1790011664575,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #31 Selected: FIL-USDT-SWAP (Momentum Score: 52.2/100, RVOL: 0.65x, 24h Vol: $109.5M)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "rank": 31,
+      "score": 52.2,
+      "rvol": 0.65,
+      "atrExpansion": 0.91,
+      "price": 0.9626,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011664350_v7uj",
+    "timestamp": 1790011664350,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #30 Selected: PEOPLE-USDT-SWAP (Momentum Score: 52.4/100, RVOL: 0.68x, 24h Vol: $871.5M)",
+    "details": {
+      "symbol": "PEOPLE-USDT-SWAP",
+      "rank": 30,
+      "score": 52.4,
+      "rvol": 0.68,
+      "atrExpansion": 0.92,
+      "price": 0.009098,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663966_xlqa",
+    "timestamp": 1790011663966,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #29 Selected: SPK-USDT-SWAP (Momentum Score: 52.4/100, RVOL: 1.21x, 24h Vol: $110.8M)",
+    "details": {
+      "symbol": "SPK-USDT-SWAP",
+      "rank": 29,
+      "score": 52.4,
+      "rvol": 1.21,
+      "atrExpansion": 0.85,
+      "price": 0.0212,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663964_r8rz",
+    "timestamp": 1790011663965,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663962_j25b",
+    "timestamp": 1790011663962,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663961_xp87",
+    "timestamp": 1790011663961,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe PUMP-USDT-SWAP (Scor: 52.7/100, Rank #27)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 52.7,
+      "profile": "MOMENTUM",
+      "rank": 27
+    }
+  },
+  {
+    "id": "1790011663960_w4oo",
+    "timestamp": 1790011663960,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #27 Selected: PUMP-USDT-SWAP (Momentum Score: 52.7/100, RVOL: 0.26x, 24h Vol: $22548.1M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 27,
+      "score": 52.7,
+      "rvol": 0.26,
+      "atrExpansion": 0.56,
+      "price": 0.004309,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663873_iij5",
+    "timestamp": 1790011663873,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #26 Selected: TURBO-USDT-SWAP (Momentum Score: 53/100, RVOL: 0.73x, 24h Vol: $1484.8M)",
+    "details": {
+      "symbol": "TURBO-USDT-SWAP",
+      "rank": 26,
+      "score": 53,
+      "rvol": 0.73,
+      "atrExpansion": 0.86,
+      "price": 0.0010426,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663650_mjx3",
+    "timestamp": 1790011663650,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #24 Selected: AIXBT-USDT-SWAP (Momentum Score: 53.4/100, RVOL: 0.36x, 24h Vol: $66.2M)",
+    "details": {
+      "symbol": "AIXBT-USDT-SWAP",
+      "rank": 24,
+      "score": 53.4,
+      "rvol": 0.36,
+      "atrExpansion": 1.15,
+      "price": 0.0222,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663576_si2t",
+    "timestamp": 1790011663576,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #23 Selected: WLD-USDT-SWAP (Momentum Score: 53.5/100, RVOL: 0.78x, 24h Vol: $285.7M)",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "rank": 23,
+      "score": 53.5,
+      "rvol": 0.78,
+      "atrExpansion": 0.79,
+      "price": 0.4352,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663354_17b9",
+    "timestamp": 1790011663354,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #22 Selected: LAB-USDT-SWAP (Momentum Score: 53.7/100, RVOL: 1.07x, 24h Vol: $114.1M)",
+    "details": {
+      "symbol": "LAB-USDT-SWAP",
+      "rank": 22,
+      "score": 53.7,
+      "rvol": 1.07,
+      "atrExpansion": 1.1,
+      "price": 0.05643,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663047_vj8v",
+    "timestamp": 1790011663047,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #21 Selected: HBAR-USDT-SWAP (Momentum Score: 55.1/100, RVOL: 0.31x, 24h Vol: $275.5M)",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "rank": 21,
+      "score": 55.1,
+      "rvol": 0.31,
+      "atrExpansion": 1.11,
+      "price": 0.09067,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663042_fsxv",
+    "timestamp": 1790011663042,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663041_dq6j",
+    "timestamp": 1790011663041,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate MINA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663040_kgp9",
+    "timestamp": 1790011663040,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe MINA-USDT-SWAP (Scor: 55.3/100, Rank #20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.3,
+      "profile": "MOMENTUM",
+      "rank": 20
+    }
+  },
+  {
+    "id": "1790011663038_tsox",
+    "timestamp": 1790011663038,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #20 Selected: MINA-USDT-SWAP (Momentum Score: 55.3/100, RVOL: 0.15x, 24h Vol: $138.3M)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "rank": 20,
+      "score": 55.3,
+      "rvol": 0.15,
+      "atrExpansion": 0.43,
+      "price": 0.12002,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011663037_6f6e",
+    "timestamp": 1790011663037,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663036_ypph",
+    "timestamp": 1790011663036,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ACH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011663034_78n4",
+    "timestamp": 1790011663034,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe ACH-USDT-SWAP (Scor: 55.6/100, Rank #19)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.6,
+      "profile": "MOMENTUM",
+      "rank": 19
+    }
+  },
+  {
+    "id": "1790011663033_paw9",
+    "timestamp": 1790011663033,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ACH-USDT-SWAP (Momentum Score: 55.6/100, RVOL: 0.62x, 24h Vol: $77.6M)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "rank": 19,
+      "score": 55.6,
+      "rvol": 0.62,
+      "atrExpansion": 0.68,
+      "price": 0.005899,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662812_n2py",
+    "timestamp": 1790011662812,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #18 Selected: NEAR-USDT-SWAP (Momentum Score: 55.7/100, RVOL: 0.66x, 24h Vol: $69.6M)",
+    "details": {
+      "symbol": "NEAR-USDT-SWAP",
+      "rank": 18,
+      "score": 55.7,
+      "rvol": 0.66,
+      "atrExpansion": 0.78,
+      "price": 4,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662811_amji",
+    "timestamp": 1790011662811,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011662810_r19t",
+    "timestamp": 1790011662810,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate LINEA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011662809_jgah",
+    "timestamp": 1790011662809,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe LINEA-USDT-SWAP (Scor: 56.0/100, Rank #17)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 56,
+      "profile": "MOMENTUM",
+      "rank": 17
+    }
+  },
+  {
+    "id": "1790011662808_09wh",
+    "timestamp": 1790011662808,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #17 Selected: LINEA-USDT-SWAP (Momentum Score: 56/100, RVOL: 0.58x, 24h Vol: $328.7M)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "rank": 17,
+      "score": 56,
+      "rvol": 0.58,
+      "atrExpansion": 0.91,
+      "price": 0.002792,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662453_wsm2",
+    "timestamp": 1790011662453,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #14 Selected: HOME-USDT-SWAP (Momentum Score: 56.7/100, RVOL: 0.69x, 24h Vol: $830.9M)",
+    "details": {
+      "symbol": "HOME-USDT-SWAP",
+      "rank": 14,
+      "score": 56.7,
+      "rvol": 0.69,
+      "atrExpansion": 0.99,
+      "price": 0.006997,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662377_2v82",
+    "timestamp": 1790011662377,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: FOGO-USDT-SWAP (Momentum Score: 56.7/100, RVOL: 1x, 24h Vol: $105.5M)",
+    "details": {
+      "symbol": "FOGO-USDT-SWAP",
+      "rank": 13,
+      "score": 56.7,
+      "rvol": 1,
+      "atrExpansion": 1.19,
+      "price": 0.006676,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662376_dhvs",
+    "timestamp": 1790011662376,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011662375_rtu7",
+    "timestamp": 1790011662375,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SOPH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011662374_wpea",
+    "timestamp": 1790011662374,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe SOPH-USDT-SWAP (Scor: 57.4/100, Rank #12)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 57.4,
+      "profile": "MOMENTUM",
+      "rank": 12
+    }
+  },
+  {
+    "id": "1790011662372_m533",
+    "timestamp": 1790011662372,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #12 Selected: SOPH-USDT-SWAP (Momentum Score: 57.4/100, RVOL: 0.58x, 24h Vol: $352.2M)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "rank": 12,
+      "score": 57.4,
+      "rvol": 0.58,
+      "atrExpansion": 0.65,
+      "price": 0.004489,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011662146_yyfh",
+    "timestamp": 1790011662146,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: OPN-USDT-SWAP (Momentum Score: 57.7/100, RVOL: 0.34x, 24h Vol: $81.7M)",
+    "details": {
+      "symbol": "OPN-USDT-SWAP",
+      "rank": 11,
+      "score": 57.7,
+      "rvol": 0.34,
+      "atrExpansion": 1.35,
+      "price": 0.05059,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661931_6nmk",
+    "timestamp": 1790011661931,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: AKE-USDT-SWAP (Momentum Score: 58.6/100, RVOL: 0.43x, 24h Vol: $8924.6M)",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "rank": 10,
+      "score": 58.6,
+      "rvol": 0.43,
+      "atrExpansion": 0.87,
+      "price": 0.05521,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661930_r47g",
+    "timestamp": 1790011661930,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661929_c1bs",
+    "timestamp": 1790011661929,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BEAT-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661928_1hhi",
+    "timestamp": 1790011661928,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe BEAT-USDT-SWAP (Scor: 59.6/100, Rank #9)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 59.6,
+      "profile": "MOMENTUM",
+      "rank": 9
+    }
+  },
+  {
+    "id": "1790011661927_ywh1",
+    "timestamp": 1790011661927,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: BEAT-USDT-SWAP (Momentum Score: 59.6/100, RVOL: 0.49x, 24h Vol: $106.0M)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "rank": 9,
+      "score": 59.6,
+      "rvol": 0.49,
+      "atrExpansion": 0.96,
+      "price": 0.08665,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661924_40en",
+    "timestamp": 1790011661924,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ATH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661923_299n",
+    "timestamp": 1790011661923,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ATH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ATH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661922_zxmm",
+    "timestamp": 1790011661922,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe ATH-USDT-SWAP (Scor: 59.9/100, Rank #8)",
+    "details": {
+      "symbol": "ATH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 59.9,
+      "profile": "MOMENTUM",
+      "rank": 8
+    }
+  },
+  {
+    "id": "1790011661921_l8nu",
+    "timestamp": 1790011661921,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: ATH-USDT-SWAP (Momentum Score: 59.9/100, RVOL: 1.19x, 24h Vol: $194.9M)",
+    "details": {
+      "symbol": "ATH-USDT-SWAP",
+      "rank": 8,
+      "score": 59.9,
+      "rvol": 1.19,
+      "atrExpansion": 0.76,
+      "price": 0.005336,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661920_na96",
+    "timestamp": 1790011661920,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661919_1455",
+    "timestamp": 1790011661919,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate WIF-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661918_mwzq",
+    "timestamp": 1790011661918,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe WIF-USDT-SWAP (Scor: 60.1/100, Rank #7)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 60.1,
+      "profile": "MOMENTUM",
+      "rank": 7
+    }
+  },
+  {
+    "id": "1790011661917_93ir",
+    "timestamp": 1790011661917,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: WIF-USDT-SWAP (Momentum Score: 60.1/100, RVOL: 0.67x, 24h Vol: $113.9M)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "rank": 7,
+      "score": 60.1,
+      "rvol": 0.67,
+      "atrExpansion": 1.03,
+      "price": 0.2364,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661916_as9j",
+    "timestamp": 1790011661916,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661915_wgyg",
+    "timestamp": 1790011661915,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ENA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661914_ik23",
+    "timestamp": 1790011661914,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe ENA-USDT-SWAP (Scor: 60.8/100, Rank #6)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 60.8,
+      "profile": "MOMENTUM",
+      "rank": 6
+    }
+  },
+  {
+    "id": "1790011661913_py7k",
+    "timestamp": 1790011661913,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #6 Selected: ENA-USDT-SWAP (Momentum Score: 60.8/100, RVOL: 0.49x, 24h Vol: $650.3M)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "rank": 6,
+      "score": 60.8,
+      "rvol": 0.49,
+      "atrExpansion": 0.54,
+      "price": 0.20893,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661912_dwlq",
+    "timestamp": 1790011661912,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661911_6ee1",
+    "timestamp": 1790011661911,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate DOGE-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661910_l2ko",
+    "timestamp": 1790011661910,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe DOGE-USDT-SWAP (Scor: 61.0/100, Rank #5)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 61,
+      "profile": "MOMENTUM",
+      "rank": 5
+    }
+  },
+  {
+    "id": "1790011661909_h4ba",
+    "timestamp": 1790011661909,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: DOGE-USDT-SWAP (Momentum Score: 61/100, RVOL: 0.61x, 24h Vol: $7660.2M)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "rank": 5,
+      "score": 61,
+      "rvol": 0.61,
+      "atrExpansion": 0.92,
+      "price": 0.09778,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661908_z71q",
+    "timestamp": 1790011661908,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661907_rbvr",
+    "timestamp": 1790011661907,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate GPS-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661906_dmwp",
+    "timestamp": 1790011661906,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe GPS-USDT-SWAP (Scor: 61.8/100, Rank #4)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 61.8,
+      "profile": "MOMENTUM",
+      "rank": 4
+    }
+  },
+  {
+    "id": "1790011661905_5n4v",
+    "timestamp": 1790011661905,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: GPS-USDT-SWAP (Momentum Score: 61.8/100, RVOL: 0.59x, 24h Vol: $123.1M)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "rank": 4,
+      "score": 61.8,
+      "rvol": 0.59,
+      "atrExpansion": 1.3,
+      "price": 0.0108,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661904_f57i",
+    "timestamp": 1790011661904,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661902_wwcf",
+    "timestamp": 1790011661902,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FLOCK-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011661901_01vt",
+    "timestamp": 1790011661901,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe FLOCK-USDT-SWAP (Scor: 62.3/100, Rank #3)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 62.3,
+      "profile": "MOMENTUM",
+      "rank": 3
+    }
+  },
+  {
+    "id": "1790011661900_xkey",
+    "timestamp": 1790011661900,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: FLOCK-USDT-SWAP (Momentum Score: 62.3/100, RVOL: 0.27x, 24h Vol: $311.4M)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "rank": 3,
+      "score": 62.3,
+      "rvol": 0.27,
+      "atrExpansion": 0.73,
+      "price": 0.07391,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661684_xek8",
+    "timestamp": 1790011661684,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: MOODENG-USDT-SWAP (Momentum Score: 64.1/100, RVOL: 0.97x, 24h Vol: $81.4M)",
+    "details": {
+      "symbol": "MOODENG-USDT-SWAP",
+      "rank": 2,
+      "score": 64.1,
+      "rvol": 0.97,
+      "atrExpansion": 1.31,
+      "price": 0.04778,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661442_1h9a",
+    "timestamp": 1790011661442,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: OL-USDT-SWAP (Momentum Score: 66.7/100, RVOL: 1.52x, 24h Vol: $180.7M)",
+    "details": {
+      "symbol": "OL-USDT-SWAP",
+      "rank": 1,
+      "score": 66.7,
+      "rvol": 1.52,
+      "atrExpansion": 1.44,
+      "price": 0.007003,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011661440_a1hs",
+    "timestamp": 1790011661440,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 5.85s. Scanned: 100/100 pairs. Candidates: 38. Top: OL-USDT-SWAP (66.7), MOODENG-USDT-SWAP (64.1), FLOCK-USDT-SWAP (62.3), GPS-USDT-SWAP (61.8), DOGE-USDT-SWAP (61.0).",
+    "details": {
+      "totalUniverse": 471,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 38,
+      "topRanked": [
+        {
+          "symbol": "OL-USDT-SWAP",
+          "score": 66.7,
+          "rvol": 1.52,
+          "price": 0.007003
+        },
+        {
+          "symbol": "MOODENG-USDT-SWAP",
+          "score": 64.1,
+          "rvol": 0.97,
+          "price": 0.04778
+        },
+        {
+          "symbol": "FLOCK-USDT-SWAP",
+          "score": 62.3,
+          "rvol": 0.27,
+          "price": 0.07391
+        },
+        {
+          "symbol": "GPS-USDT-SWAP",
+          "score": 61.8,
+          "rvol": 0.59,
+          "price": 0.0108
+        },
+        {
+          "symbol": "DOGE-USDT-SWAP",
+          "score": 61,
+          "rvol": 0.61,
+          "price": 0.09778
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790011655638_rbbb",
+    "timestamp": 1790011655638,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 471 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 471,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "HMSTR-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790011655591_ganv",
+    "timestamp": 1790011655591,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+  },
+  {
+    "id": "1790011646790_8qom",
+    "timestamp": 1790011646790,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #38 Selected: MEGA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.56x, 24h Vol: $65.3M)",
+    "details": {
+      "symbol": "MEGA-USDT-SWAP",
+      "rank": 38,
+      "score": 50.1,
+      "rvol": 0.56,
+      "atrExpansion": 0.9,
+      "price": 0.04395,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011646364_zxcp",
+    "timestamp": 1790011646364,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #37 Selected: ZORA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.67x, 24h Vol: $111.2M)",
+    "details": {
+      "symbol": "ZORA-USDT-SWAP",
+      "rank": 37,
+      "score": 50.1,
+      "rvol": 0.67,
+      "atrExpansion": 0.89,
+      "price": 0.008367,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011646153_zho8",
+    "timestamp": 1790011646153,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #36 Selected: MEW-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.53x, 24h Vol: $1348.0M)",
+    "details": {
+      "symbol": "MEW-USDT-SWAP",
+      "rank": 36,
+      "score": 50.1,
+      "rvol": 0.53,
+      "atrExpansion": 0.76,
+      "price": 0.0004596,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011645798_kt9d",
+    "timestamp": 1790011645798,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #35 Selected: ENA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.48x, 24h Vol: $650.3M)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "rank": 35,
+      "score": 50.1,
+      "rvol": 0.48,
+      "atrExpansion": 0.54,
+      "price": 0.20851,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011645797_o7f0",
+    "timestamp": 1790011645797,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011645796_edud",
+    "timestamp": 1790011645796,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate UB-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011645795_cjo7",
+    "timestamp": 1790011645795,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe UB-USDT-SWAP (Scor: 50.6/100, Rank #33)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 50.6,
+      "profile": "MOMENTUM",
+      "rank": 33
+    }
+  },
+  {
+    "id": "1790011645794_sxes",
+    "timestamp": 1790011645794,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #33 Selected: UB-USDT-SWAP (Momentum Score: 50.6/100, RVOL: 0.22x, 24h Vol: $129.7M)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "rank": 33,
+      "score": 50.6,
+      "rvol": 0.22,
+      "atrExpansion": 0.56,
+      "price": 0.13588,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011645528_bgqp",
+    "timestamp": 1790011645528,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #31 Selected: PENGU-USDT-SWAP (Momentum Score: 50.7/100, RVOL: 0.52x, 24h Vol: $4597.0M)",
+    "details": {
+      "symbol": "PENGU-USDT-SWAP",
+      "rank": 31,
+      "score": 50.7,
+      "rvol": 0.52,
+      "atrExpansion": 0.81,
+      "price": 0.00861,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011645177_16vc",
+    "timestamp": 1790011645177,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #30 Selected: BLUR-USDT-SWAP (Momentum Score: 51.6/100, RVOL: 0.52x, 24h Vol: $76.0M)",
+    "details": {
+      "symbol": "BLUR-USDT-SWAP",
+      "rank": 30,
+      "score": 51.6,
+      "rvol": 0.52,
+      "atrExpansion": 0.72,
+      "price": 0.01982,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011645103_clqm",
+    "timestamp": 1790011645103,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #29 Selected: PEOPLE-USDT-SWAP (Momentum Score: 52.7/100, RVOL: 0.67x, 24h Vol: $871.3M)",
+    "details": {
+      "symbol": "PEOPLE-USDT-SWAP",
+      "rank": 29,
+      "score": 52.7,
+      "rvol": 0.67,
+      "atrExpansion": 0.92,
+      "price": 0.009089,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011644653_rnko",
+    "timestamp": 1790011644653,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #28 Selected: AIXBT-USDT-SWAP (Momentum Score: 53/100, RVOL: 0.36x, 24h Vol: $66.2M)",
+    "details": {
+      "symbol": "AIXBT-USDT-SWAP",
+      "rank": 28,
+      "score": 53,
+      "rvol": 0.36,
+      "atrExpansion": 1.15,
+      "price": 0.02221,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011644307_gnvb",
+    "timestamp": 1790011644307,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #27 Selected: LAB-USDT-SWAP (Momentum Score: 53.1/100, RVOL: 1.07x, 24h Vol: $114.0M)",
+    "details": {
+      "symbol": "LAB-USDT-SWAP",
+      "rank": 27,
+      "score": 53.1,
+      "rvol": 1.07,
+      "atrExpansion": 1.1,
+      "price": 0.05647,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011644094_8c3v",
+    "timestamp": 1790011644094,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #26 Selected: WLD-USDT-SWAP (Momentum Score: 53.5/100, RVOL: 0.78x, 24h Vol: $285.7M)",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "rank": 26,
+      "score": 53.5,
+      "rvol": 0.78,
+      "atrExpansion": 0.79,
+      "price": 0.4352,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011644093_ts7u",
+    "timestamp": 1790011644093,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011644092_36vn",
+    "timestamp": 1790011644092,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011644090_g8pk",
+    "timestamp": 1790011644090,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe PUMP-USDT-SWAP (Scor: 53.8/100, Rank #25)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 53.8,
+      "profile": "MOMENTUM",
+      "rank": 25
+    }
+  },
+  {
+    "id": "1790011644089_gjcm",
+    "timestamp": 1790011644089,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #25 Selected: PUMP-USDT-SWAP (Momentum Score: 53.8/100, RVOL: 0.25x, 24h Vol: $22546.9M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 25,
+      "score": 53.8,
+      "rvol": 0.25,
+      "atrExpansion": 0.56,
+      "price": 0.004305,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011644088_tpxt",
+    "timestamp": 1790011644088,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011644087_gm6y",
+    "timestamp": 1790011644087,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FIL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011644086_rcn2",
+    "timestamp": 1790011644086,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe FIL-USDT-SWAP (Scor: 53.9/100, Rank #24)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 53.9,
+      "profile": "MOMENTUM",
+      "rank": 24
+    }
+  },
+  {
+    "id": "1790011644085_41bp",
+    "timestamp": 1790011644085,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #24 Selected: FIL-USDT-SWAP (Momentum Score: 53.9/100, RVOL: 0.63x, 24h Vol: $109.5M)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "rank": 24,
+      "score": 53.9,
+      "rvol": 0.63,
+      "atrExpansion": 0.91,
+      "price": 0.9614,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643884_0p20",
+    "timestamp": 1790011643884,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #23 Selected: TURBO-USDT-SWAP (Momentum Score: 54.1/100, RVOL: 0.71x, 24h Vol: $1484.3M)",
+    "details": {
+      "symbol": "TURBO-USDT-SWAP",
+      "rank": 23,
+      "score": 54.1,
+      "rvol": 0.71,
+      "atrExpansion": 0.86,
+      "price": 0.001041,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643535_e1v1",
+    "timestamp": 1790011643535,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #21 Selected: HBAR-USDT-SWAP (Momentum Score: 54.5/100, RVOL: 0.29x, 24h Vol: $275.5M)",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "rank": 21,
+      "score": 54.5,
+      "rvol": 0.29,
+      "atrExpansion": 1.07,
+      "price": 0.09066,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643534_s68s",
+    "timestamp": 1790011643534,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643532_kkcr",
+    "timestamp": 1790011643532,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BILL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643530_7mpz",
+    "timestamp": 1790011643530,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe BILL-USDT-SWAP (Scor: 55.3/100, Rank #20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.3,
+      "profile": "MOMENTUM",
+      "rank": 20
+    }
+  },
+  {
+    "id": "1790011643529_ktzd",
+    "timestamp": 1790011643529,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #20 Selected: BILL-USDT-SWAP (Momentum Score: 55.3/100, RVOL: 0.44x, 24h Vol: $167.0M)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "rank": 20,
+      "score": 55.3,
+      "rvol": 0.44,
+      "atrExpansion": 0.65,
+      "price": 0.01359,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643526_dg76",
+    "timestamp": 1790011643526,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643524_0c4p",
+    "timestamp": 1790011643524,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ACH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643523_8eed",
+    "timestamp": 1790011643523,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe ACH-USDT-SWAP (Scor: 55.6/100, Rank #19)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.6,
+      "profile": "MOMENTUM",
+      "rank": 19
+    }
+  },
+  {
+    "id": "1790011643522_wd3h",
+    "timestamp": 1790011643522,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ACH-USDT-SWAP (Momentum Score: 55.6/100, RVOL: 0.62x, 24h Vol: $77.6M)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "rank": 19,
+      "score": 55.6,
+      "rvol": 0.62,
+      "atrExpansion": 0.68,
+      "price": 0.005899,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643520_4ctp",
+    "timestamp": 1790011643520,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643520_a829",
+    "timestamp": 1790011643520,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate MINA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011643519_x72h",
+    "timestamp": 1790011643519,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe MINA-USDT-SWAP (Scor: 55.7/100, Rank #18)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.7,
+      "profile": "MOMENTUM",
+      "rank": 18
+    }
+  },
+  {
+    "id": "1790011643517_mzey",
+    "timestamp": 1790011643517,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #18 Selected: MINA-USDT-SWAP (Momentum Score: 55.7/100, RVOL: 0.15x, 24h Vol: $138.3M)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "rank": 18,
+      "score": 55.7,
+      "rvol": 0.15,
+      "atrExpansion": 0.43,
+      "price": 0.11996,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011643228_syc0",
+    "timestamp": 1790011643228,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: NEAR-USDT-SWAP (Momentum Score: 56.6/100, RVOL: 0.65x, 24h Vol: $69.6M)",
+    "details": {
+      "symbol": "NEAR-USDT-SWAP",
+      "rank": 16,
+      "score": 56.6,
+      "rvol": 0.65,
+      "atrExpansion": 0.78,
+      "price": 3.993,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642956_o4op",
+    "timestamp": 1790011642956,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #15 Selected: FOGO-USDT-SWAP (Momentum Score: 56.8/100, RVOL: 0.99x, 24h Vol: $105.4M)",
+    "details": {
+      "symbol": "FOGO-USDT-SWAP",
+      "rank": 15,
+      "score": 56.8,
+      "rvol": 0.99,
+      "atrExpansion": 1.19,
+      "price": 0.006674,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642749_zugv",
+    "timestamp": 1790011642749,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #14 Selected: OPN-USDT-SWAP (Momentum Score: 57/100, RVOL: 0.34x, 24h Vol: $81.7M)",
+    "details": {
+      "symbol": "OPN-USDT-SWAP",
+      "rank": 14,
+      "score": 57,
+      "rvol": 0.34,
+      "atrExpansion": 1.29,
+      "price": 0.0506,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642535_m5o0",
+    "timestamp": 1790011642535,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: HOME-USDT-SWAP (Momentum Score: 57/100, RVOL: 0.68x, 24h Vol: $830.9M)",
+    "details": {
+      "symbol": "HOME-USDT-SWAP",
+      "rank": 13,
+      "score": 57,
+      "rvol": 0.68,
+      "atrExpansion": 0.99,
+      "price": 0.006992,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642534_i7br",
+    "timestamp": 1790011642534,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642533_1v0q",
+    "timestamp": 1790011642533,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SOPH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642533_7mr9",
+    "timestamp": 1790011642533,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe SOPH-USDT-SWAP (Scor: 57.4/100, Rank #11)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 57.4,
+      "profile": "MOMENTUM",
+      "rank": 11
+    }
+  },
+  {
+    "id": "1790011642532_grph",
+    "timestamp": 1790011642532,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: SOPH-USDT-SWAP (Momentum Score: 57.4/100, RVOL: 0.58x, 24h Vol: $352.2M)",
+    "details": {
+      "symbol": "SOPH-USDT-SWAP",
+      "rank": 11,
+      "score": 57.4,
+      "rvol": 0.58,
+      "atrExpansion": 0.65,
+      "price": 0.004489,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642530_gsqe",
+    "timestamp": 1790011642530,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642529_0ock",
+    "timestamp": 1790011642529,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate LINEA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642528_ce1e",
+    "timestamp": 1790011642528,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe LINEA-USDT-SWAP (Scor: 57.8/100, Rank #10)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 57.8,
+      "profile": "MOMENTUM",
+      "rank": 10
+    }
+  },
+  {
+    "id": "1790011642527_db05",
+    "timestamp": 1790011642527,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: LINEA-USDT-SWAP (Momentum Score: 57.8/100, RVOL: 0.55x, 24h Vol: $328.7M)",
+    "details": {
+      "symbol": "LINEA-USDT-SWAP",
+      "rank": 10,
+      "score": 57.8,
+      "rvol": 0.55,
+      "atrExpansion": 0.91,
+      "price": 0.002788,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642320_w55p",
+    "timestamp": 1790011642320,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: AKE-USDT-SWAP (Momentum Score: 58.6/100, RVOL: 0.42x, 24h Vol: $8923.0M)",
+    "details": {
+      "symbol": "AKE-USDT-SWAP",
+      "rank": 9,
+      "score": 58.6,
+      "rvol": 0.42,
+      "atrExpansion": 0.87,
+      "price": 0.0548,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642319_g0pw",
+    "timestamp": 1790011642319,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642318_md1s",
+    "timestamp": 1790011642318,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate WIF-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642317_ccgs",
+    "timestamp": 1790011642317,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe WIF-USDT-SWAP (Scor: 58.7/100, Rank #8)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 58.7,
+      "profile": "MOMENTUM",
+      "rank": 8
+    }
+  },
+  {
+    "id": "1790011642316_ifeg",
+    "timestamp": 1790011642316,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: WIF-USDT-SWAP (Momentum Score: 58.7/100, RVOL: 0.66x, 24h Vol: $113.9M)",
+    "details": {
+      "symbol": "WIF-USDT-SWAP",
+      "rank": 8,
+      "score": 58.7,
+      "rvol": 0.66,
+      "atrExpansion": 1.03,
+      "price": 0.236,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642314_250a",
+    "timestamp": 1790011642314,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SPK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642314_njkv",
+    "timestamp": 1790011642314,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SPK-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "SPK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642313_311z",
+    "timestamp": 1790011642313,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe SPK-USDT-SWAP (Scor: 58.8/100, Rank #7)",
+    "details": {
+      "symbol": "SPK-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 58.8,
+      "profile": "MOMENTUM",
+      "rank": 7
+    }
+  },
+  {
+    "id": "1790011642311_uz9o",
+    "timestamp": 1790011642311,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: SPK-USDT-SWAP (Momentum Score: 58.8/100, RVOL: 1.16x, 24h Vol: $110.8M)",
+    "details": {
+      "symbol": "SPK-USDT-SWAP",
+      "rank": 7,
+      "score": 58.8,
+      "rvol": 1.16,
+      "atrExpansion": 0.85,
+      "price": 0.02123,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642310_4eo6",
+    "timestamp": 1790011642310,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642309_quvk",
+    "timestamp": 1790011642309,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate GPS-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642308_lo6k",
+    "timestamp": 1790011642308,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe GPS-USDT-SWAP (Scor: 59.2/100, Rank #6)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 59.2,
+      "profile": "MOMENTUM",
+      "rank": 6
+    }
+  },
+  {
+    "id": "1790011642307_z7f9",
+    "timestamp": 1790011642307,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #6 Selected: GPS-USDT-SWAP (Momentum Score: 59.2/100, RVOL: 0.58x, 24h Vol: $123.1M)",
+    "details": {
+      "symbol": "GPS-USDT-SWAP",
+      "rank": 6,
+      "score": 59.2,
+      "rvol": 0.58,
+      "atrExpansion": 1.3,
+      "price": 0.010824,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642306_8txh",
+    "timestamp": 1790011642306,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642305_1qde",
+    "timestamp": 1790011642305,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate DOGE-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642304_ocvb",
+    "timestamp": 1790011642304,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe DOGE-USDT-SWAP (Scor: 59.3/100, Rank #5)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 59.3,
+      "profile": "MOMENTUM",
+      "rank": 5
+    }
+  },
+  {
+    "id": "1790011642303_a6jv",
+    "timestamp": 1790011642303,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: DOGE-USDT-SWAP (Momentum Score: 59.3/100, RVOL: 0.59x, 24h Vol: $7656.7M)",
+    "details": {
+      "symbol": "DOGE-USDT-SWAP",
+      "rank": 5,
+      "score": 59.3,
+      "rvol": 0.59,
+      "atrExpansion": 0.92,
+      "price": 0.09754,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011642301_b7gd",
+    "timestamp": 1790011642301,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642300_r8di",
+    "timestamp": 1790011642300,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BEAT-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011642299_1oll",
+    "timestamp": 1790011642299,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe BEAT-USDT-SWAP (Scor: 60.2/100, Rank #4)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 60.2,
+      "profile": "MOMENTUM",
+      "rank": 4
+    }
+  },
+  {
+    "id": "1790011642298_4jtn",
+    "timestamp": 1790011642298,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: BEAT-USDT-SWAP (Momentum Score: 60.2/100, RVOL: 0.48x, 24h Vol: $106.0M)",
+    "details": {
+      "symbol": "BEAT-USDT-SWAP",
+      "rank": 4,
+      "score": 60.2,
+      "rvol": 0.48,
+      "atrExpansion": 0.96,
+      "price": 0.0866,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011641939_9wa1",
+    "timestamp": 1790011641939,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: MOODENG-USDT-SWAP (Momentum Score: 62.6/100, RVOL: 0.91x, 24h Vol: $81.2M)",
+    "details": {
+      "symbol": "MOODENG-USDT-SWAP",
+      "rank": 3,
+      "score": 62.6,
+      "rvol": 0.91,
+      "atrExpansion": 1.26,
+      "price": 0.0478,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011641937_ym9p",
+    "timestamp": 1790011641937,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011641935_jvru",
+    "timestamp": 1790011641935,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FLOCK-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011641933_co3x",
+    "timestamp": 1790011641933,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat SELL ➡️ INVERSAT în BUY (LONG) pe FLOCK-USDT-SWAP (Scor: 63.5/100, Rank #2)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "BUY",
+      "isInverted": true,
+      "score": 63.5,
+      "profile": "MOMENTUM",
+      "rank": 2
+    }
+  },
+  {
+    "id": "1790011641932_r6tj",
+    "timestamp": 1790011641932,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: FLOCK-USDT-SWAP (Momentum Score: 63.5/100, RVOL: 0.27x, 24h Vol: $311.4M)",
+    "details": {
+      "symbol": "FLOCK-USDT-SWAP",
+      "rank": 2,
+      "score": 63.5,
+      "rvol": 0.27,
+      "atrExpansion": 0.73,
+      "price": 0.07406,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011641565_aprn",
+    "timestamp": 1790011641565,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: OL-USDT-SWAP (Momentum Score: 66.7/100, RVOL: 1.52x, 24h Vol: $180.7M)",
+    "details": {
+      "symbol": "OL-USDT-SWAP",
+      "rank": 1,
+      "score": 66.7,
+      "rvol": 1.52,
+      "atrExpansion": 1.44,
+      "price": 0.007003,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011641563_tjoj",
+    "timestamp": 1790011641563,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 0.97s. Scanned: 100/100 pairs. Candidates: 38. Top: OL-USDT-SWAP (66.7), FLOCK-USDT-SWAP (63.5), MOODENG-USDT-SWAP (62.6), BEAT-USDT-SWAP (60.2), DOGE-USDT-SWAP (59.3).",
+    "details": {
+      "totalUniverse": 471,
+      "eligibleCount": 100,
+      "scannedCount": 100,
+      "candidatesCount": 38,
+      "topRanked": [
+        {
+          "symbol": "OL-USDT-SWAP",
+          "score": 66.7,
+          "rvol": 1.52,
+          "price": 0.007003
+        },
+        {
+          "symbol": "FLOCK-USDT-SWAP",
+          "score": 63.5,
+          "rvol": 0.27,
+          "price": 0.07406
+        },
+        {
+          "symbol": "MOODENG-USDT-SWAP",
+          "score": 62.6,
+          "rvol": 0.91,
+          "price": 0.0478
+        },
+        {
+          "symbol": "BEAT-USDT-SWAP",
+          "score": 60.2,
+          "rvol": 0.48,
+          "price": 0.0866
+        },
+        {
+          "symbol": "DOGE-USDT-SWAP",
+          "score": 59.3,
+          "rvol": 0.59,
+          "price": 0.09754
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790011640648_bcc4",
+    "timestamp": 1790011640648,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 100 liquid candidates selected from 471 total (Min 24h Volume: $2.0M USDT).",
+    "details": {
+      "totalUniverse": 471,
+      "eligibleCount": 100,
+      "maxSymbols": 100,
+      "minVolumeUSDT": 2000000,
+      "topSymbols": [
+        "ONE-USDT-SWAP",
+        "PUMP-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "AKE-USDT-SWAP",
+        "HMSTR-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790011640591_yof8",
+    "timestamp": 1790011640591,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: MOMENTUM (LTF: 60m, HTF: 240m)..."
+  },
+  {
+    "id": "1790011634909_j4p7",
+    "timestamp": 1790011634909,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #37 Selected: ZORA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.67x, 24h Vol: $111.1M)",
+    "details": {
+      "symbol": "ZORA-USDT-SWAP",
+      "rank": 37,
+      "score": 50.1,
+      "rvol": 0.67,
+      "atrExpansion": 0.89,
+      "price": 0.008367,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011634550_57fr",
+    "timestamp": 1790011634550,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #36 Selected: MEW-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.53x, 24h Vol: $1347.9M)",
+    "details": {
+      "symbol": "MEW-USDT-SWAP",
+      "rank": 36,
+      "score": 50.1,
+      "rvol": 0.53,
+      "atrExpansion": 0.76,
+      "price": 0.0004596,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011634340_tdfg",
+    "timestamp": 1790011634340,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #35 Selected: ENA-USDT-SWAP (Momentum Score: 50.1/100, RVOL: 0.48x, 24h Vol: $650.2M)",
+    "details": {
+      "symbol": "ENA-USDT-SWAP",
+      "rank": 35,
+      "score": 50.1,
+      "rvol": 0.48,
+      "atrExpansion": 0.54,
+      "price": 0.20851,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011634339_jdz8",
+    "timestamp": 1790011634339,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011634338_sg7a",
+    "timestamp": 1790011634338,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate UB-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011634336_j1k4",
+    "timestamp": 1790011634336,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe UB-USDT-SWAP (Scor: 50.6/100, Rank #33)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 50.6,
+      "profile": "MOMENTUM",
+      "rank": 33
+    }
+  },
+  {
+    "id": "1790011634332_w5lf",
+    "timestamp": 1790011634332,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #33 Selected: UB-USDT-SWAP (Momentum Score: 50.6/100, RVOL: 0.22x, 24h Vol: $129.7M)",
+    "details": {
+      "symbol": "UB-USDT-SWAP",
+      "rank": 33,
+      "score": 50.6,
+      "rvol": 0.22,
+      "atrExpansion": 0.56,
+      "price": 0.13588,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011633895_6gyq",
+    "timestamp": 1790011633895,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #31 Selected: PENGU-USDT-SWAP (Momentum Score: 50.7/100, RVOL: 0.52x, 24h Vol: $4595.6M)",
+    "details": {
+      "symbol": "PENGU-USDT-SWAP",
+      "rank": 31,
+      "score": 50.7,
+      "rvol": 0.52,
+      "atrExpansion": 0.81,
+      "price": 0.00861,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011633685_u99z",
+    "timestamp": 1790011633685,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #30 Selected: BLUR-USDT-SWAP (Momentum Score: 51.6/100, RVOL: 0.52x, 24h Vol: $75.9M)",
+    "details": {
+      "symbol": "BLUR-USDT-SWAP",
+      "rank": 30,
+      "score": 51.6,
+      "rvol": 0.52,
+      "atrExpansion": 0.72,
+      "price": 0.01982,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011633334_wnia",
+    "timestamp": 1790011633334,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #29 Selected: PEOPLE-USDT-SWAP (Momentum Score: 52.7/100, RVOL: 0.67x, 24h Vol: $871.2M)",
+    "details": {
+      "symbol": "PEOPLE-USDT-SWAP",
+      "rank": 29,
+      "score": 52.7,
+      "rvol": 0.67,
+      "atrExpansion": 0.92,
+      "price": 0.009089,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011633115_7il1",
+    "timestamp": 1790011633115,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #28 Selected: AIXBT-USDT-SWAP (Momentum Score: 53/100, RVOL: 0.36x, 24h Vol: $66.2M)",
+    "details": {
+      "symbol": "AIXBT-USDT-SWAP",
+      "rank": 28,
+      "score": 53,
+      "rvol": 0.36,
+      "atrExpansion": 1.15,
+      "price": 0.02221,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632760_z0ij",
+    "timestamp": 1790011632760,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #27 Selected: LAB-USDT-SWAP (Momentum Score: 53.1/100, RVOL: 1.07x, 24h Vol: $114.0M)",
+    "details": {
+      "symbol": "LAB-USDT-SWAP",
+      "rank": 27,
+      "score": 53.1,
+      "rvol": 1.07,
+      "atrExpansion": 1.1,
+      "price": 0.05647,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632759_mwxl",
+    "timestamp": 1790011632759,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632758_v8lu",
+    "timestamp": 1790011632758,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632756_zx3c",
+    "timestamp": 1790011632757,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe PUMP-USDT-SWAP (Scor: 53.8/100, Rank #26)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 53.8,
+      "profile": "MOMENTUM",
+      "rank": 26
+    }
+  },
+  {
+    "id": "1790011632754_q5n4",
+    "timestamp": 1790011632754,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #26 Selected: PUMP-USDT-SWAP (Momentum Score: 53.8/100, RVOL: 0.25x, 24h Vol: $22544.5M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 26,
+      "score": 53.8,
+      "rvol": 0.25,
+      "atrExpansion": 0.56,
+      "price": 0.004305,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632752_s373",
+    "timestamp": 1790011632752,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632751_gfbd",
+    "timestamp": 1790011632751,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FIL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632750_v7td",
+    "timestamp": 1790011632750,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe FIL-USDT-SWAP (Scor: 53.9/100, Rank #25)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 53.9,
+      "profile": "MOMENTUM",
+      "rank": 25
+    }
+  },
+  {
+    "id": "1790011632749_ri9w",
+    "timestamp": 1790011632749,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #25 Selected: FIL-USDT-SWAP (Momentum Score: 53.9/100, RVOL: 0.63x, 24h Vol: $109.4M)",
+    "details": {
+      "symbol": "FIL-USDT-SWAP",
+      "rank": 25,
+      "score": 53.9,
+      "rvol": 0.63,
+      "atrExpansion": 0.91,
+      "price": 0.9614,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632680_szyc",
+    "timestamp": 1790011632680,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #24 Selected: WLD-USDT-SWAP (Momentum Score: 54/100, RVOL: 0.77x, 24h Vol: $285.6M)",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "rank": 24,
+      "score": 54,
+      "rvol": 0.77,
+      "atrExpansion": 0.79,
+      "price": 0.435,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632392_jzqk",
+    "timestamp": 1790011632392,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #23 Selected: TURBO-USDT-SWAP (Momentum Score: 54.1/100, RVOL: 0.71x, 24h Vol: $1483.8M)",
+    "details": {
+      "symbol": "TURBO-USDT-SWAP",
+      "rank": 23,
+      "score": 54.1,
+      "rvol": 0.71,
+      "atrExpansion": 0.86,
+      "price": 0.001041,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632165_ktax",
+    "timestamp": 1790011632165,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #21 Selected: HBAR-USDT-SWAP (Momentum Score: 54.5/100, RVOL: 0.29x, 24h Vol: $275.2M)",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "rank": 21,
+      "score": 54.5,
+      "rvol": 0.29,
+      "atrExpansion": 1.07,
+      "price": 0.09066,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632164_6gnr",
+    "timestamp": 1790011632164,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632163_s50i",
+    "timestamp": 1790011632163,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BILL-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632162_2ds7",
+    "timestamp": 1790011632162,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe BILL-USDT-SWAP (Scor: 55.3/100, Rank #20)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.3,
+      "profile": "MOMENTUM",
+      "rank": 20
+    }
+  },
+  {
+    "id": "1790011632161_m7ss",
+    "timestamp": 1790011632161,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #20 Selected: BILL-USDT-SWAP (Momentum Score: 55.3/100, RVOL: 0.44x, 24h Vol: $166.9M)",
+    "details": {
+      "symbol": "BILL-USDT-SWAP",
+      "rank": 20,
+      "score": 55.3,
+      "rvol": 0.44,
+      "atrExpansion": 0.65,
+      "price": 0.01359,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632160_y7sa",
+    "timestamp": 1790011632160,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632159_vmyn",
+    "timestamp": 1790011632159,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ACH-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632158_dlu1",
+    "timestamp": 1790011632158,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe ACH-USDT-SWAP (Scor: 55.6/100, Rank #19)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.6,
+      "profile": "MOMENTUM",
+      "rank": 19
+    }
+  },
+  {
+    "id": "1790011632157_7dib",
+    "timestamp": 1790011632157,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ACH-USDT-SWAP (Momentum Score: 55.6/100, RVOL: 0.62x, 24h Vol: $77.6M)",
+    "details": {
+      "symbol": "ACH-USDT-SWAP",
+      "rank": 19,
+      "score": 55.6,
+      "rvol": 0.62,
+      "atrExpansion": 0.68,
+      "price": 0.005899,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632156_q9g0",
+    "timestamp": 1790011632156,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632155_js7b",
+    "timestamp": 1790011632155,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate MINA-USDT-SWAP rejected by Risk Engine: Max open positions reached (20/20)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "reason": "Max open positions reached (20/20)"
+    }
+  },
+  {
+    "id": "1790011632154_3j1k",
+    "timestamp": 1790011632154,
+    "type": "SIGNAL_GENERATED",
+    "message": "[EXPERIMENT INVERS] Momentum Engine confirmat BUY ➡️ INVERSAT în SELL (SHORT) pe MINA-USDT-SWAP (Scor: 55.7/100, Rank #18)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "SELL",
+      "isInverted": true,
+      "score": 55.7,
+      "profile": "MOMENTUM",
+      "rank": 18
+    }
+  },
+  {
+    "id": "1790011632152_q6uz",
+    "timestamp": 1790011632152,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #18 Selected: MINA-USDT-SWAP (Momentum Score: 55.7/100, RVOL: 0.15x, 24h Vol: $138.3M)",
+    "details": {
+      "symbol": "MINA-USDT-SWAP",
+      "rank": 18,
+      "score": 55.7,
+      "rvol": 0.15,
+      "atrExpansion": 0.43,
+      "price": 0.11996,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011632083_7ffm",
+    "timestamp": 1790011632083,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #16 Selected: NEAR-USDT-SWAP (Momentum Score: 56.6/100, RVOL: 0.65x, 24h Vol: $69.6M)",
+    "details": {
+      "symbol": "NEAR-USDT-SWAP",
+      "rank": 16,
+      "score": 56.6,
+      "rvol": 0.65,
+      "atrExpansion": 0.78,
+      "price": 3.993,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011631809_aovr",
+    "timestamp": 1790011631809,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #15 Selected: FOGO-USDT-SWAP (Momentum Score: 56.8/100, RVOL: 0.99x, 24h Vol: $105.4M)",
+    "details": {
+      "symbol": "FOGO-USDT-SWAP",
+      "rank": 15,
+      "score": 56.8,
+      "rvol": 0.99,
+      "atrExpansion": 1.19,
+      "price": 0.006674,
+      "profile": "MOMENTUM"
+    }
+  },
+  {
+    "id": "1790011631606_t2ty",
+    "timestamp": 1790011631606,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #14 Selected: OPN-USDT-SWAP (Momentum Score: 57/100, RVOL: 0.34x, 24h Vol: $81.7M)",
+    "details": {
+      "symbol": "OPN-USDT-SWAP",
+      "rank": 14,
+      "score": 57,
+      "rvol": 0.34,
+      "atrExpansion": 1.29,
+      "price": 0.0506,
+      "profile": "MOMENTUM"
+    }
+  }
+]

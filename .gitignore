@@ -5,6 +5,6 @@ release/
 coverage/
 .DS_Store
 *.log
-.data/
 .env*
 !.env.example
+.telegram*.json

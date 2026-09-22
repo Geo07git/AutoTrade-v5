@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import {
   BotStatusResponse,
   Position,
@@ -5,7 +7,16 @@ import {
   AuditLog,
   OrderSide,
   AuditLogType,
+  TelegramConfigStatus,
 } from '../../shared/types';
+import {
+  getBucharestHour,
+  getBucharestHourlyInterval,
+  formatBucharestTime,
+  formatBucharestDateTime,
+} from '../utils/timezone';
+
+const CONFIG_FILE_PATH = path.join(process.cwd(), '.telegram_config.json');
 
 export interface ITelegramTradeBot {
   getStatus(): BotStatusResponse;
@@ -22,6 +33,7 @@ export interface ITelegramTradeBot {
 export class TelegramService {
   private botToken: string;
   private chatId: string;
+  private botUsername: string = '';
   private isPolling: boolean = false;
   private lastUpdateId: number = 0;
   private pollInterval?: NodeJS.Timeout;
@@ -29,22 +41,180 @@ export class TelegramService {
   private lastHourlyCheckTime: number = Date.now();
   private botDelegate?: ITelegramTradeBot;
   private lastSentSentimentAlert: string = '';
-  private lastHourlyHour: number = new Date().getHours();
+  private lastHourlyHour: number = getBucharestHour();
 
   constructor() {
     this.botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
     this.chatId = (process.env.TELEGRAM_CHAT_ID || '').trim();
+    this.loadPersistedConfig();
+  }
+
+  private loadPersistedConfig() {
+    try {
+      if (fs.existsSync(CONFIG_FILE_PATH)) {
+        const raw = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.botToken && !this.botToken) {
+          this.botToken = String(data.botToken).trim();
+        }
+        if (data.chatId && !this.chatId) {
+          this.chatId = String(data.chatId).trim();
+        }
+        if (data.botUsername) {
+          this.botUsername = String(data.botUsername).trim();
+        }
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }
+
+  private savePersistedConfig() {
+    try {
+      fs.writeFileSync(
+        CONFIG_FILE_PATH,
+        JSON.stringify(
+          {
+            botToken: this.botToken,
+            chatId: this.chatId,
+            botUsername: this.botUsername,
+            updatedAt: Date.now(),
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      );
+    } catch (e) {
+      // Ignored
+    }
   }
 
   public setBotDelegate(delegate: ITelegramTradeBot) {
     this.botDelegate = delegate;
   }
 
-  public updateCredentials(token?: string, chatId?: string) {
-    if (token) this.botToken = token.trim();
-    if (chatId) this.chatId = chatId.trim();
-    if (this.botToken && !this.pollInterval) {
+  public updateCredentials(token?: string, chatId?: string, botUsername?: string) {
+    if (token !== undefined) this.botToken = token.trim();
+    if (chatId !== undefined) this.chatId = chatId.trim();
+    if (botUsername !== undefined) this.botUsername = botUsername.trim();
+
+    this.savePersistedConfig();
+
+    if (this.botToken) {
       this.startPolling();
+    } else {
+      if (this.pollInterval) {
+        clearInterval(this.pollInterval);
+        this.pollInterval = undefined;
+      }
+    }
+  }
+
+  public getCredentialsStatus(): TelegramConfigStatus {
+    return {
+      configured: this.isConfigured(),
+      hasToken: Boolean(this.botToken),
+      hasChatId: Boolean(this.chatId),
+      maskedToken: this.botToken
+        ? `${this.botToken.slice(0, 5)}...${this.botToken.slice(-4)}`
+        : '',
+      chatId: this.chatId || '',
+      botUsername: this.botUsername || undefined,
+    };
+  }
+
+  public async testConnection(tokenInput?: string, chatIdInput?: string): Promise<{
+    success: boolean;
+    reachable: boolean;
+    validToken: boolean;
+    botUsername?: string;
+    botName?: string;
+    chatDelivered?: boolean;
+    error?: string;
+  }> {
+    const token = (tokenInput !== undefined && tokenInput.trim() !== '' ? tokenInput : this.botToken).trim();
+    const chat = (chatIdInput !== undefined && chatIdInput.trim() !== '' ? chatIdInput : this.chatId).trim();
+
+    if (!token) {
+      return {
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: 'Lipsește Telegram Bot Token. Introdu un token generat de @BotFather.',
+      };
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const meData: any = await meRes.json().catch(() => ({}));
+      if (!meRes.ok || !meData.ok) {
+        return {
+          success: false,
+          reachable: true,
+          validToken: false,
+          error: meData.description || 'Token invalid sau revocat de Telegram.',
+        };
+      }
+
+      const botUsername = meData.result?.username;
+      const botName = meData.result?.first_name;
+      if (botUsername) {
+        this.botUsername = botUsername;
+        this.savePersistedConfig();
+      }
+
+      let chatDelivered = false;
+      if (chat) {
+        const sendController = new AbortController();
+        const sendTimeoutId = setTimeout(() => sendController.abort(), 7000);
+        const sendRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chat,
+            text: `🟢 Conexiune Reușită!\n\n🤖 Bot: @${botUsername || 'TradeBot'}\n⏰ Ora: ${formatBucharestTime()} (București)\n\nCanalul / Chatul Telegram este acum conectat și pregătit pentru rapoarte și alerte!`,
+          }),
+          signal: sendController.signal,
+        });
+        clearTimeout(sendTimeoutId);
+        const sendData: any = await sendRes.json().catch(() => ({}));
+        if (sendRes.ok && sendData.ok) {
+          chatDelivered = true;
+        } else {
+          return {
+            success: false,
+            reachable: true,
+            validToken: true,
+            botUsername,
+            botName,
+            chatDelivered: false,
+            error: sendData.description || 'Botul nu are acces să trimită mesaje în acest Canal/Chat. Asigură-te că botul este adăugat ca Administrator în canal sau ai trimis /start în privat.',
+          };
+        }
+      }
+
+      return {
+        success: true,
+        reachable: true,
+        validToken: true,
+        botUsername,
+        botName,
+        chatDelivered,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: err.message || 'Eroare de rețea la interogarea serverelor Telegram.',
+      };
     }
   }
 
@@ -132,22 +302,26 @@ export class TelegramService {
     // Run completely in background
     setTimeout(async () => {
       try {
+        const timeStr = formatBucharestTime();
         if (type === 'PAPER_RESET') {
           await this.sendMessage(
             `🔄 REZETARE CONT PAPER\n\n` +
             `Capitalul de simulare a fost resetat la $200.00 USDT.\n` +
-            `Pozițiile și istoricul local au fost curățate.`
+            `Pozițiile și istoricul local au fost curățate.\n` +
+            `⏰ Ora: ${timeStr} (București)`
           );
         } else if (type === 'KILL_SWITCH_ENGAGED') {
           await this.sendMessage(
             `🚨 EMERGENCY KILL SWITCH ACTIVAT!\n\n` +
             `Toate pozițiile active au fost lichidate de urgență.\n` +
-            `Intrările automate sunt blocate până la dezactivare.`
+            `Intrările automate sunt blocate până la dezactivare.\n` +
+            `⏰ Ora: ${timeStr} (București)`
           );
         } else if (type === 'KILL_SWITCH_DISENGAGED') {
           await this.sendMessage(
             `✅ KILL SWITCH DEZACTIVAT\n\n` +
-            `Tranzacționarea automată a fost reluată conform profilului activ.`
+            `Tranzacționarea automată a fost reluată conform profilului activ.\n` +
+            `⏰ Ora: ${timeStr} (București)`
           );
         }
       } catch (err: any) {
@@ -158,13 +332,13 @@ export class TelegramService {
 
   /**
    * Check and trigger hourly report
+   * Uses Europe/Bucharest timezone so that hours align with Romanian local time
    */
   private async checkHourlySchedule() {
-    const now = new Date();
-    const currentHour = now.getHours();
+    const currentHour = getBucharestHour();
 
     if (currentHour !== this.lastHourlyHour) {
-      const prevHour = this.lastHourlyHour;
+      const prevHour = (currentHour - 1 + 24) % 24;
       this.lastHourlyHour = currentHour;
       
       const prevHourStr = `${prevHour.toString().padStart(2, '0')}:00`;
@@ -172,7 +346,7 @@ export class TelegramService {
 
       await this.sendHourlyReport(prevHourStr, currHourStr);
 
-      // Daily summary at 21:00 or end of day
+      // Daily summary at 21:00 Romanian time (Europe/Bucharest)
       if (currentHour === 21) {
         await this.sendDailySummary();
       }
@@ -181,7 +355,7 @@ export class TelegramService {
 
   /**
    * Generates and dispatches the comprehensive hourly report:
-   * 📊 RAPORT ORAR — HH:00–HH:00
+   * 📊 RAPORT ORAR — HH:00–HH:00 (Ora României)
    */
   public async sendHourlyReport(startHour: string = '12:00', endHour: string = '13:00') {
     if (!this.botDelegate) return;
@@ -299,9 +473,11 @@ export class TelegramService {
     const marginInv = status.marginInvested || 0;
     const unPnl = status.unrealizedPnL || 0;
     const unPnlSign = unPnl >= 0 ? '+' : '';
+    const generatedAt = formatBucharestDateTime();
 
     const text =
-      `📊 RAPORT ORAR — ${startHour}–${endHour}\n\n` +
+      `📊 RAPORT ORAR — ${startHour}–${endHour} (Ora României)\n` +
+      `⏰ Generat la: ${generatedAt} (București)\n\n` +
       `💰 CAPITAL & PORTOFOLIU\n` +
       `• Capital Total (Equity): ${status.equity.toFixed(2)} USDT\n` +
       `• Sold Disponibil: ${freeBal.toFixed(2)} USDT\n` +
@@ -329,7 +505,7 @@ export class TelegramService {
 
   /**
    * Generates and dispatches daily summary:
-   * 🌙 REZUMAT ZILNIC
+   * 🌙 REZUMAT ZILNIC (24H) — Ora României
    */
   public async sendDailySummary() {
     if (!this.botDelegate) return;
@@ -370,9 +546,11 @@ export class TelegramService {
     const avgLoss = lossCount > 0 ? (sumLossPct / lossCount).toFixed(2) : '0.00';
     const netPnlSign = netPnl >= 0 ? '+' : '';
     const grossPnlSign = grossPnl >= 0 ? '+' : '';
+    const generatedAt = formatBucharestDateTime();
 
     const text =
-      `🌙 REZUMAT ZILNIC (24H)\n\n` +
+      `🌙 REZUMAT ZILNIC (24H) — Ora României\n` +
+      `⏰ Generat la: ${generatedAt} (București)\n\n` +
       `💰 BILANȚ CAPITAL\n` +
       `• Capital Actual (Equity): ${status.equity.toFixed(2)} USDT\n` +
       `• Sold Disponibil: ${(status.freeBalance || 0).toFixed(2)} USDT\n` +
@@ -503,6 +681,13 @@ export class TelegramService {
       const profitSign = (status.totalProfit || 0) >= 0 ? '+' : '';
       const perf = status.performanceMetrics;
       const winRate = perf ? perf.winRate : 0;
+      let pfText = '';
+      if (perf && perf.totalClosed > 0) {
+        const totalWin = perf.totalGrossProfit !== undefined ? perf.totalGrossProfit : (perf.avgWin * perf.winningTrades);
+        const totalLoss = perf.totalGrossLoss !== undefined ? perf.totalGrossLoss : (perf.avgLoss * perf.losingTrades);
+        const pfVal = (perf.profitFactor >= 999 || (totalLoss === 0 && totalWin > 0)) ? 'MAX' : perf.profitFactor.toFixed(2);
+        pfText = `• Profit Factor: ${pfVal} ($${totalWin.toFixed(2)} / $${totalLoss.toFixed(2)})\n`;
+      }
 
       const reply =
         `📊 PORTOFOLIU & CAPITAL\n\n` +
@@ -512,6 +697,7 @@ export class TelegramService {
         `• PnL Nerealizat: ${unrealized} USDT\n` +
         `• PnL Total Realizat: ${profitSign}${profit} USDT (${profitSign}${profitPct}%)\n` +
         `• Win Rate Total: ${winRate}%\n` +
+        pfText +
         `• Mod Curent: [${status.executionMode}] | Profil: ${status.profileConfig?.type}`;
 
       await this.sendMessage(reply, chatId);

@@ -1,0 +1,67 @@
+{
+  "executionMode": "PAPER",
+  "activeProfile": "MOMENTUM",
+  "testnet": true,
+  "killSwitchEngaged": true,
+  "invertSignals": false,
+  "okxApiKey": "48942dc8-f773-4e99-91be-10b7da8822cf",
+  "okxSecretKey": "1A055D8452230C9C353EED27791D98B1",
+  "okxPassphrase": "Georgeo.07",
+  "paperEquity": 200,
+  "watchlist": [
+    "BTC-USDT-SWAP",
+    "ETH-USDT-SWAP",
+    "SOL-USDT-SWAP"
+  ],
+  "scannerFilter": {
+    "min24hVolumeUSDT": 5000000,
+    "minPrice": 0.0001,
+    "maxSymbols": 500,
+    "settleCoin": "USDT",
+    "refreshIntervalMs": 900000
+  },
+  "profiles": {
+    "SCALP": {
+      "type": "SCALP",
+      "timeframes": [
+        "15",
+        "60"
+      ],
+      "riskPerTradePct": 15,
+      "maxOpenPositions": 6,
+      "trailingActivationPct": 1,
+      "trailingDistancePct": 0.3,
+      "breakEvenActivationPct": 0.5,
+      "takeProfitPct": 3,
+      "hardStopLossPct": 1,
+      "equityProtectionActivationPct": 2,
+      "equityTrailingDrawdownPct": 1.5,
+      "minMomentumScore": 72,
+      "maxMomentumScore": 82,
+      "maxHoldingTimeMinutes": 30,
+      "cooldownMinutes": 10,
+      "sentimentThreshold": 1.5
+    },
+    "MOMENTUM": {
+      "type": "MOMENTUM",
+      "timeframes": [
+        "60",
+        "240"
+      ],
+      "riskPerTradePct": 10,
+      "maxOpenPositions": 10,
+      "trailingActivationPct": 2,
+      "trailingDistancePct": 0.6,
+      "breakEvenActivationPct": 1,
+      "takeProfitPct": 6,
+      "hardStopLossPct": 2,
+      "equityProtectionActivationPct": 3,
+      "equityTrailingDrawdownPct": 2,
+      "minMomentumScore": 75,
+      "maxMomentumScore": 82,
+      "maxHoldingTimeMinutes": 240,
+      "cooldownMinutes": 60,
+      "sentimentThreshold": 2
+    }
+  }
+}

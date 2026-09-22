@@ -3,9 +3,17 @@ import path from 'path';
 
 const STORE_PATH = path.join(process.cwd(), '.data');
 
-if (!fs.existsSync(STORE_PATH)) {
-  fs.mkdirSync(STORE_PATH, { recursive: true });
+function ensureStoreDir() {
+  try {
+    if (!fs.existsSync(STORE_PATH)) {
+      fs.mkdirSync(STORE_PATH, { recursive: true });
+    }
+  } catch {
+    // Ignore if already created concurrently
+  }
 }
+
+ensureStoreDir();
 
 export class JsonStore<T> {
   private filePath: string;
@@ -19,12 +27,13 @@ export class JsonStore<T> {
   }
 
   private load(): T {
+    ensureStoreDir();
     if (fs.existsSync(this.filePath)) {
       try {
         const fileContent = fs.readFileSync(this.filePath, 'utf-8');
         return JSON.parse(fileContent) as T;
       } catch (err) {
-        console.error(`Error loading store ${this.filePath}:`, err);
+        console.warn(`[JsonStore] Warning loading store ${this.filePath}, using defaults:`, err);
         return this.defaultData;
       }
     }
@@ -36,7 +45,12 @@ export class JsonStore<T> {
     if (data !== undefined) {
       this.data = data;
     }
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
+    try {
+      ensureStoreDir();
+      fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
+    } catch (err) {
+      console.warn(`[JsonStore] Warning saving store ${this.filePath}:`, err);
+    }
   }
 
   public get(): T {

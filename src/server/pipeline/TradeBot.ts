@@ -30,6 +30,7 @@ const DEFAULT_CONFIG: AppConfig = {
   activeProfile: 'MOMENTUM',
   testnet: true,
   killSwitchEngaged: false,
+  invertSignals: true, // Experimental: Invert Long <-> Short signals active
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
@@ -43,15 +44,16 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     type: 'SCALP',
     timeframes: ['15', '60'],
     riskPerTradePct: 15,
-    maxOpenPositions: 3,
+    maxOpenPositions: 6,
     trailingActivationPct: 1.0,
     trailingDistancePct: 0.3,
     breakEvenActivationPct: 0.5,
     takeProfitPct: 3.0, // TP 3% vs SL 1.0% (R/R 3:1)
     hardStopLossPct: 1.0,
-    equityProtectionActivationPct: 1.0,
-    equityTrailingDrawdownPct: 0.25,
+    equityProtectionActivationPct: 2.0,
+    equityTrailingDrawdownPct: 1.5,
     minMomentumScore: 72,
+    maxMomentumScore: 82, // Hard cap against overextended entries
     maxHoldingTimeMinutes: 30,
     cooldownMinutes: 10,
     sentimentThreshold: 1.5,
@@ -60,15 +62,16 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     type: 'MOMENTUM',
     timeframes: ['60', '240'],
     riskPerTradePct: 10,
-    maxOpenPositions: 5,
+    maxOpenPositions: 10,
     trailingActivationPct: 2.0,
     trailingDistancePct: 0.6,
     breakEvenActivationPct: 1.0,
     takeProfitPct: 6.0, // TP 6% vs SL 2.0% (R/R 3:1)
     hardStopLossPct: 2.0,
-    equityProtectionActivationPct: 1.0,
-    equityTrailingDrawdownPct: 0.25,
-    minMomentumScore: 82,
+    equityProtectionActivationPct: 3.0,
+    equityTrailingDrawdownPct: 2.0,
+    minMomentumScore: 75,
+    maxMomentumScore: 82, // Hard cap against exhaustion tops
     maxHoldingTimeMinutes: 240,
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
@@ -107,7 +110,6 @@ export class TradeBot {
   private marketSentiment: string = 'OKX NEUTRAL (+0.00%)';
   private marketSentimentScore: number = 0;
   private sentimentInterval?: NodeJS.Timeout;
-  private lastSentimentAlertTime: number = 0;
 
   private getProfiles(): Record<ProfileType, ProfileConfig> {
     const config = this.configStore.get();
@@ -353,17 +355,6 @@ export class TradeBot {
         } else {
           this.marketSentiment = `OKX NEUTRAL (${sign}${avgScore.toFixed(2)}%)`;
         }
-
-        // Trigger notification if threshold crossed
-        if (Math.abs(avgScore) >= threshold) {
-          const now = Date.now();
-          if (now - this.lastSentimentAlertTime > 15 * 60 * 1000) {
-            this.lastSentimentAlertTime = now;
-            const alertMsg = `⚡ SENTIMENT GLOBAL ALERT: Sentimentul pieței OKX a depășit pragul de ±${threshold}%: ${this.marketSentiment}`;
-            this.logAudit('SYSTEM', alertMsg);
-            telegramService.sendMessage(alertMsg);
-          }
-        }
       }
     } catch (err) {
       console.warn('[TradeBot] Failed to update market sentiment:', err);
@@ -517,7 +508,7 @@ export class TradeBot {
       this.engine.setConfig(profile); // Force update engine config
 
       // 3. Dynamic Universe & Market Scanning
-      const scannedOpportunities = await this.marketScanner.scan(profile);
+      const scannedOpportunities = await this.marketScanner.scan(profile, Boolean(config.invertSignals));
 
       // Update latest prices for all scanned pairs
       for (const opp of scannedOpportunities) {
@@ -526,10 +517,11 @@ export class TradeBot {
         }
       }
 
-      // Filter eligible candidates meeting momentum threshold, sorted by score descending
+      // Filter eligible candidates meeting momentum score window [min, max], sorted by score descending
       const eligibleCandidates = scannedOpportunities.filter((opp) => {
         if (!opp.isEligible) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
+        if (profile.maxMomentumScore && opp.score > profile.maxMomentumScore) return false;
         return true;
       });
 
@@ -587,12 +579,24 @@ export class TradeBot {
         }
 
         if (signal) {
+          const originalSide = signal.side;
+          if (config.invertSignals) {
+            signal.side = originalSide === 'BUY' ? 'SELL' : 'BUY';
+            candidate.side = signal.side;
+          }
+
+          const signalMessage = config.invertSignals
+            ? `[EXPERIMENT INVERS] Momentum Engine confirmat ${originalSide} ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Scor: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`
+            : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`;
+
           this.logAudit(
             'SIGNAL_GENERATED',
-            `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`,
+            signalMessage,
             {
               symbol,
+              originalSide,
               side: signal.side,
+              isInverted: Boolean(config.invertSignals),
               score: signal.score,
               profile: config.activeProfile,
               rank: candidate.rank,
@@ -961,6 +965,8 @@ export class TradeBot {
       avgLoss: parseFloat(avgLoss.toFixed(2)),
       maxDrawdownPct: parseFloat(maxDdPct.toFixed(2)),
       totalFeesPaid,
+      totalGrossProfit: parseFloat(totalGrossProfit.toFixed(2)),
+      totalGrossLoss: parseFloat(totalGrossLoss.toFixed(2)),
     };
     const marginInvested = parseFloat(
       activePositions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0).toFixed(2)
@@ -1010,6 +1016,7 @@ export class TradeBot {
       marketSentiment: this.marketSentiment,
       marketSentimentScore: this.marketSentimentScore,
       telegramActive: telegramService.isConfigured(),
+      telegramStatus: telegramService.getCredentialsStatus(),
       equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity),
     };
   }
@@ -1019,7 +1026,19 @@ export class TradeBot {
   }
 
   public async triggerManualScan(): Promise<ScannedOpportunity[]> {
-    return this.marketScanner.scan(this.getActiveProfile());
+    return this.marketScanner.scan(this.getActiveProfile(), Boolean(this.configStore.get().invertSignals));
+  }
+
+  public setInvertSignals(invert: boolean): boolean {
+    const config = this.configStore.get();
+    config.invertSignals = invert;
+    this.configStore.save(config);
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `[EXPERIMENT] Inversare Semnale (LONG ⇄ SHORT) a fost ${invert ? 'ACTIVATĂ 🧪' : 'DEZACTIVATĂ (Mod Normal) 🛡️'}.`,
+      { invertSignals: invert }
+    );
+    return invert;
   }
 
   public async executeManualOrder(
@@ -1125,6 +1144,16 @@ export class TradeBot {
     if (!config.profiles[profileType]) {
       config.profiles[profileType] = { ...DEFAULT_PROFILES[profileType] };
     }
+
+    // Sanitize minMomentumScore within the safe range [57, 82]
+    if (settings.minMomentumScore !== undefined) {
+      settings.minMomentumScore = Math.min(82, Math.max(57, settings.minMomentumScore));
+    }
+    // Maintain the hard cap against overextended entries (<= 82/85)
+    if (!settings.maxMomentumScore) {
+      settings.maxMomentumScore = 82;
+    }
+
     config.profiles[profileType] = {
       ...config.profiles[profileType],
       ...settings,

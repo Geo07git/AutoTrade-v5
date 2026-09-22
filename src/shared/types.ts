@@ -43,6 +43,7 @@ export type AuditLogType =
   | 'EXCHANGE_DISCONNECTED'
   | 'MODE_CHANGED'
   | 'PAPER_RESET'
+  | 'CONFIG_UPDATED'
   | 'UNIVERSE_REFRESH'
   | 'UNIVERSE_FILTERED'
   | 'SCAN_STARTED'
@@ -93,6 +94,7 @@ export interface AppConfig {
   activeProfile: ProfileType;
   testnet: boolean;
   killSwitchEngaged: boolean;
+  invertSignals?: boolean; // Experimental: Invert Long <-> Short signals
   okxApiKey?: string;
   okxSecretKey?: string;
   okxPassphrase?: string;
@@ -119,6 +121,7 @@ export interface ProfileConfig {
   equityProtectionActivationPct: number;
   equityTrailingDrawdownPct: number;
   minMomentumScore?: number;
+  maxMomentumScore?: number;
   maxHoldingTimeMinutes?: number;
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
@@ -261,6 +264,8 @@ export interface PerformanceMetrics {
   avgLoss: number;
   maxDrawdownPct: number;
   totalFeesPaid: number;
+  totalGrossProfit?: number;
+  totalGrossLoss?: number;
 }
 
 export interface BotStatusResponse {
@@ -289,6 +294,16 @@ export interface BotStatusResponse {
   marketSentiment?: string;
   marketSentimentScore?: number;
   telegramActive?: boolean;
+  telegramStatus?: TelegramConfigStatus;
   equityTrailingState?: EquityTrailingState;
+}
+
+export interface TelegramConfigStatus {
+  configured: boolean;
+  hasToken: boolean;
+  hasChatId: boolean;
+  maskedToken: string;
+  chatId: string;
+  botUsername?: string;
 }
 

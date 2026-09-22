@@ -48,7 +48,7 @@ export default function App() {
         setStatus(data);
       }
     } catch (err) {
-      console.error('Error fetching status:', err);
+      console.warn('[Network] Transient error fetching status:', err);
     }
   };
 
@@ -61,7 +61,7 @@ export default function App() {
         setLogs(data);
       }
     } catch (err) {
-      console.error('Error fetching logs:', err);
+      console.warn('[Network] Transient error fetching logs:', err);
     }
   };
 
@@ -74,7 +74,7 @@ export default function App() {
         setOrders(data);
       }
     } catch (err) {
-      console.error('Error fetching orders:', err);
+      console.warn('[Network] Transient error fetching orders:', err);
     }
   };
 
@@ -98,7 +98,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error('Error fetching global sentiment:', err);
+      console.warn('[Network] Transient error fetching global sentiment:', err);
     }
   };
 
@@ -112,6 +112,7 @@ export default function App() {
       fetchStatus();
       fetchLogs();
       fetchOrders();
+      fetchSentiment();
     }, 3000);
 
     // Dedicated polling interval for fetching global sentiment independently
@@ -193,6 +194,43 @@ export default function App() {
       return await res.json();
     } catch (err: any) {
       return { reachable: false, authenticated: false, error: err.message || 'Eroare la testarea conexiunii OKX' };
+    }
+  };
+
+  const handleSaveTelegramConfig = async (token: string, chatId: string, botUsername?: string) => {
+    try {
+      const res = await fetch('/api/bot/telegram/config', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ token, chatId, botUsername }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Eroare la salvarea configurației Telegram' };
+      }
+      setSuccessMessage(data.message || 'Configurația Telegram a fost salvată.');
+      await fetchStatus();
+      return { success: true, message: data.message, status: data.status };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Eroare de rețea la salvarea Telegram' };
+    }
+  };
+
+  const handleTestTelegramConnection = async (token?: string, chatId?: string) => {
+    try {
+      const res = await fetch('/api/bot/telegram/test-connection', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ token, chatId }),
+      });
+      return await res.json();
+    } catch (err: any) {
+      return {
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: err.message || 'Eroare de rețea la testarea Telegram',
+      };
     }
   };
 
@@ -381,6 +419,8 @@ export default function App() {
       onClearOrders={handleClearOrders}
       onUpdateCredentials={handleUpdateCredentials}
       onTestOKXConnection={handleTestOKXConnection}
+      onSaveTelegramConfig={handleSaveTelegramConfig}
+      onTestTelegramConnection={handleTestTelegramConnection}
       controlToken={controlToken}
       onUpdateControlToken={handleUpdateControlToken}
       errorMessage={errorMessage}

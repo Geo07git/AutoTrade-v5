@@ -4,6 +4,7 @@ import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
+import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
 
 const CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || 'tradebot5_admin_token';
 
@@ -165,6 +166,19 @@ async function startServer() {
     res.json({ success: true, killSwitchEngaged: engaged });
   });
 
+  // Toggle or set experimental inverse signals (Long <-> Short)
+  app.post('/api/bot/invert-signals', requireControlAuth, (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      const current = tradeBot.getStatus().config.invertSignals ?? false;
+      const target = typeof enabled === 'boolean' ? enabled : !current;
+      const result = tradeBot.setInvertSignals(target);
+      res.json({ success: true, invertSignals: result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Update OKX API credentials
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
     const { apiKey, apiSecret, secretKey, passphrase, testnet } = req.body;
@@ -266,22 +280,27 @@ async function startServer() {
     }
   });
 
+  // Telegram status and masked credentials
+  app.get('/api/bot/telegram/status', (req, res) => {
+    res.json({
+      success: true,
+      status: telegramService.getCredentialsStatus(),
+    });
+  });
+
   // Telegram test alert or report dispatch
   app.post('/api/bot/telegram/test', requireControlAuth, async (req, res) => {
     try {
       const type = req.body?.type || 'hourly';
       if (type === 'hourly') {
-        const now = new Date();
-        const prevHour = (now.getHours() - 1 + 24) % 24;
-        const prevStr = `${prevHour.toString().padStart(2, '0')}:00`;
-        const currStr = `${now.getHours().toString().padStart(2, '0')}:00`;
-        await telegramService.sendHourlyReport(prevStr, currStr);
+        const { startHour, endHour } = getBucharestHourlyInterval();
+        await telegramService.sendHourlyReport(startHour, endHour);
       } else if (type === 'daily') {
         await telegramService.sendDailySummary();
       } else if (type === 'guide') {
         await telegramService.sendMessage(telegramService.getCommandGuideText());
       } else {
-        await telegramService.sendMessage('🔔 TEST NOTIFICARE — TradeBot 5 conectat cu succes la Telegram!');
+        await telegramService.sendMessage(`🔔 TEST NOTIFICARE — TradeBot 5 conectat cu succes la Telegram!\n⏰ Ora: ${formatBucharestTime()} (București)`);
       }
       res.json({ success: true, active: telegramService.isConfigured() });
     } catch (err: any) {
@@ -289,11 +308,34 @@ async function startServer() {
     }
   });
 
+  // Test Telegram credentials (getMe validation + channel test message)
+  app.post('/api/bot/telegram/test-connection', requireControlAuth, async (req, res) => {
+    try {
+      const { token, chatId } = req.body || {};
+      const result = await telegramService.testConnection(token, chatId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: err.message || 'Eroare la testarea conexiunii Telegram',
+      });
+    }
+  });
+
   // Telegram credentials update
   app.post('/api/bot/telegram/config', requireControlAuth, (req, res) => {
-    const { token, chatId } = req.body;
-    telegramService.updateCredentials(token, chatId);
-    res.json({ success: true, active: telegramService.isConfigured() });
+    const { token, chatId, botUsername } = req.body;
+    telegramService.updateCredentials(token, chatId, botUsername);
+    res.json({
+      success: true,
+      active: telegramService.isConfigured(),
+      status: telegramService.getCredentialsStatus(),
+      message: telegramService.isConfigured()
+        ? 'Configurația Telegram a fost salvată și activată cu succes!'
+        : 'Configurația Telegram a fost actualizată.',
+    });
   });
 
   // Update Universe Filter configuration

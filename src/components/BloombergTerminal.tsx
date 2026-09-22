@@ -48,6 +48,8 @@ import {
   Unlock,
   Wifi,
   ExternalLink,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { TradingViewChart } from './TradingViewChart';
 
@@ -67,6 +69,8 @@ interface BloombergTerminalProps {
   onClearOrders?: () => void;
   onUpdateCredentials?: (apiKey: string, secretKey: string, passphrase: string, testnet: boolean) => Promise<{ success: boolean; error?: string }>;
   onTestOKXConnection?: (creds?: any) => Promise<any>;
+  onSaveTelegramConfig?: (token: string, chatId: string, botUsername?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  onTestTelegramConnection?: (token?: string, chatId?: string) => Promise<{ success: boolean; reachable: boolean; validToken: boolean; botUsername?: string; botName?: string; chatDelivered?: boolean; error?: string }>;
   controlToken: string;
   onUpdateControlToken: (token: string) => void;
   errorMessage: string | null;
@@ -99,6 +103,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onClearOrders,
   onUpdateCredentials,
   onTestOKXConnection,
+  onSaveTelegramConfig,
+  onTestTelegramConnection,
   controlToken,
   onUpdateControlToken,
   errorMessage,
@@ -161,14 +167,59 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 2.5);
   const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
   const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.4);
-  const [minMomentum, setMinMomentum] = useState(profileConfig?.minMomentumScore ?? 60);
+  const [minMomentum, setMinMomentum] = useState(
+    Math.min(82, Math.max(57, profileConfig?.minMomentumScore ?? 72))
+  );
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 60);
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
   const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
   const [telegramTesting, setTelegramTesting] = useState(false);
+  const [isMonochrome, setIsMonochrome] = useState<boolean>(false);
   const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
+
+  // Telegram Bot Configuration State
+  const [telegramTokenInput, setTelegramTokenInput] = useState<string>('');
+  const [telegramChatIdInput, setTelegramChatIdInput] = useState<string>('');
+  const [telegramShowToken, setTelegramShowToken] = useState<boolean>(false);
+  const [isSavingTelegram, setIsSavingTelegram] = useState<boolean>(false);
+  const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
+  const [telegramSaveMessage, setTelegramSaveMessage] = useState<string | null>(null);
+  const [telegramTestFeedback, setTelegramTestFeedback] = useState<{
+    tested: boolean;
+    success?: boolean;
+    reachable?: boolean;
+    validToken?: boolean;
+    botUsername?: string;
+    botName?: string;
+    chatDelivered?: boolean;
+    error?: string;
+  } | null>(null);
+
+  // Pre-fill Telegram Chat ID if available from status
+  useEffect(() => {
+    if (status?.telegramStatus?.chatId && !telegramChatIdInput) {
+      setTelegramChatIdInput(status.telegramStatus.chatId);
+    }
+  }, [status?.telegramStatus?.chatId]);
+
+  // Initial fetch of Telegram status on load
+  useEffect(() => {
+    const fetchTelegramInitialStatus = async () => {
+      try {
+        const res = await fetch('/api/bot/telegram/status');
+        const data = await res.json();
+        if (data?.status?.chatId && !telegramChatIdInput) {
+          setTelegramChatIdInput(data.status.chatId);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    fetchTelegramInitialStatus();
+  }, []);
+
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [showClearOrdersConfirm, setShowClearOrdersConfirm] = useState(false);
@@ -269,6 +320,283 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     } finally {
       setIsSavingOKX(false);
     }
+  };
+
+  const handleRunTelegramTest = async () => {
+    setIsTestingTelegram(true);
+    setTelegramTestFeedback(null);
+    try {
+      const t = telegramTokenInput.trim();
+      const c = telegramChatIdInput.trim();
+      if (onTestTelegramConnection) {
+        const res = await onTestTelegramConnection(t, c);
+        setTelegramTestFeedback({
+          tested: true,
+          ...res,
+        });
+      } else {
+        const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+        const res = await fetch('/api/bot/telegram/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+          body: JSON.stringify({ token: t, chatId: c }),
+        });
+        const data = await res.json();
+        setTelegramTestFeedback({
+          tested: true,
+          ...data,
+        });
+      }
+    } catch (err: any) {
+      setTelegramTestFeedback({
+        tested: true,
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: err.message || 'Eroare de conexiune la server',
+      });
+    } finally {
+      setIsTestingTelegram(false);
+    }
+  };
+
+  const handleSaveTelegramCredentials = async () => {
+    if (!telegramTokenInput.trim() && !status?.telegramStatus?.hasToken) {
+      alert('Te rugăm să introduci Telegram Bot Token (obținut de la @BotFather pe Telegram)!');
+      return;
+    }
+    setIsSavingTelegram(true);
+    setTelegramSaveMessage(null);
+    try {
+      const token = telegramTokenInput.trim();
+      const chatId = telegramChatIdInput.trim();
+      const botUser = telegramTestFeedback?.botUsername || status?.telegramStatus?.botUsername;
+      if (onSaveTelegramConfig) {
+        const res = await onSaveTelegramConfig(token, chatId, botUser);
+        if (res.success) {
+          setTelegramSaveMessage('✅ Configurația Telegram a fost salvată și activată cu succes!');
+          setTimeout(() => setTelegramSaveMessage(null), 5000);
+          onRefresh?.();
+        } else {
+          setTelegramSaveMessage(`❌ Eroare: ${res.error || 'Eroare la salvare'}`);
+        }
+      } else {
+        const authTok = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+        const res = await fetch('/api/bot/telegram/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot-token': authTok },
+          body: JSON.stringify({ token, chatId, botUsername: botUser }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setTelegramSaveMessage('✅ Configurația Telegram a fost salvată și activată cu succes!');
+          setTimeout(() => setTelegramSaveMessage(null), 5000);
+          onRefresh?.();
+        } else {
+          setTelegramSaveMessage(`❌ Eroare: ${data.error || 'Eroare la salvare'}`);
+        }
+      }
+    } catch (err: any) {
+      setTelegramSaveMessage(`❌ Eroare: ${err.message || 'Eroare la salvare'}`);
+    } finally {
+      setIsSavingTelegram(false);
+    }
+  };
+
+  const renderTelegramConfigCard = () => {
+    const isConfigured = Boolean(status?.telegramActive || status?.telegramStatus?.configured);
+    const hasToken = Boolean(status?.telegramStatus?.hasToken || telegramTokenInput.trim());
+    const botNameOrUser = status?.telegramStatus?.botUsername || telegramTestFeedback?.botUsername;
+
+    return (
+      <div id="telegram-config-card" className="bg-black/90 p-3.5 rounded border border-sky-500/30 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-2.5">
+          <span className="text-sky-400 font-bold text-xs flex items-center space-x-2">
+            <Send className="w-4 h-4 text-sky-400" />
+            <span>CONFIGURARE TELEGRAM BOT &amp; CANAL / CHAT</span>
+          </span>
+          <div className="flex items-center space-x-2 text-[11px] font-mono">
+            <span className={`px-2 py-0.5 rounded border ${
+              isConfigured
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60'
+                : hasToken
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
+                : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+            }`}>
+              {isConfigured
+                ? `● ACTIV & CONECTAT ${botNameOrUser ? `(@${botNameOrUser})` : ''}`
+                : hasToken
+                ? '○ TOKEN PREZENT (LIPSEȘTE CANAL/CHAT ID)'
+                : '○ NECONFIGURAT / STANDBY'}
+            </span>
+          </div>
+        </div>
+
+        {/* Informative Step-by-Step Guide Banner */}
+        <div className="bg-zinc-950/90 border border-sky-500/20 rounded p-2.5 text-[11px] text-zinc-300 space-y-1.5 font-sans">
+          <div className="font-bold text-sky-400 flex items-center space-x-1.5">
+            <HelpCircle className="w-3.5 h-3.5 text-sky-400" />
+            <span>GHID RAPID ACTIVARE TELEGRAM ÎN 3 PAȘI:</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-1 text-[11px] leading-relaxed">
+            <div className="bg-black/50 p-2 rounded border border-zinc-800/80">
+              <strong className="text-amber-400">1. Obține Bot Token:</strong> Deschide Telegram, caută <code className="text-sky-300">@BotFather</code>, trimite comanda <code>/newbot</code> și copiază cheia API (Token-ul generat).
+            </div>
+            <div className="bg-black/50 p-2 rounded border border-zinc-800/80">
+              <strong className="text-amber-400">2. Adaugă Botul în Canal:</strong> Adaugă botul creat în canalul sau grupul dorit ca <strong>Administrator</strong> (cu permisiune de a posta mesaje). Sau trimite-i <code>/start</code> în privat.
+            </div>
+            <div className="bg-black/50 p-2 rounded border border-zinc-800/80">
+              <strong className="text-amber-400">3. Introdu &amp; Salvează:</strong> Introdu Token-ul și ID-ul Canalului (ex: <code>-100...</code> sau <code>@canalul_tau</code>), apasă <strong>Testare</strong> și apoi <strong>Salvare</strong>.
+            </div>
+          </div>
+        </div>
+
+        {/* Input Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-zinc-400 text-[10px] font-mono">
+                TELEGRAM_BOT_TOKEN (API Token)
+              </label>
+              {status?.telegramStatus?.hasToken && !telegramTokenInput && (
+                <span className="text-[10px] text-emerald-400 font-mono">
+                  Salvată pe server ({status.telegramStatus.maskedToken})
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                type={telegramShowToken ? 'text' : 'password'}
+                value={telegramTokenInput}
+                onChange={(e) => setTelegramTokenInput(e.target.value)}
+                placeholder={status?.telegramStatus?.hasToken ? `Token curent: ${status.telegramStatus.maskedToken} (lasă gol pentru a păstra)` : 'ex: 1234567890:AAHdqTcvCH1vGWJxfSeofSAs...'}
+                className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 pr-8 text-xs font-mono focus:outline-none focus:border-sky-400"
+              />
+              <button
+                type="button"
+                onClick={() => setTelegramShowToken(!telegramShowToken)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                title={telegramShowToken ? 'Ascunde Token' : 'Arată Token'}
+              >
+                {telegramShowToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-1">
+              Cheia secretă eliberată de @BotFather pentru comunicarea securizată cu Telegram API.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-zinc-400 text-[10px] font-mono">
+                TELEGRAM_CHAT_ID (Canal sau Chat ID)
+              </label>
+              {status?.telegramStatus?.chatId && (
+                <span className="text-[10px] text-emerald-400 font-mono">
+                  {status.telegramStatus.chatId}
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              value={telegramChatIdInput}
+              onChange={(e) => setTelegramChatIdInput(e.target.value)}
+              placeholder="ex: -1001234567890 (Canal), @nume_canal sau 123456789 (Privat)"
+              className="w-full bg-zinc-950 text-amber-300 border border-zinc-800 rounded px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-sky-400"
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">
+              Canalele/Supergrupurile încep de regulă cu <code className="text-sky-400">-100</code> sau poți folosi username-ul public <code className="text-sky-400">@canalul_tau</code>.
+            </p>
+          </div>
+        </div>
+
+        {/* Buttons & Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 border-t border-zinc-900">
+          <div className="text-[11px] text-zinc-400">
+            {isConfigured ? (
+              <span className="text-emerald-400 flex items-center space-x-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Alertele automate și interogările prin comenzi Telegram sunt active.</span>
+              </span>
+            ) : (
+              <span className="text-amber-400 flex items-center space-x-1">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Completează ambele câmpuri pentru a primi alerte de tranzacții și rapoarte orare.</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleRunTelegramTest}
+              disabled={isTestingTelegram || (!telegramTokenInput.trim() && !status?.telegramStatus?.hasToken)}
+              className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-sky-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Validează tokenul și trimite un mesaj de confirmare pe canal/chat"
+            >
+              <Wifi className="w-3.5 h-3.5 text-sky-400" />
+              <span>{isTestingTelegram ? 'TESTARE...' : 'TESTEAZĂ CONEXIUNEA'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveTelegramCredentials}
+              disabled={isSavingTelegram || (!telegramTokenInput.trim() && !status?.telegramStatus?.hasToken)}
+              className="px-4 py-1.5 bg-sky-500 hover:bg-sky-400 text-black rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSavingTelegram ? 'SALVARE...' : 'SALVEAZĂ TELEGRAM PE BOT'}</span>
+            </button>
+          </div>
+        </div>
+
+        {telegramSaveMessage && (
+          <div className="p-2 rounded bg-zinc-900 border border-sky-500/40 text-xs font-mono text-sky-300">
+            {telegramSaveMessage}
+          </div>
+        )}
+
+        {/* Detailed Test Feedback Banner */}
+        {telegramTestFeedback && telegramTestFeedback.tested && (
+          <div className={`p-2.5 rounded border text-xs font-mono space-y-1.5 ${
+            telegramTestFeedback.success
+              ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+              : telegramTestFeedback.validToken
+              ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
+              : 'bg-rose-950/60 border-rose-500/50 text-rose-300'
+          }`}>
+            <div className="font-bold flex items-center space-x-2">
+              {telegramTestFeedback.success ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              ) : telegramTestFeedback.validToken ? (
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              ) : (
+                <XCircle className="w-4 h-4 text-rose-400" />
+              )}
+              <span>REZULTAT TEST CONEXIUNE TELEGRAM:</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+              <div>
+                • Conexiune Telegram API: <strong>{telegramTestFeedback.reachable ? '✅ CONECTAT' : '❌ INACCESIBIL'}</strong>
+              </div>
+              <div>
+                • Validitate Bot Token: <strong>{telegramTestFeedback.validToken ? `✅ VALID (${telegramTestFeedback.botUsername ? `@${telegramTestFeedback.botUsername}` : 'OK'})` : '❌ INVALID'}</strong>
+              </div>
+              <div>
+                • Livrare Mesaj Canal/Chat: <strong>{telegramTestFeedback.chatDelivered ? '✅ LIVRAT CU SUCCES' : telegramChatIdInput || status?.telegramStatus?.chatId ? '❌ EȘUAT' : '⚪ NESPECIFICAT'}</strong>
+              </div>
+            </div>
+
+            {telegramTestFeedback.error && (
+              <div className="text-[11px] text-rose-300 pt-1 leading-relaxed border-t border-rose-900/50 mt-1">
+                ⚠️ <strong>Diagnostic Telegram:</strong> {telegramTestFeedback.error}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const allUniverseSymbols = Array.from(new Set([
@@ -408,7 +736,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
     trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
     trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
-    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
+    minMomentum !== (profileConfig.minMomentumScore ?? 72) ||
     takeProfit !== (profileConfig.takeProfitPct ?? 0) ||
     breakEven !== (profileConfig.breakEvenActivationPct ?? 1.0) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
@@ -428,7 +756,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
       setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
       setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
-      setMinMomentum(profileConfig.minMomentumScore ?? 60);
+      setMinMomentum(
+        Math.min(82, Math.max(57, profileConfig.minMomentumScore ?? 72))
+      );
       setTakeProfit(profileConfig.takeProfitPct ?? 0);
       setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
@@ -465,7 +795,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
     setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
     setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
-    setMinMomentum(profileConfig.minMomentumScore ?? 60);
+    setMinMomentum(
+      Math.min(82, Math.max(57, profileConfig.minMomentumScore ?? 72))
+    );
     setTakeProfit(profileConfig.takeProfitPct ?? 0);
     setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
@@ -743,9 +1075,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         setShowScannerConfig(false);
       }
     } catch (err) {
-      console.error('Failed to update scanner config', err);
+      console.warn('Failed to update scanner config', err);
     } finally {
       setScannerSaving(false);
+    }
+  };
+
+  const handleToggleInvertSignals = async () => {
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/invert-signals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-token': token,
+        },
+        body: JSON.stringify({ enabled: !status?.config?.invertSignals }),
+      });
+      if (res.ok) {
+        onRefresh();
+      }
+    } catch (err) {
+      console.warn('Eroare la comutarea inversării semnalelor:', err);
     }
   };
 
@@ -784,15 +1135,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const lockedCapital = marginInvested;
   const isKillSwitch = status?.config?.killSwitchEngaged;
 
-  // Sentiment threshold calculations & cross state
+  // Sentiment calculations for display
   const sentimentScore = status?.marketSentimentScore ?? 0;
   const currentSentimentThreshold = profileConfig?.sentimentThreshold ?? 1.5;
-  const isSentimentCrossed = Math.abs(sentimentScore) >= currentSentimentThreshold;
   const isBullishSentiment = (status?.marketSentiment?.includes('BULLISH') || sentimentScore >= currentSentimentThreshold);
   const isBearishSentiment = (status?.marketSentiment?.includes('BEARISH') || sentimentScore <= -currentSentimentThreshold);
 
   return (
-    <div className="h-screen w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden select-none">
+    <div className={`h-screen w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden ${isMonochrome ? 'monochrome' : ''}`}>
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
         {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
@@ -849,10 +1199,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-1.5 sm:space-x-3">
           <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
-            <span className="bg-black/90 text-emerald-400 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono">
+            <span className="bg-black/90 text-emerald-400 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono balance-metric">
               EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
             </span>
-            <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono shrink-0 ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono shrink-0 pnl-metric ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
             </span>
           </div>
@@ -865,6 +1215,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               <Key className="w-3 h-3 text-amber-400" />
               <span className="hidden sm:inline">CONEXIUNE OKX</span>
               <span className="sm:hidden">OKX</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveScreen('INFO');
+                setTimeout(() => {
+                  const el = document.getElementById('telegram-config-card');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 50);
+              }}
+              className={`px-1.5 sm:px-2 py-0.5 rounded border flex items-center space-x-1 text-[10px] sm:text-xs font-bold shadow-sm transition-colors ${
+                status?.telegramActive
+                  ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60'
+                  : 'bg-zinc-900 text-sky-400 border-sky-500/40 hover:bg-zinc-800'
+              }`}
+              title="Configurează Cheia Telegram și Canalul de Alerte"
+            >
+              <Send className="w-3 h-3 text-sky-400" />
+              <span className="hidden sm:inline">{status?.telegramActive ? 'TELEGRAM: ACTIV' : 'CONFIG TELEGRAM'}</span>
+              <span className="sm:hidden">{status?.telegramActive ? 'TG: ON' : 'TG +'}</span>
             </button>
             <button
               onClick={() => setShowTokenModal(true)}
@@ -882,6 +1251,30 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               <span>RESET BAL</span>
             </button>
             <button
+              onClick={handleToggleInvertSignals}
+              className={`px-1.5 sm:px-2 py-0.5 rounded border flex items-center space-x-1 text-[10px] sm:text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                status?.config?.invertSignals
+                  ? 'bg-purple-950 text-purple-300 border-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-pulse'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-purple-300 border-zinc-700'
+              }`}
+              title="Experiment: Inversare Semnale (BUY ⇄ SELL). Când este activ, semnalele Long devin Short și viceversa."
+            >
+              <span className="shrink-0">🧪</span>
+              <span className="hidden md:inline">{status?.config?.invertSignals ? 'EXP: INVERS ACTIV' : 'EXP: NORMAL'}</span>
+              <span className="md:hidden">{status?.config?.invertSignals ? 'INVERS' : 'NORMAL'}</span>
+            </button>
+            <button
+              onClick={() => setIsMonochrome(!isMonochrome)}
+              className={`px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold border flex items-center space-x-1 transition-all shrink-0 cursor-pointer ${
+                isMonochrome
+                  ? 'bg-white text-black border-white shadow-md'
+                  : 'bg-zinc-900 text-amber-400 hover:bg-zinc-800 border-amber-500/40'
+              }`}
+              title="Comută Modul Monocrom (High-contrast B&W, păstrează amber pentru balanță, PnL și profit)"
+            >
+              <span>{isMonochrome ? 'MONO: ON' : 'MONO: OFF'}</span>
+            </button>
+            <button
               onClick={onRefresh}
               className="bg-black text-amber-500 hover:bg-zinc-900 px-1.5 sm:px-2 py-0.5 rounded flex items-center space-x-1 text-[10px] sm:text-[11px]"
             >
@@ -891,6 +1284,26 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
       </header>
+
+      {/* 1.1 BANNER EXPERIMENT INVERSARE SEMNALE */}
+      {status?.config?.invertSignals && (
+        <div className="bg-purple-950/95 border-b border-purple-500/60 px-3 py-1.5 text-[11px] font-mono text-purple-200 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20 shadow-[0_2px_12px_rgba(88,28,135,0.5)]">
+          <div className="flex items-center space-x-2">
+            <span className="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse shrink-0">
+              🧪 EXPERIMENT INVERSARE ACTIV
+            </span>
+            <span className="text-[10px] sm:text-[11px]">
+              Semnalele sunt inversate: <strong>BUY (Long) ➡️ SHORT (Sell)</strong> | <strong>SELL (Short) ➡️ LONG (Buy)</strong>. Rulează în paralel cu instanța locală pentru comparare.
+            </span>
+          </div>
+          <button
+            onClick={handleToggleInvertSignals}
+            className="bg-purple-800 hover:bg-purple-700 text-white text-[10px] font-bold px-2.5 py-0.5 rounded border border-purple-400/50 transition-colors shrink-0 cursor-pointer"
+          >
+            Oprește Experimentul (Revenire la Normal)
+          </button>
+        </div>
+      )}
 
       {/* 2. REAL-TIME TICKER TAPE (AUTO-SCROLLING 24H % DESC) */}
       <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative w-full max-w-full min-w-0">
@@ -1135,29 +1548,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       )}
 
-      {/* SENTIMENT THRESHOLD CROSSING NOTIFICATION BANNER */}
-      {isSentimentCrossed && (
-        <div className={`px-4 py-2 text-xs flex items-center justify-between border-b font-mono transition-all animate-pulse ${
-          isBullishSentiment
-            ? 'bg-emerald-950/90 text-emerald-200 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
-            : 'bg-rose-950/90 text-rose-200 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
-        }`}>
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className={`w-4 h-4 ${isBullishSentiment ? 'text-emerald-400' : 'text-rose-400'} shrink-0`} />
-            <span className="font-bold">
-              {lang === 'EN'
-                ? `GLOBAL SENTIMENT THRESHOLD TRIGGERED: ${status?.marketSentiment} | Configured Threshold: ±${currentSentimentThreshold.toFixed(1)}%`
-                : `ALERTĂ PRAG SENTIMENT GLOBAL: ${status?.marketSentiment} | Prag Configurat: ±${currentSentimentThreshold.toFixed(1)}%`}
-            </span>
-          </div>
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-            isBullishSentiment ? 'bg-emerald-800 text-white border border-emerald-400' : 'bg-rose-800 text-white border border-rose-400'
-          }`}>
-            {isBullishSentiment ? (lang === 'EN' ? 'BULLISH MOMENTUM' : 'IMPULS BULLISH') : (lang === 'EN' ? 'BEARISH CAUTION' : 'ATENȚIE BEARISH')}
-          </span>
-        </div>
-      )}
-
       {/* ALERTS NOTIFICATION BANNER */}
       {(errorMessage || successMessage) && (
         <div className={`px-4 py-2 text-xs flex items-center justify-between border-b ${errorMessage ? 'bg-rose-950/80 text-rose-300 border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'}`}>
@@ -1253,34 +1643,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 6. ACTIVE POSITIONS & OKX SENTIMENT */}
-                <div className={`border p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all ${
-                  isSentimentCrossed
-                    ? isBullishSentiment
-                      ? 'bg-emerald-950/25 border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                      : 'bg-rose-950/25 border-rose-500/70 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
-                    : 'bg-black border-zinc-800'
-                }`}>
+                <div className="border p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all bg-black border-zinc-800">
                   <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                     <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider">
                       {lang === 'EN' ? 'ACTIVE POSITIONS' : 'POZIȚII ACTIVE'}
                     </div>
                     <div className={`flex items-center gap-2 rounded px-2.5 py-1 text-xs font-mono border transition-all ${
-                      isSentimentCrossed
-                        ? isBullishSentiment
-                          ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.35)] animate-pulse'
-                          : 'bg-rose-950/90 border-rose-500 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.35)] animate-pulse'
-                        : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                      isBullishSentiment
+                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+                        : isBearishSentiment
+                        ? 'bg-rose-950/60 border-rose-500/50 text-rose-300'
+                        : 'bg-zinc-900 border-zinc-700 text-zinc-300'
                     }`}>
                       <span className="font-bold">
                         {status?.marketSentiment ? (lang === 'EN' ? status.marketSentiment.replace('BULLISH', 'BULLISH').replace('BEARISH', 'BEARISH').replace('NEUTRAL', 'NEUTRAL') : status.marketSentiment) : (lang === 'EN' ? 'OKX NEUTRAL' : 'OKX NEUTRU')}
                       </span>
-                      {isSentimentCrossed && (
-                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
-                          isBullishSentiment ? 'bg-emerald-800 text-white' : 'bg-rose-800 text-white'
-                        }`}>
-                          PRAG ±{currentSentimentThreshold.toFixed(1)}%
-                        </span>
-                      )}
                       <button onClick={async () => {
                           const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
                           await fetch('/api/bot/sentiment/refresh', { method: 'POST', headers: { 'x-bot-token': token } });
@@ -1319,11 +1696,40 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
                 <div>
                   <div className="text-slate-400 text-[10px]">PROFIT FACTOR</div>
-                  <div className="font-bold text-amber-400">
-                    {status?.performanceMetrics?.profitFactor !== undefined 
-                      ? `${status.performanceMetrics.profitFactor.toFixed(2)} ($${status.performanceMetrics.avgWin?.toFixed(0) || 0}/$${status.performanceMetrics.avgLoss?.toFixed(0) || 0})` 
-                      : '0.00 ($0/$0)'}
-                  </div>
+                  {(() => {
+                    const perf = status?.performanceMetrics;
+                    if (!perf || perf.totalClosed === 0) {
+                      return (
+                        <div className="font-bold text-zinc-400 profit-metric" title="Nicio tranzacție finalizată încă">
+                          0.00 <span className="text-[10px] font-normal text-zinc-500">($0.00/$0.00)</span>
+                        </div>
+                      );
+                    }
+                    const totalWin = perf.totalGrossProfit !== undefined 
+                      ? perf.totalGrossProfit 
+                      : (perf.avgWin * perf.winningTrades);
+                    const totalLoss = perf.totalGrossLoss !== undefined 
+                      ? perf.totalGrossLoss 
+                      : (perf.avgLoss * perf.losingTrades);
+                    
+                    const isInfinite = perf.profitFactor >= 999 || (totalLoss === 0 && totalWin > 0);
+                    const pfStr = isInfinite ? 'MAX' : perf.profitFactor.toFixed(2);
+                    const pfColor = isInfinite || perf.profitFactor >= 1.0 
+                      ? 'text-emerald-400' 
+                      : 'text-rose-400';
+
+                    return (
+                      <div
+                        className={`font-bold profit-metric ${pfColor}`}
+                        title={`Profit Factor = Câștig Brut ($${totalWin.toFixed(2)}) / Pierdere Brută ($${totalLoss.toFixed(2)}) | Câștig Mediu: $${perf.avgWin.toFixed(2)}, Pierdere Medie: $${perf.avgLoss.toFixed(2)}`}
+                      >
+                        {pfStr}{' '}
+                        <span className="text-[10px] font-normal text-zinc-300">
+                          (${totalWin.toFixed(2)}/${totalLoss.toFixed(2)})
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div>
                   <div className="text-slate-400 text-[10px]">EXPECTANCY</div>
@@ -2106,8 +2512,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               <td className="py-2 px-3 text-emerald-400 font-bold">{opp.rvol}x</td>
                               <td className="py-2 px-3 text-amber-400 font-bold">{opp.score}/100</td>
                               <td className="py-2 px-3 text-right">
-                                <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${opp.isEligible ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-800 text-zinc-400'}`}>
-                                  {opp.isEligible ? 'ELIGIBLE' : 'FILTERED'}
+                                <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                                  opp.isEligible 
+                                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' 
+                                    : opp.score > 82
+                                    ? 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
+                                    : 'bg-zinc-800 text-zinc-400'
+                                }`}>
+                                  {opp.isEligible ? 'ELIGIBLE' : opp.score > 82 ? 'BLOCKED (>82)' : 'FILTERED'}
                                 </span>
                               </td>
                             </tr>
@@ -2527,8 +2939,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
-                    <span className="text-slate-400 block text-[9px] uppercase">Min Momentum</span>
-                    <strong className="text-cyan-400 text-xs">{profileConfig?.minMomentumScore ?? 60}/100</strong>
+                    <span className="text-slate-400 block text-[9px] uppercase">Fereastră Momentum</span>
+                    <strong className="text-cyan-400 text-xs">
+                      [{profileConfig?.minMomentumScore ?? 60} - {profileConfig?.maxMomentumScore ?? 82}]
+                    </strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Cooldown Simbol</span>
@@ -2538,7 +2952,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
                 <div className="mt-2.5 pt-2 border-t border-zinc-900 flex flex-wrap items-center justify-between text-[10px] text-zinc-400 gap-2">
                   <div className="flex items-center space-x-2">
-                    <span>Prag Alertă Sentiment OKX: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
+                    <span>Prag Clasificare Sentiment OKX: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
                     <span>•</span>
                     <span>Timeframes: <strong className="text-zinc-200">{profileConfig?.timeframes?.join(', ') || '15m, 1h'}</strong></span>
                   </div>
@@ -2635,21 +3049,26 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     />
                   </div>
 
-                  {/* Min Momentum Score - step 1 */}
+                  {/* Min Momentum Score - step 1 - Configurable between 57 and 82 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Min Momentum Score</span>
+                      <span className="text-slate-300">Min Momentum Score (Prag Intrare)</span>
                       <span className="font-bold text-amber-400">{minMomentum} / 100</span>
                     </div>
                     <input
                       type="range"
-                      min="0"
-                      max="100"
+                      min="57"
+                      max="82"
                       step="1"
                       value={minMomentum}
                       onChange={(e) => setMinMomentum(Number(e.target.value))}
                       className="w-full accent-amber-500 cursor-pointer"
                     />
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Min: 57</span>
+                      <span className="text-amber-300 font-semibold">Tavan Max Semnal: 82 (Hard Cap anti-exhaustion)</span>
+                      <span>Max: 82</span>
+                    </div>
                   </div>
 
                   {/* Break-Even Activation (%) */}
@@ -2764,10 +3183,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     />
                   </div>
 
-                  {/* Global Sentiment Alert Threshold - step 0.1 */}
+                  {/* Global Sentiment Classification Threshold - step 0.1 */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Prag Alertă Sentiment Global (OKX)</span>
+                      <span className="text-slate-300">Prag Afișare Sentiment Global (OKX)</span>
                       <span className="font-bold text-amber-300">±{Number(sentimentThreshold).toFixed(1)}%</span>
                     </div>
                     <input
@@ -2780,7 +3199,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       className="w-full accent-amber-500 cursor-pointer"
                     />
                     <div className="text-[10px] text-zinc-500">
-                      Declanșează alerte vizuale în terminal și notificări Telegram când media ponderată de sentiment global OKX depășește acest prag procentual.
+                      Stabilește pragul procentual folosit pentru clasificarea și afișarea stării pieței (BULLISH / BEARISH / NEUTRAL). Alertele și mesajele automate au fost deconectate.
                     </div>
                   </div>
                 </div>
@@ -3071,6 +3490,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <code className="ml-1 text-amber-400">OKX_API_KEY</code>, <code className="text-amber-400">OKX_SECRET_KEY</code>, <code className="text-amber-400">OKX_PASSPHRASE</code>. Botul le va detecta și încărca automat la pornire!
                   </div>
                 </div>
+
+                {/* TELEGRAM CREDENTIALS CONFIGURATION CARD */}
+                {renderTelegramConfigCard()}
               </div>
 
               {/* Mobile bottom Save bar for easy reach */}
@@ -3111,6 +3533,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Telegram Credentials Configuration Section */}
+              {renderTelegramConfigCard()}
 
               {/* Telegram Integration Overview Card */}
               <div className="bg-black border border-sky-500/30 rounded p-3 space-y-3">

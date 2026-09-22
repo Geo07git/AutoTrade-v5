@@ -57,7 +57,10 @@ export class MomentumEngine {
       return null;
     }
 
-    if (metrics.score >= metrics.threshold) {
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 85;
+
+    // Reject signals exceeding the exhaustion threshold (maxMomentumScore) or below minimum threshold
+    if (metrics.score >= metrics.threshold && metrics.score <= maxScore) {
       return {
         symbol,
         side: metrics.side,
@@ -67,6 +70,7 @@ export class MomentumEngine {
         reasons: {
           score: metrics.score,
           threshold: metrics.threshold,
+          maxScore,
           side: metrics.side,
           mom: metrics.mom,
           rvol: metrics.rvol,
@@ -103,6 +107,8 @@ export class MomentumEngine {
     // Reuse precomputed metrics - eliminates redundant duplicate calculation
     const signal = this.evaluate(symbol, klines, metrics);
 
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 85;
+
     return {
       symbol,
       price: metrics.lastPrice,
@@ -112,7 +118,7 @@ export class MomentumEngine {
       atrExpansion: metrics.atrExpansion,
       score: metrics.score,
       side: metrics.side,
-      isEligible: metrics.score >= metrics.threshold,
+      isEligible: metrics.score >= metrics.threshold && metrics.score <= maxScore,
       signal: signal || undefined,
       rank: 0,
       lastScannedTime: Date.now(),
