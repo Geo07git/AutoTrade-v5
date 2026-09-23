@@ -156,19 +156,22 @@ export class TradeBot {
     };
 
     // Instantiate both adapters
+    const isDemo = appConfig.executionMode !== 'LIVE' && (appConfig.testnet !== false);
     this.okxAdapter = new OKXAdapter(
       appConfig.okxApiKey || '',
       appConfig.okxSecretKey || '',
       appConfig.okxPassphrase || '',
-      appConfig.testnet
+      isDemo
     );
     if (appConfig.maxLeverage) {
       this.okxAdapter.setLeverageConfig(appConfig.maxLeverage, 'cross');
     }
     this.paperAdapter = new PaperExecutionAdapter();
 
-    // Select active adapter based on executionMode
-    this.activeAdapter = appConfig.executionMode === 'TESTNET' ? this.okxAdapter : this.paperAdapter;
+    // Select active adapter based on executionMode (TESTNET or LIVE uses OKXAdapter)
+    this.activeAdapter = (appConfig.executionMode === 'TESTNET' || appConfig.executionMode === 'LIVE')
+      ? this.okxAdapter
+      : this.paperAdapter;
 
     this.positionManager = new PositionManager(auditLogger);
     this.positionManager.setCtValResolver((sym) => this.activeAdapter.getCachedCtVal?.(sym) || 1);
@@ -239,9 +242,17 @@ export class TradeBot {
     adapter.onTickerUpdate = (symbol, lastPrice) => {
       this.latestPrices[symbol] = lastPrice;
       const profile = this.getActiveProfileConfig();
+      const config = this.configStore.get();
       // Live trailing stop & stop loss evaluation on real tick
       this.positionManager
-        .updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity)
+        .updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
+          profitVault: config.profitVault || 0,
+          baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
+          lockProfitVault: Boolean(config.lockProfitVault),
+          onVaultProfitLocked: (lockedAmount, totalVault) => {
+            this.handleVaultProfitLocked(lockedAmount, totalVault);
+          },
+        })
         .catch((err) => console.error('[TradeBot] Position price update error:', err));
     };
 
@@ -578,10 +589,15 @@ export class TradeBot {
             ? await this.activeAdapter.getKlines(symbol, profile.timeframes[1], 30)
             : [];
           
-          signal = this.engine.evaluate(symbol, {
-            [profile.timeframes[0]]: ltfKlines,
-            ...(profile.timeframes[1] ? { [profile.timeframes[1]]: htfKlines } : {}),
-          });
+          signal = this.engine.evaluate(
+            symbol,
+            {
+              [profile.timeframes[0]]: ltfKlines,
+              ...(profile.timeframes[1] ? { [profile.timeframes[1]]: htfKlines } : {}),
+            },
+            undefined,
+            { invertExtremeSignals: Boolean(config.invertSignals) }
+          );
         }
 
         if (signal) {
@@ -589,37 +605,11 @@ export class TradeBot {
           signal.currentPrice = signal.currentPrice || candidate.price;
           signal.currentAtr = signal.currentAtr || candidate.currentAtr;
           signal.atrPct = signal.atrPct || candidate.atrPct;
+          signal.isFadeTrade = candidate.isFadeTrade || signal.isFadeTrade;
+          signal.originalSide = candidate.originalSide || signal.originalSide || signal.side;
 
-          const originalSide = signal.side;
-          if (config.invertSignals) {
-            signal.side = originalSide === 'BUY' ? 'SELL' : 'BUY';
-            candidate.side = signal.side;
-
-            // Recalculate HTF Macro Confluence for the POST-INVERSION direction
-            const htfTrend = signal.reasons?.htfTrend;
-            const postInvertHtfAligned = (signal.side === 'BUY' && htfTrend === 'BULLISH') ||
-                                         (signal.side === 'SELL' && htfTrend === 'BEARISH');
-            signal.reasons.htfAligned = postInvertHtfAligned;
-            signal.reasons.side = signal.side;
-
-            if (!postInvertHtfAligned) {
-              this.logAudit(
-                'SIGNAL_REJECTED',
-                `[EXPERIMENT INVERS] Semnalul ${originalSide} inversat în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) respins: Trendul HTF Macro (${htfTrend}) nu confirmă direcția inversată.`,
-                {
-                  symbol,
-                  originalSide,
-                  invertedSide: signal.side,
-                  htfTrend,
-                  postInvertHtfAligned: false,
-                }
-              );
-              continue;
-            }
-          }
-
-          const signalMessage = config.invertSignals
-            ? `[EXPERIMENT INVERS] Momentum Engine confirmat ${originalSide} ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Scor: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+          const signalMessage = signal.isFadeTrade
+            ? `[FADE CLIMAX >82] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
             : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`;
 
           this.logAudit(
@@ -627,9 +617,9 @@ export class TradeBot {
             signalMessage,
             {
               symbol,
-              originalSide,
+              originalSide: signal.originalSide || signal.side,
               side: signal.side,
-              isInverted: Boolean(config.invertSignals),
+              isFadeTrade: Boolean(signal.isFadeTrade),
               score: signal.score,
               profile: config.activeProfile,
               rank: candidate.rank,
@@ -641,13 +631,20 @@ export class TradeBot {
 
           // Risk Engine: Mandatory gatekeeper validation with volatility-based sizing (ATR) & pending order check
           const hasPending = this.orderManager.hasPendingOrderForSymbol(symbol);
+          const profitVault = config.profitVault || 0;
+          const operatingEquity = Math.max(10, this.currentEquity - profitVault);
+
           const riskApproval = this.riskEngine.validateSignal(
             signal,
             profile,
             this.positionManager.getActivePositions(),
             this.currentEquity,
             config.killSwitchEngaged,
-            hasPending
+            hasPending,
+            {
+              operatingEquity,
+              profitVault,
+            }
           );
 
           if (!riskApproval.approved) {
@@ -680,7 +677,14 @@ export class TradeBot {
       }
 
       // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss)
-      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity);
+      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
+        profitVault: config.profitVault || 0,
+        baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
+        lockProfitVault: Boolean(config.lockProfitVault),
+        onVaultProfitLocked: (lockedAmount, totalVault) => {
+          this.handleVaultProfitLocked(lockedAmount, totalVault);
+        },
+      });
 
       // Persist state
       this.positionStore.save(this.positionManager.getActivePositions());
@@ -778,6 +782,10 @@ export class TradeBot {
       return { success: false, error: 'Account reset is only available in PAPER mode.' };
     }
 
+    config.profitVault = 0;
+    config.baseCapital = 200.0;
+    this.configStore.save(config);
+
     this.paperAdapter.resetAccount(200.0);
     this.positionManager.setActivePositions([]);
     this.positionManager.clearHistory();
@@ -789,7 +797,128 @@ export class TradeBot {
     this.equityHistory = [{ time: Date.now(), equity: 200.0 }];
     this.lastEquitySnapshotTime = Date.now();
 
-    this.logAudit('PAPER_RESET', 'Paper account reset: Balance restored to $200.00 USDT and paper positions cleared.');
+    this.logAudit('PAPER_RESET', 'Paper account reset: Balance restored to $200.00 USDT, positions cleared, Profit Vault reset to $0.00.');
+    return { success: true };
+  }
+
+  /**
+   * Called whenever Equity Protection secures profit in a cycle while lockProfitVault is active.
+   */
+  private handleVaultProfitLocked(lockedAmount: number, totalVault: number) {
+    const config = this.configStore.get();
+    config.profitVault = parseFloat(totalVault.toFixed(2));
+    this.configStore.save(config);
+
+    this.logAudit(
+      'PROFIT_VAULT_DEPOSIT',
+      `[PROFIT VAULT] S-au pus deoparte +$${lockedAmount.toFixed(2)} USDT în Seif! Total acumulat în Seif: $${config.profitVault.toFixed(2)} USDT. Tranzacționarea se reia strict cu capitalul de bază ($${(config.baseCapital || 200).toFixed(2)} USDT).`,
+      {
+        cycleProfit: lockedAmount,
+        totalVault: config.profitVault,
+        baseCapital: config.baseCapital,
+      }
+    );
+
+    if (config.telegramAlertsEnabled && telegramService.isConfigured()) {
+      telegramService.sendMessage(
+        `🏦 *PROFIT VAULT: BANI PUȘI DEOPARTE!*\n\n` +
+        `• *Profit ciclu salvat:* +$${lockedAmount.toFixed(2)} USDT\n` +
+        `• *Total în Seif:* $${config.profitVault.toFixed(2)} USDT\n` +
+        `• *Baza de lucru neschimbată:* $${(config.baseCapital || 200).toFixed(2)} USDT\n` +
+        `Noul ciclu tranzacționează fără a risca profitul securizat!`
+      ).catch(() => {});
+    }
+  }
+
+  /**
+   * Operator manually locks current excess profit into the vault
+   */
+  public lockProfitVaultNow(): { success: boolean; profitLocked: number; totalVault: number; error?: string } {
+    const config = this.configStore.get();
+    const base = config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity);
+    const existingVault = config.profitVault || 0;
+    const excess = parseFloat((this.currentEquity - base - existingVault).toFixed(2));
+
+    if (excess <= 0) {
+      return {
+        success: false,
+        profitLocked: 0,
+        totalVault: existingVault,
+        error: `Nu există profit suplimentar de pus în seif (Capital curent: $${this.currentEquity.toFixed(2)}, Bază: $${base.toFixed(2)}, Seif: $${existingVault.toFixed(2)}).`,
+      };
+    }
+
+    config.profitVault = parseFloat((existingVault + excess).toFixed(2));
+    config.baseCapital = base;
+    this.configStore.save(config);
+
+    this.logAudit(
+      'PROFIT_VAULT_DEPOSIT',
+      `[PROFIT VAULT MANUAL] Operatorul a depus manual +$${excess.toFixed(2)} USDT în Seif. Total în Seif: $${config.profitVault.toFixed(2)} USDT. Baza de lucru: $${base.toFixed(2)} USDT.`,
+      { profitLocked: excess, totalVault: config.profitVault, baseCapital: base }
+    );
+
+    return {
+      success: true,
+      profitLocked: excess,
+      totalVault: config.profitVault,
+    };
+  }
+
+  /**
+   * Toggle Profit Vault Mode (Fixed base capital without compounding profits)
+   */
+  public toggleLockProfitVault(enabled?: boolean): boolean {
+    const config = this.configStore.get();
+    config.lockProfitVault = typeof enabled === 'boolean' ? enabled : !config.lockProfitVault;
+    if (config.lockProfitVault && (!config.baseCapital || config.baseCapital <= 0)) {
+      config.baseCapital = config.executionMode === 'PAPER'
+        ? (config.paperEquity || 200.0)
+        : parseFloat((this.currentEquity - (config.profitVault || 0)).toFixed(2));
+    }
+    this.configStore.save(config);
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `[PROFIT VAULT] Modul Profit Vault a fost ${config.lockProfitVault ? 'ACTIVAT' : 'DEZACTIVAT'}. Baza fixă: $${(config.baseCapital || 200).toFixed(2)} USDT | Seif curent: $${(config.profitVault || 0).toFixed(2)} USDT.`,
+      { lockProfitVault: config.lockProfitVault, baseCapital: config.baseCapital, profitVault: config.profitVault }
+    );
+    return config.lockProfitVault;
+  }
+
+  /**
+   * Set custom operating base capital
+   */
+  public setBaseCapital(amount: number): { success: boolean; baseCapital: number; error?: string } {
+    if (amount <= 0 || isNaN(amount)) {
+      return { success: false, baseCapital: 0, error: 'Valoarea bazei de lucru trebuie să fie mai mare ca 0.' };
+    }
+    const config = this.configStore.get();
+    config.baseCapital = parseFloat(amount.toFixed(2));
+    this.configStore.save(config);
+    this.positionManager.resetHighestEquity(config.baseCapital);
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `[PROFIT VAULT] Baza de lucru fixă a fost setată la $${config.baseCapital.toFixed(2)} USDT.`,
+      { baseCapital: config.baseCapital }
+    );
+    return { success: true, baseCapital: config.baseCapital };
+  }
+
+  /**
+   * Reset the vault and unlock profits back into active operating capital
+   */
+  public resetProfitVault(): { success: boolean } {
+    const config = this.configStore.get();
+    const oldVault = config.profitVault || 0;
+    config.profitVault = 0;
+    config.baseCapital = parseFloat(this.currentEquity.toFixed(2));
+    this.configStore.save(config);
+    this.positionManager.resetHighestEquity(this.currentEquity);
+    this.logAudit(
+      'PROFIT_VAULT_RESET',
+      `[PROFIT VAULT RESET] Seiful a fost resetat ($${oldVault.toFixed(2)} reintroduși în capitalul activ). Noua bază: $${config.baseCapital.toFixed(2)} USDT.`,
+      { oldVault, newBase: config.baseCapital }
+    );
     return { success: true };
   }
 
@@ -1020,6 +1149,10 @@ export class TradeBot {
     // Total Equity = Free Balance + Margin Invested + Unrealized PnL
     const walletBalance = parseFloat((this.currentEquity - unrealizedPnL).toFixed(2));
     const freeBalance = parseFloat((walletBalance - marginInvested).toFixed(2));
+    const profitVault = parseFloat((config.profitVault || 0).toFixed(2));
+    const baseCapital = parseFloat((config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity)).toFixed(2));
+    const operatingEquity = Math.max(10, parseFloat((this.currentEquity - profitVault).toFixed(2)));
+    const usableFreeBalance = Math.max(0, parseFloat((freeBalance - profitVault).toFixed(2)));
 
     return {
       state: this.state,
@@ -1033,6 +1166,11 @@ export class TradeBot {
       profileConfig: this.getActiveProfileConfig(),
       profiles: this.getProfiles(),
       equity: this.currentEquity,
+      operatingEquity,
+      profitVault,
+      baseCapital,
+      usableFreeBalance,
+      lockProfitVault: Boolean(config.lockProfitVault),
       initialEquity,
       walletBalance,
       freeBalance,
@@ -1053,7 +1191,7 @@ export class TradeBot {
       marketSentimentScore: this.marketSentimentScore,
       telegramActive: telegramService.isConfigured(),
       telegramStatus: telegramService.getCredentialsStatus(),
-      equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity),
+      equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity, profitVault),
     };
   }
 

@@ -1,8 +1,8 @@
 {
   "executionMode": "PAPER",
-  "activeProfile": "MOMENTUM",
+  "activeProfile": "SCALP",
   "testnet": true,
-  "killSwitchEngaged": true,
+  "killSwitchEngaged": false,
   "invertSignals": false,
   "okxApiKey": "48942dc8-f773-4e99-91be-10b7da8822cf",
   "okxSecretKey": "1A055D8452230C9C353EED27791D98B1",
@@ -14,9 +14,9 @@
     "SOL-USDT-SWAP"
   ],
   "scannerFilter": {
-    "min24hVolumeUSDT": 5000000,
+    "min24hVolumeUSDT": 2500000,
     "minPrice": 0.0001,
-    "maxSymbols": 500,
+    "maxSymbols": 100,
     "settleCoin": "USDT",
     "refreshIntervalMs": 900000
   },
@@ -27,20 +27,20 @@
         "15",
         "60"
       ],
-      "riskPerTradePct": 15,
-      "maxOpenPositions": 6,
-      "trailingActivationPct": 1,
-      "trailingDistancePct": 0.3,
-      "breakEvenActivationPct": 0.5,
-      "takeProfitPct": 3,
-      "hardStopLossPct": 1,
-      "equityProtectionActivationPct": 2,
-      "equityTrailingDrawdownPct": 1.5,
-      "minMomentumScore": 72,
+      "riskPerTradePct": 25,
+      "maxOpenPositions": 20,
+      "trailingActivationPct": 1.5,
+      "trailingDistancePct": 0.55,
+      "breakEvenActivationPct": 5,
+      "takeProfitPct": 20,
+      "hardStopLossPct": 10,
+      "equityProtectionActivationPct": 1.3,
+      "equityTrailingDrawdownPct": 0.25,
+      "minMomentumScore": 67,
       "maxMomentumScore": 82,
-      "maxHoldingTimeMinutes": 30,
-      "cooldownMinutes": 10,
-      "sentimentThreshold": 1.5
+      "maxHoldingTimeMinutes": 119,
+      "cooldownMinutes": 5,
+      "sentimentThreshold": 5
     },
     "MOMENTUM": {
       "type": "MOMENTUM",
@@ -63,5 +63,8 @@
       "cooldownMinutes": 60,
       "sentimentThreshold": 2
     }
-  }
+  },
+  "lockProfitVault": true,
+  "baseCapital": 204.13,
+  "profitVault": 0
 }

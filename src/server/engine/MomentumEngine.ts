@@ -41,7 +41,8 @@ export class MomentumEngine {
   public evaluate(
     symbol: string,
     klines: Record<string, Kline[]>,
-    precomputedMetrics?: MomentumMetrics
+    precomputedMetrics?: MomentumMetrics,
+    options?: { invertExtremeSignals?: boolean }
   ): TradeSignal | null {
     if (!klines || Object.keys(klines).length === 0) return null;
 
@@ -51,20 +52,22 @@ export class MomentumEngine {
     if (!mainKlines || mainKlines.length < 22) return null;
 
     const metrics = precomputedMetrics || this.calculateMetrics(klines);
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 82;
+    const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
 
-    // STRICT HTF CONFLUENCE FILTER: Do not allow entry if HTF trend is counter-trend or unaligned
-    if (!metrics.htfAligned) {
-      return null;
-    }
-
-    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 85;
-
-    // Reject signals exceeding the exhaustion threshold (maxMomentumScore) or below minimum threshold
+    // CASE 1: Standard Momentum Continuation (threshold <= score <= maxScore e.g. 72-82)
+    // Kept normal both in normal mode AND in inverted mode (only >82 is inverted)
     if (metrics.score >= metrics.threshold && metrics.score <= maxScore) {
-      const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
+      // STRICT HTF CONFLUENCE FILTER for continuation:
+      if (!metrics.htfAligned) {
+        return null;
+      }
+
       return {
         symbol,
         side: metrics.side,
+        originalSide: metrics.side,
+        isFadeTrade: false,
         score: metrics.score,
         profile: this.config.type,
         timestamp: Date.now(),
@@ -76,6 +79,46 @@ export class MomentumEngine {
           threshold: metrics.threshold,
           maxScore,
           side: metrics.side,
+          originalSide: metrics.side,
+          isFadeTrade: false,
+          mom: metrics.mom,
+          rvol: metrics.rvol,
+          atrExpansion: metrics.atrExpansion,
+          currentAtr: metrics.currentAtr,
+          lastPrice: metrics.lastPrice,
+          atrPct: parseFloat(atrPct.toFixed(2)),
+          htfTrend: metrics.htfTrend,
+          htfAligned: metrics.htfAligned,
+          factors: metrics.factors,
+          timeframes: this.config.timeframes,
+        },
+      };
+    }
+
+    // CASE 2: Extreme Momentum Climax Zone (score > maxScore, e.g. score > 82)
+    // In inverted mode: Instead of discarding, we INVERT the side to fade the exhaustion blow-off / climax
+    if (metrics.score > maxScore && options?.invertExtremeSignals) {
+      const invertedSide: OrderSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
+
+      return {
+        symbol,
+        side: invertedSide,
+        originalSide: metrics.side,
+        isFadeTrade: true,
+        score: metrics.score,
+        profile: this.config.type,
+        timestamp: Date.now(),
+        currentPrice: metrics.lastPrice,
+        currentAtr: metrics.currentAtr,
+        atrPct: parseFloat(atrPct.toFixed(2)),
+        reasons: {
+          score: metrics.score,
+          threshold: metrics.threshold,
+          maxScore,
+          side: invertedSide,
+          originalSide: metrics.side,
+          isFadeTrade: true,
+          fadeClimax: true,
           mom: metrics.mom,
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
@@ -100,7 +143,8 @@ export class MomentumEngine {
   public evaluateCandidate(
     symbol: string,
     klines: Record<string, Kline[]>,
-    tickerData?: { volume24hUSDT: number; priceChange24hPct: number }
+    tickerData?: { volume24hUSDT: number; priceChange24hPct: number },
+    options?: { invertExtremeSignals?: boolean }
   ): ScannedOpportunity | null {
     if (!klines || Object.keys(klines).length === 0) return null;
 
@@ -112,10 +156,28 @@ export class MomentumEngine {
     // Calculate metrics ONCE per candidate
     const metrics = this.calculateMetrics(klines);
     // Reuse precomputed metrics - eliminates redundant duplicate calculation
-    const signal = this.evaluate(symbol, klines, metrics);
+    const signal = this.evaluate(symbol, klines, metrics, options);
 
-    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 85;
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 82;
     const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
+
+    const isExtreme = metrics.score > maxScore;
+    const isStandard = metrics.score >= metrics.threshold && metrics.score <= maxScore;
+
+    let isEligible = false;
+    let finalSide: OrderSide = metrics.side;
+    let isFadeTrade = false;
+
+    if (isStandard) {
+      isEligible = metrics.htfAligned;
+      finalSide = metrics.side;
+      isFadeTrade = false;
+    } else if (isExtreme && options?.invertExtremeSignals) {
+      // Invert ONLY signals > 82 as a fade strategy
+      isEligible = true;
+      finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
+      isFadeTrade = true;
+    }
 
     return {
       symbol,
@@ -127,8 +189,10 @@ export class MomentumEngine {
       currentAtr: metrics.currentAtr,
       atrPct: parseFloat(atrPct.toFixed(2)),
       score: metrics.score,
-      side: metrics.side,
-      isEligible: metrics.score >= metrics.threshold && metrics.score <= maxScore && metrics.htfAligned,
+      side: finalSide,
+      originalSide: metrics.side,
+      isFadeTrade,
+      isEligible,
       signal: signal || undefined,
       rank: 0,
       lastScannedTime: Date.now(),

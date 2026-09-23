@@ -11,7 +11,11 @@ export class RiskEngine {
     activePositions: Position[],
     currentEquity: number,
     killSwitchEngaged: boolean,
-    hasPendingOrder: boolean = false
+    hasPendingOrder: boolean = false,
+    options?: {
+      operatingEquity?: number;
+      profitVault?: number;
+    }
   ): RiskApproval {
     // 1. Kill Switch check
     if (killSwitchEngaged) {
@@ -73,12 +77,17 @@ export class RiskEngine {
       };
     }
 
+    const profitVault = Math.max(0, options?.profitVault || 0);
+    const operatingEquity = options?.operatingEquity && options.operatingEquity > 0
+      ? options.operatingEquity
+      : Math.max(10, currentEquity - profitVault);
+
     // 4. Equity & Sizing check
-    if (currentEquity <= 0) {
+    if (operatingEquity <= 0 || currentEquity <= 0) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: 'Zero or invalid account equity',
+        reason: 'Zero or invalid account operating equity',
       };
     }
 
@@ -87,13 +96,17 @@ export class RiskEngine {
     const marginInvested = activePositions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
     const unrealizedPnL = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
     const walletBalance = currentEquity - unrealizedPnL;
-    const freeBalance = Math.max(0, walletBalance - marginInvested);
+    const rawFreeBalance = Math.max(0, walletBalance - marginInvested);
+    // Usable Free Balance strictly respects the profit vault (reserve):
+    const usableFreeBalance = Math.max(0, rawFreeBalance - profitVault);
 
-    if (freeBalance < 5) {
+    if (usableFreeBalance < 5) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Insufficient Free Balance ($${freeBalance.toFixed(2)} available). Margin locked: $${marginInvested.toFixed(2)} across ${activePositions.length} position(s). Minimum 5 USDT required for new entry.`,
+        reason: profitVault > 0
+          ? `Insufficient Usable Free Balance ($${usableFreeBalance.toFixed(2)} available, $${profitVault.toFixed(2)} protejat în Profit Vault). Marjă blocată: $${marginInvested.toFixed(2)}. Minim 5 USDT necesar.`
+          : `Insufficient Free Balance ($${rawFreeBalance.toFixed(2)} available). Margin locked: $${marginInvested.toFixed(2)} across ${activePositions.length} position(s). Minimum 5 USDT required for new entry.`,
       };
     }
 
@@ -118,25 +131,19 @@ export class RiskEngine {
     );
 
     // 2. Fixed Dollar Risk Budget ($ at risk per trade):
-    // Standard baseline risk at hardStopLossPct:
-    // targetDollarRisk = currentEquity * (riskPerTradePct / 100) * (baseStopDistancePct / 100)
-    // E.g. $200 equity * 15% allocation * 1.0% stop = $0.30 fixed risk.
-    const targetDollarRisk = currentEquity * (config.riskPerTradePct / 100) * (baseStopDistancePct / 100);
+    // Standard baseline risk at hardStopLossPct calculated on OPERATING EQUITY:
+    const targetDollarRisk = operatingEquity * (config.riskPerTradePct / 100) * (baseStopDistancePct / 100);
 
     // 3. Volatility-Calibrated Position Size (USDT):
     // Position Size = Target $ Risk / (effectiveStopDistancePct / 100)
-    // Volatile pairs (high ATR) get smaller notional sizes to cap dollar loss.
-    // Calmer pairs (low ATR) get larger notional sizes to normalize portfolio yield.
     let desiredSizeUSDT = targetDollarRisk / (effectiveStopDistancePct / 100);
 
-    // 4. Single-Position Concentration Cap:
-    // Never allocate more than 30% of total equity into a single position.
-    const maxSinglePositionCap = currentEquity * 0.30;
+    // 4. Single-Position Concentration Cap based on operating equity:
+    const maxSinglePositionCap = operatingEquity * 0.30;
     desiredSizeUSDT = Math.min(desiredSizeUSDT, maxSinglePositionCap);
 
-    // 5. Strict Free Balance Cap:
-    // The position size can never exceed available free balance (with 5% buffer for fees/slippage).
-    const maxAllocatableSize = freeBalance * 0.95;
+    // 5. Strict Usable Free Balance Cap:
+    const maxAllocatableSize = usableFreeBalance * 0.95;
     const targetSizeUSDT = Math.min(desiredSizeUSDT, maxAllocatableSize);
 
     // 6. Stop Loss Price Calculation:
@@ -152,7 +159,7 @@ export class RiskEngine {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Mărimea calculată pe bază de volatilitate/ATR ($${targetSizeUSDT.toFixed(2)}) sau balanța disponibilă ($${freeBalance.toFixed(2)}) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: ${effectiveStopDistancePct.toFixed(2)}%, ATR: ${atrPct.toFixed(2)}%).`,
+        reason: `Mărimea calculată pe bază de volatilitate/ATR ($${targetSizeUSDT.toFixed(2)}) sau balanța operativă disponibilă ($${usableFreeBalance.toFixed(2)}) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: ${effectiveStopDistancePct.toFixed(2)}%, ATR: ${atrPct.toFixed(2)}%).`,
       };
     }
 

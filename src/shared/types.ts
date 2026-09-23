@@ -52,6 +52,8 @@ export type AuditLogType =
   | 'CANDIDATE_SELECTED'
   | 'CANDIDATE_REJECTED'
   | 'RECOVERY'
+  | 'PROFIT_VAULT_DEPOSIT'
+  | 'PROFIT_VAULT_RESET'
   | 'SYSTEM'
   | 'ERROR';
 
@@ -75,6 +77,8 @@ export interface ScannedOpportunity {
   score: number;
   side: OrderSide;
   isEligible: boolean;
+  isFadeTrade?: boolean;
+  originalSide?: OrderSide;
   signal?: TradeSignal;
   rank: number;
   lastScannedTime: number;
@@ -108,6 +112,9 @@ export interface AppConfig {
   telegramBotToken?: string;
   telegramChatId?: string;
   telegramAlertsEnabled?: boolean;
+  lockProfitVault?: boolean; // Profit Vault Mode: Locks profits into an untouchable vault
+  baseCapital?: number; // Fixed base operating capital (e.g. 1000 USDT or 200 USDT)
+  profitVault?: number; // Total protected profit stored in vault
 }
 
 export interface ProfileConfig {
@@ -141,6 +148,8 @@ export interface Kline {
 export interface TradeSignal {
   symbol: string;
   side: OrderSide;
+  originalSide?: OrderSide;
+  isFadeTrade?: boolean;
   score: number;
   profile: ProfileType;
   timestamp: number;
@@ -173,6 +182,7 @@ export interface OrderRecord {
   sizeUSDT: number;
   status: OrderStatus;
   stopLossPrice?: number;
+  isFadeTrade?: boolean;
   fillPrice?: number;
   filledQty?: number;
   cumFilledQty?: number;
@@ -202,6 +212,8 @@ export interface Position {
   id: string;
   symbol: string;
   side: OrderSide;
+  originalSide?: OrderSide;
+  isFadeTrade?: boolean;
   qty: number;
   entryPrice: number;
   ctVal?: number;
@@ -293,6 +305,11 @@ export interface BotStatusResponse {
   unrealizedPnL?: number;
   totalProfit?: number;
   totalProfitPct?: number;
+  profitVault?: number; // Protected profit locked in vault (intangible reserve)
+  operatingEquity?: number; // Active capital used for trade sizing and risk evaluation
+  usableFreeBalance?: number; // Free balance excluding profit vault
+  baseCapital?: number; // Configured fixed operating base capital
+  lockProfitVault?: boolean; // Profit vault mode enabled/disabled
   equityHistory?: EquityDataPoint[];
   sessionRealizedPnL?: number;
   performanceMetrics?: PerformanceMetrics;

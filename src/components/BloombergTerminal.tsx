@@ -1135,6 +1135,72 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const lockedCapital = marginInvested;
   const isKillSwitch = status?.config?.killSwitchEngaged;
 
+  const profitVault = status?.profitVault !== undefined ? status.profitVault : 0;
+  const operatingEquity = status?.operatingEquity !== undefined ? status.operatingEquity : Math.max(10, currentEquity - profitVault);
+  const baseCapital = status?.baseCapital !== undefined ? status.baseCapital : (status?.config?.baseCapital || initialEquity);
+  const usableFreeBalance = status?.usableFreeBalance !== undefined ? status.usableFreeBalance : Math.max(0, freeBalance - profitVault);
+  const isVaultActive = Boolean(status?.lockProfitVault);
+
+  const handleToggleProfitVault = async () => {
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/vault/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+        body: JSON.stringify({ enabled: !isVaultActive }),
+      });
+      if (res.ok) onRefresh();
+    } catch (err) {
+      console.warn('Eroare la comutarea Profit Vault:', err);
+    }
+  };
+
+  const handleLockProfitNow = async () => {
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/vault/lock-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onRefresh();
+      } else if (data.error) {
+        alert(data.error);
+      }
+    } catch (err) {
+      console.warn('Eroare la depunerea în seif:', err);
+    }
+  };
+
+  const handleSetBaseCapital = async (amount: number) => {
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/vault/set-base', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+        body: JSON.stringify({ amount }),
+      });
+      if (res.ok) onRefresh();
+    } catch (err) {
+      console.warn('Eroare la setarea bazei de lucru:', err);
+    }
+  };
+
+  const handleResetProfitVault = async () => {
+    if (!confirm('Ești sigur că vrei să resetezi Seiful (Profit Vault)? Profitul blocat va fi reintegrat în capitalul activ de tranzacționare.')) return;
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/vault/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+      });
+      if (res.ok) onRefresh();
+    } catch (err) {
+      console.warn('Eroare la resetarea seifului:', err);
+    }
+  };
+
   // Sentiment calculations for display
   const sentimentScore = status?.marketSentimentScore ?? 0;
   const currentSentimentThreshold = profileConfig?.sentimentThreshold ?? 1.5;
@@ -1146,164 +1212,391 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
         {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
-        <header className="bg-amber-600 text-black px-2 sm:px-3 py-1 flex flex-col md:flex-row md:items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-1.5 md:gap-0 w-full max-w-full min-w-0">
-        <div className="flex items-center justify-between md:justify-start w-full md:w-auto space-x-1.5 sm:space-x-3">
-          <span className="bg-black text-amber-500 px-2 sm:px-3 py-0.5 sm:py-1 rounded text-xs sm:text-base tracking-widest font-black border border-amber-500/50 shrink-0">
-            <span className="hidden sm:inline">BLOOMBERG // TRADEBOT v5.0 PRO</span>
-            <span className="sm:hidden">BBG // TRADEBOT</span>
-          </span>
-          <span className="hidden lg:inline">DESK: SECURE-QUANT-01</span>
-          <span className="hidden lg:inline">|</span>
-          {/* INTERACTIVE MODE SWITCHER BADGE */}
-          <button
-            onClick={() => setShowOKXModal(true)}
-            className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold border flex items-center space-x-1 sm:space-x-1.5 transition-all shadow-sm shrink-0 ${
-              status?.executionMode === 'LIVE'
-                ? 'bg-rose-950/90 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
-                : status?.executionMode === 'TESTNET'
-                ? 'bg-amber-950/90 text-amber-300 border-amber-500 hover:bg-amber-900'
-                : 'bg-emerald-950/90 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
-            }`}
-            title="Comută modul de execuție (PAPER / TESTNET / LIVE) sau configurează cheile OKX"
-          >
-            <span
-              className={`w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full ${
-                status?.executionMode === 'LIVE'
-                  ? 'bg-rose-400 animate-ping'
-                  : status?.executionMode === 'TESTNET'
-                  ? 'bg-amber-400'
-                  : 'bg-emerald-400'
-              }`}
-            />
-            <span>
-              {status?.executionMode === 'LIVE'
-                ? 'FEED: 🔴 OKX LIVE'
-                : status?.executionMode === 'TESTNET'
-                ? 'FEED: 🟡 OKX DEMO'
-                : 'FEED: 🟢 PAPER'}
+        {/* DESKTOP HEADER (SM+) */}
+        <header className="hidden sm:flex bg-amber-600 text-black px-3 py-1 items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 w-full max-w-full min-w-0">
+          {/* LEFT: BRAND & REGIME */}
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="bg-black text-amber-500 px-2 py-0.5 rounded text-xs sm:text-sm tracking-widest font-black border border-amber-500/50 shrink-0">
+              BLOOMBERG // TB5
             </span>
-            <span className="text-[9px] sm:text-[10px] bg-black/60 px-1 py-0.2 rounded border border-white/20 text-zinc-300">
-              MOD ▾
-            </span>
-          </button>
-          <span className="hidden md:inline">|</span>
-          <span className="font-mono text-[9px] sm:text-[10px] bg-black text-amber-400 px-1 sm:px-1.5 py-0.5 rounded border border-amber-500/50 shrink-0">{status?.marketRegime || 'BTC: --'}</span>
-          <button
-            onClick={() => {
-              onResetPaper();
-            }}
-            className="md:hidden bg-zinc-900 text-amber-400 hover:bg-black px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[9px] shrink-0"
-          >
-            <span>RESET</span>
-          </button>
-        </div>
-        <div className="flex items-center justify-between md:justify-end w-full md:w-auto space-x-1.5 sm:space-x-3">
-          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
-            <span className="bg-black/90 text-emerald-400 px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono balance-metric">
-              EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
-            </span>
-            <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs sm:text-sm md:text-base font-mono shrink-0 pnl-metric ${totalPnL >= 0 ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}`}>
-              PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
-            </span>
-          </div>
-          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
+
+            {/* INTERACTIVE MODE SWITCHER BADGE */}
             <button
               onClick={() => setShowOKXModal(true)}
-              className="bg-black text-amber-400 hover:bg-zinc-900 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/50 flex items-center space-x-1 text-[10px] sm:text-xs font-bold shadow-sm"
-              title="Configurează Conexiunea OKX & Modul de Execuție"
-            >
-              <Key className="w-3 h-3 text-amber-400" />
-              <span className="hidden sm:inline">CONEXIUNE OKX</span>
-              <span className="sm:hidden">OKX</span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveScreen('INFO');
-                setTimeout(() => {
-                  const el = document.getElementById('telegram-config-card');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }, 50);
-              }}
-              className={`px-1.5 sm:px-2 py-0.5 rounded border flex items-center space-x-1 text-[10px] sm:text-xs font-bold shadow-sm transition-colors ${
-                status?.telegramActive
-                  ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60'
-                  : 'bg-zinc-900 text-sky-400 border-sky-500/40 hover:bg-zinc-800'
+              className={`px-2 py-0.5 rounded text-xs font-bold border flex items-center space-x-1 transition-all shadow-sm shrink-0 cursor-pointer ${
+                status?.executionMode === 'LIVE'
+                  ? 'bg-rose-950 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
+                  : status?.executionMode === 'TESTNET'
+                  ? 'bg-amber-950 text-amber-300 border-amber-500 hover:bg-amber-900'
+                  : 'bg-emerald-950 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
               }`}
-              title="Configurează Cheia Telegram și Canalul de Alerte"
+              title="Comută modul de execuție (PAPER / TESTNET / LIVE) sau configurează cheile OKX"
             >
-              <Send className="w-3 h-3 text-sky-400" />
-              <span className="hidden sm:inline">{status?.telegramActive ? 'TELEGRAM: ACTIV' : 'CONFIG TELEGRAM'}</span>
-              <span className="sm:hidden">{status?.telegramActive ? 'TG: ON' : 'TG +'}</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  status?.executionMode === 'LIVE'
+                    ? 'bg-rose-400 animate-ping'
+                    : status?.executionMode === 'TESTNET'
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-400'
+                }`}
+              />
+              <span>
+                {status?.executionMode === 'LIVE'
+                  ? 'LIVE'
+                  : status?.executionMode === 'TESTNET'
+                  ? 'DEMO'
+                  : 'PAPER'}
+              </span>
+              <span className="text-[9px] opacity-70">▾</span>
             </button>
-            <button
-              onClick={() => setShowTokenModal(true)}
-              className="bg-zinc-900 text-amber-400 hover:bg-black px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/30 flex items-center space-x-1 text-[10px] sm:text-xs"
-              title="Set Bot Control Token"
-            >
-              <span>AUTH</span>
-            </button>
-            <button
-              onClick={() => {
-                onResetPaper();
-              }}
-              className="hidden md:flex bg-zinc-900 text-amber-400 hover:bg-black px-2 py-0.5 rounded border border-amber-500/30 items-center space-x-1 text-xs"
-            >
-              <span>RESET BAL</span>
-            </button>
-            <button
-              onClick={handleToggleInvertSignals}
-              className={`px-1.5 sm:px-2 py-0.5 rounded border flex items-center space-x-1 text-[10px] sm:text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                status?.config?.invertSignals
-                  ? 'bg-purple-950 text-purple-300 border-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-pulse'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-purple-300 border-zinc-700'
-              }`}
-              title="Experiment: Inversare Semnale (BUY ⇄ SELL). Când este activ, semnalele Long devin Short și viceversa."
-            >
-              <span className="shrink-0">🧪</span>
-              <span className="hidden md:inline">{status?.config?.invertSignals ? 'EXP: INVERS ACTIV' : 'EXP: NORMAL'}</span>
-              <span className="md:hidden">{status?.config?.invertSignals ? 'INVERS' : 'NORMAL'}</span>
-            </button>
-            <button
-              onClick={() => setIsMonochrome(!isMonochrome)}
-              className={`px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold border flex items-center space-x-1 transition-all shrink-0 cursor-pointer ${
-                isMonochrome
-                  ? 'bg-white text-black border-white shadow-md'
-                  : 'bg-zinc-900 text-amber-400 hover:bg-zinc-800 border-amber-500/40'
-              }`}
-              title="Comută Modul Monocrom (High-contrast B&W, păstrează amber pentru balanță, PnL și profit)"
-            >
-              <span>{isMonochrome ? 'MONO: ON' : 'MONO: OFF'}</span>
-            </button>
-            <button
-              onClick={onRefresh}
-              className="bg-black text-amber-500 hover:bg-zinc-900 px-1.5 sm:px-2 py-0.5 rounded flex items-center space-x-1 text-[10px] sm:text-[11px]"
-            >
-              <RefreshCw className="w-3 h-3 animate-spin" style={{ animationDuration: '4s' }} />
-              <span className="hidden sm:inline">SYNC</span>
-            </button>
-          </div>
-        </div>
-      </header>
 
-      {/* 1.1 BANNER EXPERIMENT INVERSARE SEMNALE */}
-      {status?.config?.invertSignals && (
-        <div className="bg-purple-950/95 border-b border-purple-500/60 px-3 py-1.5 text-[11px] font-mono text-purple-200 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20 shadow-[0_2px_12px_rgba(88,28,135,0.5)]">
-          <div className="flex items-center space-x-2">
-            <span className="bg-purple-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider animate-pulse shrink-0">
-              🧪 EXPERIMENT INVERSARE ACTIV
-            </span>
-            <span className="text-[10px] sm:text-[11px]">
-              Semnalele sunt inversate: <strong>BUY (Long) ➡️ SHORT (Sell)</strong> | <strong>SELL (Short) ➡️ LONG (Buy)</strong>. Rulează în paralel cu instanța locală pentru comparare.
+            <span className="font-mono text-[10px] bg-black text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/50 shrink-0">
+              {status?.marketRegime || 'BTC: --'}
             </span>
           </div>
-          <button
-            onClick={handleToggleInvertSignals}
-            className="bg-purple-800 hover:bg-purple-700 text-white text-[10px] font-bold px-2.5 py-0.5 rounded border border-purple-400/50 transition-colors shrink-0 cursor-pointer"
-          >
-            Oprește Experimentul (Revenire la Normal)
-          </button>
-        </div>
-      )}
+
+          {/* CENTER: ESSENTIAL ACCOUNT METRICS */}
+          <div className="flex items-center space-x-1.5 shrink-0 bg-black/85 px-2.5 py-0.5 rounded border border-black/40 shadow-inner">
+            <span className="text-emerald-400 px-1 py-0.2 rounded text-sm font-mono balance-metric font-bold">
+              EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
+            </span>
+            <span className="text-zinc-600">|</span>
+            <span className={`px-1 py-0.2 rounded text-sm font-mono shrink-0 pnl-metric font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+            </span>
+            {isVaultActive && (
+              <>
+                <span className="text-zinc-600">|</span>
+                <span className="text-cyan-400 px-1 py-0.2 rounded text-xs font-mono font-bold flex items-center gap-1" title="Profit acumulat în seif">
+                  <span>🏦</span>
+                  <span>${profitVault.toFixed(2)}</span>
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* RIGHT: GROUPED HIGH-DENSITY ACTION PILLS */}
+          <div className="flex items-center space-x-1.5 shrink-0">
+            {/* Strategy Toggles Capsule */}
+            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
+              <button
+                onClick={handleToggleInvertSignals}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all shrink-0 cursor-pointer flex items-center space-x-1 ${
+                  status?.config?.invertSignals
+                    ? 'bg-purple-950 text-purple-200 border border-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-pulse'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-purple-300 border border-zinc-800'
+                }`}
+                title="Sub-strategie Fade Climax: Semnalele normale (≤82) rămân neschimbate, iar cele extreme (>82) sunt inversate (Mean-Reversion Fade)."
+              >
+                <span>🧪</span>
+                <span>{status?.config?.invertSignals ? 'FADE: ON' : 'FADE'}</span>
+              </button>
+
+              <button
+                onClick={handleToggleProfitVault}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all shrink-0 cursor-pointer flex items-center space-x-1 ${
+                  isVaultActive
+                    ? 'bg-cyan-950 text-cyan-200 border border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)] animate-pulse'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-cyan-300 border border-zinc-800'
+                }`}
+                title="Profit Vault: Profiturile peste baza fixă sunt izolate în seif și nu sunt reinvestite în noul ciclu."
+              >
+                <span>🏦</span>
+                <span>{isVaultActive ? 'VAULT: ON' : 'VAULT'}</span>
+              </button>
+            </div>
+
+            {/* Integrations Capsule (OKX & TG) */}
+            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
+              <button
+                onClick={() => setShowOKXModal(true)}
+                className="bg-zinc-900 hover:bg-black text-amber-400 px-2 py-0.5 rounded border border-zinc-800 flex items-center space-x-1 text-[11px] font-bold transition-colors cursor-pointer"
+                title="Setări Conexiune API OKX"
+              >
+                <Key className="w-3 h-3 text-amber-400" />
+                <span>OKX</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveScreen('INFO');
+                  setTimeout(() => {
+                    const el = document.getElementById('telegram-config-card');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 50);
+                }}
+                className={`px-2 py-0.5 rounded border flex items-center space-x-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                  status?.telegramActive
+                    ? 'bg-sky-950 text-sky-300 border-sky-500/60'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-sky-300'
+                }`}
+                title="Configurare Notificări Telegram"
+              >
+                <Send className="w-3 h-3 text-sky-400" />
+                <span>TG</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
+              </button>
+            </div>
+
+            {/* Utilities Capsule */}
+            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
+              <button
+                onClick={() => setShowTokenModal(true)}
+                className="bg-zinc-900 text-zinc-400 hover:text-amber-400 px-1.5 py-0.5 rounded border border-zinc-800 text-[11px] font-bold transition-colors cursor-pointer"
+                title="Set Bot Control Token"
+              >
+                AUTH
+              </button>
+
+              <button
+                onClick={() => setIsMonochrome(!isMonochrome)}
+                className={`px-1.5 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                  isMonochrome
+                    ? 'bg-white text-black border-white'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-amber-400 border-zinc-800'
+                }`}
+                title="Comută Mod Monocrom"
+              >
+                MONO
+              </button>
+
+              <button
+                onClick={onRefresh}
+                className="bg-zinc-900 hover:bg-black text-amber-500 px-1.5 py-0.5 rounded border border-zinc-800 flex items-center transition-colors cursor-pointer"
+                title="Sincronizare Forțată (SYNC)"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* MOBILE HEADER (< SM): 2 HIGH-DENSITY ROWS WITH 100% VISIBLE CONTROLS */}
+        <header className="flex sm:hidden bg-amber-600 text-black px-2 py-1 flex-col gap-1 text-xs font-bold tracking-wider shrink-0 shadow-md w-full max-w-full min-w-0">
+          {/* TIER 1: BRAND, MODE, REGIME & ACTION SHORTCUTS */}
+          <div className="flex items-center justify-between w-full min-w-0 gap-1">
+            <div className="flex items-center space-x-1 shrink-0">
+              <span className="bg-black text-amber-500 px-1.5 py-0.5 rounded text-xs font-black border border-amber-500/50">
+                TB5
+              </span>
+
+              <button
+                onClick={() => setShowOKXModal(true)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border flex items-center space-x-1 cursor-pointer ${
+                  status?.executionMode === 'LIVE'
+                    ? 'bg-rose-950 text-rose-300 border-rose-500 animate-pulse'
+                    : status?.executionMode === 'TESTNET'
+                    ? 'bg-amber-950 text-amber-300 border-amber-500'
+                    : 'bg-emerald-950 text-emerald-300 border-emerald-500'
+                }`}
+                title="Comută Modul de Execuție"
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    status?.executionMode === 'LIVE'
+                      ? 'bg-rose-400 animate-ping'
+                      : status?.executionMode === 'TESTNET'
+                      ? 'bg-amber-400'
+                      : 'bg-emerald-400'
+                  }`}
+                />
+                <span>
+                  {status?.executionMode === 'LIVE'
+                    ? 'LIVE'
+                    : status?.executionMode === 'TESTNET'
+                    ? 'DEMO'
+                    : 'PAPER'}
+                </span>
+                <span className="text-[8px] opacity-70">▾</span>
+              </button>
+
+              <span className="font-mono text-[9px] bg-black text-amber-400 px-1 py-0.5 rounded border border-amber-500/50">
+                {status?.marketRegime ? status.marketRegime.replace('BTC: ', '') : '--'}
+              </span>
+            </div>
+
+            {/* Quick Action Capsules for Mobile */}
+            <div className="flex items-center space-x-1 shrink-0">
+              {/* Fade & Vault Buttons */}
+              <button
+                onClick={handleToggleInvertSignals}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
+                  status?.config?.invertSignals
+                    ? 'bg-purple-950 text-purple-200 border-purple-400 animate-pulse'
+                    : 'bg-black text-zinc-400 border-black/40'
+                }`}
+                title="Fade Climax >82"
+              >
+                🧪 {status?.config?.invertSignals ? 'FADE:ON' : 'FADE'}
+              </button>
+
+              <button
+                onClick={handleToggleProfitVault}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
+                  isVaultActive
+                    ? 'bg-cyan-950 text-cyan-200 border-cyan-400 animate-pulse'
+                    : 'bg-black text-zinc-400 border-black/40'
+                }`}
+                title="Profit Vault"
+              >
+                🏦 {isVaultActive ? 'VAULT:ON' : 'VAULT'}
+              </button>
+
+              {/* OKX & TG */}
+              <button
+                onClick={() => setShowOKXModal(true)}
+                className="bg-black text-amber-400 px-1.5 py-0.5 rounded border border-black/40 flex items-center space-x-0.5 text-[9px] font-bold cursor-pointer"
+                title="Setări OKX"
+              >
+                <span>OKX</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveScreen('INFO');
+                  setTimeout(() => {
+                    const el = document.getElementById('telegram-config-card');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }, 50);
+                }}
+                className={`px-1.5 py-0.5 rounded border flex items-center space-x-0.5 text-[9px] font-bold cursor-pointer ${
+                  status?.telegramActive
+                    ? 'bg-sky-950 text-sky-300 border-sky-500'
+                    : 'bg-black text-zinc-400 border-black/40'
+                }`}
+                title="Telegram"
+              >
+                <span>TG</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
+              </button>
+
+              {/* Refresh Button */}
+              <button
+                onClick={onRefresh}
+                className="bg-black text-amber-500 p-1 rounded border border-black/40 flex items-center cursor-pointer"
+                title="Refresh"
+              >
+                <RefreshCw className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* TIER 2: FINANCIAL HUD BAR (EQUITY, PNL, VAULT) & UTILITIES */}
+          <div className="flex items-center justify-between w-full min-w-0 bg-black/90 px-2 py-0.5 rounded border border-black/50 text-[11px] font-mono">
+            <div className="flex items-center space-x-1.5 min-w-0 truncate">
+              <span className="text-emerald-400 font-bold truncate">
+                EQ: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'}
+              </span>
+              <span className="text-zinc-600">|</span>
+              <span className={`font-bold truncate ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+              </span>
+              {isVaultActive && (
+                <>
+                  <span className="text-zinc-600">|</span>
+                  <span className="text-cyan-400 font-bold flex items-center space-x-0.5 truncate" title="În seif">
+                    <span>🏦</span>
+                    <span>${profitVault.toFixed(2)}</span>
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-1 shrink-0 pl-1">
+              <button
+                onClick={() => setShowTokenModal(true)}
+                className="bg-zinc-900 text-zinc-400 hover:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-zinc-800 cursor-pointer"
+                title="Token"
+              >
+                AUTH
+              </button>
+              <button
+                onClick={() => setIsMonochrome(!isMonochrome)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
+                  isMonochrome
+                    ? 'bg-white text-black border-white'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800'
+                }`}
+                title="Mono"
+              >
+                MONO
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* UNIFIED ACTIVE PROTOCOLS RIBBON (FADE & VAULT SINGLE SLIM BAR) */}
+        {(status?.config?.invertSignals || isVaultActive) && (
+          <div className="bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2 shrink-0 z-20 shadow-md">
+            <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+              {/* Fade Status Pill */}
+              {status?.config?.invertSignals && (
+                <div className="flex items-center space-x-1 bg-purple-950/80 border border-purple-500/50 px-1.5 sm:px-2 py-0.5 rounded text-purple-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-purple-300">FADE CLIMAX:</span>
+                  <span className="text-[9px] sm:text-[10px]">
+                    <span className="hidden sm:inline">Semnale &gt;82 inversate (Fade Mean-Reversion)</span>
+                    <span className="sm:hidden">&gt;82 Inversat</span>
+                  </span>
+                  <button
+                    onClick={handleToggleInvertSignals}
+                    className="ml-1 text-[9px] text-purple-400 hover:text-white underline cursor-pointer"
+                    title="Dezactivează Fade Climax"
+                  >
+                    [STOP]
+                  </button>
+                </div>
+              )}
+
+              {/* Profit Vault Status Pill */}
+              {isVaultActive && (
+                <div className="flex items-center space-x-1 bg-cyan-950/80 border border-cyan-500/50 px-1.5 sm:px-2 py-0.5 rounded text-cyan-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-cyan-300">VAULT:</span>
+                  <span className="text-[9px] sm:text-[10px]">
+                    <span className="hidden sm:inline">Bază: <strong>${baseCapital.toFixed(2)}</strong> | În seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)}</strong> | Operativ: <strong>${operatingEquity.toFixed(2)}</strong></span>
+                    <span className="sm:hidden">Seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)}</strong> (Bază: ${baseCapital.toFixed(0)})</span>
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions for Vault */}
+            {isVaultActive && (
+              <div className="flex items-center space-x-1 text-[9px] sm:text-[10px] w-full sm:w-auto justify-end">
+                <button
+                  onClick={handleLockProfitNow}
+                  className="bg-cyan-900/80 hover:bg-cyan-800 text-cyan-100 font-bold px-1.5 sm:px-2 py-0.5 rounded border border-cyan-500/50 cursor-pointer transition-colors"
+                  title="Depune manual profitul suplimentar curent în seif"
+                >
+                  + Depune
+                </button>
+                <button
+                  onClick={() => {
+                    const val = prompt('Introdu noua Bază Fixă de Lucru (USDT):', baseCapital.toString());
+                    if (val && !isNaN(parseFloat(val)) && parseFloat(val) > 0) {
+                      handleSetBaseCapital(parseFloat(val));
+                    }
+                  }}
+                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-1.5 sm:px-2 py-0.5 rounded border border-zinc-700 cursor-pointer transition-colors"
+                  title="Modifică suma de bază fixă"
+                >
+                  Bază
+                </button>
+                <button
+                  onClick={handleResetProfitVault}
+                  className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-1.5 sm:px-2 py-0.5 rounded border border-rose-600/50 cursor-pointer transition-colors"
+                  title="Resetează seiful și reintroduce profitul în balanța activă"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
       {/* 2. REAL-TIME TICKER TAPE (AUTO-SCROLLING 24H % DESC) */}
       <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative w-full max-w-full min-w-0">
@@ -1585,94 +1878,168 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
 
               {/* TRADEBOT 4 ACCOUNTING METRICS (DYNAMIC LANG) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {/* 1. FREE BALANCE */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
-                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
-                    {lang === 'EN' ? 'FREE BALANCE' : 'SOLD DISPONIBIL'}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
+                    <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider truncate">
+                      <span className="hidden sm:inline">{lang === 'EN' ? 'FREE BALANCE' : 'SOLD DISPONIBIL'}</span>
+                      <span className="sm:hidden">{lang === 'EN' ? 'FREE BAL' : 'SOLD LIBER'}</span>
+                    </div>
+                    {profitVault > 0 && (
+                      <span className="text-[8px] sm:text-[9px] text-cyan-400 font-mono shrink-0" title="Profit rezervat în seif">
+                        (${profitVault.toFixed(0)} seif)
+                      </span>
+                    )}
                   </div>
-                  <div className="text-base sm:text-xl font-bold font-mono text-amber-400">
-                    ${freeBalance.toFixed(2)}
+                  <div className="text-sm sm:text-xl font-bold font-mono text-amber-400 truncate">
+                    ${(isVaultActive ? usableFreeBalance : freeBalance).toFixed(2)}
                   </div>
                 </div>
 
                 {/* 2. MARGIN (INVESTED) */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
-                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
-                    {lang === 'EN' ? 'MARGIN (INVESTED)' : 'MARJĂ INVESTITĂ'}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                  <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1 truncate">
+                    <span className="hidden sm:inline">{lang === 'EN' ? 'MARGIN (INVESTED)' : 'MARJĂ INVESTITĂ'}</span>
+                    <span className="sm:hidden">{lang === 'EN' ? 'MARGIN' : 'MARJĂ'}</span>
                   </div>
-                  <div className="text-base sm:text-xl font-bold font-mono text-amber-400">
+                  <div className="text-sm sm:text-xl font-bold font-mono text-amber-400 truncate">
                     ${marginInvested.toFixed(2)}
                   </div>
                 </div>
 
                 {/* 3. TOTAL EQUITY */}
-                <div className="bg-black border border-emerald-500/50 p-2 sm:p-2.5 rounded shadow-[0_0_12px_rgba(16,185,129,0.12)]">
-                  <div className="text-emerald-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
-                    {lang === 'EN' ? 'TOTAL EQUITY' : 'VALOARE TOTALĂ (EQUITY)'}
+                <div className="bg-black border border-emerald-500/50 p-2 sm:p-2.5 rounded flex flex-col justify-between shadow-[0_0_12px_rgba(16,185,129,0.12)] min-w-0">
+                  <div className="text-emerald-400 text-[9px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1 truncate">
+                    <span className="hidden sm:inline">{lang === 'EN' ? 'TOTAL EQUITY' : 'VALOARE TOTALĂ (EQUITY)'}</span>
+                    <span className="sm:hidden">{lang === 'EN' ? 'EQUITY' : 'TOTAL EQUITY'}</span>
                   </div>
-                  <div className="text-base sm:text-xl font-bold font-mono text-emerald-400">
+                  <div className="text-sm sm:text-xl font-bold font-mono text-emerald-400 truncate">
                     ${currentEquity.toFixed(2)}
                   </div>
                 </div>
 
-                {/* 4. UNREALIZED PNL */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
-                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                {/* 4. PROFIT VAULT (SEIF PROTEJAT) */}
+                <div className={`border p-2 sm:p-2.5 rounded transition-all flex flex-col justify-between min-w-0 ${
+                  isVaultActive && profitVault > 0
+                    ? 'bg-cyan-950/40 border-cyan-500/60 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                    : isVaultActive
+                    ? 'bg-black border-cyan-500/40'
+                    : 'bg-black border-zinc-800'
+                }`}>
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
+                    <div className="text-cyan-400 text-[9px] sm:text-xs font-bold tracking-wider flex items-center space-x-1 truncate">
+                      <span>🏦</span>
+                      <span>{lang === 'EN' ? 'VAULT' : 'SEIF'}</span>
+                    </div>
+                    <button
+                      onClick={handleToggleProfitVault}
+                      className={`text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded font-bold border transition-colors cursor-pointer shrink-0 ${
+                        isVaultActive
+                          ? 'bg-cyan-900 border-cyan-400 text-cyan-200'
+                          : 'bg-zinc-800 border-zinc-600 text-zinc-400 hover:text-cyan-300'
+                      }`}
+                      title="Comută Modul Profit Vault"
+                    >
+                      {isVaultActive ? 'ACTIV' : 'OFF'}
+                    </button>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <div className="text-sm sm:text-xl font-bold font-mono text-cyan-300 truncate">
+                      ${profitVault.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] sm:text-[10px] text-zinc-400 font-mono shrink-0">
+                      Bază: <span className="text-zinc-200 font-bold">${operatingEquity.toFixed(0)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. UNREALIZED PNL */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                  <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1 truncate">
                     {lang === 'EN' ? 'UNREALIZED PNL' : 'PNL NEREALIZAT'}
                   </div>
-                  <div className={`text-sm sm:text-lg font-bold font-mono ${unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <div className={`text-xs sm:text-lg font-bold font-mono truncate ${unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
-                    <span className="text-[10px] sm:text-xs ml-0.5 font-normal opacity-90">
+                    <span className="text-[9px] sm:text-xs ml-0.5 font-normal opacity-90">
                       ({unrealizedPnL >= 0 ? '+' : ''}{unrealizedPnLPct.toFixed(2)}%)
                     </span>
                   </div>
                 </div>
 
-                {/* 5. TOTAL PROFIT */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded">
-                  <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1">
+                {/* 6. TOTAL PROFIT */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                  <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1 truncate">
                     {lang === 'EN' ? 'TOTAL PROFIT' : 'PROFIT TOTAL'}
                   </div>
-                  <div className={`text-sm sm:text-lg font-bold font-mono ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <div className={`text-xs sm:text-lg font-bold font-mono truncate ${totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
-                    <span className="text-[10px] sm:text-xs ml-0.5 font-normal opacity-90">
+                    <span className="text-[9px] sm:text-xs ml-0.5 font-normal opacity-90">
                       ({totalProfit >= 0 ? '+' : ''}{totalProfitPct.toFixed(2)}%)
                     </span>
                   </div>
                 </div>
 
-                {/* 6. ACTIVE POSITIONS & OKX SENTIMENT */}
-                <div className="border p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all bg-black border-zinc-800">
-                  <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                    <div className="text-slate-400 text-[10px] sm:text-xs font-bold tracking-wider">
+                {/* 7. ACTIVE POSITIONS */}
+                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
+                    <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider truncate">
                       {lang === 'EN' ? 'ACTIVE POSITIONS' : 'POZIȚII ACTIVE'}
                     </div>
-                    <div className={`flex items-center gap-2 rounded px-2.5 py-1 text-xs font-mono border transition-all ${
-                      isBullishSentiment
-                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-                        : isBearishSentiment
-                        ? 'bg-rose-950/60 border-rose-500/50 text-rose-300'
-                        : 'bg-zinc-900 border-zinc-700 text-zinc-300'
-                    }`}>
-                      <span className="font-bold">
-                        {status?.marketSentiment ? (lang === 'EN' ? status.marketSentiment.replace('BULLISH', 'BULLISH').replace('BEARISH', 'BEARISH').replace('NEUTRAL', 'NEUTRAL') : status.marketSentiment) : (lang === 'EN' ? 'OKX NEUTRAL' : 'OKX NEUTRU')}
-                      </span>
-                      <button onClick={async () => {
-                          const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
-                          await fetch('/api/bot/sentiment/refresh', { method: 'POST', headers: { 'x-bot-token': token } });
-                          onRefresh();
-                      }} className="hover:text-white transition-colors p-0.5" title="Reîmprospătează sentimentul global OKX">
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
+                    <span className="text-[9px] sm:text-[10px] font-mono text-zinc-400 shrink-0">
+                      Cap: {Math.round((activePositions.length / 5) * 100)}%
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <div className="text-sm sm:text-xl font-bold font-mono text-cyan-400 truncate">
+                      {activePositions.length} <span className="text-[9px] sm:text-[10px] text-zinc-500 font-normal">/ 5 max</span>
+                    </div>
+                    <div className="text-[9px] sm:text-[10px] text-zinc-400 font-mono shrink-0">
+                      {activePositions.length === 0 ? '0 deschise' : `${activePositions.length} active`}
                     </div>
                   </div>
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-base sm:text-xl font-bold font-mono text-cyan-400">
-                      {activePositions.length} <span className="text-[10px] text-zinc-500 font-normal">/ 5 max</span>
+                </div>
+
+                {/* 8. OKX SENTIMENT SCORE */}
+                <div className={`p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all border min-w-0 ${
+                  isBullishSentiment
+                    ? 'bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.1)]'
+                    : isBearishSentiment
+                    ? 'bg-rose-950/20 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.1)]'
+                    : 'bg-black border-zinc-800'
+                }`}>
+                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
+                    <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider flex items-center space-x-1 truncate">
+                      <span>{lang === 'EN' ? 'OKX SENTIMENT' : 'SENTIMENT OKX'}</span>
                     </div>
-                    <div className="text-[10px] text-zinc-400 font-mono">
-                      Cap: {Math.round((activePositions.length / 5) * 100)}%
+                    <button
+                      onClick={async () => {
+                        const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+                        await fetch('/api/bot/sentiment/refresh', { method: 'POST', headers: { 'x-bot-token': token } });
+                        onRefresh();
+                      }}
+                      className="text-zinc-400 hover:text-amber-400 transition-colors p-0.5 cursor-pointer shrink-0"
+                      title="Reîmprospătează sentimentul global OKX"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <div className={`text-xs sm:text-base font-bold font-mono truncate ${
+                      isBullishSentiment
+                        ? 'text-emerald-400'
+                        : isBearishSentiment
+                        ? 'text-rose-400'
+                        : 'text-amber-400'
+                    }`}>
+                      {status?.marketSentiment?.includes('BULLISH')
+                        ? 'BULLISH'
+                        : status?.marketSentiment?.includes('BEARISH')
+                        ? 'BEARISH'
+                        : 'NEUTRAL'}
+                    </div>
+                    <div className="text-[9px] sm:text-[10px] font-mono text-zinc-300 shrink-0">
+                      Scor: <span className="font-bold text-amber-300">{sentimentScore >= 0 ? '+' : ''}{sentimentScore.toFixed(2)}%</span>
                     </div>
                   </div>
                 </div>
@@ -1816,6 +2183,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {isVaultActive && (
+                    <div className="mt-2 pt-2 border-t border-cyan-500/30 flex items-center justify-between text-[11px] text-cyan-300 font-mono">
+                      <span>🏦 <strong>Profit Vault Activ:</strong> La declanșarea protecției, profitul obținut este transferat automat în Seif (+${profitVault.toFixed(2)} USDT curent). Noul ciclu reia cu baza curată de ${baseCapital.toFixed(2)} USDT.</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2165,6 +2538,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                 }`}>
                                   {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
                                 </span>
+                                {pos.isFadeTrade && (
+                                  <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-600/60" title="Sub-strategie Fade Climax (>82)">
+                                    FADE &gt;82
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -2502,24 +2880,39 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                 </button>
                               </td>
                               <td className="py-2 px-3">
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  opp.side === 'SELL' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
-                                }`}>
-                                  {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
-                                </span>
+                                <div className="flex items-center space-x-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    opp.side === 'SELL' ? 'bg-rose-950 text-rose-400 border border-rose-800/60' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'
+                                  }`}>
+                                    {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
+                                  </span>
+                                  {opp.isFadeTrade && (
+                                    <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-700 rounded font-bold" title="Sub-strategie Fade Extrem (>82)">
+                                      FADE
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-2 px-3 text-slate-300 font-mono">${opp.price}</td>
                               <td className="py-2 px-3 text-emerald-400 font-bold">{opp.rvol}x</td>
                               <td className="py-2 px-3 text-amber-400 font-bold">{opp.score}/100</td>
                               <td className="py-2 px-3 text-right">
                                 <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                                  opp.isEligible 
+                                  opp.isEligible && opp.isFadeTrade
+                                    ? 'bg-purple-950 text-purple-300 border border-purple-600 shadow-[0_0_8px_rgba(168,85,247,0.3)]'
+                                    : opp.isEligible 
                                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' 
                                     : opp.score > 82
                                     ? 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
                                     : 'bg-zinc-800 text-zinc-400'
                                 }`}>
-                                  {opp.isEligible ? 'ELIGIBLE' : opp.score > 82 ? 'BLOCKED (>82)' : 'FILTERED'}
+                                  {opp.isEligible && opp.isFadeTrade 
+                                    ? 'FADE EXTREM (>82)' 
+                                    : opp.isEligible 
+                                    ? 'ELIGIBLE' 
+                                    : opp.score > 82 
+                                    ? 'BLOCKED (>82)' 
+                                    : 'FILTERED'}
                                 </span>
                               </td>
                             </tr>

@@ -157,6 +157,7 @@ export class OrderManager {
       sizeUSDT: parseFloat(actualNotional.toFixed(2)),
       status: 'CREATED',
       stopLossPrice: riskApproval.stopLossPrice,
+      isFadeTrade: signal.isFadeTrade,
       cumFilledQty: 0,
       processedFilledQty: 0,
       createdTime: Date.now(),

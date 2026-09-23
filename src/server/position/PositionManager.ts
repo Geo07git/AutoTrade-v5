@@ -33,7 +33,8 @@ export class PositionManager {
     return this.highestEquity;
   }
 
-  public getEquityTrailingState(config: ProfileConfig, currentEquity: number) {
+  public getEquityTrailingState(config: ProfileConfig, currentEquity: number, profitVault: number = 0) {
+    const effectiveEquity = Math.max(1, currentEquity - profitVault);
     const isEnabled = (config.equityProtectionActivationPct || 0) > 0 && (config.equityTrailingDrawdownPct || 0) > 0;
     const activationPrice = isEnabled ? this.initialEquity * (1 + (config.equityProtectionActivationPct || 0) / 100) : this.initialEquity;
     const isActive = isEnabled && this.highestEquity >= activationPrice;
@@ -43,7 +44,7 @@ export class PositionManager {
       sellThreshold = this.highestEquity * (1 - config.equityTrailingDrawdownPct / 100);
     }
     
-    const currentDrawdownPct = isActive ? ((this.highestEquity - currentEquity) / this.highestEquity) * 100 : 0;
+    const currentDrawdownPct = isActive ? ((this.highestEquity - effectiveEquity) / this.highestEquity) * 100 : 0;
     
     return {
       isEnabled,
@@ -184,6 +185,7 @@ export class PositionManager {
       highestPrice: entryPrice,
       lowestPrice: entryPrice,
       stopLossPrice: order.stopLossPrice,
+      isFadeTrade: order.isFadeTrade,
       profile: order.profile,
       source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
       executionMode: order.executionMode || 'TESTNET',
@@ -213,10 +215,19 @@ export class PositionManager {
     currentPrices: Record<string, number>,
     config: ProfileConfig,
     orderManager: OrderManager,
-    currentEquity: number
+    currentEquity: number,
+    options?: {
+      profitVault?: number;
+      baseCapital?: number;
+      lockProfitVault?: boolean;
+      onVaultProfitLocked?: (lockedAmount: number, totalVault: number) => void;
+    }
   ) {
+    const profitVault = Math.max(0, options?.profitVault || 0);
+    const effectiveEquity = Math.max(1, currentEquity - profitVault);
+
     // Equity Protection Check (Disabled if either activationPct or trailingDrawdownPct is <= 0)
-    this.updateHighestEquity(currentEquity);
+    this.updateHighestEquity(effectiveEquity);
     
     const isEquityProtectionEnabled = 
       (config.equityProtectionActivationPct ?? 0) > 0 && 
@@ -228,11 +239,12 @@ export class PositionManager {
       
       // If we ever hit activationEquity, the peakEquity will naturally be >= activationEquity
       if (peakEquity >= activationEquity) {
-        const drawdownFromPeak = (peakEquity - currentEquity) / peakEquity * 100;
+        const drawdownFromPeak = (peakEquity - effectiveEquity) / peakEquity * 100;
         if (drawdownFromPeak >= config.equityTrailingDrawdownPct && this.activePositions.length > 0) {
           this.auditLogger('KILL_SWITCH_ENGAGED', `Equity Protection triggered! Drawdown of ${drawdownFromPeak.toFixed(2)}% exceeded limit of ${config.equityTrailingDrawdownPct}%. Closing all positions.`, {
             peakEquity,
             currentEquity,
+            effectiveEquity,
             drawdownFromPeak
           });
           
@@ -243,14 +255,24 @@ export class PositionManager {
               position: pos,
               reason: 'EQUITY_PROTECTION',
               currentPrice: currentPrices[pos.symbol] || pos.entryPrice,
-              exitReasonDetail: `Equity Protection declanșat: Drawdown de -${drawdownFromPeak.toFixed(2)}% de la vârful capitalului ($${peakEquity.toFixed(2)}) (limită permisă: -${config.equityTrailingDrawdownPct}%)`,
+              exitReasonDetail: `Equity Protection declanșat: Drawdown de -${drawdownFromPeak.toFixed(2)}% de la vârful capitalului de lucru ($${peakEquity.toFixed(2)}) (limită permisă: -${config.equityTrailingDrawdownPct}%)`,
               triggerStopValue: config.equityTrailingDrawdownPct,
             });
           }
           
-          // Reset highest equity baseline so it doesn't immediately re-trigger on next tick
-          this.initialEquity = currentEquity;
-          this.highestEquity = currentEquity;
+          if (options?.lockProfitVault) {
+            const cycleProfit = Math.max(0, parseFloat((effectiveEquity - this.initialEquity).toFixed(2)));
+            if (cycleProfit > 0 && options.onVaultProfitLocked) {
+              options.onVaultProfitLocked(cycleProfit, profitVault + cycleProfit);
+            }
+            const baseCap = options.baseCapital || this.initialEquity;
+            this.initialEquity = baseCap;
+            this.highestEquity = baseCap;
+          } else {
+            // Reset highest equity baseline so it doesn't immediately re-trigger on next tick
+            this.initialEquity = effectiveEquity;
+            this.highestEquity = effectiveEquity;
+          }
         }
       }
     }

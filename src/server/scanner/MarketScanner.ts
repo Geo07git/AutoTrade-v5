@@ -136,29 +136,11 @@ export class MarketScanner {
                     volume24hUSDT: ticker.turnover24hUSDT,
                     priceChange24hPct: ticker.priceChange24hPct,
                   }
-                : undefined
+                : undefined,
+              { invertExtremeSignals: invertSignals }
             );
 
             if (opportunity) {
-              if (invertSignals) {
-                const originalSide = opportunity.side;
-                opportunity.side = originalSide === 'BUY' ? 'SELL' : 'BUY';
-                if (opportunity.signal) {
-                  opportunity.signal.side = opportunity.side;
-                  const htfTrend = opportunity.signal.reasons?.htfTrend;
-                  // Recalculate HTF alignment for the post-inversion direction
-                  const postInvertHtfAligned = (opportunity.side === 'BUY' && htfTrend === 'BULLISH') ||
-                                               (opportunity.side === 'SELL' && htfTrend === 'BEARISH');
-                  opportunity.signal.reasons.htfAligned = postInvertHtfAligned;
-                  opportunity.signal.reasons.side = opportunity.side;
-                  opportunity.isEligible = opportunity.isEligible && postInvertHtfAligned;
-                  if (!postInvertHtfAligned) {
-                    opportunity.signal = undefined;
-                  }
-                } else {
-                  opportunity.isEligible = false;
-                }
-              }
               results.push(opportunity);
             }
           }
@@ -195,29 +177,16 @@ export class MarketScanner {
                     volume24hUSDT: tickersMap[cand.symbol].turnover24hUSDT,
                     priceChange24hPct: tickersMap[cand.symbol].priceChange24hPct,
                   }
-                : undefined
+                : undefined,
+              { invertExtremeSignals: invertSignals }
             );
             if (reevaluated) {
               cand.score = reevaluated.score;
               cand.currentAtr = reevaluated.currentAtr;
               cand.atrPct = reevaluated.atrPct;
-              const originalSide = reevaluated.side;
-              cand.side = invertSignals ? (originalSide === 'BUY' ? 'SELL' : 'BUY') : originalSide;
-              
-              if (reevaluated.signal) {
-                reevaluated.signal.side = cand.side;
-                if (invertSignals) {
-                  const htfTrend = reevaluated.signal.reasons?.htfTrend;
-                  const postInvertHtfAligned = (cand.side === 'BUY' && htfTrend === 'BULLISH') ||
-                                               (cand.side === 'SELL' && htfTrend === 'BEARISH');
-                  reevaluated.signal.reasons.htfAligned = postInvertHtfAligned;
-                  reevaluated.signal.reasons.side = cand.side;
-                  reevaluated.isEligible = reevaluated.isEligible && postInvertHtfAligned;
-                  if (!postInvertHtfAligned) {
-                    reevaluated.signal = undefined;
-                  }
-                }
-              }
+              cand.side = reevaluated.side;
+              cand.originalSide = reevaluated.originalSide;
+              cand.isFadeTrade = reevaluated.isFadeTrade;
               cand.signal = reevaluated.signal;
               cand.isEligible = reevaluated.isEligible;
             }
