@@ -168,7 +168,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
   const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.4);
   const [minMomentum, setMinMomentum] = useState(
-    Math.min(82, Math.max(57, profileConfig?.minMomentumScore ?? 72))
+    Math.min(95, Math.max(50, profileConfig?.minMomentumScore ?? 60))
+  );
+  const [maxMomentum, setMaxMomentum] = useState(
+    Math.min(99, Math.max(70, profileConfig?.maxMomentumScore ?? 82))
+  );
+  const [min24hVol, setMin24hVol] = useState<number>(
+    profileConfig?.min24hVolumeUSDT !== undefined
+      ? profileConfig.min24hVolumeUSDT / 1_000_000
+      : 0.5
+  );
+  const [max24hVol, setMax24hVol] = useState<number>(
+    profileConfig?.max24hVolumeUSDT !== undefined
+      ? profileConfig.max24hVolumeUSDT / 1_000_000
+      : 0
   );
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
@@ -736,7 +749,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
     trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
     trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
-    minMomentum !== (profileConfig.minMomentumScore ?? 72) ||
+    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
+    maxMomentum !== (profileConfig.maxMomentumScore ?? 82) ||
+    min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 500_000) / 1_000_000) ||
+    max24hVol !== ((profileConfig.max24hVolumeUSDT ?? 0) / 1_000_000) ||
     takeProfit !== (profileConfig.takeProfitPct ?? 0) ||
     breakEven !== (profileConfig.breakEvenActivationPct ?? 1.0) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
@@ -757,7 +773,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
       setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
       setMinMomentum(
-        Math.min(82, Math.max(57, profileConfig.minMomentumScore ?? 72))
+        Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 60))
+      );
+      setMaxMomentum(
+        Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 82))
+      );
+      setMin24hVol(
+        profileConfig.min24hVolumeUSDT !== undefined
+          ? profileConfig.min24hVolumeUSDT / 1_000_000
+          : 0.5
+      );
+      setMax24hVol(
+        profileConfig.max24hVolumeUSDT !== undefined
+          ? profileConfig.max24hVolumeUSDT / 1_000_000
+          : 0
       );
       setTakeProfit(profileConfig.takeProfitPct ?? 0);
       setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
@@ -776,6 +805,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       trailingActivationPct: trailingAct,
       trailingDistancePct: trailingDist,
       minMomentumScore: minMomentum,
+      maxMomentumScore: maxMomentum,
+      min24hVolumeUSDT: Math.round(min24hVol * 1_000_000),
+      max24hVolumeUSDT: max24hVol > 0 ? Math.round(max24hVol * 1_000_000) : 0,
       takeProfitPct: takeProfit,
       breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
@@ -796,7 +828,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
     setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
     setMinMomentum(
-      Math.min(82, Math.max(57, profileConfig.minMomentumScore ?? 72))
+      Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 60))
+    );
+    setMaxMomentum(
+      Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 82))
+    );
+    setMin24hVol(
+      profileConfig.min24hVolumeUSDT !== undefined
+        ? profileConfig.min24hVolumeUSDT / 1_000_000
+        : 0.5
+    );
+    setMax24hVol(
+      profileConfig.max24hVolumeUSDT !== undefined
+        ? profileConfig.max24hVolumeUSDT / 1_000_000
+        : 0
     );
     setTakeProfit(profileConfig.takeProfitPct ?? 0);
     setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
@@ -2293,8 +2338,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       4. TIMP & FILTRE
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Min Score:</span>
-                      <span className="font-bold text-cyan-400">{profileConfig?.minMomentumScore ?? 60}/100</span>
+                      <span className="text-slate-400">Momentum W:</span>
+                      <span className="font-bold text-cyan-400">[{profileConfig?.minMomentumScore ?? 60} - {profileConfig?.maxMomentumScore ?? 82}]</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Volum 24h:</span>
+                      <span className="font-bold text-emerald-400">
+                        [{(profileConfig?.min24hVolumeUSDT ? profileConfig.min24hVolumeUSDT / 1_000_000 : 0.5).toFixed(1)}M - {profileConfig?.max24hVolumeUSDT && profileConfig.max24hVolumeUSDT > 0 ? (profileConfig.max24hVolumeUSDT / 1_000_000).toFixed(1) + 'M' : '∞'}]
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Hold / CD:</span>
@@ -3338,6 +3389,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Fereastră Volum 24h</span>
+                    <strong className="text-emerald-400 text-xs">
+                      [{(profileConfig?.min24hVolumeUSDT ? profileConfig.min24hVolumeUSDT / 1_000_000 : 0.5).toFixed(1)}M - {profileConfig?.max24hVolumeUSDT && profileConfig.max24hVolumeUSDT > 0 ? (profileConfig.max24hVolumeUSDT / 1_000_000).toFixed(1) + 'M' : '∞'}]
+                    </strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Cooldown Simbol</span>
                     <strong className="text-zinc-300 text-xs">{profileConfig?.cooldownMinutes ?? 5} min</strong>
                   </div>
@@ -3442,25 +3499,117 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     />
                   </div>
 
-                  {/* Min Momentum Score - step 1 - Configurable between 57 and 82 */}
+                  {/* Min Momentum Score */}
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Min Momentum Score (Prag Intrare)</span>
+                      <span className="text-slate-300">Min Momentum Score (Prag Inferior)</span>
                       <span className="font-bold text-amber-400">{minMomentum} / 100</span>
                     </div>
                     <input
                       type="range"
-                      min="57"
-                      max="82"
+                      min="50"
+                      max="85"
                       step="1"
                       value={minMomentum}
                       onChange={(e) => setMinMomentum(Number(e.target.value))}
                       className="w-full accent-amber-500 cursor-pointer"
                     />
                     <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Min: 57</span>
-                      <span className="text-amber-300 font-semibold">Tavan Max Semnal: 82 (Hard Cap anti-exhaustion)</span>
-                      <span>Max: 82</span>
+                      <span>Min: 50</span>
+                      <span className="text-amber-300 font-semibold">Fereastră Semnale: [{minMomentum} - {maxMomentum}]</span>
+                      <span>Max: 85</span>
+                    </div>
+                  </div>
+
+                  {/* Max Momentum Score */}
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Max Momentum Score (Tavan Superior / Anti-Exhaustion)</span>
+                      <span className="font-bold text-cyan-400">{maxMomentum} / 100</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="70"
+                      max="99"
+                      step="1"
+                      value={maxMomentum}
+                      onChange={(e) => setMaxMomentum(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Min: 70</span>
+                      <span className="text-cyan-300 font-semibold">Elimină semnalele peste {maxMomentum} (prea extinse)</span>
+                      <span>Max: 99</span>
+                    </div>
+                  </div>
+
+                  {/* Min 24h Turnover (Prag Inferior Volum) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-emerald-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Min 24h Turnover (Prag Volum Inferior)</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="0.05"
+                          max="50"
+                          step="0.1"
+                          value={min24hVol}
+                          onChange={(e) => setMin24hVol(Math.max(0.05, parseFloat(e.target.value) || 0.1))}
+                          className="w-16 px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-emerald-400 font-bold text-right text-xs"
+                        />
+                        <span className="font-bold text-emerald-400">M USDT</span>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="20"
+                      step="0.1"
+                      value={min24hVol}
+                      onChange={(e) => setMin24hVol(Number(e.target.value))}
+                      className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Min: 0.1M</span>
+                      <span className="text-emerald-300 font-semibold">
+                        Fereastră Volum: [{min24hVol.toFixed(1)}M - {max24hVol > 0 ? `${max24hVol.toFixed(1)}M` : 'Nelimitat'}]
+                      </span>
+                      <span>Max: 20M</span>
+                    </div>
+                  </div>
+
+                  {/* Max 24h Turnover (Tavan Superior Volum) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-emerald-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Max 24h Turnover (Tavan Volum Superior)</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={max24hVol}
+                          onChange={(e) => setMax24hVol(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-16 px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-cyan-400 font-bold text-right text-xs"
+                        />
+                        <span className="font-bold text-cyan-400">M USDT</span>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      step="0.1"
+                      value={max24hVol}
+                      onChange={(e) => setMax24hVol(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>0 = Nelimitat</span>
+                      <span className="text-cyan-300 font-semibold">
+                        {max24hVol > 0 ? `Exclude monedele cu rulaj > ${max24hVol.toFixed(1)}M USDT` : 'Fără limită superioară (0 = Any)'}
+                      </span>
+                      <span>Max: 20M</span>
                     </div>
                   </div>
 
@@ -4240,6 +4389,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
       </main>
+
+
 
       {/* Bot Control Token Modal */}
       {showTokenModal && (

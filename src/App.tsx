@@ -12,11 +12,15 @@ import {
   ProfileType,
 } from './shared/types';
 import { BloombergTerminal } from './components/BloombergTerminal';
+import { useDynamicTaskbar } from './hooks/useDynamicTaskbar';
 
 export default function App() {
   const [status, setStatus] = useState<BotStatusResponse | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
+
+  // Activate dynamic taskbar title, dynamic glowing favicon, and Windows taskbar badge
+  useDynamicTaskbar({ status });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isReconciling, setIsReconciling] = useState<boolean>(false);

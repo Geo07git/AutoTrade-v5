@@ -102,6 +102,14 @@ async function createWindow() {
   // Remove default menu for high-performance trader immersion
   Menu.setApplicationMenu(null);
 
+  // Directly synchronize native OS window title & Windows taskbar title with document.title
+  mainWindow.on('page-title-updated', (event, title) => {
+    event.preventDefault();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(title);
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });

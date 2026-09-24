@@ -54,6 +54,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     equityTrailingDrawdownPct: 1.5,
     minMomentumScore: 72,
     maxMomentumScore: 82, // Hard cap against overextended entries
+    min24hVolumeUSDT: 500_000,
+    max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 30,
     cooldownMinutes: 10,
     sentimentThreshold: 1.5,
@@ -72,6 +74,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     equityTrailingDrawdownPct: 2.0,
     minMomentumScore: 75,
     maxMomentumScore: 82, // Hard cap against exhaustion tops
+    min24hVolumeUSDT: 500_000,
+    max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 240,
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
@@ -534,11 +538,13 @@ export class TradeBot {
         }
       }
 
-      // Filter eligible candidates meeting momentum score window [min, max], sorted by score descending
+      // Filter eligible candidates meeting momentum score window [min, max] and 24h volume window [min, max], sorted by score descending
       const eligibleCandidates = scannedOpportunities.filter((opp) => {
         if (!opp.isEligible) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
         if (profile.maxMomentumScore && opp.score > profile.maxMomentumScore) return false;
+        if (profile.min24hVolumeUSDT && profile.min24hVolumeUSDT > 0 && opp.volume24hUSDT < profile.min24hVolumeUSDT) return false;
+        if (profile.max24hVolumeUSDT && profile.max24hVolumeUSDT > 0 && opp.volume24hUSDT > profile.max24hVolumeUSDT) return false;
         return true;
       });
 
@@ -1319,19 +1325,35 @@ export class TradeBot {
       config.profiles[profileType] = { ...DEFAULT_PROFILES[profileType] };
     }
 
-    // Sanitize minMomentumScore within the safe range [57, 82]
+    // Sanitize minMomentumScore within configured bounds [50, 95]
     if (settings.minMomentumScore !== undefined) {
-      settings.minMomentumScore = Math.min(82, Math.max(57, settings.minMomentumScore));
+      settings.minMomentumScore = Math.min(95, Math.max(50, settings.minMomentumScore));
     }
-    // Maintain the hard cap against overextended entries (<= 82/85)
-    if (!settings.maxMomentumScore) {
-      settings.maxMomentumScore = 82;
+    // Sanitize maxMomentumScore within bounds [70, 99]
+    if (settings.maxMomentumScore !== undefined) {
+      settings.maxMomentumScore = Math.min(99, Math.max(70, settings.maxMomentumScore));
+    }
+    // Sanitize 24h volume turnover limits
+    if (settings.min24hVolumeUSDT !== undefined) {
+      settings.min24hVolumeUSDT = Math.max(50_000, Number(settings.min24hVolumeUSDT) || 500_000);
+    }
+    if (settings.max24hVolumeUSDT !== undefined) {
+      settings.max24hVolumeUSDT = Math.max(0, Number(settings.max24hVolumeUSDT) || 0);
     }
 
     config.profiles[profileType] = {
       ...config.profiles[profileType],
       ...settings,
     };
+
+    // Synchronize market scanner volume filters if volume parameters were adjusted
+    if (settings.min24hVolumeUSDT !== undefined || settings.max24hVolumeUSDT !== undefined) {
+      const volUpdate: Partial<UniverseFilterConfig> = {};
+      if (settings.min24hVolumeUSDT !== undefined) volUpdate.min24hVolumeUSDT = settings.min24hVolumeUSDT;
+      if (settings.max24hVolumeUSDT !== undefined) volUpdate.max24hVolumeUSDT = settings.max24hVolumeUSDT;
+      this.marketScanner.updateFilterConfig(volUpdate);
+      config.scannerFilter = this.marketScanner.getFilterConfig();
+    }
     this.configStore.save(config);
     if (config.activeProfile === profileType) {
       this.engine.setConfig(this.getActiveProfileConfig());

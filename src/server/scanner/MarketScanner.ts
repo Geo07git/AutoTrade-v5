@@ -224,9 +224,18 @@ export class MarketScanner {
     );
 
     try {
-      // 1. Get filtered eligible symbols from OKX EEA USDT SWAP universe
+      // 1. Get filtered eligible symbols from OKX EEA USDT SWAP universe (merging active profile volume limits)
+      const scanFilter: UniverseFilterConfig = {
+        ...this.filterConfig,
+        ...(profile.min24hVolumeUSDT !== undefined && profile.min24hVolumeUSDT > 0
+          ? { min24hVolumeUSDT: profile.min24hVolumeUSDT }
+          : {}),
+        ...(profile.max24hVolumeUSDT !== undefined
+          ? { max24hVolumeUSDT: profile.max24hVolumeUSDT }
+          : {}),
+      };
       const { allSymbolsCount, eligibleSymbols, tickersMap } =
-        await this.universeManager.getFilteredUniverse(this.filterConfig);
+        await this.universeManager.getFilteredUniverse(scanFilter);
 
       if (eligibleSymbols.length === 0) {
         this.logAuditFn?.(

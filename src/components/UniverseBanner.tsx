@@ -68,6 +68,16 @@ export const UniverseBanner: React.FC<UniverseBannerProps> = ({
             </div>
           </div>
         </div>
+
+        <div className="hidden sm:block h-6 w-px bg-slate-800" />
+
+        {/* Volume 24h Filter Window */}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-950 border border-emerald-900/60">
+          <span className="text-[10px] text-slate-400 uppercase font-semibold">Vol 24h:</span>
+          <span className="text-xs font-bold text-emerald-400 font-mono">
+            [{(stats?.filterConfig ? stats.filterConfig.min24hVolumeUSDT / 1_000_000 : 0.5).toFixed(1)}M - {stats?.filterConfig?.max24hVolumeUSDT && stats.filterConfig.max24hVolumeUSDT > 0 ? `${(stats.filterConfig.max24hVolumeUSDT / 1_000_000).toFixed(1)}M` : '∞'}]
+          </span>
+        </div>
       </div>
 
       {/* Center/Right: Top Opportunities Ticker & Quick Actions */}

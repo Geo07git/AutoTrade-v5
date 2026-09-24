@@ -17,7 +17,8 @@ export interface FilteredUniverseResult {
 }
 
 export const DEFAULT_UNIVERSE_FILTER: UniverseFilterConfig = {
-  min24hVolumeUSDT: 5_000_000, // 5M USDT 24h turnover minimum
+  min24hVolumeUSDT: 500_000, // 500k USDT 24h turnover minimum
+  max24hVolumeUSDT: 0,       // 0 = no upper limit by default
   minPrice: 0.0001,
   maxSymbols: 500,             // Permitem până la 500 de simboluri
   settleCoin: 'USDT',
@@ -225,6 +226,10 @@ export class UniverseManager {
       }
 
       if (ticker.turnover24hUSDT < filterConfig.min24hVolumeUSDT) {
+        continue;
+      }
+
+      if (filterConfig.max24hVolumeUSDT && filterConfig.max24hVolumeUSDT > 0 && ticker.turnover24hUSDT > filterConfig.max24hVolumeUSDT) {
         continue;
       }
 

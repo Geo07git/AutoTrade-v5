@@ -59,6 +59,7 @@ export type AuditLogType =
 
 export interface UniverseFilterConfig {
   min24hVolumeUSDT: number;
+  max24hVolumeUSDT?: number;
   minPrice: number;
   maxSymbols: number;
   settleCoin: string;
@@ -131,6 +132,8 @@ export interface ProfileConfig {
   equityTrailingDrawdownPct: number;
   minMomentumScore?: number;
   maxMomentumScore?: number;
+  min24hVolumeUSDT?: number; // Prag inferior volum/turnover 24h în USDT (ex: 1_000_000 = 1.0M)
+  max24hVolumeUSDT?: number; // Prag superior volum/turnover 24h în USDT (ex: 1_500_000 = 1.5M, 0 = nelimitat)
   maxHoldingTimeMinutes?: number;
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)

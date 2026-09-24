@@ -31,7 +31,12 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showConfig, setShowConfig] = useState(false);
   const [minVolInput, setMinVolInput] = useState<number>(
-    stats?.filterConfig ? stats.filterConfig.min24hVolumeUSDT / 1_000_000 : 5
+    stats?.filterConfig ? stats.filterConfig.min24hVolumeUSDT / 1_000_000 : 0.5
+  );
+  const [maxVolInput, setMaxVolInput] = useState<number>(
+    stats?.filterConfig && stats.filterConfig.max24hVolumeUSDT && stats.filterConfig.max24hVolumeUSDT > 0
+      ? stats.filterConfig.max24hVolumeUSDT / 1_000_000
+      : 0
   );
   const [maxSymbolsInput, setMaxSymbolsInput] = useState<number>(
     stats?.filterConfig ? stats.filterConfig.maxSymbols : 50
@@ -49,6 +54,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
     try {
       await onUpdateFilter({
         min24hVolumeUSDT: minVolInput * 1_000_000,
+        max24hVolumeUSDT: maxVolInput > 0 ? maxVolInput * 1_000_000 : 0,
         maxSymbols: maxSymbolsInput,
       });
       setShowConfig(false);
@@ -71,10 +77,13 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
               <Scan className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-bold text-white">Dynamic Market Scanner</h3>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800/60">
                   OKX EEA USDT SWAP Perps
+                </span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800/60">
+                  Vol 24h: [{(stats?.filterConfig ? stats.filterConfig.min24hVolumeUSDT / 1_000_000 : 0.5).toFixed(1)}M - {stats?.filterConfig?.max24hVolumeUSDT && stats.filterConfig.max24hVolumeUSDT > 0 ? `${(stats.filterConfig.max24hVolumeUSDT / 1_000_000).toFixed(1)}M` : '∞'}]
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -121,17 +130,30 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
               <Sliders className="w-3.5 h-3.5 text-indigo-400" />
               <span>Liquidity & Scan Parameters</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-slate-400 mb-1">
-                  Min 24h Turnover (Millions USDT)
+                  Min 24h Turnover (M USDT, e.g. 1.0)
                 </label>
                 <input
                   type="number"
-                  min="0.5"
-                  step="0.5"
+                  min="0.05"
+                  step="0.1"
                   value={minVolInput}
-                  onChange={(e) => setMinVolInput(parseFloat(e.target.value) || 1)}
+                  onChange={(e) => setMinVolInput(parseFloat(e.target.value) || 0.5)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">
+                  Max 24h Turnover (M USDT, 0 = no limit)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={maxVolInput}
+                  onChange={(e) => setMaxVolInput(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
                 />
               </div>
@@ -142,7 +164,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                 <input
                   type="number"
                   min="5"
-                  max="100"
+                  max="500"
                   value={maxSymbolsInput}
                   onChange={(e) => setMaxSymbolsInput(parseInt(e.target.value, 10) || 50)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono"
