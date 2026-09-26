@@ -14,3 +14,4 @@ coverage/
 
 # Runtime state and local configuration
 .data/
+package-lock.json
