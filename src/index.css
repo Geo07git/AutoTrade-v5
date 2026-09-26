@@ -55,3 +55,17 @@
   color: #fbbf24 !important; /* Amber-400 */
 }
 
+/* 10s Auto-Dismiss Progress Bar */
+@keyframes shrinkWidth {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-10s {
+  animation: shrinkWidth 10s linear forwards;
+}
+

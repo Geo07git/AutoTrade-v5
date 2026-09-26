@@ -11,6 +11,7 @@ import {
   Position,
   ExecutionMode,
   ProfileType,
+  EquityProtectionEvent,
 } from '../shared/types';
 import {
   Terminal,
@@ -75,6 +76,7 @@ interface BloombergTerminalProps {
   onUpdateControlToken: (token: string) => void;
   errorMessage: string | null;
   successMessage: string | null;
+  onDismissAlert?: () => void;
 }
 
 interface TapeItem {
@@ -109,6 +111,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onUpdateControlToken,
   errorMessage,
   successMessage,
+  onDismissAlert,
 }) => {
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
@@ -164,9 +167,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0);
   const [riskPerTrade, setRiskPerTrade] = useState(profileConfig?.riskPerTradePct ?? 10);
   const [maxPositions, setMaxPositions] = useState(profileConfig?.maxOpenPositions ?? 5);
-  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 2.5);
-  const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
-  const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.4);
+  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 3.5);
+  const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.1);
+  const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.35);
   const [minMomentum, setMinMomentum] = useState(
     Math.min(95, Math.max(50, profileConfig?.minMomentumScore ?? 60))
   );
@@ -176,7 +179,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [min24hVol, setMin24hVol] = useState<number>(
     profileConfig?.min24hVolumeUSDT !== undefined
       ? profileConfig.min24hVolumeUSDT / 1_000_000
-      : 0.5
+      : 1.5
   );
   const [max24hVol, setMax24hVol] = useState<number>(
     profileConfig?.max24hVolumeUSDT !== undefined
@@ -185,7 +188,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   );
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
-  const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 60);
+  const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 45);
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
   const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
   const [telegramTesting, setTelegramTesting] = useState(false);
@@ -217,6 +220,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   }, [status?.telegramStatus?.chatId]);
 
+  // Auto-dismiss Telegram status message after 10 seconds
+  useEffect(() => {
+    if (!telegramStatusMsg) return;
+    const timer = setTimeout(() => {
+      setTelegramStatusMsg(null);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [telegramStatusMsg]);
+
   // Initial fetch of Telegram status on load
   useEffect(() => {
     const fetchTelegramInitialStatus = async () => {
@@ -239,6 +251,22 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [showClearLogsConfirm, setShowClearLogsConfirm] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tempToken, setTempToken] = useState(controlToken);
+  const [showSetBaseModal, setShowSetBaseModal] = useState<boolean>(false);
+  const [newBaseInput, setNewBaseInput] = useState<string>('200.00');
+  const [showResetVaultConfirmModal, setShowResetVaultConfirmModal] = useState<boolean>(false);
+  const [showEquityProtectionModal, setShowEquityProtectionModal] = useState<boolean>(false);
+  const [selectedProtectionEvent, setSelectedProtectionEvent] = useState<EquityProtectionEvent | null>(null);
+  const [localAlert, setLocalAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  // Auto-dismiss local alerts after 10 seconds
+  useEffect(() => {
+    if (!localAlert) return;
+    const timer = setTimeout(() => {
+      setLocalAlert(null);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [localAlert]);
+
   const [chartSymbol, setChartSymbol] = useState('BTCUSDT');
   const [symbolSearchQuery, setSymbolSearchQuery] = useState('');
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
@@ -679,6 +707,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const headers = [
       'Order ID',
+      'Position ID',
       'Exchange ID',
       'Symbol',
       'Side',
@@ -687,22 +716,32 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       'Execution Mode',
       'Size (USDT)',
       'Qty',
-      'Price',
+      'Leverage',
+      'Model Score (metaScore)',
+      'Signal Price',
       'Fill Price',
+      'Estimated Slippage (%)',
       'Status',
       'PnL ($)',
       'PnL (%)',
+      'MAE (%)',
+      'MFE (%)',
       'Fee ($)',
       'Entry Price',
       'Exit Reason Detail',
       'Holding Time (min)',
-      'Market Regime',
+      'Open Positions Count',
+      'BTC Regime (Entry)',
+      'BTC Regime (Exit)',
+      'Account Equity ($)',
+      'Account Balance ($)',
       'Created At',
       'Updated At',
     ];
 
     const rows = orders.map((o) => [
       o.id,
+      o.positionId || '',
       o.exchangeOrderId || '',
       o.symbol,
       getOrderLabel(o),
@@ -711,16 +750,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.executionMode,
       o.sizeUSDT,
       o.qty,
-      o.price || '',
-      o.fillPrice || '',
+      o.leverage || '1x',
+      o.signalScore !== undefined ? o.signalScore : '',
+      o.signalPrice !== undefined ? o.signalPrice : '',
+      o.fillPrice !== undefined ? o.fillPrice : '',
+      o.estimatedSlippagePct !== undefined ? `${o.estimatedSlippagePct > 0 ? '+' : ''}${o.estimatedSlippagePct}%` : '',
       o.status,
       o.realizedPnl !== undefined ? o.realizedPnl : '',
       o.realizedPnlPct !== undefined ? o.realizedPnlPct : '',
+      o.maePct !== undefined ? `${o.maePct}%` : '',
+      o.mfePct !== undefined ? `+${o.mfePct}%` : '',
       o.cumFee !== undefined ? o.cumFee : (o.sizeUSDT * 0.0005).toFixed(4),
       o.entryPrice || '',
       o.exitReasonDetail || '',
       o.holdingTimeMinutes || '',
+      o.openPositionsCount !== undefined ? o.openPositionsCount : '',
       o.marketRegime || '',
+      o.exitMarketRegime || '',
+      o.accountEquity !== undefined ? o.accountEquity : '',
+      o.accountBalance !== undefined ? o.accountBalance : '',
       new Date(o.createdTime).toLocaleString(),
       o.updatedTime ? new Date(o.updatedTime).toLocaleString() : '',
     ]);
@@ -743,56 +791,112 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     exportToCSV(`TradeBot_DeskLogs_${timestamp}.csv`, headers, rows);
   };
 
+  const handleExportEquityProtectionCSV = () => {
+    const events: EquityProtectionEvent[] = status?.equityTrailingState?.history || [];
+    if (events.length === 0) {
+      setLocalAlert({ type: 'info', message: 'Nu există declanșări înregistrate în jurnalul protecției.' });
+      return;
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const headers = [
+      'ID Eveniment',
+      'Trigger #',
+      'Data & Ora',
+      'Profil',
+      'Mod Execuție',
+      'Total Equity ($)',
+      'Capital Lucru ($)',
+      'Vârf Atins ($)',
+      'Drawdown Realizat (%)',
+      'Limită Drawdown Permisă (%)',
+      'Prag Activare ($)',
+      'Seif Înainte ($)',
+      'Profit Transferat în Seif ($)',
+      'Seif După Declanșare ($)',
+      'Bază Fixă ($)',
+      'Număr Poziții Închise',
+      'Detalii Poziții Închise',
+    ];
+
+    const rows = events.map((ev) => [
+      ev.id,
+      ev.triggerIndex,
+      ev.dateStr,
+      ev.profile,
+      ev.executionMode,
+      ev.totalEquity.toFixed(2),
+      ev.effectiveEquity.toFixed(2),
+      ev.peakEquity.toFixed(2),
+      `-${ev.drawdownFromPeakPct.toFixed(2)}%`,
+      `-${ev.configuredDrawdownLimitPct.toFixed(2)}%`,
+      ev.activationPrice.toFixed(2),
+      ev.vaultBefore.toFixed(2),
+      ev.profitLockedToVault.toFixed(2),
+      ev.vaultAfter.toFixed(2),
+      ev.baseCapital.toFixed(2),
+      ev.closedPositionsCount,
+      (ev.closedPositions || [])
+        .map((p) => `${p.symbol} (${p.side} $${p.sizeUSDT} @ $${p.closePrice}, PnL: ${p.pnl !== undefined ? (p.pnl >= 0 ? '+' : '') + p.pnl.toFixed(2) : '--'})`)
+        .join(' | '),
+    ]);
+
+    exportToCSV(`TradeBot_EquityProtection_Logs_${timestamp}.csv`, headers, rows);
+    setLocalAlert({
+      type: 'success',
+      message: `✅ Jurnalul declanșărilor (${events.length} înregistrări) a fost exportat cu succes în format CSV!`,
+    });
+  };
+
   const hasUnsavedSettings = profileConfig ? (
-    riskPerTrade !== (profileConfig.riskPerTradePct ?? 10) ||
-    maxPositions !== (profileConfig.maxOpenPositions ?? 5) ||
-    hardStopLoss !== (profileConfig.hardStopLossPct ?? 2.5) ||
-    trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
-    trailingDist !== (profileConfig.trailingDistancePct ?? 0.4) ||
-    minMomentum !== (profileConfig.minMomentumScore ?? 60) ||
-    maxMomentum !== (profileConfig.maxMomentumScore ?? 82) ||
-    min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 500_000) / 1_000_000) ||
+    riskPerTrade !== (profileConfig.riskPerTradePct ?? 50) ||
+    maxPositions !== (profileConfig.maxOpenPositions ?? 2) ||
+    hardStopLoss !== (profileConfig.hardStopLossPct ?? 3.5) ||
+    trailingAct !== (profileConfig.trailingActivationPct ?? 1.1) ||
+    trailingDist !== (profileConfig.trailingDistancePct ?? 0.35) ||
+    minMomentum !== (profileConfig.minMomentumScore ?? 50) ||
+    maxMomentum !== (profileConfig.maxMomentumScore ?? 71) ||
+    min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 1_500_000) / 1_000_000) ||
     max24hVol !== ((profileConfig.max24hVolumeUSDT ?? 0) / 1_000_000) ||
-    takeProfit !== (profileConfig.takeProfitPct ?? 0) ||
-    breakEven !== (profileConfig.breakEvenActivationPct ?? 1.0) ||
-    maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 60) ||
-    equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 0) ||
-    equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0) ||
-    cooldownMins !== (profileConfig.cooldownMinutes ?? 5) ||
-    sentimentThreshold !== (profileConfig.sentimentThreshold ?? 1.5)
+    takeProfit !== (profileConfig.takeProfitPct ?? 20) ||
+    breakEven !== (profileConfig.breakEvenActivationPct ?? 5.0) ||
+    maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 45) ||
+    equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 1.9) ||
+    equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0.3) ||
+    cooldownMins !== (profileConfig.cooldownMinutes ?? 0) ||
+    sentimentThreshold !== (profileConfig.sentimentThreshold ?? 5.0)
   ) : false;
 
   // Sync local state when profileConfig or activeProfile changes, but NOT if there are unsaved settings
   useEffect(() => {
     if (profileConfig && !hasUnsavedSettings) {
-      setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
-      setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
-      setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
-      setMaxPositions(profileConfig.maxOpenPositions ?? 5);
-      setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
-      setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
-      setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
+      setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 1.9);
+      setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
+      setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
+      setMaxPositions(profileConfig.maxOpenPositions ?? 2);
+      setHardStopLoss(profileConfig.hardStopLossPct ?? 3.5);
+      setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
+      setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
       setMinMomentum(
-        Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 60))
+        Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
       );
       setMaxMomentum(
-        Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 82))
+        Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 71))
       );
       setMin24hVol(
         profileConfig.min24hVolumeUSDT !== undefined
           ? profileConfig.min24hVolumeUSDT / 1_000_000
-          : 0.5
+          : 1.5
       );
       setMax24hVol(
         profileConfig.max24hVolumeUSDT !== undefined
           ? profileConfig.max24hVolumeUSDT / 1_000_000
           : 0
       );
-      setTakeProfit(profileConfig.takeProfitPct ?? 0);
-      setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
-      setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
-      setCooldownMins(profileConfig.cooldownMinutes ?? 5);
-      setSentimentThreshold(profileConfig.sentimentThreshold ?? 1.5);
+      setTakeProfit(profileConfig.takeProfitPct ?? 20);
+      setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
+      setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
+      setCooldownMins(profileConfig.cooldownMinutes ?? 0);
+      setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
       setSettingsSavedMessage(null);
     }
   }, [profileConfig, activeProfile, hasUnsavedSettings]);
@@ -822,34 +926,34 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const handleResetSettingsToSaved = () => {
     if (!profileConfig) return;
-    setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
-    setMaxPositions(profileConfig.maxOpenPositions ?? 5);
-    setHardStopLoss(profileConfig.hardStopLossPct ?? 2.5);
-    setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
-    setTrailingDist(profileConfig.trailingDistancePct ?? 0.4);
+    setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
+    setMaxPositions(profileConfig.maxOpenPositions ?? 2);
+    setHardStopLoss(profileConfig.hardStopLossPct ?? 3.5);
+    setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
+    setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
     setMinMomentum(
-      Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 60))
+      Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
     );
     setMaxMomentum(
-      Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 82))
+      Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 71))
     );
     setMin24hVol(
       profileConfig.min24hVolumeUSDT !== undefined
         ? profileConfig.min24hVolumeUSDT / 1_000_000
-        : 0.5
+        : 1.5
     );
     setMax24hVol(
       profileConfig.max24hVolumeUSDT !== undefined
         ? profileConfig.max24hVolumeUSDT / 1_000_000
         : 0
     );
-    setTakeProfit(profileConfig.takeProfitPct ?? 0);
-    setBreakEven(profileConfig.breakEvenActivationPct ?? 1.0);
-    setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 60);
-    setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 0);
-    setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0);
-    setCooldownMins(profileConfig.cooldownMinutes ?? 5);
-    setSentimentThreshold(profileConfig.sentimentThreshold ?? 1.5);
+    setTakeProfit(profileConfig.takeProfitPct ?? 20);
+    setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
+    setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
+    setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 1.9);
+    setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
+    setCooldownMins(profileConfig.cooldownMinutes ?? 0);
+    setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
     setSettingsSavedMessage(null);
   };
 
@@ -1194,9 +1298,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
         body: JSON.stringify({ enabled: !isVaultActive }),
       });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.warn('Eroare la comutarea Profit Vault:', err);
+      if (res.ok) {
+        onRefresh();
+        setLocalAlert({
+          type: 'success',
+          message: !isVaultActive
+            ? `Profit Vault ACTIVAT: Profitul peste baza curată de $${baseCapital.toFixed(2)} USDT va fi transferat automat în Seif.`
+            : 'Profit Vault DEZACTIVAT: Profiturile vor fi utilizate normal.',
+        });
+      }
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la comutarea Profit Vault: ' + (err.message || 'Eroare conexiune'),
+      });
     }
   };
 
@@ -1210,11 +1325,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       const data = await res.json();
       if (res.ok && data.success) {
         onRefresh();
-      } else if (data.error) {
-        alert(data.error);
+        setLocalAlert({
+          type: 'success',
+          message: `✅ Depunere manuală confirmată: +$${data.profitLocked.toFixed(2)} USDT transferați în Seif (Total în Seif: $${data.totalVault.toFixed(2)} USDT). Baza curată: $${baseCapital.toFixed(2)} USDT.`,
+        });
+      } else {
+        setLocalAlert({
+          type: 'error',
+          message: data.error || 'Nu există profit suplimentar de pus în seif.',
+        });
       }
-    } catch (err) {
-      console.warn('Eroare la depunerea în seif:', err);
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la depunerea în seif: ' + (err.message || 'Server indisponibil'),
+      });
     }
   };
 
@@ -1226,23 +1351,54 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
         body: JSON.stringify({ amount }),
       });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.warn('Eroare la setarea bazei de lucru:', err);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onRefresh();
+        setShowSetBaseModal(false);
+        setLocalAlert({
+          type: 'success',
+          message: `✅ Baza fixă de lucru a fost actualizată la $${amount.toFixed(2)} USDT.`,
+        });
+      } else {
+        setLocalAlert({
+          type: 'error',
+          message: data.error || 'Eroare la actualizarea bazei fixe.',
+        });
+      }
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la setarea bazei de lucru: ' + (err.message || 'Server indisponibil'),
+      });
     }
   };
 
   const handleResetProfitVault = async () => {
-    if (!confirm('Ești sigur că vrei să resetezi Seiful (Profit Vault)? Profitul blocat va fi reintegrat în capitalul activ de tranzacționare.')) return;
     try {
       const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
       const res = await fetch('/api/bot/vault/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
       });
-      if (res.ok) onRefresh();
-    } catch (err) {
-      console.warn('Eroare la resetarea seifului:', err);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onRefresh();
+        setShowResetVaultConfirmModal(false);
+        setLocalAlert({
+          type: 'success',
+          message: '✅ Seiful a fost resetat cu succes! Toate profiturile blocate au fost reintroduse în capitalul activ.',
+        });
+      } else {
+        setLocalAlert({
+          type: 'error',
+          message: data.error || 'Eroare la resetarea seifului.',
+        });
+      }
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la resetarea seifului: ' + (err.message || 'Server indisponibil'),
+      });
     }
   };
 
@@ -1295,10 +1451,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </span>
               <span className="text-[9px] opacity-70">▾</span>
             </button>
-
-            <span className="font-mono text-[10px] bg-black text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/50 shrink-0">
-              {status?.marketRegime || 'BTC: --'}
-            </span>
           </div>
 
           {/* CENTER: ESSENTIAL ACCOUNT METRICS */}
@@ -1456,10 +1608,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </span>
                 <span className="text-[8px] opacity-70">▾</span>
               </button>
-
-              <span className="font-mono text-[9px] bg-black text-amber-400 px-1 py-0.5 rounded border border-amber-500/50">
-                {status?.marketRegime ? status.marketRegime.replace('BTC: ', '') : '--'}
-              </span>
             </div>
 
             {/* Quick Action Capsules for Mobile */}
@@ -1573,73 +1721,98 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </header>
 
-        {/* UNIFIED ACTIVE PROTOCOLS RIBBON (FADE & VAULT SINGLE SLIM BAR) */}
-        {(status?.config?.invertSignals || isVaultActive) && (
-          <div className="bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2 shrink-0 z-20 shadow-md">
-            <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+        {/* UNIFIED ACTIVE PROTOCOLS RIBBON (STRICT SINGLE LINE ON MOBILE & DESKTOP) */}
+        {(status?.config?.invertSignals || isVaultActive || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
+          <div className="w-full max-w-full min-w-0 bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[9px] sm:text-[11px] font-mono flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 shadow-md overflow-x-auto terminal-scrollbar-x whitespace-nowrap select-none">
+            <div className="flex flex-row flex-nowrap items-center space-x-1 sm:space-x-1.5 shrink min-w-0">
               {/* Fade Status Pill */}
               {status?.config?.invertSignals && (
-                <div className="flex items-center space-x-1 bg-purple-950/80 border border-purple-500/50 px-1.5 sm:px-2 py-0.5 rounded text-purple-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                  <span className="font-bold text-[9px] sm:text-[10px] text-purple-300">FADE CLIMAX:</span>
+                <div className="flex flex-row flex-nowrap items-center space-x-1 bg-purple-950/80 border border-purple-500/50 px-1.5 py-0.5 rounded text-purple-200 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-purple-300">FADE:</span>
                   <span className="text-[9px] sm:text-[10px]">
-                    <span className="hidden sm:inline">Semnale &gt;82 inversate (Fade Mean-Reversion)</span>
-                    <span className="sm:hidden">&gt;82 Inversat</span>
+                    <span className="hidden sm:inline">Semnale &gt;82 inversate</span>
+                    <span className="sm:hidden">&gt;82 Inv</span>
                   </span>
                   <button
                     onClick={handleToggleInvertSignals}
-                    className="ml-1 text-[9px] text-purple-400 hover:text-white underline cursor-pointer"
+                    className="ml-0.5 text-[9px] text-purple-400 hover:text-white underline cursor-pointer"
                     title="Dezactivează Fade Climax"
                   >
-                    [STOP]
+                    [✕]
                   </button>
                 </div>
               )}
 
               {/* Profit Vault Status Pill */}
               {isVaultActive && (
-                <div className="flex items-center space-x-1 bg-cyan-950/80 border border-cyan-500/50 px-1.5 sm:px-2 py-0.5 rounded text-cyan-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                  <span className="font-bold text-[9px] sm:text-[10px] text-cyan-300">VAULT:</span>
+                <div className="flex flex-row flex-nowrap items-center space-x-1 bg-cyan-950/80 border border-cyan-500/50 px-1.5 py-0.5 rounded text-cyan-200 shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-cyan-300 shrink-0">VAULT:</span>
                   <span className="text-[9px] sm:text-[10px]">
-                    <span className="hidden sm:inline">Bază: <strong>${baseCapital.toFixed(2)}</strong> | În seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)}</strong> | Operativ: <strong>${operatingEquity.toFixed(2)}</strong></span>
-                    <span className="sm:hidden">Seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)}</strong> (Bază: ${baseCapital.toFixed(0)})</span>
+                    <span className="hidden sm:inline">Bază: <strong>${baseCapital.toFixed(2)}</strong> | În seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)}</strong> | Op: <strong>${operatingEquity.toFixed(2)}</strong></span>
+                    <span className="sm:hidden">Seif: <strong className="text-cyan-300">+${profitVault.toFixed(0)}</strong> (Bază: ${baseCapital.toFixed(0)})</span>
                   </span>
                 </div>
               )}
-            </div>
 
-            {/* Quick Actions for Vault */}
-            {isVaultActive && (
-              <div className="flex items-center space-x-1 text-[9px] sm:text-[10px] w-full sm:w-auto justify-end">
+              {/* Equity Trailing Protection Triggers Badge */}
+              <div className="flex flex-row flex-nowrap items-center space-x-1 bg-amber-950/70 border border-amber-500/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
+                <ShieldAlert className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="font-bold text-[9px] sm:text-[10px] text-amber-300">EQ PROT:</span>
+                <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300">
+                  {status?.equityTrailingState?.triggerCount || 0} {(status?.equityTrailingState?.triggerCount === 1) ? 'declanșare' : 'declanșări'}
+                </span>
                 <button
-                  onClick={handleLockProfitNow}
-                  className="bg-cyan-900/80 hover:bg-cyan-800 text-cyan-100 font-bold px-1.5 sm:px-2 py-0.5 rounded border border-cyan-500/50 cursor-pointer transition-colors"
-                  title="Depune manual profitul suplimentar curent în seif"
+                  type="button"
+                  onClick={() => setShowEquityProtectionModal(true)}
+                  className="ml-0.5 text-[9px] sm:text-[10px] text-amber-300 hover:text-white underline cursor-pointer font-bold shrink-0"
+                  title="Deschide jurnalul detaliat cu toate declanșările protecției"
                 >
-                  + Depune
-                </button>
-                <button
-                  onClick={() => {
-                    const val = prompt('Introdu noua Bază Fixă de Lucru (USDT):', baseCapital.toString());
-                    if (val && !isNaN(parseFloat(val)) && parseFloat(val) > 0) {
-                      handleSetBaseCapital(parseFloat(val));
-                    }
-                  }}
-                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-1.5 sm:px-2 py-0.5 rounded border border-zinc-700 cursor-pointer transition-colors"
-                  title="Modifică suma de bază fixă"
-                >
-                  Bază
-                </button>
-                <button
-                  onClick={handleResetProfitVault}
-                  className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-1.5 sm:px-2 py-0.5 rounded border border-rose-600/50 cursor-pointer transition-colors"
-                  title="Resetează seiful și reintroduce profitul în balanța activă"
-                >
-                  Reset
+                  [LOG]
                 </button>
               </div>
-            )}
+            </div>
+
+            {/* Quick Actions for Vault & Equity Prot */}
+            <div className="flex flex-row flex-nowrap items-center space-x-1 text-[9px] sm:text-[10px] shrink-0">
+              {isVaultActive && (
+                <>
+                  <button
+                    onClick={handleLockProfitNow}
+                    className="bg-cyan-900/80 hover:bg-cyan-800 text-cyan-100 font-bold px-1.5 py-0.5 rounded border border-cyan-500/50 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                    title="Depune manual profitul suplimentar curent realizat peste baza de lucru în seif"
+                  >
+                    + Depune
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNewBaseInput(baseCapital.toString());
+                      setShowSetBaseModal(true);
+                    }}
+                    className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                    title="Modifică suma de bază fixă de la care botul începe ciclul"
+                  >
+                    Bază
+                  </button>
+                  <button
+                    onClick={() => setShowResetVaultConfirmModal(true)}
+                    className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-1.5 py-0.5 rounded border border-rose-600/50 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                    title="Resetează seiful la $0 și transferă banii înapoi în balanța activă"
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={handleExportEquityProtectionCSV}
+                className="bg-amber-950/70 hover:bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded border border-amber-500/40 cursor-pointer transition-colors whitespace-nowrap shrink-0 font-bold"
+                title="Descarcă jurnalul declanșărilor protecției în format CSV (Excel) similar cu BLOT"
+              >
+                CSV EQ
+              </button>
+            </div>
           </div>
         )}
 
@@ -1886,13 +2059,36 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       )}
 
-      {/* ALERTS NOTIFICATION BANNER */}
-      {(errorMessage || successMessage) && (
-        <div className={`px-4 py-2 text-xs flex items-center justify-between border-b ${errorMessage ? 'bg-rose-950/80 text-rose-300 border-rose-800' : 'bg-emerald-950/80 text-emerald-300 border-emerald-800'}`}>
-          <div className="flex items-center space-x-2">
-            {errorMessage ? <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" /> : <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />}
-            <span>{errorMessage || successMessage}</span>
+      {/* ALERTS NOTIFICATION BANNER (AUTO-DISMISS IN 10S) */}
+      {(errorMessage || successMessage || localAlert) && (
+        <div className={`relative px-4 py-2 text-xs flex items-center justify-between border-b shadow-md transition-all overflow-hidden ${
+          (errorMessage || localAlert?.type === 'error') 
+            ? 'bg-rose-950/90 text-rose-300 border-rose-800' 
+            : localAlert?.type === 'info'
+            ? 'bg-sky-950/90 text-sky-300 border-sky-800'
+            : 'bg-emerald-950/90 text-emerald-300 border-emerald-800'
+        }`}>
+          <div className="flex items-center space-x-2 min-w-0 z-10">
+            {(errorMessage || localAlert?.type === 'error') ? (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            ) : (
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span className="font-semibold truncate">{errorMessage || successMessage || localAlert?.message}</span>
+            <span className="text-[10px] text-zinc-400 opacity-80 shrink-0 hidden sm:inline">(dispare în 10s)</span>
           </div>
+          <button
+            onClick={() => {
+              if (onDismissAlert) onDismissAlert();
+              setLocalAlert(null);
+            }}
+            className="text-zinc-300 hover:text-white hover:bg-black/40 px-2 py-0.5 rounded text-xs ml-2 cursor-pointer transition-colors shrink-0 z-10 font-bold"
+            title="Închide acum"
+          >
+            ✕
+          </button>
+          {/* Animated 10s shrinking progress indicator */}
+          <div className={`absolute bottom-0 left-0 h-0.5 w-full ${(errorMessage || localAlert?.type === 'error') ? 'bg-rose-500' : 'bg-emerald-400'} animate-shrink-10s`} />
         </div>
       )}
       </div>
@@ -1994,7 +2190,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       ${profitVault.toFixed(2)}
                     </div>
                     <div className="text-[9px] sm:text-[10px] text-zinc-400 font-mono shrink-0">
-                      Bază: <span className="text-zinc-200 font-bold">${operatingEquity.toFixed(0)}</span>
+                      Bază: <span className="text-zinc-200 font-bold">${baseCapital.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -2045,7 +2241,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
 
-                {/* 8. OKX SENTIMENT SCORE */}
+                {/* 8. OKX & BTC SENTIMENT */}
                 <div className={`p-2 sm:p-2.5 rounded flex flex-col justify-between transition-all border min-w-0 ${
                   isBullishSentiment
                     ? 'bg-emerald-950/20 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.1)]'
@@ -2053,9 +2249,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     ? 'bg-rose-950/20 border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.1)]'
                     : 'bg-black border-zinc-800'
                 }`}>
-                  <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
+                  <div className="flex items-center justify-between mb-0.5 gap-1">
                     <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider flex items-center space-x-1 truncate">
-                      <span>{lang === 'EN' ? 'OKX SENTIMENT' : 'SENTIMENT OKX'}</span>
+                      <span>{lang === 'EN' ? 'OKX & BTC SENTIMENT' : 'SENTIMENT OKX & BTC'}</span>
                     </div>
                     <button
                       onClick={async () => {
@@ -2064,7 +2260,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         onRefresh();
                       }}
                       className="text-zinc-400 hover:text-amber-400 transition-colors p-0.5 cursor-pointer shrink-0"
-                      title="Reîmprospătează sentimentul global OKX"
+                      title="Reîmprospătează sentimentul global OKX și BTC"
                     >
                       <RefreshCw className="w-3 h-3" />
                     </button>
@@ -2086,6 +2282,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <div className="text-[9px] sm:text-[10px] font-mono text-zinc-300 shrink-0">
                       Scor: <span className="font-bold text-amber-300">{sentimentScore >= 0 ? '+' : ''}{sentimentScore.toFixed(2)}%</span>
                     </div>
+                  </div>
+                  {/* BTC SENTIMENT (MUTAT DIN ANTET) */}
+                  <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-mono pt-1 border-t border-zinc-800/80 mt-1">
+                    <span className="text-slate-400">BTC Trend:</span>
+                    <span className={`font-bold px-1 py-0.2 rounded truncate ${
+                      status?.marketRegime?.includes('BULL') || (status?.marketRegime?.includes('+') && !status?.marketRegime?.includes('-%'))
+                        ? 'text-emerald-400 bg-emerald-950/40'
+                        : status?.marketRegime?.includes('BEAR') || status?.marketRegime?.includes('-%')
+                        ? 'text-rose-400 bg-rose-950/40'
+                        : 'text-amber-300 bg-zinc-900'
+                    }`}>
+                      {status?.marketRegime || 'BTC: Neutru'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2172,59 +2381,127 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               {/* EQUITY TRAILING PROTECTION CARD */}
               {status?.equityTrailingState && (
                 <div className="bg-black border border-amber-500/20 rounded p-2.5 mb-2">
-                  <div className="flex items-center space-x-2 mb-1.5">
-                    <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
-                    <h3 className="font-bold text-amber-500 uppercase tracking-wider text-xs flex items-center gap-2">
-                      EQUITY TRAILING PROTECTION
-                      {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0 ? (
-                        <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px]">
-                          DEZACTIVAT (PRAG 0%)
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                      <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+                      <h3 className="font-bold text-amber-500 uppercase tracking-wider text-xs flex items-center gap-2 flex-wrap">
+                        <span>EQUITY TRAILING PROTECTION</span>
+                        {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0 ? (
+                          <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 px-2 py-0.5 rounded text-[10px]">
+                            DEZACTIVAT (PRAG 0%)
+                          </span>
+                        ) : status.equityTrailingState.isActive ? (
+                          <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/50 px-2 py-0.5 rounded text-[10px]">
+                            ACTIV - URMĂREȘTE VÂRFUL
+                          </span>
+                        ) : (
+                          <span className="bg-amber-950 text-amber-400 border border-amber-500/50 px-2 py-0.5 rounded text-[10px]">
+                            {profitVault > 0
+                              ? `AȘTEPTARE PROFIT (PRAG TOTAL: $${(status.equityTrailingState.activationTotalEquity || (status.equityTrailingState.activationPrice + profitVault)).toFixed(2)} | +${status.equityTrailingState.activationPct.toFixed(2)}%)`
+                              : `AȘTEPTARE PROFIT (NECESITĂ +${status.equityTrailingState.activationPct.toFixed(2)}%)`}
+                          </span>
+                        )}
+                        <span className="bg-cyan-950 text-cyan-300 border border-cyan-500/50 px-2 py-0.5 rounded text-[10px] font-bold" title="Numărul total de declanșări cu succes ale protecției de capital">
+                          🛡️ DECLANȘAT: {status.equityTrailingState.triggerCount} {status.equityTrailingState.triggerCount === 1 ? 'DATĂ' : 'ORI'}
                         </span>
-                      ) : status.equityTrailingState.isActive ? (
-                        <span className="bg-emerald-950 text-emerald-400 border border-emerald-500/50 px-2 py-0.5 rounded text-[10px]">
-                          ACTIV - URMĂREȘTE VÂRFUL
-                        </span>
-                      ) : (
-                        <span className="bg-amber-950 text-amber-400 border border-amber-500/50 px-2 py-0.5 rounded text-[10px]">
-                          AȘTEPTARE PROFIT (NECESITĂ +{status.equityTrailingState.activationPct.toFixed(2)}%)
-                        </span>
-                      )}
-                    </h3>
+                      </h3>
+                    </div>
+
+                    {/* Action buttons: Jurnal & Export CSV */}
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowEquityProtectionModal(true)}
+                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 hover:bg-zinc-800 border border-amber-500/40 text-amber-300 transition-colors shadow-sm cursor-pointer"
+                        title="Vizualizează jurnalul detaliat cu toate declanșările protecției"
+                      >
+                        <FileText className="w-3 h-3 text-amber-400" />
+                        <span>JURNAL DECLANȘĂRI ({status.equityTrailingState.triggerCount})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportEquityProtectionCSV}
+                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 hover:bg-amber-900 border border-amber-500/50 text-amber-200 transition-colors shadow-sm cursor-pointer"
+                        title="Descarcă jurnalul declanșărilor în format CSV (Excel) similar cu BLOT"
+                      >
+                        <Download className="w-3 h-3 text-amber-400" />
+                        <span>EXPORT CSV</span>
+                      </button>
+                    </div>
                   </div>
                   
                   <p className="text-xs text-slate-400 mb-2">
                     {!status.equityTrailingState.isEnabled || status.equityTrailingState.activationPct <= 0 || status.equityTrailingState.drawdownLimitPct <= 0
                       ? 'Protecția de capital este DEZACTIVATĂ (setată la 0%). Pozițiile sunt controlate exclusiv de Stop-Loss, Trailing Stop și Take-Profit individuale.'
                       : status.equityTrailingState.isActive 
-                        ? `Urmărirea este activă. Se va închide automat la o retragere de ${status.equityTrailingState.drawdownLimitPct.toFixed(2)}% din vârful atins. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
-                        : `Urmărirea se activează când contul atinge $${status.equityTrailingState.activationPrice.toFixed(2)} (+${status.equityTrailingState.activationPct.toFixed(2)}%). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`}
+                        ? `Urmărirea este activă. Se va închide automat la o retragere de ${status.equityTrailingState.drawdownLimitPct.toFixed(2)}% din vârful atins (la Total Equity $${(profitVault > 0 ? (status.equityTrailingState.sellThresholdTotal || ((status.equityTrailingState.sellThreshold || 0) + profitVault)) : (status.equityTrailingState.sellThreshold || 0)).toFixed(2)}). Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
+                        : profitVault > 0
+                          ? `Urmărirea se activează când Total Equity atinge $${(status.equityTrailingState.activationTotalEquity || (status.equityTrailingState.activationPrice + profitVault)).toFixed(2)} (adică baza curată de $${baseCapital.toFixed(2)} + $${((baseCapital * status.equityTrailingState.activationPct) / 100).toFixed(2)} profit necesar + $${profitVault.toFixed(2)} din Seif). Total curent: $${currentEquity.toFixed(2)} (mai necesită +$${Math.max(0, (status.equityTrailingState.activationTotalEquity || (status.equityTrailingState.activationPrice + profitVault)) - currentEquity).toFixed(2)} profit). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`
+                          : `Urmărirea se activează când contul atinge $${status.equityTrailingState.activationPrice.toFixed(2)} (+${status.equityTrailingState.activationPct.toFixed(2)}%). Până atunci pozițiile respiră liber. Protecția a fost declanșată cu succes de ${status.equityTrailingState.triggerCount} ori până acum.`}
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
                     <div>
-                      <div className="text-slate-400 tracking-wider mb-0.5">PRAG ACTIVARE</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">
+                        {profitVault > 0 ? 'PRAG ACTIVARE (TOTAL)' : 'PRAG ACTIVARE'}
+                      </div>
                       <div className="font-bold text-emerald-400">
-                        ${status.equityTrailingState.activationPrice.toFixed(2)} <span className="text-[10px]">(+{status.equityTrailingState.activationPct.toFixed(2)}%)</span>
+                        ${(profitVault > 0 ? (status.equityTrailingState.activationTotalEquity || (status.equityTrailingState.activationPrice + profitVault)) : status.equityTrailingState.activationPrice).toFixed(2)}
+                        {profitVault > 0 ? (
+                          <div className="text-[10px] text-zinc-400 font-normal mt-0.5">
+                            Lucru: ${status.equityTrailingState.activationPrice.toFixed(2)} (+{status.equityTrailingState.activationPct.toFixed(2)}%)
+                          </div>
+                        ) : (
+                          <span className="text-[10px] ml-1">(+{status.equityTrailingState.activationPct.toFixed(2)}%)</span>
+                        )}
                       </div>
                     </div>
                     <div>
-                      <div className="text-slate-400 tracking-wider mb-0.5">HIGH-WATER MARK (PEAK)</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">
+                        {profitVault > 0 ? 'VÂRF ATINS (TOTAL)' : 'HIGH-WATER MARK (PEAK)'}
+                      </div>
                       <div className="font-bold text-amber-100">
-                        ${status.equityTrailingState.peakEquity.toFixed(2)}
+                        ${(profitVault > 0 ? (status.equityTrailingState.peakTotalEquity || (status.equityTrailingState.peakEquity + profitVault)) : status.equityTrailingState.peakEquity).toFixed(2)}
+                        {profitVault > 0 && (
+                          <div className="text-[10px] text-cyan-400 font-normal mt-0.5">
+                            Lucru: ${operatingEquity.toFixed(2)} (vârf: ${status.equityTrailingState.peakEquity.toFixed(2)})
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
-                      <div className="text-slate-400 tracking-wider mb-0.5">PRAG VÂNZARE</div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">
+                        {profitVault > 0 ? 'PRAG VÂNZARE (TOTAL)' : 'PRAG VÂNZARE'}
+                      </div>
                       <div className="font-bold text-zinc-300">
                         {status.equityTrailingState.sellThreshold 
-                          ? `$${status.equityTrailingState.sellThreshold.toFixed(2)}`
+                          ? `$${(profitVault > 0 ? (status.equityTrailingState.sellThresholdTotal || (status.equityTrailingState.sellThreshold + profitVault)) : status.equityTrailingState.sellThreshold).toFixed(2)}`
                           : 'În așteptare'}
+                        {profitVault > 0 && status.equityTrailingState.sellThreshold && (
+                          <div className="text-[10px] text-zinc-400 font-normal mt-0.5">
+                            Lucru: ${status.equityTrailingState.sellThreshold.toFixed(2)}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
                       <div className="text-slate-400 tracking-wider mb-0.5">RETRAGERE CURENTĂ</div>
                       <div className="font-bold text-emerald-400">
                         {status.equityTrailingState.currentDrawdownPct.toFixed(2)}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 tracking-wider mb-0.5">DECLANȘĂRI TOTALE</div>
+                      <div className="font-bold text-cyan-300 flex items-center gap-1">
+                        <span>{status.equityTrailingState.triggerCount} {status.equityTrailingState.triggerCount === 1 ? 'ciclu' : 'cicluri'}</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowEquityProtectionModal(true)}
+                          className="text-[10px] text-amber-400 hover:text-white underline cursor-pointer ml-1 font-bold"
+                          title="Deschide jurnalul de audit"
+                        >
+                          [LOG]
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2297,11 +2574,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Hard SL:</span>
-                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 2.5}%</span>
+                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 3.5}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Break-Even:</span>
-                      <span className="font-bold text-amber-300">+{profileConfig?.breakEvenActivationPct ?? 1.0}%</span>
+                      <span className="font-bold text-amber-300">+{profileConfig?.breakEvenActivationPct ?? 5.0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Take-Profit:</span>
@@ -2318,11 +2595,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Act. Poziție:</span>
-                      <span className="font-bold text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</span>
+                      <span className="font-bold text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.1}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Pas Urmărire:</span>
-                      <span className="font-bold text-purple-300">-{profileConfig?.trailingDistancePct ?? 0.4}%</span>
+                      <span className="font-bold text-purple-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Trail Eq DD:</span>
@@ -2339,18 +2616,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Momentum W:</span>
-                      <span className="font-bold text-cyan-400">[{profileConfig?.minMomentumScore ?? 60} - {profileConfig?.maxMomentumScore ?? 82}]</span>
+                      <span className="font-bold text-cyan-400">[{profileConfig?.minMomentumScore ?? 50} - {profileConfig?.maxMomentumScore ?? 71}]</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Volum 24h:</span>
                       <span className="font-bold text-emerald-400">
-                        [{(profileConfig?.min24hVolumeUSDT ? profileConfig.min24hVolumeUSDT / 1_000_000 : 0.5).toFixed(1)}M - {profileConfig?.max24hVolumeUSDT && profileConfig.max24hVolumeUSDT > 0 ? (profileConfig.max24hVolumeUSDT / 1_000_000).toFixed(1) + 'M' : '∞'}]
+                        [{(profileConfig?.min24hVolumeUSDT ? profileConfig.min24hVolumeUSDT / 1_000_000 : 1.5).toFixed(1)}M - {profileConfig?.max24hVolumeUSDT && profileConfig.max24hVolumeUSDT > 0 ? (profileConfig.max24hVolumeUSDT / 1_000_000).toFixed(1) + 'M' : '∞'}]
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Hold / CD:</span>
                       <span className="font-bold text-amber-300">
-                        {profileConfig?.maxHoldingTimeMinutes ?? 60}m / {profileConfig?.cooldownMinutes ?? 5}m
+                        {profileConfig?.maxHoldingTimeMinutes ?? 45}m / {profileConfig?.cooldownMinutes ?? 0}m
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -2690,6 +2967,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                   <span className="text-zinc-500">Minim Atins:</span>
                                   <span className="text-rose-400">${(pos.lowestPrice || pos.entryPrice).toLocaleString()}</span>
                                 </div>
+                                <div className="flex justify-between text-[11px] pt-1 border-t border-zinc-900">
+                                  <span className="text-zinc-400">MAE (Worst DD):</span>
+                                  <span className="text-rose-400 font-bold">{pos.maePct !== undefined ? `${pos.maePct}%` : '0.00%'}</span>
+                                </div>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-400">MFE (Peak PnL):</span>
+                                  <span className="text-emerald-400 font-bold">{pos.mfePct !== undefined ? `+${pos.mfePct}%` : '0.00%'}</span>
+                                </div>
                               </div>
 
                               {/* Panel 2: Minute de Deținere & Timing */}
@@ -2715,7 +3000,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                   <span className="text-amber-400">
                                     {profileConfig?.maxHoldingTimeMinutes && profileConfig.maxHoldingTimeMinutes > 0
                                       ? `${profileConfig.maxHoldingTimeMinutes}m (${(profileConfig.maxHoldingTimeMinutes - holdingMinutes).toFixed(1)}m rămase)`
-                                      : 'Fără limită'}
+                                      : '45m unificat'}
                                   </span>
                                 </div>
                               </div>
@@ -2738,18 +3023,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                 </div>
                                 <div className="flex justify-between text-[11px]">
                                   <span className="text-zinc-500">Distanță Retragere:</span>
-                                  <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.4}%</span>
+                                  <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
                                 </div>
                                 <div className="flex justify-between text-[11px]">
                                   <span className="text-zinc-500">Break-Even (BE):</span>
                                   <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
-                                    {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 1}%)`}
+                                    {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 5.0}%)`}
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-[11px]">
                                   <span className="text-zinc-500">Hard Stop Loss:</span>
-                                  <span className="text-rose-400">
-                                    {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 2.5}%)` : `-${profileConfig?.hardStopLossPct ?? 2.5}%`}
+                                  <span className="text-rose-400 font-bold">
+                                    {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
                                   </span>
                                 </div>
                               </div>
@@ -2770,15 +3055,23 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     {pos.entryFee !== undefined ? `-$${pos.entryFee.toFixed(3)}` : 'Inclus (0.05%)'}
                                   </span>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">PnL Gross vs Net:</span>
-                                  <span className="text-zinc-200">
-                                    Gross: ${pos.grossPnl?.toFixed(2) ?? pos.pnl?.toFixed(2)} | Net: ${pos.pnl?.toFixed(2)}
-                                  </span>
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">ID Poziție:</span>
+                                  <span className="text-zinc-400 font-mono text-[10px]">{pos.id}</span>
                                 </div>
                                 <div className="flex justify-between text-[11px]">
+                                  <span className="text-zinc-500">Leverage:</span>
+                                  <span className="text-amber-400 font-bold">{pos.leverage || '1x'}</span>
+                                </div>
+                                {pos.signalScore !== undefined && (
+                                  <div className="flex justify-between text-[11px]">
+                                    <span className="text-zinc-500">metaScore Intrare:</span>
+                                    <span className="text-cyan-300 font-bold">{pos.signalScore.toFixed(1)}/100</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-[11px]">
                                   <span className="text-zinc-500">Regim / Profil:</span>
-                                  <span className="text-zinc-400">{pos.marketRegime || 'MOMENTUM'} | {pos.profile}</span>
+                                  <span className="text-zinc-400">{pos.marketRegime || 'BTC: --'} | {pos.profile}</span>
                                 </div>
                                 <div className="flex justify-between text-[11px]">
                                   <span className="text-zinc-500">Mod Execuție:</span>
@@ -2992,8 +3285,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <span className="text-[10px] sm:text-xs text-slate-400 font-mono">({orders.length} Orders)</span>
                 </div>
 
-                {/* Control Action Buttons: Save Log (CSV/Excel) & Clear Log */}
+                {/* Control Action Buttons: Save Log (CSV/Excel) & Clear Log & Equity Prot Log */}
                 <div className="flex items-center space-x-1.5 sm:space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEquityProtectionModal(true)}
+                    className="inline-flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 transition-colors shadow-sm cursor-pointer"
+                    title="Vizualizează și exportă istoricul complet al declanșărilor Equity Trailing Protection"
+                  >
+                    <ShieldAlert className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-amber-400" />
+                    <span>LOG EQ PROT ({status?.equityTrailingState?.triggerCount || 0})</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleExportOrders}
@@ -3151,8 +3454,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                       </span>
                                     </div>
                                     <div className="flex items-center space-x-3 text-[11px] text-zinc-400">
+                                      {ord.positionId && (
+                                        <span className="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[10px] border border-amber-500/30">
+                                          pos_id: {ord.positionId}
+                                        </span>
+                                      )}
                                       <span>Profil: <strong className="text-zinc-200">{ord.profile}</strong></span>
                                       <span>Mod: <strong className="text-amber-300">{ord.executionMode}</strong></span>
+                                      <span>Leverage: <strong className="text-amber-400">{ord.leverage || '1x'}</strong></span>
                                       <span>Creat: <strong className="text-zinc-200">{new Date(ord.createdTime).toLocaleString()}</strong></span>
                                     </div>
                                   </div>
@@ -3200,12 +3509,59 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                         </span>
                                       </div>
                                     </div>
+
+                                    {/* Quantitative & Statistical Telemetry Grid */}
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">MAE / MFE Poziție</div>
+                                      <div className="text-xs font-mono font-bold mt-0.5">
+                                        <span className="text-rose-400">MAE: {ord.maePct !== undefined ? `${ord.maePct}%` : '0.00%'}</span>
+                                        <span className="text-zinc-500 mx-1">|</span>
+                                        <span className="text-emerald-400">MFE: {ord.mfePct !== undefined ? `+${ord.mfePct}%` : '0.00%'}</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Slippage &amp; Semnal</div>
+                                      <div className="text-xs font-mono mt-0.5">
+                                        <span className="text-zinc-300">Semnal: {ord.signalPrice ? `$${ord.signalPrice.toFixed(4)}` : '--'}</span>
+                                        <span className="text-amber-400 font-bold block text-[11px]">
+                                          Slippage: {ord.estimatedSlippagePct !== undefined ? `${ord.estimatedSlippagePct > 0 ? '+' : ''}${ord.estimatedSlippagePct}%` : '0.00%'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Scor Model &amp; Poziții Deschise</div>
+                                      <div className="text-xs font-mono mt-0.5">
+                                        <span className="text-cyan-300 font-bold">
+                                          Scor: {ord.signalScore !== undefined ? `${ord.signalScore.toFixed(1)}/100` : '--'}
+                                        </span>
+                                        <span className="text-zinc-400 block text-[11px]">
+                                          Simultan deschise: <strong className="text-amber-300">{ord.openPositionsCount !== undefined ? ord.openPositionsCount : '--'}</strong>
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="bg-black/60 border border-zinc-800 p-2 rounded">
+                                      <div className="text-[10px] text-zinc-400 uppercase">Echitate &amp; Balanță la Ordin</div>
+                                      <div className="text-xs font-mono mt-0.5">
+                                        <span className="text-emerald-300 font-bold">
+                                          Eq: ${ord.accountEquity !== undefined ? ord.accountEquity.toFixed(2) : '--'}
+                                        </span>
+                                        <span className="text-zinc-400 block text-[11px]">
+                                          Bal: ${ord.accountBalance !== undefined ? ord.accountBalance.toFixed(2) : '--'}
+                                        </span>
+                                      </div>
+                                    </div>
                                     
-                                    {ord.marketRegime && (
+                                    {(ord.marketRegime || ord.exitMarketRegime) && (
                                       <div className="bg-black/60 border border-zinc-800 p-2 rounded col-span-2 sm:col-span-4 mt-1">
-                                        <div className="text-[10px] text-zinc-400 uppercase">Context Piață (BTC 24h Proxy)</div>
-                                        <div className="text-sm font-bold text-amber-300 mt-0.5">
-                                          {ord.marketRegime}
+                                        <div className="text-[10px] text-zinc-400 uppercase">Regim BTC Macro (Intrare vs Ieșire)</div>
+                                        <div className="text-xs font-mono text-amber-300 mt-0.5 flex flex-wrap gap-4">
+                                          <span>Regim la Intrare: <strong className="text-zinc-100">{ord.marketRegime || 'BTC: --'}</strong></span>
+                                          {ord.exitMarketRegime && (
+                                            <span>Regim la Ieșire: <strong className="text-zinc-100">{ord.exitMarketRegime}</strong></span>
+                                          )}
                                         </div>
                                       </div>
                                     )}
@@ -3345,19 +3701,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Hard Stop-Loss</span>
-                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 2.5}%</strong>
+                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 3.5}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Break-Even Act</span>
-                    <strong className="text-amber-300 text-xs">+{profileConfig?.breakEvenActivationPct ?? 1.0}%</strong>
+                    <strong className="text-amber-300 text-xs">+{profileConfig?.breakEvenActivationPct ?? 5.0}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Trailing Act</span>
-                    <strong className="text-emerald-400 text-xs">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong>
+                    <strong className="text-emerald-400 text-xs">+{profileConfig?.trailingActivationPct ?? 1.1}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Trailing Dist</span>
-                    <strong className="text-purple-400 text-xs">-{profileConfig?.trailingDistancePct ?? 0.4}%</strong>
+                    <strong className="text-purple-400 text-xs">-{profileConfig?.trailingDistancePct ?? 0.35}%</strong>
                   </div>
 
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
@@ -3368,7 +3724,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Max Hold Time</span>
-                    <strong className="text-amber-300 text-xs">{profileConfig?.maxHoldingTimeMinutes ?? 60} min</strong>
+                    <strong className="text-amber-300 text-xs">{profileConfig?.maxHoldingTimeMinutes ?? 45} min</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Equity Prot Act</span>
@@ -4391,6 +4747,237 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       </main>
 
 
+
+      {/* Modal Modificare Bază Fixă Seif */}
+      {showSetBaseModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border-2 border-cyan-500 rounded p-4 max-w-sm w-full shadow-2xl">
+            <h3 className="text-cyan-400 font-bold mb-2 flex items-center space-x-2 text-sm">
+              <span>🏦</span>
+              <span>MODIFICARE BAZĂ FIXĂ SEIF</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+              Baza fixă reprezintă capitalul curat de la care botul începe fiecare ciclu. Orice profit generat peste această bază va fi transferat automat în Seif la declanșarea protecției sau la depunerea manuală.
+            </p>
+            <div className="mb-4">
+              <label className="text-[11px] text-zinc-400 block mb-1 font-mono">Bază Fixă de Lucru (USDT):</label>
+              <input
+                type="number"
+                step="5"
+                min="10"
+                value={newBaseInput}
+                onChange={(e) => setNewBaseInput(e.target.value)}
+                placeholder="ex: 200.00"
+                className="w-full bg-black text-cyan-300 placeholder:text-zinc-700 px-3 py-2 rounded border border-cyan-500/50 text-sm font-mono focus:outline-none focus:border-cyan-400"
+              />
+              <div className="text-[10px] text-zinc-500 mt-1">Bază curentă: ${baseCapital.toFixed(2)} USDT</div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowSetBaseModal(false)}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-bold cursor-pointer"
+              >
+                ANULEAZĂ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const val = parseFloat(newBaseInput);
+                  if (!isNaN(val) && val > 0) {
+                    handleSetBaseCapital(val);
+                  }
+                }}
+                className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold cursor-pointer shadow-md"
+              >
+                SALVEAZĂ BAZĂ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmare Resetare Seif */}
+      {showResetVaultConfirmModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border-2 border-rose-500 rounded p-4 max-w-sm w-full shadow-2xl">
+            <h3 className="text-rose-400 font-bold mb-2 flex items-center space-x-2 text-sm">
+              <ShieldAlert className="w-5 h-5 text-rose-500" />
+              <span>CONFIRMARE RESETARE SEIF</span>
+            </h3>
+            <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+              Ești sigur că vrei să resetezi Seiful (Profit Vault)?
+            </p>
+            <div className="bg-rose-950/30 border border-rose-800/50 rounded p-2.5 mb-4 text-xs font-mono text-rose-200">
+              <div>Suma blocată în Seif: <strong className="text-cyan-300">+${profitVault.toFixed(2)} USDT</strong></div>
+              <div className="text-[11px] text-zinc-400 mt-1">La resetare, această sumă este eliberată înapoi în balanța activă, iar noul ciclu de tranzacționare va porni de la capitalul total actual.</div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowResetVaultConfirmModal(false)}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-bold cursor-pointer"
+              >
+                ANULEAZĂ
+              </button>
+              <button
+                type="button"
+                onClick={handleResetProfitVault}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-bold cursor-pointer shadow-md"
+              >
+                CONFIRMĂ RESETAREA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Jurnal Audit Declanșări Equity Trailing Protection */}
+      {showEquityProtectionModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-zinc-950 border-2 border-amber-500 rounded p-3 sm:p-5 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl font-mono">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-amber-500/40 mb-3 gap-2">
+              <div className="flex items-center space-x-2">
+                <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <h3 className="text-amber-400 font-bold text-sm sm:text-base tracking-wider">
+                    JURNAL DECLANȘĂRI EQUITY TRAILING PROTECTION
+                  </h3>
+                  <div className="text-[11px] text-slate-400">
+                    Total: <strong className="text-cyan-300">{(status?.equityTrailingState?.history || []).length}</strong> declanșări înregistrate și salvate pe disc (.data)
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleExportEquityProtectionCSV}
+                  className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-500/60 text-amber-200 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-sm"
+                  title="Descarcă întreg jurnalul ca fișier CSV compatibil Excel"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>EXPORT CSV (EXCEL)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEquityProtectionModal(false);
+                    setSelectedProtectionEvent(null);
+                  }}
+                  className="text-zinc-400 hover:text-white px-2 py-1 rounded text-sm font-bold bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* List / Table */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 terminal-scrollbar-x">
+              {(status?.equityTrailingState?.history || []).length === 0 ? (
+                <div className="p-8 text-center text-zinc-500 text-xs">
+                  Nicio declanșare înregistrată încă. Declanșările vor fi logate automat aici și pe disc la fiecare activare.
+                </div>
+              ) : (
+                (status?.equityTrailingState?.history || []).map((ev, idx) => (
+                  <div
+                    key={ev.id || idx}
+                    className="bg-black border border-amber-500/25 hover:border-amber-500/60 rounded p-3 transition-colors shadow-sm"
+                  >
+                    {/* Top Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-zinc-800">
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-amber-500 text-black px-1.5 py-0.5 rounded text-xs font-black">
+                          #{ev.triggerIndex || (status?.equityTrailingState?.history?.length || 0) - idx}
+                        </span>
+                        <span className="text-xs text-amber-200 font-bold">{ev.dateStr}</span>
+                        <span className="bg-zinc-900 text-zinc-400 border border-zinc-700 px-1.5 py-0.2 rounded text-[10px]">
+                          {ev.profile} | {ev.executionMode}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <span className="text-zinc-400">Vârf Atins:</span>
+                        <strong className="text-amber-300 font-mono">${ev.peakEquity.toFixed(2)}</strong>
+                        <span className="text-zinc-600">|</span>
+                        <span className="text-zinc-400">Drawdown:</span>
+                        <strong className="text-rose-400 font-mono">-{ev.drawdownFromPeakPct.toFixed(2)}%</strong>
+                        <span className="text-zinc-500 text-[10px]">(limită: -{ev.configuredDrawdownLimitPct.toFixed(2)}%)</span>
+                      </div>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-2 text-[11px] bg-zinc-950/60 px-2 rounded mt-2 border border-zinc-900">
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">CAPITAL LUCRU LA DECLANȘARE:</span>
+                        <strong className="text-zinc-200">${ev.effectiveEquity.toFixed(2)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">TOTAL EQUITY CONT:</span>
+                        <strong className="text-emerald-400">${ev.totalEquity.toFixed(2)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">PROFIT TRANSFERAT ÎN SEIF:</span>
+                        <strong className="text-cyan-300">
+                          {ev.profitLockedToVault > 0 ? `+$${ev.profitLockedToVault.toFixed(2)} USDT` : '$0.00'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">SOLD SEIF DUPĂ CICLU:</span>
+                        <strong className="text-cyan-400">${ev.vaultAfter.toFixed(2)} USDT</strong>
+                      </div>
+                    </div>
+
+                    {/* Closed Positions Summary */}
+                    <div className="mt-2 text-xs">
+                      <div className="text-[10px] text-slate-400 mb-1 flex items-center justify-between">
+                        <span>POZIȚII ÎNCHISE LA DECLANȘARE ({ev.closedPositionsCount}):</span>
+                        <span className="text-zinc-500">Bază noul ciclu: ${ev.baseCapital.toFixed(2)}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ev.closedPositions && ev.closedPositions.length > 0 ? (
+                          ev.closedPositions.map((pos, pIdx) => (
+                            <div
+                              key={pIdx}
+                              className="bg-zinc-900 border border-zinc-700/80 px-2 py-1 rounded text-[11px] flex items-center space-x-2"
+                            >
+                              <span className="font-bold text-amber-300">{pos.symbol}</span>
+                              <span className={pos.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                {pos.side} ${pos.sizeUSDT}
+                              </span>
+                              <span className="text-zinc-400">@ ${pos.closePrice}</span>
+                              {pos.pnl !== undefined && (
+                                <span className={`font-bold ${pos.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  ({pos.pnl >= 0 ? '+' : ''}${pos.pnl.toFixed(2)})
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-zinc-500 text-[10px] italic">Toate pozițiile active au fost lichidate în siguranță la atingerea pragului.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400 mt-2">
+              <span className="text-[11px]">
+                🛡️ Toate declanșările sunt salvate persistent în <code className="text-amber-400">.data/equity_protection_events.json</code>.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowEquityProtectionModal(false)}
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded text-xs cursor-pointer shadow-md"
+              >
+                ÎNCHIDE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bot Control Token Modal */}
       {showTokenModal && (

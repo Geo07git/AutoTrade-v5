@@ -99,8 +99,12 @@ export class OrderManager {
     currentPrice: number;
     profile: ProfileType;
     marketRegime?: string;
+    accountEquity?: number;
+    accountBalance?: number;
+    openPositionsCount?: number;
+    leverage?: string;
   }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
-    const { signal, riskApproval, currentPrice, profile, marketRegime } = params;
+    const { signal, riskApproval, currentPrice, profile, marketRegime, accountEquity, accountBalance } = params;
 
     // 1. Check for in-flight pending order for this symbol to prevent duplicate entries
     if (this.hasPendingOrderForSymbol(signal.symbol)) {
@@ -145,6 +149,10 @@ export class OrderManager {
 
     const clientOrderId = `tb5_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const actualNotional = formattedQty * ctVal * currentPrice;
+    const leverage = params.leverage || '1x';
+    const openPositionsCount = params.openPositionsCount !== undefined
+      ? params.openPositionsCount
+      : this.positionManager.getActivePositions().length;
 
     // 4. Create Order Record (CREATED)
     const orderRecord: OrderRecord = {
@@ -166,6 +174,12 @@ export class OrderManager {
       profile,
       executionMode: this.executionMode,
       marketRegime,
+      signalScore: signal.score,
+      signalPrice: currentPrice,
+      leverage,
+      openPositionsCount,
+      accountEquity,
+      accountBalance,
     };
 
     this.orders.set(clientOrderId, orderRecord);
@@ -179,6 +193,12 @@ export class OrderManager {
       side: signal.side,
       qty: formattedQty,
       mode: this.executionMode,
+      signalScore: signal.score,
+      signalPrice: currentPrice,
+      leverage,
+      openPositionsCount,
+      accountEquity,
+      accountBalance,
     });
 
     try {
@@ -203,6 +223,13 @@ export class OrderManager {
       // 7. Confirmation of Execution via Polling (routes through central idempotent handler)
       const confirmed = await this.pollExecutionConfirmation(orderRecord, 5, 800);
       const currentStatus = orderRecord.status as OrderStatus;
+
+      // Calculate Slippage (fillPrice vs signalPrice)
+      if (orderRecord.fillPrice && orderRecord.signalPrice && orderRecord.signalPrice > 0) {
+        const diff = (orderRecord.fillPrice - orderRecord.signalPrice) / orderRecord.signalPrice * 100;
+        const slip = orderRecord.side === 'BUY' ? diff : -diff;
+        orderRecord.estimatedSlippagePct = parseFloat(slip.toFixed(3));
+      }
 
       if (confirmed && (currentStatus === 'FILLED' || currentStatus === 'PARTIALLY_FILLED')) {
         return { success: true, order: orderRecord };
@@ -243,8 +270,24 @@ export class OrderManager {
     triggerStopValue?: number;
     trailingPeakPct?: number;
     trailingDistancePct?: number;
+    exitMarketRegime?: string;
+    accountEquity?: number;
+    accountBalance?: number;
+    openPositionsCount?: number;
   }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
-    const { position, reason, currentPrice, exitReasonDetail, triggerStopValue, trailingPeakPct, trailingDistancePct } = params;
+    const {
+      position,
+      reason,
+      currentPrice,
+      exitReasonDetail,
+      triggerStopValue,
+      trailingPeakPct,
+      trailingDistancePct,
+      exitMarketRegime,
+      accountEquity,
+      accountBalance,
+      openPositionsCount,
+    } = params;
 
     if (position.status !== 'OPEN') {
       return { success: false, error: `Position ${position.symbol} is already closed.` };
@@ -275,9 +318,13 @@ export class OrderManager {
 
     const holdingTimeMinutes = position.entryTime ? parseFloat(((Date.now() - position.entryTime) / 60000).toFixed(1)) : 0;
     const actualCloseNotional = formattedQty * ctVal * estPrice;
+    const resolvedOpenCount = openPositionsCount !== undefined
+      ? openPositionsCount
+      : this.positionManager.getActivePositions().length;
 
     const closeOrder: OrderRecord = {
       id: clientOrderId,
+      positionId: position.id,
       symbol: position.symbol,
       side: closeSide,
       orderType: 'Market',
@@ -297,16 +344,34 @@ export class OrderManager {
       trailingDistancePct,
       holdingTimeMinutes,
       positionSide: position.side,
+      marketRegime: position.marketRegime, // BTC regime at ENTRY
+      exitMarketRegime,                    // BTC regime at EXIT
+      signalScore: position.signalScore,
+      signalPrice: estPrice,
+      leverage: position.leverage || '1x',
+      openPositionsCount: resolvedOpenCount,
+      maePct: position.maePct,
+      mfePct: position.mfePct,
+      accountEquity,
+      accountBalance,
     };
 
     this.orders.set(clientOrderId, closeOrder);
 
     this.auditLogger('ORDER_SUBMITTED', `Submitting Close Order for ${position.symbol} (${reason}) - Side: ${orderSide}, Qty: ${formattedQty} via ${this.executionMode}`, {
       orderId: clientOrderId,
+      positionId: position.id,
       symbol: position.symbol,
       reason,
       qty: formattedQty,
       mode: this.executionMode,
+      marketRegimeAtEntry: position.marketRegime,
+      marketRegimeAtExit: exitMarketRegime,
+      accountEquity,
+      accountBalance,
+      openPositionsCount: resolvedOpenCount,
+      maePct: position.maePct,
+      mfePct: position.mfePct,
     });
 
     closeOrder.status = 'SUBMITTED';
@@ -334,6 +399,13 @@ export class OrderManager {
       await this.pollExecutionConfirmation(closeOrder, 5, 800);
       const closeStatus = closeOrder.status as OrderStatus;
 
+      // Calculate Slippage on exit (fillPrice vs signalPrice)
+      if (closeOrder.fillPrice && closeOrder.signalPrice && closeOrder.signalPrice > 0) {
+        const diff = (closeOrder.fillPrice - closeOrder.signalPrice) / closeOrder.signalPrice * 100;
+        const slip = closeOrder.side === 'BUY' ? diff : -diff;
+        closeOrder.estimatedSlippagePct = parseFloat(slip.toFixed(3));
+      }
+
       // STRICT SAFETY CHECK: Only mark position closed if status is explicitly FILLED!
       if (closeStatus === 'FILLED') {
         const exitPrice = closeOrder.fillPrice || estPrice;
@@ -348,7 +420,13 @@ export class OrderManager {
           exitPrice,
           exitTime,
           reason,
-          closeOrder.cumFee
+          closeOrder.cumFee,
+          {
+            exitMarketRegime,
+            accountEquity,
+            openPositionsCount: resolvedOpenCount,
+            closeOrderId: closeOrder.id,
+          }
         );
 
         const pnl = closedPos?.pnl !== undefined ? closedPos.pnl : 0;
@@ -359,7 +437,7 @@ export class OrderManager {
         closeOrder.realizedPnl = pnl;
         closeOrder.realizedPnlPct = pnlPct;
 
-        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)})`, {
+        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
           positionId: position.id,
           symbol: position.symbol,
           exitPrice,
@@ -367,6 +445,15 @@ export class OrderManager {
           pnl,
           pnlPct,
           grossPnl,
+          maePct: position.maePct,
+          mfePct: position.mfePct,
+          marketRegimeAtEntry: position.marketRegime,
+          marketRegimeAtExit: exitMarketRegime,
+          accountEquity,
+          accountBalance,
+          openPositionsCount: resolvedOpenCount,
+          leverage: position.leverage || '1x',
+          signalScore: position.signalScore,
           entryFee: closedPos?.entryFee,
           exitFee: closedPos?.exitFee,
           totalFees,

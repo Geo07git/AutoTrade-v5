@@ -227,6 +227,26 @@ async function startServer() {
     }
   });
 
+  // Equity Trailing Protection: Get history of all trigger events
+  app.get('/api/bot/equity-protection/events', (req, res) => {
+    try {
+      const events = tradeBot.getEquityProtectionEvents();
+      res.json({ success: true, count: events.length, events });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Equity Trailing Protection: Clear history
+  app.post('/api/bot/equity-protection/clear', requireControlAuth, (req, res) => {
+    try {
+      tradeBot.clearEquityProtectionEvents();
+      res.json({ success: true, count: 0, events: [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Update OKX API credentials
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
     const { apiKey, apiSecret, secretKey, passphrase, testnet } = req.body;

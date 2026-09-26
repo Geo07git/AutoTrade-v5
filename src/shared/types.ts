@@ -64,6 +64,8 @@ export interface UniverseFilterConfig {
   maxSymbols: number;
   settleCoin: string;
   refreshIntervalMs: number;
+  maxSpreadPct?: number; // Max allowed bid-ask spread % (e.g. 0.15% to eliminate wide-spread tokens)
+  excludedSymbols?: string[]; // Underperforming or high-spread tokens excluded from trading
 }
 
 export interface ScannedOpportunity {
@@ -177,6 +179,7 @@ export interface RiskApproval {
 export interface OrderRecord {
   id: string; // Internal / clientOrderId
   exchangeOrderId?: string;
+  positionId?: string; // Direct link between ENTRY and CLOSE orders
   symbol: string;
   side: OrderSide;
   orderType: 'Market' | 'Limit';
@@ -207,8 +210,19 @@ export interface OrderRecord {
   trailingPeakPct?: number;
   trailingDistancePct?: number;
   holdingTimeMinutes?: number;
-  marketRegime?: string;
+  marketRegime?: string; // BTC regime at ENTRY
+  exitMarketRegime?: string; // BTC regime at EXIT
   positionSide?: OrderSide;
+  // Quantitative telemetry fields
+  signalScore?: number; // Model score / probability (metaScore) at entry
+  signalPrice?: number; // Price at signal generation
+  estimatedSlippagePct?: number; // Slippage (fill price vs signal price) %
+  leverage?: string; // Leverage used (e.g. '1x')
+  openPositionsCount?: number; // Number of open positions at entry/exit moment
+  maePct?: number; // Maximum Adverse Excursion % (worst unrealized PnL% during position life)
+  mfePct?: number; // Maximum Favorable Excursion % (best unrealized PnL% during position life)
+  accountEquity?: number; // Account total equity at order time
+  accountBalance?: number; // Account wallet balance at order time
 }
 
 export interface Position {
@@ -240,7 +254,20 @@ export interface Position {
   profile: ProfileType;
   source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';
   executionMode: ExecutionMode;
-  marketRegime?: string;
+  marketRegime?: string; // BTC regime at ENTRY
+  exitMarketRegime?: string; // BTC regime at EXIT
+  entryOrderId?: string;
+  closeOrderId?: string;
+  signalScore?: number; // metaScore at entry
+  signalPrice?: number;
+  estimatedSlippagePct?: number;
+  leverage?: string;
+  openPositionsAtEntry?: number;
+  openPositionsAtExit?: number;
+  maePct?: number; // Maximum Adverse Excursion %
+  mfePct?: number; // Maximum Favorable Excursion %
+  accountEquityAtEntry?: number;
+  accountEquityAtExit?: number;
 }
 
 export interface OKXRawPosition {
@@ -267,16 +294,55 @@ export interface EquityDataPoint {
   equity: number;
 }
 
+export interface EquityProtectionClosedPositionSummary {
+  symbol: string;
+  side: OrderSide;
+  sizeUSDT: number;
+  entryPrice: number;
+  closePrice: number;
+  pnl?: number;
+  holdingTimeMinutes?: number;
+  exitReasonDetail?: string;
+}
+
+export interface EquityProtectionEvent {
+  id: string;
+  triggerIndex: number;
+  timestamp: number;
+  dateStr: string;
+  profile: ProfileType;
+  executionMode: ExecutionMode;
+  peakEquity: number;
+  effectiveEquity: number;
+  totalEquity: number;
+  drawdownFromPeakPct: number;
+  configuredDrawdownLimitPct: number;
+  activationPrice: number;
+  activationPct: number;
+  vaultBefore: number;
+  profitLockedToVault: number;
+  vaultAfter: number;
+  baseCapital: number;
+  closedPositionsCount: number;
+  closedPositions: EquityProtectionClosedPositionSummary[];
+}
+
 export interface EquityTrailingState {
   isEnabled?: boolean;
   isActive: boolean;
   activationPrice: number;
+  activationTotalEquity?: number;
   activationPct: number;
   peakEquity: number;
+  peakTotalEquity?: number;
   drawdownLimitPct: number;
   currentDrawdownPct: number;
   sellThreshold: number | null;
+  sellThresholdTotal?: number | null;
   triggerCount: number;
+  workingEquity?: number;
+  profitVault?: number;
+  history?: EquityProtectionEvent[];
 }
 
 export interface PerformanceMetrics {
