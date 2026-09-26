@@ -8,3 +8,9 @@ coverage/
 .env*
 !.env.example
 .telegram*.json
+
+# Runtime state and local configuration
+.data/
+
+# Runtime state and local configuration
+.data/
