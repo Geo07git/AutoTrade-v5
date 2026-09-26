@@ -26,6 +26,21 @@ export default function App() {
   const [isReconciling, setIsReconciling] = useState<boolean>(false);
   const [isScanningNow, setIsScanningNow] = useState<boolean>(false);
 
+  // Auto-dismiss alert banners (e.g. Closed position, Kill switch, etc.) after 10 seconds
+  useEffect(() => {
+    if (!errorMessage && !successMessage) return;
+    const timer = setTimeout(() => {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [errorMessage, successMessage]);
+
+  const handleDismissAlert = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
   // Authentication token stored locally for control endpoints
   const [controlToken, setControlToken] = useState<string>(() => {
     return localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
@@ -429,6 +444,7 @@ export default function App() {
       onUpdateControlToken={handleUpdateControlToken}
       errorMessage={errorMessage}
       successMessage={successMessage}
+      onDismissAlert={handleDismissAlert}
     />
   );
 }

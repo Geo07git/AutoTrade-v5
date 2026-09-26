@@ -43,40 +43,40 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
   SCALP: {
     type: 'SCALP',
     timeframes: ['15', '60'],
-    riskPerTradePct: 15,
-    maxOpenPositions: 6,
-    trailingActivationPct: 1.0,
-    trailingDistancePct: 0.3,
-    breakEvenActivationPct: 0.5,
-    takeProfitPct: 3.0, // TP 3% vs SL 1.0% (R/R 3:1)
-    hardStopLossPct: 1.0,
-    equityProtectionActivationPct: 2.0,
-    equityTrailingDrawdownPct: 1.5,
-    minMomentumScore: 72,
-    maxMomentumScore: 82, // Hard cap against overextended entries
-    min24hVolumeUSDT: 500_000,
+    riskPerTradePct: 50,
+    maxOpenPositions: 2,
+    trailingActivationPct: 1.1,
+    trailingDistancePct: 0.35,
+    breakEvenActivationPct: 5.0,
+    takeProfitPct: 20.0,
+    hardStopLossPct: 3.5, // Stop-loss hard 3.5%
+    equityProtectionActivationPct: 1.9,
+    equityTrailingDrawdownPct: 0.3,
+    minMomentumScore: 50,
+    maxMomentumScore: 71,
+    min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
-    maxHoldingTimeMinutes: 30,
-    cooldownMinutes: 10,
-    sentimentThreshold: 1.5,
+    maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
+    cooldownMinutes: 0,
+    sentimentThreshold: 5.0,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
     timeframes: ['60', '240'],
     riskPerTradePct: 10,
     maxOpenPositions: 10,
-    trailingActivationPct: 2.0,
-    trailingDistancePct: 0.6,
+    trailingActivationPct: 1.8,
+    trailingDistancePct: 0.5,
     breakEvenActivationPct: 1.0,
-    takeProfitPct: 6.0, // TP 6% vs SL 2.0% (R/R 3:1)
-    hardStopLossPct: 2.0,
+    takeProfitPct: 6.0,
+    hardStopLossPct: 3.5, // Stop-loss hard 3.5%
     equityProtectionActivationPct: 3.0,
     equityTrailingDrawdownPct: 2.0,
     minMomentumScore: 75,
-    maxMomentumScore: 82, // Hard cap against exhaustion tops
-    min24hVolumeUSDT: 500_000,
+    maxMomentumScore: 82,
+    min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
-    maxHoldingTimeMinutes: 240,
+    maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
   },
@@ -103,6 +103,7 @@ export class TradeBot {
   private state: BotState = 'INITIALIZING';
   private loopInterval?: NodeJS.Timeout;
   private reconnectInterval?: NodeJS.Timeout;
+  private positionMonitorInterval?: NodeJS.Timeout;
   private currentEquity: number = 200.0;
   private equityHistory: { time: number; equity: number }[] = [];
   private lastEquitySnapshotTime: number = 0;
@@ -295,9 +296,13 @@ export class TradeBot {
 
     await this.connectAndRecover();
 
-    // Start tick loop (runs every 15 seconds)
+    // Start tick loop (runs every 15 seconds for market scanning & new entries)
     if (this.loopInterval) clearInterval(this.loopInterval);
     this.loopInterval = setInterval(() => this.tick(), 15000);
+
+    // Dedicated high-frequency live price & risk monitor for active positions (evaluates Hard SL / TP / Trailing / EquityProt every 2.5s)
+    if (this.positionMonitorInterval) clearInterval(this.positionMonitorInterval);
+    this.positionMonitorInterval = setInterval(() => this.evaluateActivePositionsRisk(), 2500);
 
     // Watcher for reconnection if waiting for exchange
     if (this.reconnectInterval) clearInterval(this.reconnectInterval);
@@ -463,9 +468,67 @@ export class TradeBot {
   public stop() {
     this.state = 'STOPPED';
     if (this.loopInterval) clearInterval(this.loopInterval);
+    if (this.positionMonitorInterval) clearInterval(this.positionMonitorInterval);
     if (this.reconnectInterval) clearInterval(this.reconnectInterval);
     if (this.regimeInterval) clearInterval(this.regimeInterval);
     this.logAudit('SYSTEM', 'TradeBot 5 stopped by operator');
+  }
+
+  /**
+   * Fast real-time price poll & risk check for all active open positions.
+   * Runs every 2.5 seconds independently of the 15-second scanning tick loop,
+   * guaranteeing instantaneous execution of Hard Stop-Loss (-3.5%), Trailing-Stop,
+   * Take-Profit, Break-Even, and Equity Trailing Protection without waiting for candle close.
+   */
+  public async evaluateActivePositionsRisk() {
+    if (this.state !== 'TRADING') return;
+    const activePositions = this.positionManager.getActivePositions();
+    if (activePositions.length === 0) return;
+
+    try {
+      const config = this.configStore.get();
+      const profile = this.getActiveProfileConfig();
+
+      // Fetch live prices for all active open positions in parallel
+      const fetchPromises = activePositions.map(async (pos) => {
+        try {
+          const instId = pos.symbol.includes('-SWAP') ? pos.symbol : `${pos.symbol}-SWAP`;
+          const res = await fetch(`https://eea.okx.com/api/v5/market/ticker?instId=${instId}`);
+          const data = await res.json();
+          if (data?.code === '0' && Array.isArray(data.data) && data.data.length > 0) {
+            const px = parseFloat(data.data[0].last || '0');
+            if (px > 0) {
+              this.latestPrices[pos.symbol] = px;
+            }
+          }
+        } catch (e) {
+          // ignore transient fetch failure, fallback to existing cached price
+        }
+      });
+
+      await Promise.all(fetchPromises);
+
+      // Evaluate risk & price excursion on live prices
+      const unrealizedPnl = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+      const currentWallet = parseFloat((this.currentEquity - unrealizedPnl).toFixed(2));
+
+      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
+        profitVault: config.profitVault || 0,
+        baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
+        lockProfitVault: Boolean(config.lockProfitVault),
+        marketRegime: this.marketRegime,
+        accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+        accountBalance: currentWallet,
+        onVaultProfitLocked: (lockedAmount, totalVault) => {
+          this.handleVaultProfitLocked(lockedAmount, totalVault);
+        },
+      });
+
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.orderStore.save(this.orderManager.getOrders());
+    } catch (err: any) {
+      console.warn('[TradeBot] Fast position risk evaluation warning:', err.message || err);
+    }
   }
 
   /**
@@ -650,6 +713,8 @@ export class TradeBot {
             {
               operatingEquity,
               profitVault,
+              marketRegime: this.marketRegime,
+              excludedSymbols: config.scannerFilter?.excludedSymbols || ['CAP', 'ONDO', 'NIGHT', 'ARX', 'GPS', 'ZAMA'],
             }
           );
 
@@ -665,6 +730,10 @@ export class TradeBot {
             continue;
           }
 
+          const currentPositions = this.positionManager.getActivePositions();
+          const unrealizedPnlTotal = currentPositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+          const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+
           // Order Manager: Execute via active Execution Adapter (PAPER or TESTNET)
           const executionResult = await this.orderManager.executeSignalOrder({
             signal,
@@ -672,6 +741,10 @@ export class TradeBot {
             currentPrice: signal.currentPrice || candidate.price,
             profile: config.activeProfile,
             marketRegime: this.marketRegime,
+            accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+            accountBalance: currentWalletBalance,
+            openPositionsCount: currentPositions.length,
+            leverage: (config.maxLeverage || 1).toString() + 'x',
           });
 
           if (executionResult.success) {
@@ -682,11 +755,18 @@ export class TradeBot {
         }
       }
 
-      // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss)
+      const activePositionsBeforeExits = this.positionManager.getActivePositions();
+      const currentUnrealizedPnl = activePositionsBeforeExits.reduce((acc, p) => acc + (p.pnl || 0), 0);
+      const currentWallet = parseFloat((this.currentEquity - currentUnrealizedPnl).toFixed(2));
+
+      // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss / Time-stop)
       await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
         profitVault: config.profitVault || 0,
         baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
         lockProfitVault: Boolean(config.lockProfitVault),
+        marketRegime: this.marketRegime,
+        accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+        accountBalance: currentWallet,
         onVaultProfitLocked: (lockedAmount, totalVault) => {
           this.handleVaultProfitLocked(lockedAmount, totalVault);
         },
@@ -1221,6 +1301,14 @@ export class TradeBot {
     return invert;
   }
 
+  public getEquityProtectionEvents() {
+    return this.positionManager.getEquityProtectionEvents();
+  }
+
+  public clearEquityProtectionEvents() {
+    this.positionManager.clearEquityProtectionEvents();
+  }
+
   public async executeManualOrder(
     symbol: string,
     side: 'BUY' | 'SELL',
@@ -1249,12 +1337,17 @@ export class TradeBot {
 
     const profile = this.getActiveProfileConfig();
     const activePositions = this.positionManager.getActivePositions();
-    if (activePositions.length >= profile.maxOpenPositions) {
-      return { success: false, error: `Maximum open positions reached (${profile.maxOpenPositions})` };
+    const riskPct = profile.riskPerTradePct || 50;
+    const maxTradesByRisk = Math.max(1, Math.floor(100 / riskPct));
+    const effectiveMaxOpenPositions = Math.min(profile.maxOpenPositions, maxTradesByRisk);
+
+    if (activePositions.length >= effectiveMaxOpenPositions) {
+      return { success: false, error: `Maximum open positions reached for risk setting ${riskPct}% (${activePositions.length}/${effectiveMaxOpenPositions} allowed; max trades by risk: ${maxTradesByRisk})` };
     }
 
-    // Determine size in USDT
-    let sizeUSDT = (this.currentEquity * (profile.riskPerTradePct || 10)) / 100;
+    // Determine size in USDT using net capital (-10% reserve margin) divided by risk/trade pct
+    const netCapital = Math.max(10, this.currentEquity * 0.90);
+    let sizeUSDT = netCapital * (riskPct / 100);
     if (requestedQty && requestedQty > 0) {
       sizeUSDT = requestedQty * price;
     }
@@ -1301,11 +1394,19 @@ export class TradeBot {
     
     this.logAudit('SYSTEM', `Manual close initiated for ${symbol}`);
     
+    const activePositions = this.positionManager.getActivePositions();
+    const unrealizedPnlTotal = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+    const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+
     const result = await this.orderManager.executeCloseOrder({
       position: pos,
       reason: 'MANUAL_CLOSE',
       currentPrice,
       exitReasonDetail: 'Închidere manuală efectuată de Operator din panou',
+      exitMarketRegime: this.marketRegime,
+      accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+      accountBalance: currentWalletBalance,
+      openPositionsCount: activePositions.length,
     });
     
     if (result.success) {

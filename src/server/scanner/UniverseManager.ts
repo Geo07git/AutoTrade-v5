@@ -8,6 +8,9 @@ export interface MarketTickerInfo {
   priceChange24hPct: number;
   highPrice24h: number;
   lowPrice24h: number;
+  bidPx?: number;
+  askPx?: number;
+  spreadPct?: number;
 }
 
 export interface FilteredUniverseResult {
@@ -17,12 +20,14 @@ export interface FilteredUniverseResult {
 }
 
 export const DEFAULT_UNIVERSE_FILTER: UniverseFilterConfig = {
-  min24hVolumeUSDT: 500_000, // 500k USDT 24h turnover minimum
+  min24hVolumeUSDT: 1_500_000, // 1.5M USDT 24h turnover minimum (ensures sufficient market depth)
   max24hVolumeUSDT: 0,       // 0 = no upper limit by default
   minPrice: 0.0001,
   maxSymbols: 500,             // Permitem până la 500 de simboluri
   settleCoin: 'USDT',
   refreshIntervalMs: 15 * 60 * 1000, // 15 minutes
+  maxSpreadPct: 0.15, // 0.15% maximum bid-ask spread
+  excludedSymbols: ['CAP', 'ONDO', 'NIGHT', 'ARX', 'GPS', 'ZAMA'],
 };
 
 export class UniverseManager {
@@ -150,6 +155,11 @@ export class UniverseManager {
             const priceChange24hPct = open24h > 0 ? ((lastPrice - open24h) / open24h) * 100 : 0;
             const highPrice24h = parseFloat(item.high24h || '0');
             const lowPrice24h = parseFloat(item.low24h || '0');
+            const bidPx = parseFloat(item.bidPx || '0');
+            const askPx = parseFloat(item.askPx || '0');
+            const spreadPct = (bidPx > 0 && askPx > 0 && lastPrice > 0)
+              ? parseFloat((((askPx - bidPx) / lastPrice) * 100).toFixed(4))
+              : 0;
 
             if (symbol && lastPrice > 0) {
               tickersMap[symbol] = {
@@ -160,6 +170,9 @@ export class UniverseManager {
                 priceChange24hPct,
                 highPrice24h,
                 lowPrice24h,
+                bidPx: bidPx > 0 ? bidPx : undefined,
+                askPx: askPx > 0 ? askPx : undefined,
+                spreadPct,
               };
             }
           }
@@ -179,6 +192,12 @@ export class UniverseManager {
               const turnover24hUSDT = parseFloat(item.volCcy24h || '0');
               const open24h = parseFloat(item.open24h || '0');
               const priceChange24hPct = open24h > 0 ? ((lastPrice - open24h) / open24h) * 100 : 0;
+              const bidPx = parseFloat(item.bidPx || '0');
+              const askPx = parseFloat(item.askPx || '0');
+              const spreadPct = (bidPx > 0 && askPx > 0 && lastPrice > 0)
+                ? parseFloat((((askPx - bidPx) / lastPrice) * 100).toFixed(4))
+                : 0;
+
               if (symbol && lastPrice > 0) {
                 tickersMap[symbol] = {
                   symbol,
@@ -188,6 +207,9 @@ export class UniverseManager {
                   priceChange24hPct,
                   highPrice24h: parseFloat(item.high24h || '0'),
                   lowPrice24h: parseFloat(item.low24h || '0'),
+                  bidPx: bidPx > 0 ? bidPx : undefined,
+                  askPx: askPx > 0 ? askPx : undefined,
+                  spreadPct,
                 };
               }
             }
@@ -203,7 +225,7 @@ export class UniverseManager {
   }
 
   /**
-   * Filters the dynamic universe according to liquidity, price, and volume limits.
+   * Filters the dynamic universe according to liquidity, price, spread, and exclusion limits.
    */
   public async getFilteredUniverse(
     filterConfig: UniverseFilterConfig = DEFAULT_UNIVERSE_FILTER
@@ -216,10 +238,27 @@ export class UniverseManager {
 
     // 3. Filter symbols
     const eligibleWithVolume: Array<{ symbol: string; volume: number }> = [];
+    const excludedTokens = filterConfig.excludedSymbols || ['CAP', 'ONDO', 'NIGHT', 'ARX', 'GPS', 'ZAMA'];
 
     for (const symbol of universe) {
       const ticker = tickersMap[symbol];
       if (!ticker) continue;
+
+      // Exclusion filter: exclude tokens with consistent losses or toxic flow
+      const baseSymbol = symbol.replace('-USDT-SWAP', '').replace('USDT', '').toUpperCase();
+      const isBlacklisted = excludedTokens.some((token) => {
+        const clean = token.toUpperCase().trim();
+        return baseSymbol === clean || baseSymbol.startsWith(clean) || symbol.toUpperCase().includes(clean);
+      });
+      if (isBlacklisted) {
+        continue;
+      }
+
+      // Spread filter: protect against wide bid-ask slippage
+      const maxSpread = filterConfig.maxSpreadPct !== undefined ? filterConfig.maxSpreadPct : 0.15;
+      if (maxSpread > 0 && ticker.spreadPct !== undefined && ticker.spreadPct > maxSpread) {
+        continue; // Discard instruments with wide spread > 0.15%
+      }
 
       if (ticker.lastPrice < filterConfig.minPrice) {
         continue;

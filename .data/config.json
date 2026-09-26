@@ -14,11 +14,21 @@
     "SOL-USDT-SWAP"
   ],
   "scannerFilter": {
-    "min24hVolumeUSDT": 2500000,
+    "min24hVolumeUSDT": 1500000,
+    "max24hVolumeUSDT": 0,
     "minPrice": 0.0001,
-    "maxSymbols": 100,
+    "maxSymbols": 50,
     "settleCoin": "USDT",
-    "refreshIntervalMs": 900000
+    "refreshIntervalMs": 900000,
+    "maxSpreadPct": 0.15,
+    "excludedSymbols": [
+      "CAP",
+      "ONDO",
+      "NIGHT",
+      "ARX",
+      "GPS",
+      "ZAMA"
+    ]
   },
   "profiles": {
     "SCALP": {
@@ -27,20 +37,22 @@
         "15",
         "60"
       ],
-      "riskPerTradePct": 25,
-      "maxOpenPositions": 20,
-      "trailingActivationPct": 1.5,
-      "trailingDistancePct": 0.55,
+      "riskPerTradePct": 50,
+      "maxOpenPositions": 2,
+      "trailingActivationPct": 1.1,
+      "trailingDistancePct": 0.35,
       "breakEvenActivationPct": 5,
       "takeProfitPct": 20,
-      "hardStopLossPct": 10,
-      "equityProtectionActivationPct": 1.3,
-      "equityTrailingDrawdownPct": 0.25,
-      "minMomentumScore": 67,
-      "maxMomentumScore": 82,
-      "maxHoldingTimeMinutes": 119,
-      "cooldownMinutes": 5,
-      "sentimentThreshold": 5
+      "hardStopLossPct": 3.5,
+      "equityProtectionActivationPct": 1.9,
+      "equityTrailingDrawdownPct": 0.3,
+      "minMomentumScore": 50,
+      "maxMomentumScore": 71,
+      "maxHoldingTimeMinutes": 45,
+      "cooldownMinutes": 0,
+      "sentimentThreshold": 5,
+      "min24hVolumeUSDT": 1500000,
+      "max24hVolumeUSDT": 0
     },
     "MOMENTUM": {
       "type": "MOMENTUM",
@@ -50,21 +62,21 @@
       ],
       "riskPerTradePct": 10,
       "maxOpenPositions": 10,
-      "trailingActivationPct": 2,
-      "trailingDistancePct": 0.6,
+      "trailingActivationPct": 1.8,
+      "trailingDistancePct": 0.5,
       "breakEvenActivationPct": 1,
       "takeProfitPct": 6,
-      "hardStopLossPct": 2,
+      "hardStopLossPct": 3.5,
       "equityProtectionActivationPct": 3,
       "equityTrailingDrawdownPct": 2,
       "minMomentumScore": 75,
       "maxMomentumScore": 82,
-      "maxHoldingTimeMinutes": 240,
+      "maxHoldingTimeMinutes": 45,
       "cooldownMinutes": 60,
       "sentimentThreshold": 2
     }
   },
   "lockProfitVault": true,
-  "baseCapital": 204.13,
-  "profitVault": 0
+  "baseCapital": 200,
+  "profitVault": 8.36
 }
