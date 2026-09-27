@@ -286,7 +286,9 @@ export class MomentumEngine {
       side = mom >= 0 ? 'BUY' : 'SELL';
     }
 
-    const htfAligned = (side === 'BUY' && htfTrend === 'BULLISH') || (side === 'SELL' && htfTrend === 'BEARISH');
+    // HTF Alignment: Valid as long as HTF is not in strict opposite direction
+    const isOpposingHtf = (side === 'BUY' && htfTrend === 'BEARISH') || (side === 'SELL' && htfTrend === 'BULLISH');
+    const htfAligned = !isOpposingHtf;
 
     // Directional Magnitude of Momentum (|mom|)
     const absMom = Math.abs(mom);

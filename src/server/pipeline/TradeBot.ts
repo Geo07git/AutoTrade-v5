@@ -12,6 +12,8 @@ import {
   UniverseFilterConfig,
   ScannedOpportunity,
   ScannerStats,
+  SymbolRollingStats,
+  SymbolStatsSummary,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { OKXAdapter } from '../exchange/OKXAdapter';
@@ -24,6 +26,7 @@ import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { MarketScanner } from '../scanner/MarketScanner';
 import { telegramService } from '../telegram/TelegramService';
+import { SymbolStatsTracker } from '../stats/SymbolStatsTracker';
 
 const DEFAULT_CONFIG: AppConfig = {
   executionMode: 'PAPER', // Default safe mode: Full simulation without OKX API keys
@@ -57,6 +60,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
+    stagnationTimeMinutes: 30, // Time-stop eșalonat la minutul 30 dacă nu există progres
+    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la min 30
     cooldownMinutes: 0,
     sentimentThreshold: 5.0,
   },
@@ -77,6 +82,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
+    stagnationTimeMinutes: 30, // Time-stop eșalonat la minutul 30 dacă nu există progres
+    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la min 30
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
   },
@@ -96,6 +103,7 @@ export class TradeBot {
   private riskEngine: RiskEngine;
   private positionManager: PositionManager;
   private orderManager: OrderManager;
+  private symbolStatsTracker: SymbolStatsTracker;
 
   private universeManager: UniverseManager;
   private marketScanner: MarketScanner;
@@ -208,6 +216,11 @@ export class TradeBot {
 
     const savedOrders = this.orderStore.get() || [];
     this.orderManager.setOrders(savedOrders);
+
+    // Instantiate and link SymbolStatsTracker (Rolling 30 trades per symbol)
+    this.symbolStatsTracker = new SymbolStatsTracker();
+    this.orderManager.setSymbolStatsTracker(this.symbolStatsTracker);
+    this.symbolStatsTracker.bootstrapFromOrders(savedOrders);
 
     // Initialize equityHistory with initial points if empty
     const now = Date.now();
@@ -510,7 +523,9 @@ export class TradeBot {
 
       // Evaluate risk & price excursion on live prices
       const unrealizedPnl = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
-      const currentWallet = parseFloat((this.currentEquity - unrealizedPnl).toFixed(2));
+      const currentWallet = this.activeAdapter.getWalletBalance
+        ? await this.activeAdapter.getWalletBalance()
+        : parseFloat((this.currentEquity - unrealizedPnl).toFixed(2));
 
       await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
         profitVault: config.profitVault || 0,
@@ -603,7 +618,7 @@ export class TradeBot {
 
       // Filter eligible candidates meeting momentum score window [min, max] and 24h volume window [min, max], sorted by score descending
       const eligibleCandidates = scannedOpportunities.filter((opp) => {
-        if (!opp.isEligible) return false;
+        if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 60) && opp.score <= (profile.maxMomentumScore || 82))) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
         if (profile.maxMomentumScore && opp.score > profile.maxMomentumScore) return false;
         if (profile.min24hVolumeUSDT && profile.min24hVolumeUSDT > 0 && opp.volume24hUSDT < profile.min24hVolumeUSDT) return false;
@@ -732,7 +747,24 @@ export class TradeBot {
 
           const currentPositions = this.positionManager.getActivePositions();
           const unrealizedPnlTotal = currentPositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
-          const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+          const currentWalletBalance = this.activeAdapter.getWalletBalance
+            ? await this.activeAdapter.getWalletBalance()
+            : parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+
+          // Feedback Multiplier based on rolling MFE >= 1.5% Hit-rate
+          if (this.symbolStatsTracker.isMultiplierActive()) {
+            const symMult = this.symbolStatsTracker.getSizeMultiplier(symbol);
+            if (symMult !== 1.0) {
+              const prevSize = riskApproval.sizeUSDT;
+              riskApproval.sizeUSDT = parseFloat(Math.max(5, prevSize * symMult).toFixed(2));
+              this.logAudit('SIGNAL_GENERATED', `[SYMBOL ROLLING MULTIPLIER] Dinamic Sizing pentru ${symbol}: $${prevSize} ➔ $${riskApproval.sizeUSDT} (${symMult}x pe baza MFE ≥ 1.5% Hit-rate)`, {
+                symbol,
+                originalSize: prevSize,
+                adjustedSize: riskApproval.sizeUSDT,
+                multiplier: symMult,
+              });
+            }
+          }
 
           // Order Manager: Execute via active Execution Adapter (PAPER or TESTNET)
           const executionResult = await this.orderManager.executeSignalOrder({
@@ -757,7 +789,9 @@ export class TradeBot {
 
       const activePositionsBeforeExits = this.positionManager.getActivePositions();
       const currentUnrealizedPnl = activePositionsBeforeExits.reduce((acc, p) => acc + (p.pnl || 0), 0);
-      const currentWallet = parseFloat((this.currentEquity - currentUnrealizedPnl).toFixed(2));
+      const currentWallet = this.activeAdapter.getWalletBalance
+        ? await this.activeAdapter.getWalletBalance()
+        : parseFloat((this.currentEquity - currentUnrealizedPnl).toFixed(2));
 
       // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss / Time-stop)
       await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
@@ -1275,7 +1309,7 @@ export class TradeBot {
       marketRegime: this.marketRegime,
       marketSentiment: this.marketSentiment,
       marketSentimentScore: this.marketSentimentScore,
-      telegramActive: telegramService.isConfigured(),
+      telegramActive: telegramService.isConfigured() && telegramService.isNotificationsEnabled(),
       telegramStatus: telegramService.getCredentialsStatus(),
       equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity, profitVault),
     };
@@ -1514,6 +1548,34 @@ export class TradeBot {
 
   public getState(): BotState {
     return this.state;
+  }
+
+  public getSymbolStatsTracker(): SymbolStatsTracker {
+    return this.symbolStatsTracker;
+  }
+
+  public getSymbolStats(): SymbolRollingStats[] {
+    return this.symbolStatsTracker.getAllStats();
+  }
+
+  public getSymbolStatsSummary(): SymbolStatsSummary {
+    return this.symbolStatsTracker.getSummary(this.positionManager.getActivePositions());
+  }
+
+  public recalculateSymbolStats(): SymbolStatsSummary {
+    this.symbolStatsTracker.recalculateFromOrders(this.orderManager.getOrders());
+    this.logAudit('SYSTEM', 'Symbol performance rolling stats recalculate executed across all historic orders.');
+    return this.symbolStatsTracker.getSummary(this.positionManager.getActivePositions());
+  }
+
+  public toggleSymbolMultiplier(enabled?: boolean): boolean {
+    const newState = enabled !== undefined ? enabled : !this.symbolStatsTracker.isMultiplierActive();
+    this.symbolStatsTracker.setMultiplierActive(newState);
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `Feedback Multiplier pe Simbol a fost ${newState ? 'ACTIVAT' : 'DEZACTIVAT'} (interpolare liniară simetrică continuă: 0.50x la 0% hit ➔ 1.50x la 100% hit, prag n≥8).`
+    );
+    return newState;
   }
 }
 

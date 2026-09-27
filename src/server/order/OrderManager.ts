@@ -1,5 +1,6 @@
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { PositionManager } from '../position/PositionManager';
+import { SymbolStatsTracker } from '../stats/SymbolStatsTracker';
 import {
   TradeSignal,
   RiskApproval,
@@ -18,17 +19,28 @@ export class OrderManager {
   private executionMode: ExecutionMode;
   private orders: Map<string, OrderRecord> = new Map();
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
+  private symbolStatsTracker?: SymbolStatsTracker;
 
   constructor(
     exchange: IExecutionAdapter,
     positionManager: PositionManager,
     auditLogger: (type: AuditLogType, message: string, details?: any) => void,
-    executionMode: ExecutionMode = 'TESTNET'
+    executionMode: ExecutionMode = 'TESTNET',
+    symbolStatsTracker?: SymbolStatsTracker
   ) {
     this.exchange = exchange;
     this.positionManager = positionManager;
     this.auditLogger = auditLogger;
     this.executionMode = executionMode;
+    this.symbolStatsTracker = symbolStatsTracker;
+  }
+
+  public setSymbolStatsTracker(tracker: SymbolStatsTracker) {
+    this.symbolStatsTracker = tracker;
+  }
+
+  public getSymbolStatsTracker(): SymbolStatsTracker | undefined {
+    return this.symbolStatsTracker;
   }
 
   public setExecutionAdapter(adapter: IExecutionAdapter, mode: ExecutionMode) {
@@ -208,6 +220,7 @@ export class OrderManager {
         side: orderSide,
         orderType: 'Market',
         qty: formattedQty,
+        price: currentPrice,
         orderLinkId: clientOrderId,
       });
 
@@ -232,6 +245,24 @@ export class OrderManager {
       }
 
       if (confirmed && (currentStatus === 'FILLED' || currentStatus === 'PARTIALLY_FILLED')) {
+        try {
+          const postEntryEquity = await this.exchange.getEquity();
+          const postEntryBalance = this.exchange.getWalletBalance
+            ? await this.exchange.getWalletBalance()
+            : (accountBalance !== undefined ? parseFloat((accountBalance - (orderRecord.cumFee || 0)).toFixed(2)) : undefined);
+
+          if (postEntryEquity > 0) {
+            orderRecord.accountEquity = postEntryEquity;
+          }
+          if (postEntryBalance !== undefined) {
+            orderRecord.accountBalance = postEntryBalance;
+          }
+          orderRecord.openPositionsCount = this.positionManager.getActivePositions().length;
+          this.orders.set(clientOrderId, orderRecord);
+        } catch (e) {
+          // ignore error updating post-entry telemetry
+        }
+
         return { success: true, order: orderRecord };
       } else {
         // Order accepted but still waiting for fill confirmation
@@ -352,6 +383,8 @@ export class OrderManager {
       openPositionsCount: resolvedOpenCount,
       maePct: position.maePct,
       mfePct: position.mfePct,
+      timeToMfe15Minutes: position.timeToMfe15Minutes,
+      isFastRunner: position.isFastRunner,
       accountEquity,
       accountBalance,
     };
@@ -382,6 +415,7 @@ export class OrderManager {
         side: orderSide,
         orderType: 'Market',
         qty: formattedQty,
+        price: estPrice,
         orderLinkId: clientOrderId,
         reduceOnly: true,
       });
@@ -437,6 +471,52 @@ export class OrderManager {
         closeOrder.realizedPnl = pnl;
         closeOrder.realizedPnlPct = pnlPct;
 
+        try {
+          const postCloseEquity = await this.exchange.getEquity();
+          const postCloseBalance = this.exchange.getWalletBalance
+            ? await this.exchange.getWalletBalance()
+            : (accountBalance !== undefined ? parseFloat((accountBalance + pnl - totalFees).toFixed(2)) : undefined);
+
+          if (postCloseEquity > 0) {
+            closeOrder.accountEquity = postCloseEquity;
+          }
+          if (postCloseBalance !== undefined) {
+            closeOrder.accountBalance = postCloseBalance;
+          }
+          closeOrder.openPositionsCount = this.positionManager.getActivePositions().length;
+          this.orders.set(clientOrderId, closeOrder);
+        } catch (e) {
+          // ignore error updating post-close telemetry
+        }
+
+        // Record trade in persistent SymbolStatsTracker rolling window
+        if (this.symbolStatsTracker) {
+          const mfeVal = position.mfePct !== undefined ? position.mfePct : (closedPos?.mfePct ?? 0);
+          const maeVal = position.maePct !== undefined ? position.maePct : (closedPos?.maePct ?? 0);
+          const timeToMfeVal = position.timeToMfe15Minutes !== undefined
+            ? position.timeToMfe15Minutes
+            : (closeOrder.holdingTimeMinutes !== undefined && closeOrder.holdingTimeMinutes <= 5.0 && mfeVal >= 1.5 ? closeOrder.holdingTimeMinutes : undefined);
+          const isFast = position.isFastRunner !== undefined
+            ? position.isFastRunner
+            : (Boolean(timeToMfeVal !== undefined && timeToMfeVal <= 5.0) || (closeOrder.holdingTimeMinutes !== undefined && closeOrder.holdingTimeMinutes <= 5.0 && mfeVal >= 1.5));
+
+          this.symbolStatsTracker.recordClosedTrade({
+            positionId: position.id,
+            symbol: position.symbol,
+            pnl,
+            pnlPct,
+            mfePct: mfeVal,
+            maePct: maeVal,
+            holdingTimeMinutes: closeOrder.holdingTimeMinutes,
+            timeToMfe15Minutes: timeToMfeVal,
+            isFastRunner: isFast,
+            exitTime,
+            hitMfe15: mfeVal >= 1.5,
+            isWin: pnl > 0,
+            intent: reason,
+          });
+        }
+
         this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
           positionId: position.id,
           symbol: position.symbol,
@@ -449,9 +529,9 @@ export class OrderManager {
           mfePct: position.mfePct,
           marketRegimeAtEntry: position.marketRegime,
           marketRegimeAtExit: exitMarketRegime,
-          accountEquity,
-          accountBalance,
-          openPositionsCount: resolvedOpenCount,
+          accountEquity: closeOrder.accountEquity,
+          accountBalance: closeOrder.accountBalance,
+          openPositionsCount: closeOrder.openPositionsCount,
           leverage: position.leverage || '1x',
           signalScore: position.signalScore,
           entryFee: closedPos?.entryFee,

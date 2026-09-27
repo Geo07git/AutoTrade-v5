@@ -51,8 +51,14 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Bell,
+  BellOff,
+  BookOpen,
 } from 'lucide-react';
 import { TradingViewChart } from './TradingViewChart';
+import { SymbolStatsView } from './SymbolStatsView';
+import { UserManualModal } from './UserManualModal';
+import { downloadUserManualPdf } from '../utils/generateManualPdf';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -116,7 +122,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
 
-  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART'>('PORT');
+  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM'>('PORT');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
 
   // OKX Gateway & Mode Switch State
@@ -137,6 +143,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [okxSaveMessage, setOkxSaveMessage] = useState<string | null>(null);
   const [showLiveConfirm, setShowLiveConfirm] = useState<boolean>(false);
   const [liveDisclaimerChecked, setLiveDisclaimerChecked] = useState<boolean>(false);
+  const [showManualModal, setShowManualModal] = useState<boolean>(false);
 
   const toggleExpandPosition = (id: string) => {
     setExpandedPositionIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -456,16 +463,43 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <Send className="w-4 h-4 text-sky-400" />
             <span>CONFIGURARE TELEGRAM BOT &amp; CANAL / CHAT</span>
           </span>
-          <div className="flex items-center space-x-2 text-[11px] font-mono">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+            {isConfigured && (
+              <button
+                type="button"
+                onClick={handleToggleTelegramNotifications}
+                className={`px-2.5 py-1 rounded font-bold flex items-center space-x-1.5 transition-all shadow cursor-pointer border ${
+                  isTelegramNotificationsEnabled
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
+                    : 'bg-rose-950 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
+                }`}
+                title="Comută notificările Telegram ON / OFF (Mod Noapte)"
+              >
+                {isTelegramNotificationsEnabled ? (
+                  <>
+                    <Bell className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>NOTIFICĂRI: ACTIVE (ON)</span>
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="w-3.5 h-3.5 text-rose-400" />
+                    <span>NOTIFICĂRI: OPRITE (OFF / NOAPTE)</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <span className={`px-2 py-0.5 rounded border ${
               isConfigured
-                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60'
+                ? (isTelegramNotificationsEnabled ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60' : 'bg-rose-950/80 text-rose-300 border-rose-500/60')
                 : hasToken
                 ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
                 : 'bg-zinc-900 text-zinc-400 border-zinc-700'
             }`}>
               {isConfigured
-                ? `● ACTIV & CONECTAT ${botNameOrUser ? `(@${botNameOrUser})` : ''}`
+                ? (isTelegramNotificationsEnabled
+                    ? `● ACTIV & CONECTAT ${botNameOrUser ? `(@${botNameOrUser})` : ''}`
+                    : `🔕 MUTE / MOD NOAPTE ${botNameOrUser ? `(@${botNameOrUser})` : ''}`)
                 : hasToken
                 ? '○ TOKEN PREZENT (LIPSEȘTE CANAL/CHAT ID)'
                 : '○ NECONFIGURAT / STANDBY'}
@@ -1315,6 +1349,33 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
+  const isTelegramConfigured = Boolean(status?.telegramStatus?.configured || (status?.telegramStatus?.hasToken && status?.telegramStatus?.hasChatId));
+  const isTelegramNotificationsEnabled = status?.telegramStatus?.notificationsEnabled !== false;
+
+  const handleToggleTelegramNotifications = async () => {
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/telegram/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+        body: JSON.stringify({ enabled: !isTelegramNotificationsEnabled }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onRefresh();
+        setLocalAlert({
+          type: data.enabled ? 'success' : 'info',
+          message: data.message || (data.enabled ? 'Notificările Telegram au fost PORNITE.' : 'Notificările Telegram au fost OPRITE (Mod Noapte/Silențios).'),
+        });
+      }
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la comutarea notificărilor Telegram: ' + (err.message || 'Eroare conexiune'),
+      });
+    }
+  };
+
   const handleLockProfitNow = async () => {
     try {
       const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
@@ -1407,6 +1468,375 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const currentSentimentThreshold = profileConfig?.sentimentThreshold ?? 1.5;
   const isBullishSentiment = (status?.marketSentiment?.includes('BULLISH') || sentimentScore >= currentSentimentThreshold);
   const isBearishSentiment = (status?.marketSentiment?.includes('BEARISH') || sentimentScore <= -currentSentimentThreshold);
+
+  const renderOpenPositionsContent = (badgePrefix: string = 'F2') => (
+    <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
+      {/* Frozen Header for POS */}
+      <div className="sticky top-0 z-10 bg-zinc-950 pb-1 shrink-0">
+        <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
+          <div className="flex items-center space-x-2">
+            <Activity className="w-4 h-4 text-amber-500" />
+            <span className="font-bold text-xs sm:text-sm tracking-wider text-amber-400">
+              {badgePrefix === 'PORT' ? 'OPEN POSITIONS & ACTIVE EXPOSURE' : `${badgePrefix}: OPEN POSITIONS & ACTIVE EXPOSURE`}
+            </span>
+            <span className="text-[10px] sm:text-xs bg-amber-950 text-amber-300 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/40 font-mono">
+              {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-xs font-mono">
+            <span className="text-zinc-400">
+              Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
+            </span>
+            <span className="text-zinc-400">
+              PnL Nerealizat:{' '}
+              <strong className={unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Instructions banner */}
+        <div className="bg-black/60 border border-amber-500/20 rounded px-2.5 py-1.5 mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
+          <div className="flex items-center space-x-1.5">
+            <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>Apasă pe oricare poziție pentru a extinde detaliile complete (preț actual, minute deținere, stare trailing).</span>
+          </div>
+          {positions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const allExpanded = positions.every((p) => expandedPositionIds[p.id]);
+                const newMap: Record<string, boolean> = {};
+                if (!allExpanded) {
+                  positions.forEach((p) => { newMap[p.id] = true; });
+                }
+                setExpandedPositionIds(newMap);
+              }}
+              className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold shrink-0"
+            >
+              {positions.every((p) => expandedPositionIds[p.id]) ? 'Restrânge Toate' : 'Extinde Toate'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {positions.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-12 sm:py-16 space-y-3">
+          <Activity className="w-10 h-10 opacity-30 animate-pulse text-amber-500" />
+          <p className="text-xs sm:text-sm font-bold tracking-wider text-zinc-400 text-center">NU EXISTĂ POZIȚII DESCHISE ÎN ACEST MOMENT</p>
+          <p className="text-[11px] sm:text-xs text-zinc-600 max-w-md text-center">
+            Scannerul OKX monitorizează continuu piața. În momentul în care un activ atinge scorul momentum configurat (&gt;={profileConfig?.minMomentumScore ?? 60}), botul va deschide automat poziția.
+          </p>
+          <button
+            type="button"
+            onClick={() => onTriggerScan()}
+            className="mt-2 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 rounded text-xs font-bold transition-all"
+          >
+            Lansează Scanare Manuală Acum (F3)
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-2 pr-1">
+          {positions.map((pos) => {
+            const isExpanded = !!expandedPositionIds[pos.id];
+            const isProfit = (pos.pnl || 0) >= 0;
+            const curPrice = pos.currentPrice || pos.entryPrice;
+            const holdingMinutes = pos.holdingTimeMinutes !== undefined
+              ? pos.holdingTimeMinutes
+              : parseFloat(((Date.now() - pos.entryTime) / 60000).toFixed(1));
+            
+            // Trailing evaluation
+            const isBuy = pos.side.toUpperCase() === 'BUY';
+            const peakPnlPct = isBuy
+              ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
+              : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
+            const trailingActThreshold = profileConfig?.trailingActivationPct ?? 1.1;
+            const isTrailActive = peakPnlPct >= trailingActThreshold;
+
+            // Break Even evaluation
+            const isBreakEvenActive = isBuy
+              ? (pos.stopLossPrice !== undefined && pos.stopLossPrice > pos.entryPrice)
+              : (pos.stopLossPrice !== undefined && pos.stopLossPrice < pos.entryPrice);
+
+            // State label
+            let stateBadge = {
+              label: isTrailActive ? 'TRAIL ACTIV' : isBreakEvenActive ? 'BE ASIGURAT' : isProfit ? 'ÎN PROFIT' : 'ÎN PIERDERE',
+              bg: isTrailActive
+                ? 'bg-purple-950 text-purple-300 border-purple-500/50'
+                : isBreakEvenActive
+                ? 'bg-blue-950 text-blue-300 border-blue-500/50'
+                : isProfit
+                ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
+                : 'bg-rose-950 text-rose-300 border-rose-500/50'
+            };
+
+            return (
+              <div
+                key={pos.id}
+                className={`rounded border transition-all ${
+                  isExpanded
+                    ? 'bg-zinc-900 border-amber-500/60 shadow-lg shadow-black/40'
+                    : 'bg-zinc-950/80 border-amber-500/20 hover:border-amber-500/40'
+                }`}
+              >
+                {/* Summary Header Row */}
+                <div
+                  onClick={() => toggleExpandPosition(pos.id)}
+                  className="p-2.5 flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <button
+                      type="button"
+                      className="text-amber-400 p-0.5 rounded hover:bg-amber-500/20"
+                      title={isExpanded ? 'Restrânge' : 'Extinde detalii'}
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+
+                    <div>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="font-bold text-amber-300 text-sm font-mono">{pos.symbol}</span>
+                        <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded ${
+                          pos.side === 'BUY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-600/40' : 'bg-rose-950 text-rose-400 border border-rose-600/40'
+                        }`}>
+                          {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
+                        </span>
+                        {pos.isFadeTrade && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-600/60" title="Sub-strategie Fade Climax (>82)">
+                            FADE &gt;82
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadTradingViewChart(pos.symbol);
+                          }}
+                          className="text-[9px] bg-zinc-800 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-400 px-1.5 py-0.2 rounded border border-zinc-700 font-mono"
+                          title="Afișează graficul pe acest simbol"
+                        >
+                          CHART
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-zinc-500 font-mono">
+                        Cant: {pos.qty.toFixed(4)} | Dim: ${pos.sizeUSDT.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Metrics */}
+                  <div className="flex items-center space-x-3 sm:space-x-5 text-xs font-mono">
+                    <div>
+                      <div className="text-[9px] text-zinc-500">PREȚ INTRARE</div>
+                      <div className="font-bold text-zinc-300">${pos.entryPrice.toLocaleString()}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-[9px] text-zinc-500">PREȚ ACTUAL</div>
+                      <div className="font-bold text-white">${curPrice.toLocaleString()}</div>
+                    </div>
+
+                    <div>
+                      <div className="text-[9px] text-zinc-500">PNL NET</div>
+                      <div className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isProfit ? '+' : ''}${pos.pnl?.toFixed(2) || '0.00'} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2) || '0.00'}%)
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[9px] text-zinc-500">DEȚINERE</div>
+                      <div className="text-cyan-400 font-bold flex items-center space-x-0.5">
+                        <Clock className="w-3 h-3 inline-block" />
+                        <span>{Math.floor(holdingMinutes)}m</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[9px] text-zinc-500">STARE</div>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${stateBadge.bg}`}>
+                        {stateBadge.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => onClosePosition(pos.symbol)}
+                        className="bg-rose-900 hover:bg-rose-700 text-white px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors shadow-sm"
+                      >
+                        CLOSE
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Detail Panel */}
+                {isExpanded && (
+                  <div className="border-t border-amber-500/20 bg-black/60 p-3 text-xs font-mono space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {/* Panel 1: Preț Actual & Evoluție */}
+                      <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                        <div className="text-[10px] font-bold text-amber-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                          <span>PREȚ ACTUAL &amp; EXCURSIE</span>
+                          <TrendingUp className="w-3 h-3 text-amber-500" />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Preț Intrare:</span>
+                          <span className="text-zinc-200">${pos.entryPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Preț Actual:</span>
+                          <span className="text-white font-bold">${curPrice.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Diferență Netă:</span>
+                          <span className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isProfit ? '+' : ''}${(curPrice - pos.entryPrice).toFixed(4)} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2)}%)
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Maxim Atins:</span>
+                          <span className="text-emerald-400">${(pos.highestPrice || pos.entryPrice).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Minim Atins:</span>
+                          <span className="text-rose-400">${(pos.lowestPrice || pos.entryPrice).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] pt-1 border-t border-zinc-900">
+                          <span className="text-zinc-400">MAE (Worst DD):</span>
+                          <span className="text-rose-400 font-bold">{pos.maePct !== undefined ? `${pos.maePct}%` : '0.00%'}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-400">MFE (Peak PnL):</span>
+                          <span className="text-emerald-400 font-bold">{pos.mfePct !== undefined ? `+${pos.mfePct}%` : '0.00%'}</span>
+                        </div>
+                      </div>
+
+                      {/* Panel 2: Minute de Deținere & Timing */}
+                      <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                        <div className="text-[10px] font-bold text-cyan-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                          <span>MINUTE DEȚINERE &amp; TIMING</span>
+                          <Clock className="w-3 h-3 text-cyan-400" />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Timp Scurs:</span>
+                          <span className="text-cyan-300 font-bold">{holdingMinutes.toFixed(1)} minute</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Deschis la:</span>
+                          <span className="text-zinc-300">{new Date(pos.entryTime).toLocaleTimeString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Dată intrare:</span>
+                          <span className="text-zinc-400">{new Date(pos.entryTime).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Limită Max Hold:</span>
+                          <span className="text-amber-400">
+                            {profileConfig?.maxHoldingTimeMinutes && profileConfig.maxHoldingTimeMinutes > 0
+                              ? `${profileConfig.maxHoldingTimeMinutes}m (${(profileConfig.maxHoldingTimeMinutes - holdingMinutes).toFixed(1)}m rămase)`
+                              : '45m unificat'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Panel 3: Stare Risc & Trailing */}
+                      <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                        <div className="text-[10px] font-bold text-purple-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                          <span>STARE RISC &amp; TRAILING</span>
+                          <Zap className="w-3 h-3 text-purple-400" />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Trailing Stop:</span>
+                          <span className={`font-bold ${isTrailActive ? 'text-purple-300' : 'text-zinc-500'}`}>
+                            {isTrailActive ? 'ACTIV (URMĂREȘTE)' : 'AȘTEPTARE ACTIVARE'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Prag Activare:</span>
+                          <span className="text-zinc-300">+{trailingActThreshold}% (Vârf: +{peakPnlPct.toFixed(2)}%)</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Distanță Retragere:</span>
+                          <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Break-Even (BE):</span>
+                          <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
+                            {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 5.0}%)`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Hard Stop Loss:</span>
+                          <span className="text-rose-400 font-bold">
+                            {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Panel 4: Financiar & Ordine */}
+                      <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
+                        <div className="text-[10px] font-bold text-emerald-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
+                          <span>FINANCIAR &amp; CONTRACT</span>
+                          <DollarSign className="w-3 h-3 text-emerald-400" />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Valoare Marjă:</span>
+                          <span className="text-amber-400 font-bold">${pos.sizeUSDT.toFixed(2)} USDT</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Comision Intrare:</span>
+                          <span className="text-zinc-300">
+                            {pos.entryFee !== undefined ? `-$${pos.entryFee.toFixed(3)}` : 'Inclus (0.05%)'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">ID Poziție:</span>
+                          <span className="text-zinc-400 font-mono text-[10px]">{pos.id}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Leverage:</span>
+                          <span className="text-amber-400 font-bold">{pos.leverage || '1x'}</span>
+                        </div>
+                        {pos.signalScore !== undefined && (
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-zinc-500">metaScore Intrare:</span>
+                            <span className="text-cyan-300 font-bold">{pos.signalScore.toFixed(1)}/100</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Regim / Profil:</span>
+                          <span className="text-zinc-400">{pos.marketRegime || 'BTC: --'} | {pos.profile}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">Mod Execuție:</span>
+                          <span className="text-amber-400 font-bold">{pos.executionMode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-800 flex justify-end space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => onClosePosition(pos.symbol)}
+                        className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded font-bold text-xs flex items-center space-x-1 shadow"
+                      >
+                        <Square className="w-3 h-3" />
+                        <span>ÎNCHIDE POZIȚIA IMEDIAT (MARKET CLOSE)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`h-screen w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden ${isMonochrome ? 'monochrome' : ''}`}>
@@ -1517,23 +1947,29 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </button>
 
               <button
-                onClick={() => {
-                  setActiveScreen('INFO');
-                  setTimeout(() => {
-                    const el = document.getElementById('telegram-config-card');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }, 50);
-                }}
-                className={`px-2 py-0.5 rounded border flex items-center space-x-1 text-[11px] font-bold transition-colors cursor-pointer ${
-                  status?.telegramActive
+                onClick={handleToggleTelegramNotifications}
+                className={`px-2 py-0.5 rounded border flex items-center space-x-1 text-[11px] font-bold transition-all cursor-pointer ${
+                  !isTelegramNotificationsEnabled
+                    ? 'bg-zinc-900 text-rose-300 border-rose-600/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                    : status?.telegramActive
                     ? 'bg-sky-950 text-sky-300 border-sky-500/60'
                     : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-sky-300'
                 }`}
-                title="Configurare Notificări Telegram"
+                title={
+                  !status?.telegramActive
+                    ? 'Telegram neconfigurat (apasă pentru comutare/configurare)'
+                    : isTelegramNotificationsEnabled
+                    ? 'Notificări Telegram ACTIVE (apasă pentru Mod Noapte / Mute)'
+                    : 'Notificări Telegram OPRITE / NOAPTE (apasă pentru Activare)'
+                }
               >
-                <Send className="w-3 h-3 text-sky-400" />
-                <span>TG</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
+                {isTelegramNotificationsEnabled ? (
+                  <Bell className="w-3 h-3 text-sky-400" />
+                ) : (
+                  <BellOff className="w-3 h-3 text-rose-400" />
+                )}
+                <span>TG: {isTelegramNotificationsEnabled ? 'ON' : 'MUTE'}</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${!isTelegramNotificationsEnabled ? 'bg-rose-500 animate-pulse' : status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
               </button>
             </div>
 
@@ -1648,22 +2084,22 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </button>
 
               <button
-                onClick={() => {
-                  setActiveScreen('INFO');
-                  setTimeout(() => {
-                    const el = document.getElementById('telegram-config-card');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }, 50);
-                }}
+                onClick={handleToggleTelegramNotifications}
                 className={`px-1.5 py-0.5 rounded border flex items-center space-x-0.5 text-[9px] font-bold cursor-pointer ${
-                  status?.telegramActive
+                  !isTelegramNotificationsEnabled
+                    ? 'bg-rose-950 text-rose-300 border-rose-500'
+                    : status?.telegramActive
                     ? 'bg-sky-950 text-sky-300 border-sky-500'
                     : 'bg-black text-zinc-400 border-black/40'
                 }`}
-                title="Telegram"
+                title={
+                  !isTelegramNotificationsEnabled
+                    ? 'Notificări Telegram OPRITE (apasă pentru Activare)'
+                    : 'Notificări Telegram ACTIVE (apasă pentru Mod Noapte / Mute)'
+                }
               >
-                <span>TG</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
+                <span>{isTelegramNotificationsEnabled ? 'TG:ON' : 'TG:MUTE'}</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${!isTelegramNotificationsEnabled ? 'bg-rose-500' : status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
               </button>
 
               {/* Refresh Button */}
@@ -1722,9 +2158,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </header>
 
         {/* UNIFIED ACTIVE PROTOCOLS RIBBON (STRICT SINGLE LINE ON MOBILE & DESKTOP) */}
-        {(status?.config?.invertSignals || isVaultActive || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
+        {(status?.config?.invertSignals || isVaultActive || !isTelegramNotificationsEnabled || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
           <div className="w-full max-w-full min-w-0 bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[9px] sm:text-[11px] font-mono flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 shadow-md overflow-x-auto terminal-scrollbar-x whitespace-nowrap select-none">
             <div className="flex flex-row flex-nowrap items-center space-x-1 sm:space-x-1.5 shrink min-w-0">
+              {/* Telegram Muted Status Pill */}
+              {!isTelegramNotificationsEnabled && (
+                <div className="flex flex-row flex-nowrap items-center space-x-1 bg-rose-950/80 border border-rose-500/50 px-1.5 py-0.5 rounded text-rose-200 shrink-0">
+                  <BellOff className="w-3 h-3 text-rose-400 shrink-0" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-rose-300">TG: MUTE</span>
+                  <span className="text-[9px] sm:text-[10px] hidden sm:inline">(Alerte oprite)</span>
+                  <button
+                    onClick={handleToggleTelegramNotifications}
+                    className="ml-0.5 text-[9px] text-rose-300 hover:text-white underline cursor-pointer font-bold"
+                    title="Pornește alertele Telegram"
+                  >
+                    [ACTIVEAZĂ]
+                  </button>
+                </div>
+              )}
+
               {/* Fade Status Pill */}
               {status?.config?.invertSignals && (
                 <div className="flex flex-row flex-nowrap items-center space-x-1 bg-purple-950/80 border border-purple-500/50 px-1.5 py-0.5 rounded text-purple-200 shrink-0">
@@ -1903,6 +2355,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveScreen('SYM')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'SYM' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
+              }`}
+              title="Analiză rolling pe simbol: Hit-rate MFE ≥ 1.5%, winrate și feedback multiplier"
+            >
+              <span>[SYM]</span>
+              <span className="hidden sm:inline">Analiză Simbol (MFE)</span>
+            </button>
+
+            <button
               onClick={() => setActiveScreen('BLOT')}
               className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
                 activeScreen === 'BLOT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
@@ -1930,6 +2393,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             >
               <span>[6:INFO]</span>
               <span className="hidden sm:inline">{lang === 'EN' ? 'App Info & Build' : 'Info & Executabil'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowManualModal(true)}
+              className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-all flex items-center space-x-1 sm:space-x-1.5 shrink-0 bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 hover:shadow-[0_0_10px_rgba(245,158,11,0.3)] cursor-pointer"
+              title="Deschide și descarcă Manualul complet de utilizare în format PDF"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>[📖 MANUAL PDF]</span>
             </button>
 
             {/* MOBILE ONLY: CHART BUTTON */}
@@ -1986,9 +2459,26 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </button>
             </div>
 
-            {/* Telegram Status & Quick Action */}
+            {/* Telegram Status & Quick Action (Lângă Kill Switch) */}
             <button
+              type="button"
               onClick={async () => {
+                if (!isTelegramConfigured) {
+                  setActiveScreen('SET');
+                  setLocalAlert({
+                    type: 'info',
+                    title: 'Configurare Telegram',
+                    message: 'Introduceți Bot Token și Chat ID în secțiunea de mai jos.',
+                  });
+                  return;
+                }
+
+                if (!isTelegramNotificationsEnabled) {
+                  await handleToggleTelegramNotifications();
+                  return;
+                }
+
+                // If active and configured, send hourly test report
                 setTelegramTesting(true);
                 try {
                   const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
@@ -2011,15 +2501,48 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 }
               }}
               disabled={telegramTesting}
-              className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors flex items-center space-x-1 shrink-0 ${
-                status?.telegramActive
-                  ? 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
-                  : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
+              className={`px-2 py-1 rounded text-[11px] font-bold border transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer ${
+                !isTelegramConfigured
+                  ? 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
+                  : !isTelegramNotificationsEnabled
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/70 hover:bg-rose-900 shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse'
+                  : 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
               }`}
-              title="Apasă pentru a trimite un raport orar de test pe Telegram"
+              title={
+                !isTelegramConfigured
+                  ? 'Telegram este în așteptare / neconfigurat. Apasă pentru a merge la setări.'
+                  : !isTelegramNotificationsEnabled
+                  ? 'Alerte Telegram OPRITE (MUTE / Mod Noapte). Apasă pentru a le PORNI (ACTIV).'
+                  : 'Telegram este ACTIV. Apasă pentru a trimite un raport orar de test.'
+              }
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>{telegramTesting ? 'TRIMIT...' : status?.telegramActive ? 'TG: ACTIV' : 'TG: STANDBY'}</span>
+              {telegramTesting ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              ) : !isTelegramConfigured ? (
+                <Send className="w-3.5 h-3.5 text-zinc-500" />
+              ) : !isTelegramNotificationsEnabled ? (
+                <BellOff className="w-3.5 h-3.5 text-rose-400" />
+              ) : (
+                <Send className="w-3.5 h-3.5 text-sky-400" />
+              )}
+              <span>
+                {telegramTesting
+                  ? 'TRIMIT...'
+                  : !isTelegramConfigured
+                  ? 'TG: STANDBY'
+                  : !isTelegramNotificationsEnabled
+                  ? 'TG: MUTE'
+                  : 'TG: ACTIV'}
+              </span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  !isTelegramConfigured
+                    ? 'bg-zinc-600'
+                    : !isTelegramNotificationsEnabled
+                    ? 'bg-rose-500'
+                    : 'bg-sky-400 animate-pulse'
+                }`}
+              />
             </button>
 
             {/* Kill Switch */}
@@ -2097,8 +2620,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       <main className="flex-1 min-h-0 p-2 bg-black flex flex-col gap-2 overflow-hidden">
         {/* UPPER ROW: LEFT ACTIVE SCREEN + RIGHT TRADINGVIEW CHART */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
-          {/* LEFT / CENTER MODULE CONTENT (12 Cols on Mobile, 6 Cols on LG) */}
-          <div className={`${activeScreen === 'CHART' ? 'hidden lg:flex' : 'col-span-12 flex'} lg:col-span-6 flex-col min-h-0 overflow-y-auto pr-0.5 space-y-2`}>
+          {/* LEFT / CENTER MODULE CONTENT (12 Cols on Mobile, 6 Cols on LG, or 12 Cols if SYM) */}
+          <div className={`${
+            activeScreen === 'CHART'
+              ? 'hidden lg:flex lg:col-span-6'
+              : activeScreen === 'SYM'
+              ? 'col-span-12 flex'
+              : 'col-span-12 lg:col-span-6 flex'
+          } flex-col min-h-0 overflow-y-auto pr-0.5 space-y-2`}>
             {activeScreen === 'PORT' && (
               <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col min-h-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
@@ -2661,6 +3190,37 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </h2>
               </div>
 
+              {/* PDF Manual Banner & Quick Download */}
+              <div className="bg-gradient-to-r from-amber-950/40 via-zinc-950 to-black border border-amber-500/50 rounded p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-amber-950/20">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs sm:text-sm">
+                    <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>MANUAL OFICIAL DE UTILIZARE — TRADEBOT 5 BLOOMBERG TERMINAL (PDF)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-300 leading-relaxed font-sans">
+                    Documentație completă structurată pe capitole: Ghid pentru fiecare buton, card financiar, tabel, Reset Cont $200, Kill Switch, Multiplicator gradual continuu [0.50x – 1.50x] și telemetrie viteză impuls.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualModal(true)}
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 rounded text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>VIZUALIZEAZĂ</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadUserManualPdf()}
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded text-xs transition-all flex items-center space-x-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-black" />
+                    <span>DESCARCĂ PDF</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs leading-relaxed">
                 {/* 1: Local Execution */}
                 <div className="bg-black border border-zinc-800 p-3 rounded space-y-2">
@@ -2731,374 +3291,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </div>
           )}
 
-          {(activeScreen === 'POS' || activeScreen === 'TAPE') && (
-            <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
-              {/* Frozen Header for POS */}
-              <div className="sticky top-0 z-10 bg-zinc-950 pb-1">
-                <div className="flex flex-wrap items-center justify-between border-b border-amber-500/30 pb-2 mb-3 gap-2">
-                  <div className="flex items-center space-x-2">
-                    <Activity className="w-4 h-4 text-amber-500" />
-                    <span className="font-bold text-xs sm:text-sm tracking-wider text-amber-400">
-                      F2: OPEN POSITIONS &amp; ACTIVE EXPOSURE
-                    </span>
-                    <span className="text-[10px] sm:text-xs bg-amber-950 text-amber-300 px-1.5 sm:px-2 py-0.5 rounded border border-amber-500/40 font-mono">
-                      {positions.length} {positions.length === 1 ? 'POZIȚIE' : 'POZIȚII'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center space-x-2 sm:space-x-3 text-[11px] sm:text-xs font-mono">
-                    <span className="text-zinc-400">
-                      Marjă Investită: <strong className="text-amber-400">${marginInvested.toFixed(2)}</strong>
-                    </span>
-                    <span className="text-zinc-400">
-                      PnL Nerealizat:{' '}
-                      <strong className={unrealizedPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                        {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
-                      </strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Instructions banner */}
-                <div className="bg-black/60 border border-amber-500/20 rounded px-2.5 py-1.5 mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
-                  <div className="flex items-center space-x-1.5">
-                    <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>Apasă pe oricare poziție pentru a extinde detaliile complete (preț actual, minute deținere, stare trailing).</span>
-                  </div>
-                  {positions.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allExpanded = positions.every((p) => expandedPositionIds[p.id]);
-                        const newMap: Record<string, boolean> = {};
-                        if (!allExpanded) {
-                          positions.forEach((p) => { newMap[p.id] = true; });
-                        }
-                        setExpandedPositionIds(newMap);
-                      }}
-                      className="text-[10px] text-amber-400 hover:text-amber-300 underline font-bold shrink-0"
-                    >
-                      {positions.every((p) => expandedPositionIds[p.id]) ? 'Restrânge Toate' : 'Extinde Toate'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Empty state */}
-              {positions.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-12 sm:py-16 space-y-3">
-                  <Activity className="w-10 h-10 opacity-30 animate-pulse text-amber-500" />
-                  <p className="text-xs sm:text-sm font-bold tracking-wider text-zinc-400 text-center">NU EXISTĂ POZIȚII DESCHISE ÎN ACEST MOMENT</p>
-                  <p className="text-[11px] sm:text-xs text-zinc-600 max-w-md text-center">
-                    Scannerul OKX monitorizează continuu piața. În momentul în care un activ atinge scorul momentum configurat (&gt;={profileConfig?.minMomentumScore ?? 60}), botul va deschide automat poziția.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onTriggerScan()}
-                    className="mt-2 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 rounded text-xs font-bold transition-all"
-                  >
-                    Lansează Scanare Manuală Acum (F3)
-                  </button>
-                </div>
-              ) : (
-                <div className="overflow-y-auto flex-1 min-h-0 space-y-2 pr-1">
-                  {positions.map((pos) => {
-                    const isExpanded = !!expandedPositionIds[pos.id];
-                    const isProfit = (pos.pnl || 0) >= 0;
-                    const curPrice = pos.currentPrice || pos.entryPrice;
-                    const holdingMinutes = pos.holdingTimeMinutes !== undefined
-                      ? pos.holdingTimeMinutes
-                      : parseFloat(((Date.now() - pos.entryTime) / 60000).toFixed(1));
-                    
-                    // Trailing evaluation
-                    const isBuy = pos.side.toUpperCase() === 'BUY';
-                    const peakPnlPct = isBuy
-                      ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
-                      : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
-                    const trailingActThreshold = profileConfig?.trailingActivationPct ?? 1.5;
-                    const isTrailActive = peakPnlPct >= trailingActThreshold;
-
-                    // Break Even evaluation
-                    const isBreakEvenActive = isBuy
-                      ? (pos.stopLossPrice !== undefined && pos.stopLossPrice > pos.entryPrice)
-                      : (pos.stopLossPrice !== undefined && pos.stopLossPrice < pos.entryPrice);
-
-                    // State label
-                    let stateBadge = {
-                      label: isTrailActive ? 'TRAIL ACTIV' : isBreakEvenActive ? 'BE ASIGURAT' : isProfit ? 'ÎN PROFIT' : 'ÎN PIERDERE',
-                      bg: isTrailActive
-                        ? 'bg-purple-950 text-purple-300 border-purple-500/50'
-                        : isBreakEvenActive
-                        ? 'bg-blue-950 text-blue-300 border-blue-500/50'
-                        : isProfit
-                        ? 'bg-emerald-950 text-emerald-300 border-emerald-500/50'
-                        : 'bg-rose-950 text-rose-300 border-rose-500/50'
-                    };
-
-                    return (
-                      <div
-                        key={pos.id}
-                        className={`rounded border transition-all ${
-                          isExpanded
-                            ? 'bg-zinc-900 border-amber-500/60 shadow-lg shadow-black/40'
-                            : 'bg-zinc-950/80 border-amber-500/20 hover:border-amber-500/40'
-                        }`}
-                      >
-                        {/* Summary Header Row */}
-                        <div
-                          onClick={() => toggleExpandPosition(pos.id)}
-                          className="p-2.5 flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none"
-                        >
-                          <div className="flex items-center space-x-2.5">
-                            <button
-                              type="button"
-                              className="text-amber-400 p-0.5 rounded hover:bg-amber-500/20"
-                              title={isExpanded ? 'Restrânge' : 'Extinde detalii'}
-                            >
-                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </button>
-
-                            <div>
-                              <div className="flex items-center space-x-1.5">
-                                <span className="font-bold text-amber-300 text-sm font-mono">{pos.symbol}</span>
-                                <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded ${
-                                  pos.side === 'BUY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-600/40' : 'bg-rose-950 text-rose-400 border border-rose-600/40'
-                                }`}>
-                                  {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
-                                </span>
-                                {pos.isFadeTrade && (
-                                  <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-600/60" title="Sub-strategie Fade Climax (>82)">
-                                    FADE &gt;82
-                                  </span>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    loadTradingViewChart(pos.symbol);
-                                  }}
-                                  className="text-[9px] bg-zinc-800 hover:bg-amber-500/20 text-zinc-300 hover:text-amber-400 px-1.5 py-0.2 rounded border border-zinc-700 font-mono"
-                                  title="Afișează graficul pe acest simbol"
-                                >
-                                  CHART
-                                </button>
-                              </div>
-                              <div className="text-[10px] text-zinc-500 font-mono">
-                                Cant: {pos.qty.toFixed(4)} | Dim: ${pos.sizeUSDT.toFixed(2)}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Quick Metrics */}
-                          <div className="flex items-center space-x-3 sm:space-x-5 text-xs font-mono">
-                            <div>
-                              <div className="text-[9px] text-zinc-500">PREȚ INTRARE</div>
-                              <div className="font-bold text-zinc-300">${pos.entryPrice.toLocaleString()}</div>
-                            </div>
-
-                            <div>
-                              <div className="text-[9px] text-zinc-500">PREȚ ACTUAL</div>
-                              <div className="font-bold text-white">${curPrice.toLocaleString()}</div>
-                            </div>
-
-                            <div>
-                              <div className="text-[9px] text-zinc-500">PNL NET</div>
-                              <div className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {isProfit ? '+' : ''}${pos.pnl?.toFixed(2) || '0.00'} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2) || '0.00'}%)
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-[9px] text-zinc-500">DEȚINERE</div>
-                              <div className="text-cyan-400 font-bold flex items-center space-x-0.5">
-                                <Clock className="w-3 h-3 inline-block" />
-                                <span>{Math.floor(holdingMinutes)}m</span>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-[9px] text-zinc-500">STARE</div>
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${stateBadge.bg}`}>
-                                {stateBadge.label}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() => onClosePosition(pos.symbol)}
-                                className="bg-rose-900 hover:bg-rose-700 text-white px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors shadow-sm"
-                              >
-                                CLOSE
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Expanded Detail Panel */}
-                        {isExpanded && (
-                          <div className="border-t border-amber-500/20 bg-black/60 p-3 text-xs font-mono space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                              {/* Panel 1: Preț Actual & Evoluție */}
-                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
-                                <div className="text-[10px] font-bold text-amber-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
-                                  <span>PREȚ ACTUAL &amp; EXCURSIE</span>
-                                  <TrendingUp className="w-3 h-3 text-amber-500" />
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Preț Intrare:</span>
-                                  <span className="text-zinc-200">${pos.entryPrice.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Preț Actual:</span>
-                                  <span className="text-white font-bold">${curPrice.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Diferență Netă:</span>
-                                  <span className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {isProfit ? '+' : ''}${(curPrice - pos.entryPrice).toFixed(4)} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2)}%)
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Maxim Atins:</span>
-                                  <span className="text-emerald-400">${(pos.highestPrice || pos.entryPrice).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Minim Atins:</span>
-                                  <span className="text-rose-400">${(pos.lowestPrice || pos.entryPrice).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px] pt-1 border-t border-zinc-900">
-                                  <span className="text-zinc-400">MAE (Worst DD):</span>
-                                  <span className="text-rose-400 font-bold">{pos.maePct !== undefined ? `${pos.maePct}%` : '0.00%'}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-400">MFE (Peak PnL):</span>
-                                  <span className="text-emerald-400 font-bold">{pos.mfePct !== undefined ? `+${pos.mfePct}%` : '0.00%'}</span>
-                                </div>
-                              </div>
-
-                              {/* Panel 2: Minute de Deținere & Timing */}
-                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
-                                <div className="text-[10px] font-bold text-cyan-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
-                                  <span>MINUTE DEȚINERE &amp; TIMING</span>
-                                  <Clock className="w-3 h-3 text-cyan-400" />
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Timp Scurs:</span>
-                                  <span className="text-cyan-300 font-bold">{holdingMinutes.toFixed(1)} minute</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Deschis la:</span>
-                                  <span className="text-zinc-300">{new Date(pos.entryTime).toLocaleTimeString()}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Dată intrare:</span>
-                                  <span className="text-zinc-400">{new Date(pos.entryTime).toLocaleDateString()}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Limită Max Hold:</span>
-                                  <span className="text-amber-400">
-                                    {profileConfig?.maxHoldingTimeMinutes && profileConfig.maxHoldingTimeMinutes > 0
-                                      ? `${profileConfig.maxHoldingTimeMinutes}m (${(profileConfig.maxHoldingTimeMinutes - holdingMinutes).toFixed(1)}m rămase)`
-                                      : '45m unificat'}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Panel 3: Stare Risc & Trailing */}
-                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
-                                <div className="text-[10px] font-bold text-purple-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
-                                  <span>STARE RISC &amp; TRAILING</span>
-                                  <Zap className="w-3 h-3 text-purple-400" />
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Trailing Stop:</span>
-                                  <span className={`font-bold ${isTrailActive ? 'text-purple-300' : 'text-zinc-500'}`}>
-                                    {isTrailActive ? 'ACTIV (URMĂREȘTE)' : 'AȘTEPTARE ACTIVARE'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Prag Activare:</span>
-                                  <span className="text-zinc-300">+{trailingActThreshold}% (Vârf: +{peakPnlPct.toFixed(2)}%)</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Distanță Retragere:</span>
-                                  <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Break-Even (BE):</span>
-                                  <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
-                                    {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 5.0}%)`}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Hard Stop Loss:</span>
-                                  <span className="text-rose-400 font-bold">
-                                    {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Panel 4: Financiar & Ordine */}
-                              <div className="bg-zinc-950 p-2.5 rounded border border-zinc-800 space-y-1.5">
-                                <div className="text-[10px] font-bold text-emerald-400 border-b border-zinc-800 pb-1 flex items-center justify-between">
-                                  <span>FINANCIAR &amp; CONTRACT</span>
-                                  <DollarSign className="w-3 h-3 text-emerald-400" />
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Valoare Marjă:</span>
-                                  <span className="text-amber-400 font-bold">${pos.sizeUSDT.toFixed(2)} USDT</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-zinc-400">Comision Intrare:</span>
-                                  <span className="text-zinc-300">
-                                    {pos.entryFee !== undefined ? `-$${pos.entryFee.toFixed(3)}` : 'Inclus (0.05%)'}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">ID Poziție:</span>
-                                  <span className="text-zinc-400 font-mono text-[10px]">{pos.id}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Leverage:</span>
-                                  <span className="text-amber-400 font-bold">{pos.leverage || '1x'}</span>
-                                </div>
-                                {pos.signalScore !== undefined && (
-                                  <div className="flex justify-between text-[11px]">
-                                    <span className="text-zinc-500">metaScore Intrare:</span>
-                                    <span className="text-cyan-300 font-bold">{pos.signalScore.toFixed(1)}/100</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Regim / Profil:</span>
-                                  <span className="text-zinc-400">{pos.marketRegime || 'BTC: --'} | {pos.profile}</span>
-                                </div>
-                                <div className="flex justify-between text-[11px]">
-                                  <span className="text-zinc-500">Mod Execuție:</span>
-                                  <span className="text-amber-400 font-bold">{pos.executionMode}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-zinc-800 flex justify-end space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => onClosePosition(pos.symbol)}
-                                className="px-3 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded font-bold text-xs flex items-center space-x-1 shadow"
-                              >
-                                <Square className="w-3 h-3" />
-                                <span>ÎNCHIDE POZIȚIA IMEDIAT (MARKET CLOSE)</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          {(activeScreen === 'POS' || activeScreen === 'TAPE') && renderOpenPositionsContent('F2')}
 
           {activeScreen === 'SCAN' && (
             <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 sm:p-3 flex flex-col flex-1 min-h-0">
@@ -4625,16 +4818,36 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
             </div>
           )}
-        </div>
 
-          {/* RIGHT MODULE PANEL: TRADINGVIEW CHART (6 Cols on LG, Hidden on Mobile unless CHART selected) */}
-          <div className={`${activeScreen === 'CHART' ? 'col-span-12 flex' : 'hidden'} lg:flex lg:col-span-6 flex-col min-h-0`}>
-            <TradingViewChart
-              currentSymbol={chartSymbol}
-              onSymbolChange={(sym) => setChartSymbol(sym)}
-              availableSymbols={allUniverseSymbols}
+          {activeScreen === 'SYM' && (
+            <SymbolStatsView
+              onSelectSymbolForChart={(sym) => {
+                loadTradingViewChart(sym);
+                setActiveScreen('PORT');
+              }}
               lang={lang}
             />
+          )}
+        </div>
+
+          {/* RIGHT MODULE PANEL: OPEN POSITIONS IN [1:PORT], TRADINGVIEW CHART IN ALL OTHER SCREENS (HIDDEN IN SYM) */}
+          <div className={`${
+            activeScreen === 'CHART'
+              ? 'col-span-12 flex'
+              : activeScreen === 'SYM'
+              ? 'hidden'
+              : 'hidden lg:flex lg:col-span-6'
+          } flex-col min-h-0`}>
+            {activeScreen === 'PORT' ? (
+              renderOpenPositionsContent('PORT')
+            ) : (
+              <TradingViewChart
+                currentSymbol={chartSymbol}
+                onSymbolChange={(sym) => setChartSymbol(sym)}
+                availableSymbols={allUniverseSymbols}
+                lang={lang}
+              />
+            )}
           </div>
         </div>
 
@@ -4834,10 +5047,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
       {/* Modal Jurnal Audit Declanșări Equity Trailing Protection */}
       {showEquityProtectionModal && (
-        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-zinc-950 border-2 border-amber-500 rounded p-3 sm:p-5 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl font-mono">
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-2 sm:p-4 overflow-hidden">
+          <div className="bg-zinc-950 border-2 border-amber-500 rounded p-3 sm:p-5 max-w-4xl w-full h-[88vh] max-h-[88vh] flex flex-col shadow-2xl font-mono min-h-0">
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-amber-500/40 mb-3 gap-2">
+            <div className="flex items-center justify-between pb-3 border-b border-amber-500/40 mb-3 gap-2 shrink-0">
               <div className="flex items-center space-x-2">
                 <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
                 <div>
@@ -4872,8 +5085,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
             </div>
 
-            {/* List / Table */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 terminal-scrollbar-x">
+            {/* List / Table (Fully Scrollable) */}
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-2.5 pr-1.5 terminal-scrollbar-x select-text">
               {(status?.equityTrailingState?.history || []).length === 0 ? (
                 <div className="p-8 text-center text-zinc-500 text-xs">
                   Nicio declanșare înregistrată încă. Declanșările vor fi logate automat aici și pe disc la fiecare activare.
@@ -4963,7 +5176,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400 mt-2">
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400 mt-2 shrink-0">
               <span className="text-[11px]">
                 🛡️ Toate declanșările sunt salvate persistent în <code className="text-amber-400">.data/equity_protection_events.json</code>.
               </span>
@@ -5349,6 +5562,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
       )}
+
+      {/* User Manual Modal (Exhaustive documentation & PDF generator) */}
+      <UserManualModal
+        isOpen={showManualModal}
+        onClose={() => setShowManualModal(false)}
+        lang={lang}
+      />
     </div>
   );
 };

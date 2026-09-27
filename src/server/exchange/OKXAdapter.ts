@@ -225,6 +225,26 @@ export class OKXAdapter implements IExecutionAdapter {
   }
 
   /**
+   * Fetches actual cash/wallet balance from OKX account (excluding unrealised PnL)
+   */
+  public async getWalletBalance(): Promise<number> {
+    if (!this.hasCredentials()) {
+      return 0;
+    }
+    try {
+      const res = await this.request('GET', '/api/v5/account/balance', undefined, true);
+      if (res.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
+        const usdtDetail = res.data[0].details?.find((d: any) => d.ccy === 'USDT');
+        const cash = parseFloat(usdtDetail?.cashBal || usdtDetail?.availBal || '0');
+        if (!isNaN(cash) && cash > 0) return parseFloat(cash.toFixed(2));
+      }
+    } catch (err: any) {
+      console.error('[OKXAdapter] Failed to fetch cash balance:', err?.message || err);
+    }
+    return 0;
+  }
+
+  /**
    * Fetches klines for a given symbol and interval
    */
   public async getKlines(symbol: string, interval: string, limit: number = 200): Promise<Kline[]> {

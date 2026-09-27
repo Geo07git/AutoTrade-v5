@@ -42,6 +42,7 @@ export class TelegramService {
   private botDelegate?: ITelegramTradeBot;
   private lastSentSentimentAlert: string = '';
   private lastHourlyHour: number = getBucharestHour();
+  private notificationsEnabled: boolean = true;
 
   constructor() {
     this.botToken = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
@@ -63,6 +64,9 @@ export class TelegramService {
         if (data.botUsername) {
           this.botUsername = String(data.botUsername).trim();
         }
+        if (data.notificationsEnabled !== undefined) {
+          this.notificationsEnabled = Boolean(data.notificationsEnabled);
+        }
       }
     } catch (e) {
       // Ignored
@@ -78,6 +82,7 @@ export class TelegramService {
             botToken: this.botToken,
             chatId: this.chatId,
             botUsername: this.botUsername,
+            notificationsEnabled: this.notificationsEnabled,
             updatedAt: Date.now(),
           },
           null,
@@ -94,10 +99,21 @@ export class TelegramService {
     this.botDelegate = delegate;
   }
 
-  public updateCredentials(token?: string, chatId?: string, botUsername?: string) {
+  public toggleNotifications(enabled?: boolean): boolean {
+    this.notificationsEnabled = enabled !== undefined ? enabled : !this.notificationsEnabled;
+    this.savePersistedConfig();
+    return this.notificationsEnabled;
+  }
+
+  public isNotificationsEnabled(): boolean {
+    return this.notificationsEnabled;
+  }
+
+  public updateCredentials(token?: string, chatId?: string, botUsername?: string, notificationsEnabled?: boolean) {
     if (token !== undefined) this.botToken = token.trim();
     if (chatId !== undefined) this.chatId = chatId.trim();
     if (botUsername !== undefined) this.botUsername = botUsername.trim();
+    if (notificationsEnabled !== undefined) this.notificationsEnabled = Boolean(notificationsEnabled);
 
     this.savePersistedConfig();
 
@@ -121,6 +137,7 @@ export class TelegramService {
         : '',
       chatId: this.chatId || '',
       botUsername: this.botUsername || undefined,
+      notificationsEnabled: this.notificationsEnabled,
     };
   }
 
@@ -257,9 +274,12 @@ export class TelegramService {
    * Safe asynchronous send message.
    * Completely isolated: will NEVER throw or interrupt calling trade loops.
    */
-  public async sendMessage(text: string, targetChatId?: string): Promise<boolean> {
+  public async sendMessage(text: string, targetChatId?: string, force: boolean = false): Promise<boolean> {
     const toChat = targetChatId || this.chatId;
     if (!this.botToken || !toChat) {
+      return false;
+    }
+    if (!this.notificationsEnabled && !force) {
       return false;
     }
 
@@ -297,7 +317,7 @@ export class TelegramService {
    * Handle important events (reset, killswitch, position open/close, sentiment alerts)
    */
   public notifyEvent(type: AuditLogType, message: string, details?: any) {
-    if (!this.isConfigured()) return;
+    if (!this.isConfigured() || !this.notificationsEnabled) return;
 
     // Run completely in background
     setTimeout(async () => {
@@ -341,6 +361,10 @@ export class TelegramService {
       const prevHour = (currentHour - 1 + 24) % 24;
       this.lastHourlyHour = currentHour;
       
+      if (!this.notificationsEnabled) {
+        return;
+      }
+
       const prevHourStr = `${prevHour.toString().padStart(2, '0')}:00`;
       const currHourStr = `${currentHour.toString().padStart(2, '0')}:00`;
 
@@ -583,7 +607,9 @@ export class TelegramService {
       `• /stare sau /status - Stare sistem, modul active & circuit breaker\n` +
       `• /pozitii sau /positions - Poziții deschise curente & PnL\n` +
       `• /jurnal sau /tranzactii - Ultima istorie de tranzacționare\n\n` +
-      `⚙️ Control Execuție & Moduri:\n` +
+      `⚙️ Control Execuție & Notificări:\n` +
+      `• /mute sau /noapte - Oprește temporar alertele și rapoartele (Mod Noapte/Silențios)\n` +
+      `• /unmute sau /activ - Repornește alertele și rapoartele automate\n` +
       `• /mod sau /mode - Vizualizează sau schimbă modul de execuție (/mod paper, /mod testnet, /mod live)\n` +
       `• /pauza sau /pause - Oprește temporar tranzacționarea automată\n` +
       `• /porneste sau /resume - Repornește tranzacționarea automată\n\n` +
@@ -659,7 +685,33 @@ export class TelegramService {
       cmd === '/comenzi' ||
       cmd === '/ghid'
     ) {
-      await this.sendMessage(this.getCommandGuideText(), chatId);
+      await this.sendMessage(this.getCommandGuideText(), chatId, true);
+      return;
+    }
+
+    // /mute, /silence, /noapte, /oprire
+    if (cmd === '/mute' || cmd === '/silence' || cmd === '/noapte' || cmd === '/oprire') {
+      this.toggleNotifications(false);
+      await this.sendMessage(
+        `🔕 Notificările automate Telegram au fost OPRITE (Mod Silențios / Noapte activat).\n\n` +
+        `• Botul continuă scanarea și tranzacționarea normală.\n` +
+        `• Alertele de tranzacții și rapoartele orare sunt acum suspendate.\n` +
+        `• Pentru a relua notificările, trimite /unmute sau folosește butonul din aplicație.`,
+        chatId,
+        true
+      );
+      return;
+    }
+
+    // /unmute, /pornire, /activeaza, /sunet
+    if (cmd === '/unmute' || cmd === '/pornire' || cmd === '/activeaza' || cmd === '/sunet' || cmd === '/activ') {
+      this.toggleNotifications(true);
+      await this.sendMessage(
+        `🔔 Notificările automate Telegram au fost PORNITE.\n\n` +
+        `• Alertele de deschidere/închidere și rapoartele periodice sunt acum active.`,
+        chatId,
+        true
+      );
       return;
     }
 

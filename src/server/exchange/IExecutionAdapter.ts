@@ -22,6 +22,7 @@ export interface ConnectionTestResult {
 export interface IExecutionAdapter {
   testConnection(): Promise<ConnectionTestResult>;
   getEquity(): Promise<number>;
+  getWalletBalance?(): Promise<number>;
   getKlines(symbol: string, interval: string, limit?: number): Promise<Kline[]>;
   getTickerPrice(symbol: string): Promise<number | null>;
   getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter>;

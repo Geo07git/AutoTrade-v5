@@ -613,6 +613,13 @@ export class PositionManager {
       pos.maePct = parseFloat(Math.min(0, pos.maePct !== undefined ? pos.maePct : 0, lowestPnlPct).toFixed(2));
       pos.mfePct = parseFloat(Math.max(0, pos.mfePct !== undefined ? pos.mfePct : 0, highestPnlPct).toFixed(2));
 
+      // Passive Velocity Telemetry: Record time in minutes to first reach MFE >= 1.5%
+      if (pos.mfePct >= 1.5 && (pos.timeToMfe15Minutes === undefined || pos.timeToMfe15Minutes === 0)) {
+        const elapsedMins = parseFloat(((Date.now() - pos.entryTime) / 60000).toFixed(2));
+        pos.timeToMfe15Minutes = elapsedMins;
+        pos.isFastRunner = elapsedMins <= 5.0; // Early impulse velocity (reached in primele 3-5 min)
+      }
+
       // Ensure stopLossPrice is never wider than the profile's hardStopLossPct (e.g. -3.5%)
       const hardSlPrice = pos.side === 'BUY'
         ? pos.entryPrice * (1 - config.hardStopLossPct / 100)
@@ -745,28 +752,59 @@ export class PositionManager {
         }
       }
 
-      // 3. Max Holding Time Check (Unified 45 minutes limit)
+      // 3. Staged Time-Stop & Max Holding Time Check (30m Stagnation Exit + 45m Hard Max Limit)
       const maxHoldingLimit = config.maxHoldingTimeMinutes && config.maxHoldingTimeMinutes > 0 ? config.maxHoldingTimeMinutes : 45;
-      if (!isTrailingActive && maxHoldingLimit > 0) {
-        const heldMinutes = (Date.now() - pos.entryTime) / 60000;
-        if (heldMinutes >= maxHoldingLimit) {
-          this.auditLogger('RISK_REJECTED', `Max holding time of ${maxHoldingLimit}m exceeded for ${pos.symbol}. Closing position.`, {
-            symbol: pos.symbol,
-            heldMinutes: parseFloat(heldMinutes.toFixed(2)),
-            currentPrice,
-          });
-          await orderManager.executeCloseOrder({
-            position: pos,
-            reason: 'TIME_STOP',
-            currentPrice,
-            exitReasonDetail: `Time Stop expirat: poziția a fost menținută ${heldMinutes.toFixed(1)} minute (limită unificată: ${maxHoldingLimit} min, PnL final: ${pnlPct.toFixed(2)}%)`,
-            exitMarketRegime: options?.marketRegime,
-            accountEquity: currentEquity,
-            accountBalance: options?.accountBalance,
-            openPositionsCount: this.activePositions.length,
-          });
-          continue;
-        }
+      const stagnationMinutes = config.stagnationTimeMinutes && config.stagnationTimeMinutes > 0 ? config.stagnationTimeMinutes : 30;
+      const stagnationMinPeak = config.stagnationMinPeakPct ?? 0.5;
+
+      const heldMinutes = (Date.now() - pos.entryTime) / 60000;
+
+      // Evaluation of peak progression for this position
+      const peakPnlPct = isBuy
+        ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
+        : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
+
+      // Stage 1: Stagnation Time-Stop (minute 30 check if no meaningful peak momentum occurred)
+      if (!isTrailingActive && heldMinutes >= stagnationMinutes && peakPnlPct < stagnationMinPeak && pnlPct <= 0.2) {
+        this.auditLogger('RISK_REJECTED', `Stagnation Time-Stop at ${heldMinutes.toFixed(1)}m for ${pos.symbol}: Peak +${peakPnlPct.toFixed(2)}% < +${stagnationMinPeak}%. Closing early to preserve winrate.`, {
+          symbol: pos.symbol,
+          heldMinutes: parseFloat(heldMinutes.toFixed(2)),
+          peakPnlPct: parseFloat(peakPnlPct.toFixed(2)),
+          currentPnlPct: parseFloat(pnlPct.toFixed(2)),
+          currentPrice,
+        });
+
+        await orderManager.executeCloseOrder({
+          position: pos,
+          reason: 'TIME_STOP',
+          currentPrice,
+          exitReasonDetail: `Time-Stop Eșalonat (Stagnare min ${stagnationMinutes}): Vârf slab (+${peakPnlPct.toFixed(2)}% < +${stagnationMinPeak}%), PnL actual: ${pnlPct.toFixed(2)}% la ${heldMinutes.toFixed(1)}m. Închidere timpurie pentru protecție winrate.`,
+          exitMarketRegime: options?.marketRegime,
+          accountEquity: currentEquity,
+          accountBalance: options?.accountBalance,
+          openPositionsCount: this.activePositions.length,
+        });
+        continue;
+      }
+
+      // Stage 2: Hard Max Holding Time Check (Unified 45 minutes limit)
+      if (!isTrailingActive && maxHoldingLimit > 0 && heldMinutes >= maxHoldingLimit) {
+        this.auditLogger('RISK_REJECTED', `Max holding time of ${maxHoldingLimit}m exceeded for ${pos.symbol}. Closing position.`, {
+          symbol: pos.symbol,
+          heldMinutes: parseFloat(heldMinutes.toFixed(2)),
+          currentPrice,
+        });
+        await orderManager.executeCloseOrder({
+          position: pos,
+          reason: 'TIME_STOP',
+          currentPrice,
+          exitReasonDetail: `Time Stop Hard expirat: poziția a atins ${heldMinutes.toFixed(1)} minute (limită maximă: ${maxHoldingLimit} min, PnL: ${pnlPct.toFixed(2)}%)`,
+          exitMarketRegime: options?.marketRegime,
+          accountEquity: currentEquity,
+          accountBalance: options?.accountBalance,
+          openPositionsCount: this.activePositions.length,
+        });
+        continue;
       }
     }
   }

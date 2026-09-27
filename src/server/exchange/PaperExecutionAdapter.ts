@@ -38,6 +38,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   private subscribedSymbols: Set<string> = new Set();
   private okxBaseUrl = 'https://eea.okx.com';
   private wsBaseUrl = 'wss://wseea.okx.com:8443/ws/v5/public';
+  private executionQueue: Promise<any> = Promise.resolve();
 
   public onTickerUpdate?: (symbol: string, lastPrice: number) => void;
   public onOrderUpdate?: (order: any) => void;
@@ -115,6 +116,11 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     }
 
     return parseFloat((state.balanceUSDT + totalUnrealisedPnl).toFixed(2));
+  }
+
+  public async getWalletBalance(): Promise<number> {
+    const state = this.paperStore.get();
+    return parseFloat((state.balanceUSDT !== undefined ? state.balanceUSDT : 200.0).toFixed(2));
   }
 
   public async getKlines(symbol: string, interval: string, limit: number = 200): Promise<Kline[]> {
@@ -300,14 +306,46 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     orderLinkId: string;
     reduceOnly?: boolean;
   }): Promise<{ orderId: string; orderLinkId: string }> {
+    return new Promise<{ orderId: string; orderLinkId: string }>((resolve, reject) => {
+      this.executionQueue = this.executionQueue
+        .then(async () => {
+          try {
+            const res = await this.executeOrderInternal(params);
+            resolve(res);
+          } catch (err) {
+            reject(err);
+          }
+        })
+        .catch((err) => {
+          console.error('[PaperAdapter] Execution queue error:', err);
+          reject(err);
+        });
+    });
+  }
+
+  private async executeOrderInternal(params: {
+    symbol: string;
+    side: 'Buy' | 'Sell';
+    orderType: 'Market' | 'Limit';
+    qty: number;
+    price?: number;
+    orderLinkId: string;
+    reduceOnly?: boolean;
+  }): Promise<{ orderId: string; orderLinkId: string }> {
     const instId = this.normalizeSymbol(params.symbol);
     const exchangeOrderId = `paper_ord_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     
-    let fillPrice = params.price || this.latestPrices.get(instId) || this.latestPrices.get(params.symbol) || 0;
+    // For Paper Trading: Always use the exact real-time live price (params.price or fresh live ticker from OKX)
+    let fillPrice = (params.price && params.price > 0) ? params.price : 0;
     if (fillPrice <= 0) {
       const livePrice = await this.getTickerPrice(instId);
-      fillPrice = livePrice || (instId.includes('BTC') ? 65000 : instId.includes('ETH') ? 3500 : 150);
+      fillPrice = livePrice || this.latestPrices.get(instId) || this.latestPrices.get(params.symbol) || 0;
     }
+    if (fillPrice <= 0) {
+      fillPrice = instId.includes('BTC') ? 65000 : instId.includes('ETH') ? 3500 : 150;
+    }
+    this.latestPrices.set(instId, fillPrice);
+    this.latestPrices.set(params.symbol, fillPrice);
 
     const filter = await this.getInstrumentFilter(instId);
     const ctVal = filter.ctVal || 1;

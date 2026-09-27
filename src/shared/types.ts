@@ -137,6 +137,8 @@ export interface ProfileConfig {
   min24hVolumeUSDT?: number; // Prag inferior volum/turnover 24h în USDT (ex: 1_000_000 = 1.0M)
   max24hVolumeUSDT?: number; // Prag superior volum/turnover 24h în USDT (ex: 1_500_000 = 1.5M, 0 = nelimitat)
   maxHoldingTimeMinutes?: number;
+  stagnationTimeMinutes?: number; // Time-stop eșalonat la stagnare (ex: 30 min)
+  stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
 }
@@ -148,6 +150,71 @@ export interface Kline {
   low: number;
   close: number;
   volume: number;
+}
+
+export type SymbolConfidenceStatus = 'LOW_SAMPLE' | 'DEVELOPING' | 'HIGH_CONFIDENCE';
+
+export interface SymbolTradeRecord {
+  positionId: string;
+  symbol: string;
+  pnl: number;
+  pnlPct: number;
+  mfePct: number;
+  maePct?: number;
+  holdingTimeMinutes?: number;
+  timeToMfe15Minutes?: number; // Time in minutes to achieve MFE >= 1.5%
+  isFastRunner?: boolean; // True if MFE >= 1.5% reached within <= 5 min
+  exitTime: number;
+  hitMfe15: boolean; // mfePct >= 1.5%
+  isWin: boolean;
+  intent?: string;
+}
+
+export interface SymbolRollingStats {
+  symbol: string;
+  n: number; // total trades in rolling window (max 30)
+  wins: number;
+  losses: number;
+  winrate: number; // %
+  trailingHitCount: number; // trades with MFE >= 1.5%
+  hitRateMfe15: number; // % of trades with MFE >= 1.5%
+  avgMfe: number; // %
+  avgMae: number; // %
+  totalPnl: number; // USDT
+  avgPnl: number; // USDT
+  avgPnlPct: number; // %
+  confidenceStatus: SymbolConfidenceStatus;
+  recommendedMultiplier: number; // Continuous linear interpolation 0.50x to 1.50x (1.0 default for n < 8)
+  lastTradeTime: number;
+  avgHoldingMinutes?: number;
+  fastRunnerCount?: number; // MFE >= 1.5 reached within <= 5m
+  fastRunnerRate?: number; // % of trades in rolling window reaching MFE in <= 5m
+  avgTimeToMfeMinutes?: number; // Average minutes until peak MFE was reached
+  recentTrades?: SymbolTradeRecord[];
+}
+
+export interface SymbolStatsSummary {
+  totalTrackedSymbols: number;
+  validSampleSymbols: number; // n >= 8
+  lowSampleSymbols: number; // n < 8
+  topRunnerSymbol?: string;
+  topRunnerHitRate?: number;
+  worstPerformerSymbol?: string;
+  worstPerformerHitRate?: number;
+  overallAvgHitRateMfe15: number;
+  multiplierActive: boolean;
+  lastUpdated: number;
+  // Sample & Capital Coverage Metrics
+  validCapitalCoveragePct: number; // % of currently open position capital under VALID symbols (n >= 8)
+  lowSampleCapitalCoveragePct: number; // % under neutral default symbols (n < 8)
+  validCapitalUSDT: number;
+  lowSampleCapitalUSDT: number;
+  totalActiveCapitalUSDT: number;
+  validTradesCoveragePct: number; // % of trades in dataset with valid sample
+  validTradesCount: number;
+  totalTradesAnalyzed: number;
+  fastRunnerPortfolioCount: number; // Total trades across all symbols with MFE in <= 5m
+  fastRunnerPortfolioRate: number; // % of trades across portfolio with MFE in <= 5m
 }
 
 export interface TradeSignal {
@@ -221,6 +288,8 @@ export interface OrderRecord {
   openPositionsCount?: number; // Number of open positions at entry/exit moment
   maePct?: number; // Maximum Adverse Excursion % (worst unrealized PnL% during position life)
   mfePct?: number; // Maximum Favorable Excursion % (best unrealized PnL% during position life)
+  timeToMfe15Minutes?: number; // Minutes from entry until MFE >= 1.5% reached (passive velocity telemetry)
+  isFastRunner?: boolean; // True if MFE >= 1.5% was reached in <= 5 minutes
   accountEquity?: number; // Account total equity at order time
   accountBalance?: number; // Account wallet balance at order time
 }
@@ -246,6 +315,10 @@ export interface Position {
   exitFee?: number;
   highestPrice?: number;
   lowestPrice?: number;
+  maePct?: number;
+  mfePct?: number;
+  timeToMfe15Minutes?: number; // Minutes from entry until MFE >= 1.5% reached (passive velocity telemetry)
+  isFastRunner?: boolean; // True if MFE >= 1.5% was reached in <= 5 minutes
   stopLossPrice?: number;
   isBreakEvenTriggered?: boolean;
   currentPrice?: number;
@@ -264,8 +337,6 @@ export interface Position {
   leverage?: string;
   openPositionsAtEntry?: number;
   openPositionsAtExit?: number;
-  maePct?: number; // Maximum Adverse Excursion %
-  mfePct?: number; // Maximum Favorable Excursion %
   accountEquityAtEntry?: number;
   accountEquityAtExit?: number;
 }
@@ -402,5 +473,6 @@ export interface TelegramConfigStatus {
   maskedToken: string;
   chatId: string;
   botUsername?: string;
+  notificationsEnabled?: boolean;
 }
 

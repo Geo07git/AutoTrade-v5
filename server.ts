@@ -392,6 +392,20 @@ async function startServer() {
     }
   });
 
+  // Telegram notifications ON / OFF toggle
+  app.post('/api/bot/telegram/toggle', requireControlAuth, (req, res) => {
+    const { enabled } = req.body || {};
+    const newState = telegramService.toggleNotifications(typeof enabled === 'boolean' ? enabled : undefined);
+    res.json({
+      success: true,
+      enabled: newState,
+      status: telegramService.getCredentialsStatus(),
+      message: newState
+        ? '🔔 Notificările Telegram au fost PORNITE (Active).'
+        : '🔕 Notificările Telegram au fost OPRITE (Mod Noapte / Silențios activat).',
+    });
+  });
+
   // Telegram credentials update
   app.post('/api/bot/telegram/config', requireControlAuth, (req, res) => {
     const { token, chatId, botUsername } = req.body;
@@ -440,6 +454,40 @@ async function startServer() {
     const mode = marginMode === 'isolated' ? 'isolated' : 'cross';
     tradeBot.updateLeverage(lev, mode);
     res.json({ success: true, leverage: lev, marginMode: mode });
+  });
+
+  // Symbol Performance Rolling Stats (MFE >= 1.5% Hit-rate analysis)
+  app.get('/api/bot/symbol-stats', (req, res) => {
+    res.json({
+      success: true,
+      stats: tradeBot.getSymbolStats(),
+      summary: tradeBot.getSymbolStatsSummary(),
+    });
+  });
+
+  // Recalculate Symbol Stats from full order blotter
+  app.post('/api/bot/symbol-stats/recalculate', requireControlAuth, (req, res) => {
+    const summary = tradeBot.recalculateSymbolStats();
+    res.json({
+      success: true,
+      stats: tradeBot.getSymbolStats(),
+      summary,
+      message: 'Statisticile pe simbol au fost recalculate cu succes din istoricul complet de tranzacții.',
+    });
+  });
+
+  // Toggle Symbol Size Multiplier feedback
+  app.post('/api/bot/symbol-stats/toggle-multiplier', requireControlAuth, (req, res) => {
+    const { enabled } = req.body || {};
+    const state = tradeBot.toggleSymbolMultiplier(typeof enabled === 'boolean' ? enabled : undefined);
+    res.json({
+      success: true,
+      multiplierActive: state,
+      summary: tradeBot.getSymbolStatsSummary(),
+      message: state
+        ? 'Feedback Multiplier pe Simbol a fost ACTIVAT.'
+        : 'Feedback Multiplier pe Simbol a fost DEZACTIVAT.',
+    });
   });
 
   // Vite middleware for development
