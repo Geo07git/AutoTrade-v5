@@ -59,6 +59,7 @@ import { TradingViewChart } from './TradingViewChart';
 import { SymbolStatsView } from './SymbolStatsView';
 import { UserManualModal } from './UserManualModal';
 import { downloadUserManualPdf } from '../utils/generateManualPdf';
+import { formatPrice, formatExactPriceForExport } from '../shared/formatters';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -178,10 +179,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.1);
   const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.35);
   const [minMomentum, setMinMomentum] = useState(
-    Math.min(95, Math.max(50, profileConfig?.minMomentumScore ?? 60))
+    Math.min(95, Math.max(50, profileConfig?.minMomentumScore ?? 50))
   );
   const [maxMomentum, setMaxMomentum] = useState(
-    Math.min(99, Math.max(70, profileConfig?.maxMomentumScore ?? 82))
+    Math.min(99, Math.max(70, profileConfig?.maxMomentumScore ?? 99))
   );
   const [min24hVol, setMin24hVol] = useState<number>(
     profileConfig?.min24hVolumeUSDT !== undefined
@@ -753,7 +754,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       'Leverage',
       'Model Score (metaScore)',
       'Signal Price',
+      'Signal Price (Exact 8D+)',
       'Fill Price',
+      'Fill Price (Exact 8D+)',
       'Estimated Slippage (%)',
       'Status',
       'PnL ($)',
@@ -762,6 +765,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       'MFE (%)',
       'Fee ($)',
       'Entry Price',
+      'Entry Price (Exact 8D+)',
       'Exit Reason Detail',
       'Holding Time (min)',
       'Open Positions Count',
@@ -786,8 +790,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.qty,
       o.leverage || '1x',
       o.signalScore !== undefined ? o.signalScore : '',
-      o.signalPrice !== undefined ? o.signalPrice : '',
-      o.fillPrice !== undefined ? o.fillPrice : '',
+      formatPrice(o.signalPrice),
+      formatExactPriceForExport(o.signalPrice),
+      formatPrice(o.fillPrice),
+      formatExactPriceForExport(o.fillPrice),
       o.estimatedSlippagePct !== undefined ? `${o.estimatedSlippagePct > 0 ? '+' : ''}${o.estimatedSlippagePct}%` : '',
       o.status,
       o.realizedPnl !== undefined ? o.realizedPnl : '',
@@ -795,7 +801,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       o.maePct !== undefined ? `${o.maePct}%` : '',
       o.mfePct !== undefined ? `+${o.mfePct}%` : '',
       o.cumFee !== undefined ? o.cumFee : (o.sizeUSDT * 0.0005).toFixed(4),
-      o.entryPrice || '',
+      formatPrice(o.entryPrice),
+      formatExactPriceForExport(o.entryPrice),
       o.exitReasonDetail || '',
       o.holdingTimeMinutes || '',
       o.openPositionsCount !== undefined ? o.openPositionsCount : '',
@@ -888,7 +895,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     trailingAct !== (profileConfig.trailingActivationPct ?? 1.1) ||
     trailingDist !== (profileConfig.trailingDistancePct ?? 0.35) ||
     minMomentum !== (profileConfig.minMomentumScore ?? 50) ||
-    maxMomentum !== (profileConfig.maxMomentumScore ?? 71) ||
+    maxMomentum !== (profileConfig.maxMomentumScore ?? 99) ||
     min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 1_500_000) / 1_000_000) ||
     max24hVol !== ((profileConfig.max24hVolumeUSDT ?? 0) / 1_000_000) ||
     takeProfit !== (profileConfig.takeProfitPct ?? 20) ||
@@ -914,7 +921,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
       );
       setMaxMomentum(
-        Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 71))
+        Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 99))
       );
       setMin24hVol(
         profileConfig.min24hVolumeUSDT !== undefined
@@ -969,7 +976,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
     );
     setMaxMomentum(
-      Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 71))
+      Math.min(99, Math.max(70, profileConfig.maxMomentumScore ?? 99))
     );
     setMin24hVol(
       profileConfig.min24hVolumeUSDT !== undefined
@@ -1605,8 +1612,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           {pos.side === 'BUY' ? 'LONG' : 'SHORT'}
                         </span>
                         {pos.isFadeTrade && (
-                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-600/60" title="Sub-strategie Fade Climax (>82)">
-                            FADE &gt;82
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-purple-950 text-purple-300 border border-purple-600/60" title="Sub-strategie Fade Climax">
+                            FADE
                           </span>
                         )}
                         <button
@@ -1631,12 +1638,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <div className="flex items-center space-x-3 sm:space-x-5 text-xs font-mono">
                     <div>
                       <div className="text-[9px] text-zinc-500">PREȚ INTRARE</div>
-                      <div className="font-bold text-zinc-300">${pos.entryPrice.toLocaleString()}</div>
+                      <div className="font-bold text-zinc-300 font-mono">{formatPrice(pos.entryPrice, { prefix: '$' })}</div>
                     </div>
 
                     <div>
                       <div className="text-[9px] text-zinc-500">PREȚ ACTUAL</div>
-                      <div className="font-bold text-white">${curPrice.toLocaleString()}</div>
+                      <div className="font-bold text-white font-mono">{formatPrice(curPrice, { prefix: '$' })}</div>
                     </div>
 
                     <div>
@@ -1685,25 +1692,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-zinc-400">Preț Intrare:</span>
-                          <span className="text-zinc-200">${pos.entryPrice.toLocaleString()}</span>
+                          <span className="text-zinc-200 font-mono">{formatPrice(pos.entryPrice, { prefix: '$' })}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-zinc-400">Preț Actual:</span>
-                          <span className="text-white font-bold">${curPrice.toLocaleString()}</span>
+                          <span className="text-white font-bold font-mono">{formatPrice(curPrice, { prefix: '$' })}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-zinc-400">Diferență Netă:</span>
-                          <span className={`font-bold ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {isProfit ? '+' : ''}${(curPrice - pos.entryPrice).toFixed(4)} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2)}%)
+                          <span className={`font-bold font-mono ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isProfit ? '+' : ''}{formatPrice(curPrice - pos.entryPrice, { prefix: '$' })} ({isProfit ? '+' : ''}{pos.pnlPct?.toFixed(2)}%)
                           </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Maxim Atins:</span>
-                          <span className="text-emerald-400">${(pos.highestPrice || pos.entryPrice).toLocaleString()}</span>
+                          <span className="text-emerald-400 font-mono">{formatPrice(pos.highestPrice || pos.entryPrice, { prefix: '$' })}</span>
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Minim Atins:</span>
-                          <span className="text-rose-400">${(pos.lowestPrice || pos.entryPrice).toLocaleString()}</span>
+                          <span className="text-rose-400 font-mono">{formatPrice(pos.lowestPrice || pos.entryPrice, { prefix: '$' })}</span>
                         </div>
                         <div className="flex justify-between text-[11px] pt-1 border-t border-zinc-900">
                           <span className="text-zinc-400">MAE (Worst DD):</span>
@@ -1771,8 +1778,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Hard Stop Loss:</span>
-                          <span className="text-rose-400 font-bold">
-                            {pos.stopLossPrice ? `$${pos.stopLossPrice.toFixed(4)} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
+                          <span className="text-rose-400 font-bold font-mono">
+                            {pos.stopLossPrice ? `${formatPrice(pos.stopLossPrice, { prefix: '$' })} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
                           </span>
                         </div>
                       </div>
@@ -1914,7 +1921,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     ? 'bg-purple-950 text-purple-200 border border-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-pulse'
                     : 'bg-zinc-900 text-zinc-400 hover:text-purple-300 border border-zinc-800'
                 }`}
-                title="Sub-strategie Fade Climax: Semnalele normale (≤82) rămân neschimbate, iar cele extreme (>82) sunt inversate (Mean-Reversion Fade)."
+                title="Sub-strategie Fade Climax: Semnalele normale rămân neschimbate, iar cele de climax extrem sunt inversate (Mean-Reversion Fade)."
               >
                 <span>🧪</span>
                 <span>{status?.config?.invertSignals ? 'FADE: ON' : 'FADE'}</span>
@@ -2056,7 +2063,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     ? 'bg-purple-950 text-purple-200 border-purple-400 animate-pulse'
                     : 'bg-black text-zinc-400 border-black/40'
                 }`}
-                title="Fade Climax >82"
+                title="Fade Climax Extrem"
               >
                 🧪 {status?.config?.invertSignals ? 'FADE:ON' : 'FADE'}
               </button>
@@ -2183,8 +2190,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
                   <span className="font-bold text-[9px] sm:text-[10px] text-purple-300">FADE:</span>
                   <span className="text-[9px] sm:text-[10px]">
-                    <span className="hidden sm:inline">Semnale &gt;82 inversate</span>
-                    <span className="sm:hidden">&gt;82 Inv</span>
+                    <span className="hidden sm:inline">Semnale Climax Inversate</span>
+                    <span className="sm:hidden">Fade Inv</span>
                   </span>
                   <button
                     onClick={handleToggleInvertSignals}
@@ -3145,7 +3152,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Momentum W:</span>
-                      <span className="font-bold text-cyan-400">[{profileConfig?.minMomentumScore ?? 50} - {profileConfig?.maxMomentumScore ?? 71}]</span>
+                      <span className="font-bold text-cyan-400">[{profileConfig?.minMomentumScore ?? 50} - {profileConfig?.maxMomentumScore ?? 99}]</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Volum 24h:</span>
@@ -3424,7 +3431,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
                                   </span>
                                   {opp.isFadeTrade && (
-                                    <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-700 rounded font-bold" title="Sub-strategie Fade Extrem (>82)">
+                                    <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-700 rounded font-bold" title="Sub-strategie Fade Extrem">
                                       FADE
                                     </span>
                                   )}
@@ -3439,16 +3446,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     ? 'bg-purple-950 text-purple-300 border border-purple-600 shadow-[0_0_8px_rgba(168,85,247,0.3)]'
                                     : opp.isEligible 
                                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' 
-                                    : opp.score > 82
-                                    ? 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
                                     : 'bg-zinc-800 text-zinc-400'
                                 }`}>
                                   {opp.isEligible && opp.isFadeTrade 
-                                    ? 'FADE EXTREM (>82)' 
+                                    ? 'FADE EXTREM' 
                                     : opp.isEligible 
                                     ? 'ELIGIBLE' 
-                                    : opp.score > 82 
-                                    ? 'BLOCKED (>82)' 
                                     : 'FILTERED'}
                                 </span>
                               </td>
@@ -3683,11 +3686,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
                                     <div className="bg-black/60 border border-zinc-800 p-2 rounded">
                                       <div className="text-[10px] text-zinc-400 uppercase">Preț Execuție / Fill</div>
-                                      <div className="text-sm font-bold text-zinc-200 mt-0.5">
-                                        {ord.fillPrice ? `$${ord.fillPrice.toFixed(4)}` : 'La Piață (Market)'}
+                                      <div className="text-sm font-bold text-zinc-200 mt-0.5 font-mono">
+                                        {ord.fillPrice ? `${formatPrice(ord.fillPrice, { prefix: '$' })}` : 'La Piață (Market)'}
                                         {ord.entryPrice && (
-                                          <span className="text-[10px] text-zinc-400 block font-normal">
-                                            Intrare: ${ord.entryPrice.toFixed(4)}
+                                          <span className="text-[10px] text-zinc-400 block font-normal font-mono">
+                                            Intrare: {formatPrice(ord.entryPrice, { prefix: '$' })}
                                           </span>
                                         )}
                                       </div>
@@ -3716,7 +3719,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     <div className="bg-black/60 border border-zinc-800 p-2 rounded">
                                       <div className="text-[10px] text-zinc-400 uppercase">Slippage &amp; Semnal</div>
                                       <div className="text-xs font-mono mt-0.5">
-                                        <span className="text-zinc-300">Semnal: {ord.signalPrice ? `$${ord.signalPrice.toFixed(4)}` : '--'}</span>
+                                        <span className="text-zinc-300">Semnal: {ord.signalPrice ? `${formatPrice(ord.signalPrice, { prefix: '$' })}` : '--'}</span>
                                         <span className="text-amber-400 font-bold block text-[11px]">
                                           Slippage: {ord.estimatedSlippagePct !== undefined ? `${ord.estimatedSlippagePct > 0 ? '+' : ''}${ord.estimatedSlippagePct}%` : '0.00%'}
                                         </span>
@@ -3934,7 +3937,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Fereastră Momentum</span>
                     <strong className="text-cyan-400 text-xs">
-                      [{profileConfig?.minMomentumScore ?? 60} - {profileConfig?.maxMomentumScore ?? 82}]
+                      [{profileConfig?.minMomentumScore ?? 50} - {profileConfig?.maxMomentumScore ?? 99}]
                     </strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
@@ -5086,7 +5089,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </div>
 
             {/* List / Table (Fully Scrollable) */}
-            <div className="flex-1 overflow-y-auto min-h-0 space-y-2.5 pr-1.5 terminal-scrollbar-x select-text">
+            <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 space-y-2.5 pr-1.5 terminal-scrollbar select-text">
               {(status?.equityTrailingState?.history || []).length === 0 ? (
                 <div className="p-8 text-center text-zinc-500 text-xs">
                   Nicio declanșare înregistrată încă. Declanșările vor fi logate automat aici și pe disc la fiecare activare.

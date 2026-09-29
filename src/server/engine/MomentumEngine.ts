@@ -52,12 +52,11 @@ export class MomentumEngine {
     if (!mainKlines || mainKlines.length < 22) return null;
 
     const metrics = precomputedMetrics || this.calculateMetrics(klines);
-    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 82;
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
     const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
 
-    // CASE 1: Standard Momentum Continuation (threshold <= score <= maxScore e.g. 72-82)
-    // Kept normal both in normal mode AND in inverted mode (only >82 is inverted)
-    if (metrics.score >= metrics.threshold && metrics.score <= maxScore) {
+    // CASE 1: Standard Momentum Continuation (threshold <= score <= maxScore)
+    if (metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore)) {
       // STRICT HTF CONFLUENCE FILTER for continuation:
       if (!metrics.htfAligned) {
         return null;
@@ -95,9 +94,9 @@ export class MomentumEngine {
       };
     }
 
-    // CASE 2: Extreme Momentum Climax Zone (score > maxScore, e.g. score > 82)
+    // CASE 2: Extreme Momentum Climax Zone (score > maxScore when maxScore < 100)
     // In inverted mode: Instead of discarding, we INVERT the side to fade the exhaustion blow-off / climax
-    if (metrics.score > maxScore && options?.invertExtremeSignals) {
+    if (maxScore < 100 && metrics.score > maxScore && options?.invertExtremeSignals) {
       const invertedSide: OrderSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
 
       return {
@@ -158,11 +157,11 @@ export class MomentumEngine {
     // Reuse precomputed metrics - eliminates redundant duplicate calculation
     const signal = this.evaluate(symbol, klines, metrics, options);
 
-    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 82;
+    const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
     const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
 
-    const isExtreme = metrics.score > maxScore;
-    const isStandard = metrics.score >= metrics.threshold && metrics.score <= maxScore;
+    const isExtreme = maxScore < 100 && metrics.score > maxScore;
+    const isStandard = metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore);
 
     let isEligible = false;
     let finalSide: OrderSide = metrics.side;
@@ -173,7 +172,7 @@ export class MomentumEngine {
       finalSide = metrics.side;
       isFadeTrade = false;
     } else if (isExtreme && options?.invertExtremeSignals) {
-      // Invert ONLY signals > 82 as a fade strategy
+      // Invert signals above maxScore as a fade strategy
       isEligible = true;
       finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
       isFadeTrade = true;
@@ -349,7 +348,7 @@ export class MomentumEngine {
       mom: parseFloat(mom.toFixed(2)),
       rvol: parseFloat(rvol.toFixed(2)),
       atrExpansion: parseFloat(atrExpansion.toFixed(2)),
-      currentAtr: parseFloat(currentAtr.toFixed(4)),
+      currentAtr: currentAtr, // Exact precision, prevents zeroing out for micro-price tokens
       lastPrice: lastClose,
       threshold,
       htfTrend,

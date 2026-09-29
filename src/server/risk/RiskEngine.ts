@@ -83,16 +83,15 @@ export class RiskEngine {
       };
     }
 
-    // 6. Momentum Score Window Validation (Anti-Exhaustion Guard)
-    // Avoid entries when score is above maxMomentumScore (e.g. >= 85, where win rate dropped to 0-3%)
-    const maxScoreCap = config.maxMomentumScore !== undefined ? config.maxMomentumScore : 85;
-    const minScoreRequired = config.minMomentumScore !== undefined ? config.minMomentumScore : 57;
+    // 6. Momentum Score Window Validation (Configurable via Settings)
+    const maxScoreCap = config.maxMomentumScore !== undefined ? config.maxMomentumScore : 100;
+    const minScoreRequired = config.minMomentumScore !== undefined ? config.minMomentumScore : 50;
 
-    if (signal.score > maxScoreCap) {
+    if (maxScoreCap < 100 && signal.score > maxScoreCap) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `MOMENTUM_EXHAUSTION_ZONE: Scorul ${signal.score.toFixed(1)} depășește tavanul maxim de siguranță (${maxScoreCap}/100). Mișcare supradestinsă (exhaustion top).`,
+        reason: `MOMENTUM_SCORE_TOO_HIGH: Scorul ${signal.score.toFixed(1)} depășește tavanul configurat în setări (${maxScoreCap}/100).`,
       };
     }
 
@@ -156,14 +155,8 @@ export class RiskEngine {
     const atrPct = Math.max(0, rawAtrPct);
 
     // Effective Risk Distance to Stop-Loss (%):
-    // HARD Stop-Loss limit: MUST NEVER exceed config.hardStopLossPct (e.g. 3.5%).
-    // Volatility Stop: 1.2x ATR% can tighten the stop if volatility is lower, but NEVER widen beyond hardStopLossPct.
-    const hardStopLimitPct = Math.max(0.5, config.hardStopLossPct);
-    const atrDistancePct = atrPct > 0 ? atrPct * 1.2 : hardStopLimitPct;
-    const effectiveStopDistancePct = Math.min(
-      hardStopLimitPct,
-      Math.max(0.5, atrDistancePct)
-    );
+    // Strictly respect config.hardStopLossPct without hidden ATR shrinking/overrides.
+    const effectiveStopDistancePct = Math.max(0.1, config.hardStopLossPct);
 
     // Net Capital with 10% reserve margin (-10% reserve margin):
     const netCapital = operatingEquity * 0.90;
@@ -204,7 +197,7 @@ export class RiskEngine {
     return {
       approved: true,
       sizeUSDT: parseFloat(targetSizeUSDT.toFixed(2)),
-      stopLossPrice: stopLossPrice ? parseFloat(stopLossPrice.toFixed(4)) : undefined,
+      stopLossPrice: stopLossPrice !== undefined ? stopLossPrice : undefined,
       effectiveStopDistancePct: parseFloat(effectiveStopDistancePct.toFixed(2)),
       dollarRiskAtStop: parseFloat((targetSizeUSDT * stopDistanceRatio).toFixed(2)),
       atrPct: parseFloat(atrPct.toFixed(2)),

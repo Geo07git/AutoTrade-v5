@@ -15,6 +15,7 @@ import {
   formatBucharestTime,
   formatBucharestDateTime,
 } from '../utils/timezone';
+import { formatPrice } from '../../shared/formatters';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), '.telegram_config.json');
 
@@ -435,7 +436,7 @@ export class TelegramService {
           const dur = p.holdingTimeMinutes ? `${Math.round(p.holdingTimeMinutes)}m` : 'nou';
           const pnlVal = (p.pnl || 0).toFixed(2);
           const pnlPctVal = (p.pnlPct || 0).toFixed(2);
-          const currP = p.currentPrice ? `$${p.currentPrice.toFixed(2)}` : `$${p.entryPrice.toFixed(2)}`;
+          const currP = p.currentPrice ? formatPrice(p.currentPrice, { prefix: '$' }) : formatPrice(p.entryPrice, { prefix: '$' });
           return `• ${symClean} [${p.side}] | Preț: ${currP} | PnL: ${pnlPctSign}${pnlPctVal}% (${pnlSign}${pnlVal} USDT) | Durată: ${dur}`;
         })
         .join('\n');

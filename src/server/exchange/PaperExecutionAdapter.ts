@@ -385,8 +385,8 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
       if (existing && existing.side === params.side) {
         const totalSize = existing.size + params.qty;
         const weightedAvgPrice = (existing.size * existing.avgPrice + params.qty * fillPrice) / totalSize;
-        existing.size = parseFloat(totalSize.toFixed(4));
-        existing.avgPrice = parseFloat(weightedAvgPrice.toFixed(4));
+        existing.size = parseFloat(totalSize.toFixed(6));
+        existing.avgPrice = weightedAvgPrice; // Exact full precision, no toFixed(4)
         existing.updatedTime = Date.now();
       } else {
         state.positions[targetKey] = {

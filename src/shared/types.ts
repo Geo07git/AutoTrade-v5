@@ -339,6 +339,7 @@ export interface Position {
   openPositionsAtExit?: number;
   accountEquityAtEntry?: number;
   accountEquityAtExit?: number;
+  consecutiveSlHits?: number;
 }
 
 export interface OKXRawPosition {

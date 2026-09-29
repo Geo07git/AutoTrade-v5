@@ -56,7 +56,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     equityProtectionActivationPct: 1.9,
     equityTrailingDrawdownPct: 0.3,
     minMomentumScore: 50,
-    maxMomentumScore: 71,
+    maxMomentumScore: 99,
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
@@ -77,8 +77,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     hardStopLossPct: 3.5, // Stop-loss hard 3.5%
     equityProtectionActivationPct: 3.0,
     equityTrailingDrawdownPct: 2.0,
-    minMomentumScore: 75,
-    maxMomentumScore: 82,
+    minMomentumScore: 60,
+    maxMomentumScore: 99,
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
@@ -618,9 +618,9 @@ export class TradeBot {
 
       // Filter eligible candidates meeting momentum score window [min, max] and 24h volume window [min, max], sorted by score descending
       const eligibleCandidates = scannedOpportunities.filter((opp) => {
-        if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 60) && opp.score <= (profile.maxMomentumScore || 82))) return false;
+        if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 50) && (profile.maxMomentumScore ? opp.score <= profile.maxMomentumScore : true))) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
-        if (profile.maxMomentumScore && opp.score > profile.maxMomentumScore) return false;
+        if (profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
         if (profile.min24hVolumeUSDT && profile.min24hVolumeUSDT > 0 && opp.volume24hUSDT < profile.min24hVolumeUSDT) return false;
         if (profile.max24hVolumeUSDT && profile.max24hVolumeUSDT > 0 && opp.volume24hUSDT > profile.max24hVolumeUSDT) return false;
         return true;
@@ -693,7 +693,7 @@ export class TradeBot {
           signal.originalSide = candidate.originalSide || signal.originalSide || signal.side;
 
           const signalMessage = signal.isFadeTrade
-            ? `[FADE CLIMAX >82] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+            ? `[FADE CLIMAX] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
             : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`;
 
           this.logAudit(
@@ -1564,6 +1564,7 @@ export class TradeBot {
 
   public recalculateSymbolStats(): SymbolStatsSummary {
     this.symbolStatsTracker.recalculateFromOrders(this.orderManager.getOrders());
+    this.orderStore.save(this.orderManager.getOrders());
     this.logAudit('SYSTEM', 'Symbol performance rolling stats recalculate executed across all historic orders.');
     return this.symbolStatsTracker.getSummary(this.positionManager.getActivePositions());
   }

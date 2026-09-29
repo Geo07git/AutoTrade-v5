@@ -14,6 +14,7 @@ import {
   Search,
 } from 'lucide-react';
 import { ScannerStats, ScannedOpportunity, UniverseFilterConfig } from '../shared/types';
+import { formatPrice } from '../shared/formatters';
 
 interface MarketScannerViewProps {
   stats?: ScannerStats;
@@ -337,7 +338,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
 
                       {/* Price */}
                       <td className="py-3 px-4 text-right text-slate-200">
-                        ${opp.price >= 1 ? opp.price.toFixed(2) : opp.price.toFixed(4)}
+                        {formatPrice(opp.price, { prefix: '$' })}
                       </td>
 
                       {/* 24h Volume */}
@@ -428,19 +429,15 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                       <td className="py-3 px-4 text-center">
                         {opp.isEligible ? (
                           <span
-                            title="Meets all momentum & liquidity thresholds for candidate entry"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/80"
+                            title="Îndeplinește toate criteriile de impuls și lichiditate pentru intrare"
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                              opp.isFadeTrade
+                                ? 'bg-purple-950/80 text-purple-300 border border-purple-800/80'
+                                : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80'
+                            }`}
                           >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            <span>ELIGIBLE</span>
-                          </span>
-                        ) : opp.score > 82 ? (
-                          <span 
-                            title="Semnal respins de regula Anti-Exhaustion: Scorul depășește tavanul de siguranță (max 82/85)"
-                            className="text-[10px] px-2 py-0.5 rounded text-rose-400 bg-rose-950/80 border border-rose-800/80 font-bold inline-flex items-center gap-1"
-                          >
-                            <AlertCircle className="w-3 h-3 text-rose-400" />
-                            <span>BLOCKED (&gt;82)</span>
+                            <CheckCircle2 className={`w-3 h-3 ${opp.isFadeTrade ? 'text-purple-400' : 'text-emerald-400'}`} />
+                            <span>{opp.isFadeTrade ? 'FADE' : 'ELIGIBLE'}</span>
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-600 font-semibold">

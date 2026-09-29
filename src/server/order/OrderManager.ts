@@ -12,6 +12,8 @@ import {
   AuditLogType,
   ExecutionMode,
 } from '../../shared/types';
+import { formatPrice } from '../../shared/formatters';
+import { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliation';
 
 export class OrderManager {
   private exchange: IExecutionAdapter;
@@ -63,7 +65,8 @@ export class OrderManager {
 
   public setOrders(orders: OrderRecord[]) {
     this.orders.clear();
-    for (const order of (orders || []).slice(0, 1000)) {
+    const reconciled = reconcileHistoricalOrderPrecision(orders || []);
+    for (const order of reconciled.slice(0, 1000)) {
       if (order && order.id) {
         this.orders.set(order.id, order);
       }
@@ -517,7 +520,7 @@ export class OrderManager {
           });
         }
 
-        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${exitPrice.toFixed(4)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
+        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${formatPrice(exitPrice)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
           positionId: position.id,
           symbol: position.symbol,
           exitPrice,
@@ -608,6 +611,9 @@ export class OrderManager {
 
     if (update.avgPrice > 0) {
       order.fillPrice = update.avgPrice;
+      if (order.intent === 'ENTRY' && !order.entryPrice) {
+        order.entryPrice = update.avgPrice;
+      }
     }
 
     if (update.cumFee !== undefined) {
@@ -641,7 +647,7 @@ export class OrderManager {
 
         this.auditLogger(
           order.status === 'FILLED' ? 'ORDER_FILLED' : 'ORDER_PARTIALLY_FILLED',
-          `Confirmed fill via ${update.source}: ${order.symbol} +${incrementalQty} @ $${fillPrice.toFixed(4)} (cum: ${newCumFilledQty}/${order.qty})`,
+          `Confirmed fill via ${update.source}: ${order.symbol} +${incrementalQty} @ $${formatPrice(fillPrice)} (cum: ${newCumFilledQty}/${order.qty})`,
           {
             orderId: order.id,
             symbol: order.symbol,
@@ -748,3 +754,6 @@ export class OrderManager {
     }
   }
 }
+
+export { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliation';
+

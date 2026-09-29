@@ -8,8 +8,10 @@ import {
   EquityProtectionEvent,
   EquityProtectionClosedPositionSummary,
 } from '../../shared/types';
+import { formatPrice } from '../../shared/formatters';
 import { OrderManager } from '../order/OrderManager';
 import { JsonStore } from '../store';
+import { formatBucharestDateTime } from '../utils/timezone';
 
 export class PositionManager {
   private activePositions: Position[] = [];
@@ -79,9 +81,11 @@ export class PositionManager {
 
       // Re-index trigger sequentially
       const triggerIdx = groupIdx + 1;
+      const formattedDate = best.timestamp ? formatBucharestDateTime(new Date(best.timestamp)) : (best.dateStr && !best.dateStr.includes('T') ? best.dateStr : formatBucharestDateTime(new Date()));
       cleanedEvents.push({
         ...best,
         triggerIndex: triggerIdx,
+        dateStr: formattedDate,
       });
     });
 
@@ -310,7 +314,7 @@ export class PositionManager {
         const ctVal = p.ctVal || 1;
         const validQty = p.qty && !isNaN(p.qty) && p.qty > 0
           ? p.qty
-          : parseFloat((p.sizeUSDT / ((p.entryPrice || 1) * ctVal)).toFixed(4));
+          : (p.sizeUSDT / ((p.entryPrice || 1) * ctVal));
         return {
           ...p,
           ctVal,
@@ -357,11 +361,11 @@ export class PositionManager {
     const existing = this.activePositions.find((p) => p.symbol === order.symbol && p.status === 'OPEN');
 
     if (existing) {
-      // Weighted average entry price with incremental fill
+      // Weighted average entry price with incremental fill - preserved with exact full precision!
       const totalQty = existing.qty + filledQty;
       const avgEntryPrice = (existing.qty * existing.entryPrice + filledQty * entryPrice) / totalQty;
       existing.qty = parseFloat(totalQty.toFixed(6));
-      existing.entryPrice = parseFloat(avgEntryPrice.toFixed(4));
+      existing.entryPrice = avgEntryPrice; // Exact full precision, no toFixed(4)
       existing.ctVal = existing.ctVal || ctVal;
       existing.sizeUSDT = parseFloat((existing.qty * existing.entryPrice * (existing.ctVal || 1)).toFixed(2));
       existing.entryFee = parseFloat(((existing.entryFee || 0) + feeToAdd).toFixed(4));
@@ -370,7 +374,7 @@ export class PositionManager {
       existing.entryOrderId = existing.entryOrderId || order.id;
       order.positionId = existing.id;
 
-      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased by +${filledQty} contracts to ${existing.qty} @ avg $${existing.entryPrice.toFixed(4)} (Entry Fee: $${existing.entryFee})`, {
+      this.auditLogger('POSITION_UPDATED', `Position ${order.symbol} increased by +${filledQty} contracts to ${existing.qty} @ avg $${formatPrice(existing.entryPrice)} (Entry Fee: $${existing.entryFee})`, {
         symbol: order.symbol,
         incrementalQty: filledQty,
         totalQty: existing.qty,
@@ -387,7 +391,7 @@ export class PositionManager {
       symbol: order.symbol,
       side: order.side.toUpperCase() === 'SELL' ? 'SELL' : 'BUY',
       qty: parseFloat(filledQty.toFixed(6)),
-      entryPrice: parseFloat(entryPrice.toFixed(4)),
+      entryPrice: entryPrice, // Exact fill price without any toFixed(4) rounding!
       ctVal,
       sizeUSDT: parseFloat(realSizeUSDT.toFixed(2)),
       entryFee: parseFloat(feeToAdd.toFixed(4)),
@@ -416,7 +420,7 @@ export class PositionManager {
     order.positionId = newPosition.id;
     this.activePositions.push(newPosition);
 
-    this.auditLogger('POSITION_OPENED', `Opened ${order.side} position on ${order.symbol}: ${filledQty} contracts @ $${entryPrice.toFixed(4)} ($${realSizeUSDT.toFixed(2)}) [Fee: $${newPosition.entryFee}]`, {
+    this.auditLogger('POSITION_OPENED', `Opened ${order.side} position on ${order.symbol}: ${filledQty} contracts @ $${formatPrice(entryPrice)} ($${realSizeUSDT.toFixed(2)}) [Fee: $${newPosition.entryFee}]`, {
       positionId: newPosition.id,
       symbol: newPosition.symbol,
       side: newPosition.side,
@@ -487,9 +491,10 @@ export class PositionManager {
             const closedSummary: EquityProtectionClosedPositionSummary[] = positionsToClose.map((p) => {
               const exitPrice = currentPrices[p.symbol] || p.entryPrice;
               const sizeUSDT = p.sizeUSDT || 0;
+              const ctVal = p.ctVal || 1;
               const pnl = p.side === 'BUY'
-                ? ((exitPrice - p.entryPrice) / p.entryPrice) * sizeUSDT
-                : ((p.entryPrice - exitPrice) / p.entryPrice) * sizeUSDT;
+                ? (exitPrice - p.entryPrice) * p.qty * ctVal
+                : (p.entryPrice - exitPrice) * p.qty * ctVal;
               return {
                 symbol: p.symbol,
                 side: p.side,
@@ -516,7 +521,7 @@ export class PositionManager {
               id: `ep_${Date.now()}_${this.equityProtCount}`,
               triggerIndex: this.equityProtCount,
               timestamp: Date.now(),
-              dateStr: new Date().toISOString(),
+              dateStr: formatBucharestDateTime(new Date()),
               profile: config.type,
               executionMode: positionsToClose[0]?.executionMode || 'PAPER',
               peakEquity: parseFloat(peakEquity.toFixed(2)),
@@ -600,7 +605,11 @@ export class PositionManager {
       pos.pnlPct = parseFloat(pnlPct.toFixed(2));
       const ctVal = pos.ctVal || 1;
       pos.sizeUSDT = parseFloat((pos.qty * pos.entryPrice * ctVal).toFixed(2));
-      pos.pnl = parseFloat(((pos.sizeUSDT * pnlPct) / 100).toFixed(2));
+      // Calculate exact gross unrealized PnL from price difference, contracts, and ctVal
+      const exactUnrealizedPnl = isBuy
+        ? (currentPrice - pos.entryPrice) * pos.qty * ctVal
+        : (pos.entryPrice - currentPrice) * pos.qty * ctVal;
+      pos.pnl = parseFloat(exactUnrealizedPnl.toFixed(2));
 
       // Continuous MAE (Maximum Adverse Excursion) & MFE (Maximum Favorable Excursion)
       const lowestPnlPct = isBuy
@@ -620,14 +629,11 @@ export class PositionManager {
         pos.isFastRunner = elapsedMins <= 5.0; // Early impulse velocity (reached in primele 3-5 min)
       }
 
-      // Ensure stopLossPrice is never wider than the profile's hardStopLossPct (e.g. -3.5%)
-      const hardSlPrice = pos.side === 'BUY'
-        ? pos.entryPrice * (1 - config.hardStopLossPct / 100)
-        : pos.entryPrice * (1 + config.hardStopLossPct / 100);
-
-      if (pos.stopLossPrice === undefined ||
-          (pos.side === 'BUY' && !pos.isBreakEvenTriggered && pos.stopLossPrice < hardSlPrice) ||
-          (pos.side === 'SELL' && !pos.isBreakEvenTriggered && pos.stopLossPrice > hardSlPrice)) {
+      // Ensure stopLossPrice matches the profile's hardStopLossPct (unless break-even is triggered)
+      if (!pos.isBreakEvenTriggered) {
+        const hardSlPrice = pos.side === 'BUY'
+          ? pos.entryPrice * (1 - config.hardStopLossPct / 100)
+          : pos.entryPrice * (1 + config.hardStopLossPct / 100);
         pos.stopLossPrice = hardSlPrice;
       }
 
@@ -660,13 +666,22 @@ export class PositionManager {
           this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL mutat la intrare.`);
       }
 
-      // 1. Hard Stop Loss Check (Dual validation: Price boundary crossed OR PnL% <= -hardStopLossPct)
-      const isHardSlHit = (pos.side === 'BUY' && currentPrice <= pos.stopLossPrice) ||
-                          (pos.side === 'SELL' && currentPrice >= pos.stopLossPrice) ||
-                          (!pos.isBreakEvenTriggered && pnlPct <= -config.hardStopLossPct);
+      // 1. Hard Stop Loss Check (Dual validation: Price boundary crossed OR PnL% <= -hardStopLossPct with consecutive tick confirmation)
+      const rawSlHit = (pos.side === 'BUY' && currentPrice <= pos.stopLossPrice) ||
+                       (pos.side === 'SELL' && currentPrice >= pos.stopLossPrice) ||
+                       (!pos.isBreakEvenTriggered && pnlPct <= -config.hardStopLossPct);
+
+      if (rawSlHit) {
+        pos.consecutiveSlHits = (pos.consecutiveSlHits || 0) + 1;
+      } else {
+        pos.consecutiveSlHits = 0;
+      }
+
+      // Require at least 2 consecutive checks to confirm hard SL hit and eliminate false wicks / noise
+      const isHardSlHit = rawSlHit && (pos.consecutiveSlHits >= 2);
 
       if (isHardSlHit) {
-        this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at $${currentPrice.toFixed(4)} (PnL: ${pnlPct.toFixed(2)}%, Limit: -${config.hardStopLossPct}%)`, {
+        this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at $${formatPrice(currentPrice)} (PnL: ${pnlPct.toFixed(2)}%, Limit: -${config.hardStopLossPct}%)`, {
           symbol: pos.symbol,
           currentPrice,
           pnlPct,
@@ -675,8 +690,8 @@ export class PositionManager {
         });
 
         const exitReasonText = pos.isBreakEvenTriggered
-          ? `Break-Even Stop atins la prețul $${currentPrice.toFixed(4)} (SL mutat la pragul de intrare după atingerea țintei BE, PnL înregistrat: ${pnlPct.toFixed(2)}%)`
-          : `Stop-Loss hard la -${config.hardStopLossPct}% atins la prețul $${currentPrice.toFixed(4)} (PnL înregistrat: ${pnlPct.toFixed(2)}%)`;
+          ? `Break-Even Stop atins la prețul $${formatPrice(currentPrice)} (SL mutat la pragul de intrare după atingerea țintei BE, PnL înregistrat: ${pnlPct.toFixed(2)}%)`
+          : `Stop-Loss hard la -${config.hardStopLossPct}% atins la prețul $${formatPrice(currentPrice)} (PnL înregistrat: ${pnlPct.toFixed(2)}%)`;
 
         await orderManager.executeCloseOrder({
           position: pos,
@@ -898,7 +913,7 @@ export class PositionManager {
 
     this.auditLogger(
       'POSITION_UPDATED',
-      `Position ${pos.symbol} partially closed: reduced by ${filledQty} contracts @ $${exitPrice.toFixed(4)}. Remaining: ${remainingQty}`,
+      `Position ${pos.symbol} partially closed: reduced by ${filledQty} contracts @ $${formatPrice(exitPrice)}. Remaining: ${remainingQty}`,
       {
         posId,
         symbol: pos.symbol,
@@ -976,12 +991,13 @@ export class PositionManager {
         localPos.side = okxSide;
       }
 
-      // Check entry price mismatch
-      if (okxPos.avgPrice > 0 && Math.abs(localPos.entryPrice - okxPos.avgPrice) > 0.01) {
+      // Check entry price mismatch (relative check > 0.05% or absolute difference for tiny tokens)
+      const relPriceDiff = okxPos.avgPrice > 0 ? Math.abs(localPos.entryPrice - okxPos.avgPrice) / okxPos.avgPrice : 0;
+      if (okxPos.avgPrice > 0 && relPriceDiff > 0.0005) {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Entry price mismatch for ${localPos.symbol}: local=$${localPos.entryPrice}, OKX=$${okxPos.avgPrice}. Updating to OKX price.`,
+          `Entry price mismatch for ${localPos.symbol}: local=$${formatPrice(localPos.entryPrice)}, OKX=$${formatPrice(okxPos.avgPrice)}. Updating to OKX price.`,
           { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: okxPos.avgPrice }
         );
         localPos.entryPrice = okxPos.avgPrice;

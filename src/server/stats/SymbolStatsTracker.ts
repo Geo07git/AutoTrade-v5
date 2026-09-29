@@ -8,6 +8,7 @@ import {
   OrderRecord,
   Position,
 } from '../../shared/types';
+import { reconcileHistoricalOrderPrecision } from '../order/orderPrecisionReconciliation';
 
 interface PersistedSymbolStatsData {
   tradesBySymbol: Record<string, SymbolTradeRecord[]>;
@@ -87,7 +88,8 @@ export class SymbolStatsTracker {
   public recalculateFromOrders(orders: OrderRecord[]): void {
     this.tradesBySymbol.clear();
 
-    const closedOrders = orders.filter(
+    const reconciledOrders = reconcileHistoricalOrderPrecision(orders || []);
+    const closedOrders = reconciledOrders.filter(
       (o) => o.intent !== 'ENTRY' && o.status === 'FILLED' && o.symbol
     );
 
