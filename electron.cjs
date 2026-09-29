@@ -31,7 +31,17 @@ function startBackendServer() {
   return new Promise((resolve, reject) => {
     const isPackaged = app.isPackaged;
     let scriptPath;
+    
+    // Robust runner selection: check system PATH or fallback to hardcoded path on Windows
     let runner = 'node';
+    if (process.platform === 'win32') {
+        const fs = require('fs');
+        const hardcodedPath = 'C:\\Program Files\\nodejs\\node.exe';
+        if (!fs.existsSync(runner)) {
+            runner = hardcodedPath;
+        }
+    }
+
     let args = [];
 
     const distServer = path.join(__dirname, 'dist', 'server.cjs');
@@ -49,22 +59,18 @@ function startBackendServer() {
     }
 
     console.log(`[Electron] Launching backend server with ${runner} ${args.join(' ')}...`);
-    console.log(`[Electron] Runner is: ${runner}`);
-    
-    // Ensure robust spawn by passing current environment and PATH
-    const spawnEnv = { 
-        ...process.env, 
-        PORT: `${SERVER_PORT}`, 
-        NODE_ENV: isPackaged ? 'production' : 'development' 
+
+    const spawnEnv = {
+      ...process.env,
+      PORT: `${SERVER_PORT}`,
+      NODE_ENV: isPackaged ? 'production' : 'development'
     };
 
     serverProcess = spawn(runner, args, {
       cwd: __dirname,
       env: spawnEnv,
       stdio: 'inherit',
-      // Keep shell as true for Windows to correctly resolve command paths, 
-      // but ensure runner is just 'node' to rely on system PATH
-      shell: process.platform === 'win32',
+      shell: false,
     });
 
     serverProcess.on('error', (err) => {
@@ -76,11 +82,12 @@ function startBackendServer() {
       serverProcess = null;
     });
 
-    // Poll until the server is ready (up to 20 seconds)
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
+
       const healthy = await checkServerHealth();
+
       if (healthy) {
         clearInterval(interval);
         console.log('[Electron] Backend server is healthy and ready.');
