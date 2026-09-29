@@ -49,10 +49,21 @@ function startBackendServer() {
     }
 
     console.log(`[Electron] Launching backend server with ${runner} ${args.join(' ')}...`);
+    console.log(`[Electron] Runner is: ${runner}`);
+    
+    // Ensure robust spawn by passing current environment and PATH
+    const spawnEnv = { 
+        ...process.env, 
+        PORT: `${SERVER_PORT}`, 
+        NODE_ENV: isPackaged ? 'production' : 'development' 
+    };
+
     serverProcess = spawn(runner, args, {
       cwd: __dirname,
-      env: { ...process.env, PORT: `${SERVER_PORT}`, NODE_ENV: isPackaged ? 'production' : 'development' },
+      env: spawnEnv,
       stdio: 'inherit',
+      // Keep shell as true for Windows to correctly resolve command paths, 
+      // but ensure runner is just 'node' to rely on system PATH
       shell: process.platform === 'win32',
     });
 

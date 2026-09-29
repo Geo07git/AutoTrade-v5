@@ -9,4 +9,8 @@ coverage/
 !.env.example
 .telegram*.json
 
+# Allow tracking runtime state data
+!.data/
+!.data/*.json
+
 

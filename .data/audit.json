@@ -1,0 +1,2419 @@
+[
+  {
+    "id": "1790673891508_t61d",
+    "timestamp": 1790673891508,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891507_f85b",
+    "timestamp": 1790673891507,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.5m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891388_oyei",
+    "timestamp": 1790673891388,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891388_aivk",
+    "timestamp": 1790673891388,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891385_kpmr",
+    "timestamp": 1790673891385,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673891385_wzpm",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673891384_s8wg",
+    "timestamp": 1790673891384,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.33,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.06,
+      "currentPrice": 0.4993
+    }
+  },
+  {
+    "id": "1790673891244_vffh",
+    "timestamp": 1790673891244,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891243_4ffb",
+    "timestamp": 1790673891243,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891243_wi2i",
+    "timestamp": 1790673891243,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673891190_qhmp",
+    "timestamp": 1790673891190,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891190_b0eo",
+    "timestamp": 1790673891190,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891188_mdd3",
+    "timestamp": 1790673891188,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891188_uzcw",
+    "timestamp": 1790673891188,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891183_m92l",
+    "timestamp": 1790673891183,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891183_7pib",
+    "timestamp": 1790673891183,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.45,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891123_jsyr",
+    "timestamp": 1790673891123,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891122_pfj6",
+    "timestamp": 1790673891122,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891103_zhg2",
+    "timestamp": 1790673891103,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891103_mblo",
+    "timestamp": 1790673891103,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891073_2q2u",
+    "timestamp": 1790673891073,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673891072_1cq5",
+    "timestamp": 1790673891072,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673891001_zul0",
+    "timestamp": 1790673891001,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673891001_mely",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673891000_pwet",
+    "timestamp": 1790673891000,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.33,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.06,
+      "currentPrice": 0.4993
+    }
+  },
+  {
+    "id": "1790673890946_jkv7",
+    "timestamp": 1790673890946,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890945_nbsh",
+    "timestamp": 1790673890945,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890944_glz2",
+    "timestamp": 1790673890944,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673890907_xn8f",
+    "timestamp": 1790673890907,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890907_l7ew",
+    "timestamp": 1790673890907,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890902_l3ij",
+    "timestamp": 1790673890902,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890902_d2gc",
+    "timestamp": 1790673890902,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890893_b980",
+    "timestamp": 1790673890893,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890892_3p2k",
+    "timestamp": 1790673890892,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890812_3y81",
+    "timestamp": 1790673890812,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890812_7lqw",
+    "timestamp": 1790673890812,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890807_nopz",
+    "timestamp": 1790673890807,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890806_3y0m",
+    "timestamp": 1790673890806,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890716_vhoy",
+    "timestamp": 1790673890716,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890716_icf5",
+    "timestamp": 1790673890716,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890701_5q4l",
+    "timestamp": 1790673890701,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890700_bncm",
+    "timestamp": 1790673890700,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890687_8n1p",
+    "timestamp": 1790673890687,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673890687_svz3",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673890686_e0kf",
+    "timestamp": 1790673890686,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.32,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.06,
+      "currentPrice": 0.4993
+    }
+  },
+  {
+    "id": "1790673890636_hr7t",
+    "timestamp": 1790673890636,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890636_u4gc",
+    "timestamp": 1790673890636,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890635_koyg",
+    "timestamp": 1790673890635,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673890602_eqm3",
+    "timestamp": 1790673890602,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890601_sr5f",
+    "timestamp": 1790673890601,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890535_bwj7",
+    "timestamp": 1790673890535,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890534_9fkj",
+    "timestamp": 1790673890534,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.44,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890515_hov6",
+    "timestamp": 1790673890515,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890514_vdfc",
+    "timestamp": 1790673890514,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890484_ntiw",
+    "timestamp": 1790673890484,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890483_hv7z",
+    "timestamp": 1790673890483,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890386_erd2",
+    "timestamp": 1790673890386,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673890386_b6jp",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673890386_fydt",
+    "timestamp": 1790673890386,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.32,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673890339_3dae",
+    "timestamp": 1790673890339,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890338_jzxp",
+    "timestamp": 1790673890338,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890338_fnxu",
+    "timestamp": 1790673890338,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673890301_o6g1",
+    "timestamp": 1790673890301,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890300_kfda",
+    "timestamp": 1790673890300,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890200_sxrh",
+    "timestamp": 1790673890200,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890199_ehpf",
+    "timestamp": 1790673890199,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890146_la9s",
+    "timestamp": 1790673890146,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890145_173w",
+    "timestamp": 1790673890145,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890093_minu",
+    "timestamp": 1790673890093,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890093_e8jz",
+    "timestamp": 1790673890093,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890092_jwb7",
+    "timestamp": 1790673890092,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890091_2eke",
+    "timestamp": 1790673890091,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890082_0hv6",
+    "timestamp": 1790673890082,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673890082_hdmk",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673890081_sdt0",
+    "timestamp": 1790673890081,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.31,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673890047_md8x",
+    "timestamp": 1790673890047,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673890046_ossf",
+    "timestamp": 1790673890046,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673890046_1d55",
+    "timestamp": 1790673890046,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673889991_2wqz",
+    "timestamp": 1790673889991,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889990_wrgr",
+    "timestamp": 1790673889990,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889984_g1vx",
+    "timestamp": 1790673889984,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889983_yw5x",
+    "timestamp": 1790673889983,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889975_lskb",
+    "timestamp": 1790673889975,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889974_adxm",
+    "timestamp": 1790673889974,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.43,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889880_397z",
+    "timestamp": 1790673889880,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889879_p9ob",
+    "timestamp": 1790673889879,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889792_psdl",
+    "timestamp": 1790673889792,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889792_va8o",
+    "timestamp": 1790673889792,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889789_h2n4",
+    "timestamp": 1790673889789,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673889789_y9gn",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673889788_tcp2",
+    "timestamp": 1790673889788,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.31,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673889728_xiqz",
+    "timestamp": 1790673889728,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889728_sh3r",
+    "timestamp": 1790673889728,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889727_3l6h",
+    "timestamp": 1790673889727,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673889680_ynbw",
+    "timestamp": 1790673889680,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889679_h319",
+    "timestamp": 1790673889679,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889596_yfbp",
+    "timestamp": 1790673889596,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889595_0jeh",
+    "timestamp": 1790673889595,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889483_scz7",
+    "timestamp": 1790673889483,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889482_zbgo",
+    "timestamp": 1790673889482,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889480_5nf0",
+    "timestamp": 1790673889480,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889479_mey4",
+    "timestamp": 1790673889479,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889467_g30e",
+    "timestamp": 1790673889467,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673889467_vzj5",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673889466_04sk",
+    "timestamp": 1790673889466,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.3,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673889416_lpln",
+    "timestamp": 1790673889416,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889415_dcqx",
+    "timestamp": 1790673889415,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889414_lvw8",
+    "timestamp": 1790673889414,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673889378_0e36",
+    "timestamp": 1790673889378,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889377_w43c",
+    "timestamp": 1790673889377,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.42,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889184_j5p5",
+    "timestamp": 1790673889184,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889183_h98a",
+    "timestamp": 1790673889183,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889181_whvw",
+    "timestamp": 1790673889181,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889181_80vj",
+    "timestamp": 1790673889181,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889180_b0c3",
+    "timestamp": 1790673889180,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889179_hisy",
+    "timestamp": 1790673889179,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889158_9nh3",
+    "timestamp": 1790673889158,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673889158_ut96",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673889157_g7if",
+    "timestamp": 1790673889157,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.3,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673889141_afhp",
+    "timestamp": 1790673889141,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889140_tbvq",
+    "timestamp": 1790673889140,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889139_4jtq",
+    "timestamp": 1790673889139,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673889121_x9rc",
+    "timestamp": 1790673889121,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889120_d4v7",
+    "timestamp": 1790673889120,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673889086_labe",
+    "timestamp": 1790673889086,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673889086_40st",
+    "timestamp": 1790673889086,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888988_p1ny",
+    "timestamp": 1790673888988,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888987_kv91",
+    "timestamp": 1790673888987,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888908_3pr8",
+    "timestamp": 1790673888908,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888907_s9i6",
+    "timestamp": 1790673888907,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888887_em5i",
+    "timestamp": 1790673888887,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888886_w5i3",
+    "timestamp": 1790673888886,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888885_9ey0",
+    "timestamp": 1790673888885,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673888885_kt6h",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673888884_g0d4",
+    "timestamp": 1790673888884,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.29,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673888848_5p12",
+    "timestamp": 1790673888848,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888848_f5d9",
+    "timestamp": 1790673888848,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888847_70yb",
+    "timestamp": 1790673888847,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673888801_ol2x",
+    "timestamp": 1790673888801,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888800_sspi",
+    "timestamp": 1790673888800,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.41,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888695_83qe",
+    "timestamp": 1790673888695,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888694_41sk",
+    "timestamp": 1790673888694,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888685_4df8",
+    "timestamp": 1790673888685,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888684_52pb",
+    "timestamp": 1790673888684,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888611_qnka",
+    "timestamp": 1790673888611,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888610_z45k",
+    "timestamp": 1790673888610,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888586_kgpt",
+    "timestamp": 1790673888586,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673888586_tcrj",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673888585_f1l9",
+    "timestamp": 1790673888585,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.29,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673888554_e6o7",
+    "timestamp": 1790673888554,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888553_943f",
+    "timestamp": 1790673888553,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888552_fibd",
+    "timestamp": 1790673888552,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673888541_uyjt",
+    "timestamp": 1790673888541,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888540_uqdl",
+    "timestamp": 1790673888540,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888470_yljp",
+    "timestamp": 1790673888470,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888469_7muw",
+    "timestamp": 1790673888469,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888384_ly7j",
+    "timestamp": 1790673888384,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888383_oet0",
+    "timestamp": 1790673888383,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888297_bdoh",
+    "timestamp": 1790673888297,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673888297_xfwy",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673888296_kxu8",
+    "timestamp": 1790673888296,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.28,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673888201_1hxi",
+    "timestamp": 1790673888201,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888201_970i",
+    "timestamp": 1790673888201,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888200_392x",
+    "timestamp": 1790673888200,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673888182_hc9h",
+    "timestamp": 1790673888182,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888182_kt44",
+    "timestamp": 1790673888182,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888180_tvlf",
+    "timestamp": 1790673888180,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888179_k4s8",
+    "timestamp": 1790673888179,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.4,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888135_4w00",
+    "timestamp": 1790673888135,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888134_6k1l",
+    "timestamp": 1790673888134,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888090_fmzu",
+    "timestamp": 1790673888090,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888089_t74a",
+    "timestamp": 1790673888089,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888088_btjc",
+    "timestamp": 1790673888088,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888087_uwu9",
+    "timestamp": 1790673888087,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888083_77aq",
+    "timestamp": 1790673888083,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888082_67k1",
+    "timestamp": 1790673888082,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673888013_s6x6",
+    "timestamp": 1790673888013,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673888012_kdi6",
+    "timestamp": 1790673888012,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.57,
+      "currentPrice": 0.0805
+    }
+  },
+  {
+    "id": "1790673887984_ihh5",
+    "timestamp": 1790673887984,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887983_oboz",
+    "timestamp": 1790673887983,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887942_itww",
+    "timestamp": 1790673887942,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673887942_3kuc",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673887941_10uo",
+    "timestamp": 1790673887941,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.28,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673887936_7v1z",
+    "timestamp": 1790673887936,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887935_avks",
+    "timestamp": 1790673887935,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887935_7o41",
+    "timestamp": 1790673887935,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673887898_z65h",
+    "timestamp": 1790673887898,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887897_2mkj",
+    "timestamp": 1790673887897,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887796_n3mt",
+    "timestamp": 1790673887796,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887795_8vjj",
+    "timestamp": 1790673887795,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887782_a7nd",
+    "timestamp": 1790673887782,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887782_vacg",
+    "timestamp": 1790673887782,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887780_w87w",
+    "timestamp": 1790673887780,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887780_f6hf",
+    "timestamp": 1790673887780,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887695_emo5",
+    "timestamp": 1790673887695,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887694_moxd",
+    "timestamp": 1790673887694,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887682_8ge6",
+    "timestamp": 1790673887682,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887681_gogi",
+    "timestamp": 1790673887681,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887672_itmv",
+    "timestamp": 1790673887672,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673887672_y260",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  },
+  {
+    "id": "1790673887672_xkgy",
+    "timestamp": 1790673887672,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "WLD-USDT-SWAP",
+      "heldMinutes": 131.27,
+      "peakPnlPct": 0.46,
+      "currentPnlPct": 0.04,
+      "currentPrice": 0.4992
+    }
+  },
+  {
+    "id": "1790673887636_mvm9",
+    "timestamp": 1790673887636,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887636_d8yb",
+    "timestamp": 1790673887636,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887635_6fn6",
+    "timestamp": 1790673887635,
+    "type": "ORDER_FAILED",
+    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "details": {
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
+      "reason": "TIME_STOP"
+    }
+  },
+  {
+    "id": "1790673887599_qsmw",
+    "timestamp": 1790673887599,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887598_cye9",
+    "timestamp": 1790673887598,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.39,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887452_1vml",
+    "timestamp": 1790673887452,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887451_azvj",
+    "timestamp": 1790673887451,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.38,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887392_eswr",
+    "timestamp": 1790673887392,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887391_c7qh",
+    "timestamp": 1790673887391,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.38,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887385_k09y",
+    "timestamp": 1790673887385,
+    "type": "ORDER_FAILED",
+    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+    }
+  },
+  {
+    "id": "1790673887384_wnr9",
+    "timestamp": 1790673887384,
+    "type": "RISK_REJECTED",
+    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "details": {
+      "symbol": "SKY-USDT-SWAP",
+      "heldMinutes": 89.38,
+      "peakPnlPct": 0,
+      "currentPnlPct": -1.68,
+      "currentPrice": 0.08041
+    }
+  },
+  {
+    "id": "1790673887382_rsch",
+    "timestamp": 1790673887382,
+    "type": "ORDER_SUBMITTED",
+    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "details": {
+      "orderId": "tb5_close_1790673887382_6f0z",
+      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
+      "symbol": "WLD-USDT-SWAP",
+      "reason": "TIME_STOP",
+      "qty": 120,
+      "mode": "PAPER",
+      "accountEquity": 216.01,
+      "openPositionsCount": 3,
+      "maePct": -0.14,
+      "mfePct": 0.46
+    }
+  }
+]

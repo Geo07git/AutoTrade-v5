@@ -17,6 +17,8 @@ import { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliatio
 
 export class OrderManager {
   private exchange: IExecutionAdapter;
+  private okxAdapter?: IExecutionAdapter;
+  private paperAdapter?: IExecutionAdapter;
   private positionManager: PositionManager;
   private executionMode: ExecutionMode;
   private orders: Map<string, OrderRecord> = new Map();
@@ -35,6 +37,11 @@ export class OrderManager {
     this.auditLogger = auditLogger;
     this.executionMode = executionMode;
     this.symbolStatsTracker = symbolStatsTracker;
+  }
+
+  public setAdapters(okxAdapter?: IExecutionAdapter, paperAdapter?: IExecutionAdapter) {
+    this.okxAdapter = okxAdapter;
+    this.paperAdapter = paperAdapter;
   }
 
   public setSymbolStatsTracker(tracker: SymbolStatsTracker) {
@@ -82,6 +89,7 @@ export class OrderManager {
    * Prevents duplicate entries!
    */
   public hasPendingOrderForSymbol(symbol: string): boolean {
+    const now = Date.now();
     for (const order of this.orders.values()) {
       if (order.symbol === symbol) {
         if (
@@ -90,6 +98,12 @@ export class OrderManager {
           order.status === 'ACCEPTED' ||
           order.status === 'PARTIALLY_FILLED'
         ) {
+          // If pending order is older than 120 seconds, treat as stale and do not block
+          if (now - order.createdTime > 120000) {
+            order.status = 'FAILED';
+            order.rejectionReason = 'Stale pending order timeout cleared';
+            continue;
+          }
           return true;
         }
       }
@@ -330,25 +344,51 @@ export class OrderManager {
     // Immediately lock position status to prevent concurrent duplicate close triggers from rapid ticks
     position.status = 'CLOSING';
 
-    if (this.hasPendingOrderForSymbol(position.symbol)) {
-      position.status = 'OPEN'; // Revert status lock
-      const err = `A pending order already exists for ${position.symbol}. Close order postponed until pending order completes.`;
-      this.auditLogger('ORDER_FAILED', err, { symbol: position.symbol, positionId: position.id });
-      return { success: false, error: err };
+    // Supersede/cancel any existing pending orders for this symbol so close order takes immediate precedence
+    for (const order of this.orders.values()) {
+      if (order.symbol === position.symbol) {
+        if (
+          order.status === 'CREATED' ||
+          order.status === 'SUBMITTED' ||
+          order.status === 'ACCEPTED' ||
+          order.status === 'PARTIALLY_FILLED'
+        ) {
+          order.status = 'CANCELLED';
+          order.rejectionReason = 'Superseded by position close order';
+          order.updatedTime = Date.now();
+          this.auditLogger('ORDER_CANCELLED', `Pending order ${order.id} for ${position.symbol} superseded and cancelled by position close.`, { orderId: order.id, symbol: position.symbol });
+        }
+      }
     }
 
     const closeSide: OrderSide = position.side === 'BUY' ? 'SELL' : 'BUY';
     const orderSide: 'Buy' | 'Sell' = closeSide === 'BUY' ? 'Buy' : 'Sell';
     const clientOrderId = `tb5_close_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
+    let isExchangePosition =
+      (position.source === 'OKX_SYNC' || position.executionMode === 'TESTNET' || position.executionMode === 'LIVE') &&
+      Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
+    let targetAdapter = isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter && !isExchangePosition ? this.paperAdapter : this.exchange);
+
     // Quantity to close equals the open position quantity
     const estPrice = currentPrice || position.entryPrice;
-    const filter = await this.exchange.getInstrumentFilter(position.symbol);
+    let filter;
+    try {
+      filter = await targetAdapter.getInstrumentFilter(position.symbol);
+    } catch (err: any) {
+      if (this.paperAdapter && targetAdapter !== this.paperAdapter) {
+        this.auditLogger('ORDER_FAILED', `Adapter failed to get instrument filter for ${position.symbol} (${err.message}). Falling back to Paper adapter.`, { symbol: position.symbol });
+        targetAdapter = this.paperAdapter;
+        filter = await targetAdapter.getInstrumentFilter(position.symbol);
+      } else {
+        throw err;
+      }
+    }
     const ctVal = position.ctVal || filter.ctVal || 1;
     const rawQty = position.qty && !isNaN(position.qty) && position.qty > 0
       ? position.qty
       : (position.sizeUSDT / ((position.entryPrice || 1) * ctVal));
-    const formattedQty = await this.exchange.formatQuantity(position.symbol, rawQty, estPrice, true);
+    const formattedQty = await targetAdapter.formatQuantity(position.symbol, rawQty, estPrice, true);
 
     const holdingTimeMinutes = position.entryTime ? parseFloat(((Date.now() - position.entryTime) / 60000).toFixed(1)) : 0;
     const actualCloseNotional = formattedQty * ctVal * estPrice;
@@ -413,15 +453,34 @@ export class OrderManager {
     closeOrder.status = 'SUBMITTED';
 
     try {
-      const submitRes = await this.exchange.submitOrder({
-        symbol: position.symbol,
-        side: orderSide,
-        orderType: 'Market',
-        qty: formattedQty,
-        price: estPrice,
-        orderLinkId: clientOrderId,
-        reduceOnly: true,
-      });
+      let submitRes;
+      try {
+        submitRes = await targetAdapter.submitOrder({
+          symbol: position.symbol,
+          side: orderSide,
+          orderType: 'Market',
+          qty: formattedQty,
+          price: estPrice,
+          orderLinkId: clientOrderId,
+          reduceOnly: true,
+        });
+      } catch (submitErr: any) {
+        if (this.paperAdapter && targetAdapter !== this.paperAdapter && (submitErr?.message?.includes('401') || submitErr?.message?.includes('51001') || submitErr?.message?.includes("doesn't exist") || submitErr?.message?.includes('API key'))) {
+          this.auditLogger('ORDER_FAILED', `Adapter submitOrder failed for ${position.symbol} (${submitErr.message}). Falling back to Paper adapter.`, { symbol: position.symbol });
+          targetAdapter = this.paperAdapter;
+          submitRes = await targetAdapter.submitOrder({
+            symbol: position.symbol,
+            side: orderSide,
+            orderType: 'Market',
+            qty: formattedQty,
+            price: estPrice,
+            orderLinkId: clientOrderId,
+            reduceOnly: true,
+          });
+        } else {
+          throw submitErr;
+        }
+      }
 
       closeOrder.status = 'ACCEPTED';
       closeOrder.exchangeOrderId = submitRes.orderId;

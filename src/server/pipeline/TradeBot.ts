@@ -181,8 +181,9 @@ export class TradeBot {
     }
     this.paperAdapter = new PaperExecutionAdapter();
 
-    // Select active adapter based on executionMode (TESTNET or LIVE uses OKXAdapter)
-    this.activeAdapter = (appConfig.executionMode === 'TESTNET' || appConfig.executionMode === 'LIVE')
+    // Select active adapter based on executionMode (TESTNET or LIVE uses OKXAdapter only if credentials exist)
+    const hasCreds = this.okxAdapter.hasCredentials() || this.hasOKXCredentials();
+    this.activeAdapter = (appConfig.executionMode === 'TESTNET' || appConfig.executionMode === 'LIVE') && hasCreds
       ? this.okxAdapter
       : this.paperAdapter;
 
@@ -194,6 +195,7 @@ export class TradeBot {
       auditLogger,
       appConfig.executionMode
     );
+    this.orderManager.setAdapters(this.okxAdapter, this.paperAdapter);
 
     this.engine = new MomentumEngine(profile);
     this.riskEngine = new RiskEngine();
@@ -854,18 +856,16 @@ export class TradeBot {
     this.configStore.save(config);
 
     // Switch active execution adapter
-    if (mode === 'TESTNET') {
+    if (mode === 'TESTNET' || mode === 'LIVE') {
       const key = config.okxApiKey || process.env.OKX_API_KEY || '';
       const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
       const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
-      this.okxAdapter.updateCredentials(key, secret, pass, true);
-      this.activeAdapter = this.okxAdapter;
-    } else if (mode === 'LIVE') {
-      const key = config.okxApiKey || process.env.OKX_API_KEY || '';
-      const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
-      const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
-      this.okxAdapter.updateCredentials(key, secret, pass, false);
-      this.activeAdapter = this.okxAdapter;
+      this.okxAdapter.updateCredentials(key, secret, pass, mode !== 'LIVE');
+      if (this.okxAdapter.hasCredentials()) {
+        this.activeAdapter = this.okxAdapter;
+      } else {
+        this.activeAdapter = this.paperAdapter;
+      }
     } else {
       this.activeAdapter = this.paperAdapter;
     }
