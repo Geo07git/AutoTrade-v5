@@ -1,18 +1,41 @@
 /**
  * Bloomberg // TradeBot v5.0 Pro - Electron Main Process
- * Supports Windows, Linux, and macOS standalone desktop execution.
+ * Standalone architecture using Electron's embedded Node.js runtime for the backend server.
  */
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
-let mainWindow = null;
-let serverProcess = null;
 const SERVER_PORT = 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
-// Function to check if the background API server is already listening
+// ==========================================
+// BACKEND SERVER PROCESS MODE
+// ==========================================
+if (process.argv.includes('--server-process')) {
+  process.env.PORT = `${SERVER_PORT}`;
+  process.env.NODE_ENV = 'production';
+  try {
+    const serverScript = path.join(__dirname, 'dist', 'server.cjs');
+    require(serverScript);
+  } catch (err) {
+    console.error('[Backend Process] Failed to load server.cjs:', err);
+    process.exit(1);
+  }
+  // Keep process alive
+  process.on('uncaughtException', (err) => {
+    console.error('[Backend Process Uncaught Exception]:', err);
+  });
+  return;
+}
+
+// ==========================================
+// ELECTRON GUI MAIN PROCESS MODE
+// ==========================================
+let mainWindow = null;
+let serverProcess = null;
+
 function checkServerHealth() {
   return new Promise((resolve) => {
     const req = http.get(`${SERVER_URL}/api/health`, (res) => {
@@ -26,55 +49,34 @@ function checkServerHealth() {
   });
 }
 
-// Function to start the backend server if not running
 function startBackendServer() {
-  return new Promise((resolve, reject) => {
-    const isPackaged = app.isPackaged;
-    let scriptPath;
-    
-    // Robust runner selection: check system PATH or fallback to hardcoded path on Windows
-    let runner = 'node';
-    if (process.platform === 'win32') {
-        const fs = require('fs');
-        const hardcodedPath = 'C:\\Program Files\\nodejs\\node.exe';
-        if (!fs.existsSync(runner)) {
-            runner = hardcodedPath;
-        }
-    }
-
-    let args = [];
-
-    const distServer = path.join(__dirname, 'dist', 'server.cjs');
-    const devServer = path.join(__dirname, 'server.ts');
-
-    if (require('fs').existsSync(distServer)) {
-      scriptPath = distServer;
-      args = [distServer];
-    } else if (require('fs').existsSync(devServer)) {
-      runner = 'npx';
-      args = ['tsx', devServer];
-    } else {
-      console.warn('[Electron] Neither dist/server.cjs nor server.ts found.');
+  return new Promise(async (resolve) => {
+    const alreadyRunning = await checkServerHealth();
+    if (alreadyRunning) {
+      console.log('[Electron] Backend server already running.');
       return resolve();
     }
 
-    console.log(`[Electron] Launching backend server with ${runner} ${args.join(' ')}...`);
+    const distServer = path.join(__dirname, 'dist', 'server.cjs');
+    if (!require('fs').existsSync(distServer)) {
+      console.warn('[Electron] Warning: dist/server.cjs not found on disk.');
+    }
 
-    const spawnEnv = {
-      ...process.env,
-      PORT: `${SERVER_PORT}`,
-      NODE_ENV: isPackaged ? 'production' : 'development'
-    };
+    console.log('[Electron] Launching self-contained backend server using process.execPath...');
 
-    serverProcess = spawn(runner, args, {
+    // Spawn backend server using Electron's own embedded Node runtime (process.execPath) with --server-process flag
+    serverProcess = spawn(process.execPath, [__filename, '--server-process'], {
       cwd: __dirname,
-      env: spawnEnv,
       stdio: 'inherit',
-      shell: false,
+      env: {
+        ...process.env,
+        PORT: `${SERVER_PORT}`,
+        NODE_ENV: 'production',
+      },
     });
 
     serverProcess.on('error', (err) => {
-      console.error('[Electron] Failed to start backend server:', err);
+      console.error('[Electron] Failed to start backend server process:', err);
     });
 
     serverProcess.on('exit', (code, signal) => {
@@ -82,15 +84,14 @@ function startBackendServer() {
       serverProcess = null;
     });
 
+    // Poll until server is healthy
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
-
       const healthy = await checkServerHealth();
-
       if (healthy) {
         clearInterval(interval);
-        console.log('[Electron] Backend server is healthy and ready.');
+        console.log('[Electron] Self-contained backend server is healthy and ready.');
         resolve();
       } else if (attempts > 40) {
         clearInterval(interval);
@@ -117,10 +118,8 @@ async function createWindow() {
     },
   });
 
-  // Remove default menu for high-performance trader immersion
   Menu.setApplicationMenu(null);
 
-  // Directly synchronize native OS window title & Windows taskbar title with document.title
   mainWindow.on('page-title-updated', (event, title) => {
     event.preventDefault();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -132,7 +131,6 @@ async function createWindow() {
     mainWindow.show();
   });
 
-  // Open external links in user's default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http:') || url.startsWith('https:')) {
       shell.openExternal(url);
@@ -140,11 +138,7 @@ async function createWindow() {
     return { action: 'deny' };
   });
 
-  // Ensure server is accessible before loading
-  const alreadyRunning = await checkServerHealth();
-  if (!alreadyRunning) {
-    await startBackendServer();
-  }
+  await startBackendServer();
 
   mainWindow.loadURL(SERVER_URL);
 
@@ -153,7 +147,20 @@ async function createWindow() {
   });
 }
 
-// Single instance lock
+function cleanupServer() {
+  if (serverProcess) {
+    console.log('[Electron] Terminating backend server child process...');
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', serverProcess.pid, '/f', '/t']);
+      } else {
+        serverProcess.kill('SIGTERM');
+      }
+    } catch (e) {}
+    serverProcess = null;
+  }
+}
+
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -170,29 +177,12 @@ if (!gotTheLock) {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  app.on('will-quit', () => {
+    cleanupServer();
+  });
+
+  app.on('quit', () => {
+    cleanupServer();
+  });
 }
-
-function cleanupServer() {
-  if (serverProcess) {
-    console.log('[Electron] Terminating backend server child process...');
-    try {
-      if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', serverProcess.pid, '/f', '/t']);
-      } else {
-        serverProcess.kill('SIGTERM');
-      }
-    } catch (e) {
-      // Ignore cleanup error
-    }
-    serverProcess = null;
-  }
-}
-
-app.on('before-quit', cleanupServer);
-
-app.on('window-all-closed', function () {
-  cleanupServer();
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
