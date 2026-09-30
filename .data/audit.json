@@ -1,2419 +1,2659 @@
 [
   {
-    "id": "1790673891508_t61d",
-    "timestamp": 1790673891508,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618092_uqqy",
+    "timestamp": 1790761618092,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #74 Selected: ALGO-USDT-SWAP (Momentum Score: 66.5/100, RVOL: 1.45x, 24h Vol: $72.9M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ALGO-USDT-SWAP",
+      "rank": 74,
+      "score": 66.5,
+      "rvol": 1.45,
+      "atrExpansion": 1.61,
+      "price": 0.12435,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891507_f85b",
-    "timestamp": 1790673891507,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.5m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618091_g41n",
+    "timestamp": 1790761618091,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SUI-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891388_oyei",
-    "timestamp": 1790673891388,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618090_d3xx",
+    "timestamp": 1790761618090,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SUI-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SUI-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891388_aivk",
-    "timestamp": 1790673891388,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618089_9x54",
+    "timestamp": 1790761618089,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate SUI-USDT-SWAP (Score: 66.9/100, Rank #73, ATR: 1.77%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SUI-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 66.9,
+      "profile": "MOMENTUM",
+      "rank": 73,
+      "currentPrice": 1.1669,
+      "currentAtr": 0.02069999999999994,
+      "atrPct": 1.77
     }
   },
   {
-    "id": "1790673891385_kpmr",
-    "timestamp": 1790673891385,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618089_4klc",
+    "timestamp": 1790761618089,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #73 Selected: SUI-USDT-SWAP (Momentum Score: 66.9/100, RVOL: 1.2x, 24h Vol: $157.1M)",
     "details": {
-      "orderId": "tb5_close_1790673891385_wzpm",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "SUI-USDT-SWAP",
+      "rank": 73,
+      "score": 66.9,
+      "rvol": 1.2,
+      "atrExpansion": 1.23,
+      "price": 1.1669,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891384_s8wg",
-    "timestamp": 1790673891384,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618088_9e0k",
+    "timestamp": 1790761618088,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.33,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.06,
-      "currentPrice": 0.4993
+      "symbol": "FLOW-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891244_vffh",
-    "timestamp": 1790673891244,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618088_29b1",
+    "timestamp": 1790761618088,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FLOW-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "FLOW-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891243_4ffb",
-    "timestamp": 1790673891243,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618087_zafi",
+    "timestamp": 1790761618087,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate FLOW-USDT-SWAP (Score: 67.1/100, Rank #72, ATR: 2.26%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "FLOW-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 67.1,
+      "profile": "MOMENTUM",
+      "rank": 72,
+      "currentPrice": 0.03273,
+      "currentAtr": 0.0007399999999999976,
+      "atrPct": 2.26
     }
   },
   {
-    "id": "1790673891243_wi2i",
-    "timestamp": 1790673891243,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618087_zeqs",
+    "timestamp": 1790761618087,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #72 Selected: FLOW-USDT-SWAP (Momentum Score: 67.1/100, RVOL: 0.87x, 24h Vol: $53.2M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "FLOW-USDT-SWAP",
+      "rank": 72,
+      "score": 67.1,
+      "rvol": 0.87,
+      "atrExpansion": 0.98,
+      "price": 0.03273,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891190_qhmp",
-    "timestamp": 1790673891190,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618086_7qw8",
+    "timestamp": 1790761618086,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891190_b0eo",
-    "timestamp": 1790673891190,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618085_265c",
+    "timestamp": 1790761618085,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891188_mdd3",
-    "timestamp": 1790673891188,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618085_jbdm",
+    "timestamp": 1790761618085,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate KAT-USDT-SWAP (Score: 67.5/100, Rank #71, ATR: 1.46%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "KAT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 67.5,
+      "profile": "MOMENTUM",
+      "rank": 71,
+      "currentPrice": 0.005017,
+      "currentAtr": 0.00007300000000000015,
+      "atrPct": 1.46
     }
   },
   {
-    "id": "1790673891188_uzcw",
-    "timestamp": 1790673891188,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618084_0dut",
+    "timestamp": 1790761618084,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #71 Selected: KAT-USDT-SWAP (Momentum Score: 67.5/100, RVOL: 0.52x, 24h Vol: $235.1M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "KAT-USDT-SWAP",
+      "rank": 71,
+      "score": 67.5,
+      "rvol": 0.52,
+      "atrExpansion": 1.14,
+      "price": 0.005017,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891183_m92l",
-    "timestamp": 1790673891183,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618084_lbfa",
+    "timestamp": 1790761618084,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "RESOLV-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891183_7pib",
-    "timestamp": 1790673891183,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618083_1jr9",
+    "timestamp": 1790761618083,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RESOLV-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.45,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "RESOLV-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891123_jsyr",
-    "timestamp": 1790673891123,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618083_0cqx",
+    "timestamp": 1790761618083,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate RESOLV-USDT-SWAP (Score: 68.2/100, Rank #70, ATR: 1.45%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "RESOLV-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 68.2,
+      "profile": "MOMENTUM",
+      "rank": 70,
+      "currentPrice": 0.01935,
+      "currentAtr": 0.00028000000000000247,
+      "atrPct": 1.45
     }
   },
   {
-    "id": "1790673891122_pfj6",
-    "timestamp": 1790673891122,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618082_p716",
+    "timestamp": 1790761618082,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #70 Selected: RESOLV-USDT-SWAP (Momentum Score: 68.2/100, RVOL: 0.68x, 24h Vol: $27.6M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "RESOLV-USDT-SWAP",
+      "rank": 70,
+      "score": 68.2,
+      "rvol": 0.68,
+      "atrExpansion": 1.12,
+      "price": 0.01935,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891103_zhg2",
-    "timestamp": 1790673891103,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618081_ha4w",
+    "timestamp": 1790761618081,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "AEVO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891103_mblo",
-    "timestamp": 1790673891103,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618081_fmc9",
+    "timestamp": 1790761618081,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AEVO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "AEVO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891073_2q2u",
-    "timestamp": 1790673891073,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618080_h0n5",
+    "timestamp": 1790761618080,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AEVO-USDT-SWAP (Score: 68.3/100, Rank #69, ATR: 1.45%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "AEVO-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 68.3,
+      "profile": "MOMENTUM",
+      "rank": 69,
+      "currentPrice": 0.02616,
+      "currentAtr": 0.0003799999999999984,
+      "atrPct": 1.45
     }
   },
   {
-    "id": "1790673891072_1cq5",
-    "timestamp": 1790673891072,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618079_v70s",
+    "timestamp": 1790761618079,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #69 Selected: AEVO-USDT-SWAP (Momentum Score: 68.3/100, RVOL: 0.31x, 24h Vol: $9.7M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "AEVO-USDT-SWAP",
+      "rank": 69,
+      "score": 68.3,
+      "rvol": 0.31,
+      "atrExpansion": 1.2,
+      "price": 0.02616,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673891001_zul0",
-    "timestamp": 1790673891001,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618079_bgzm",
+    "timestamp": 1790761618079,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "orderId": "tb5_close_1790673891001_mely",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "KAITO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673891000_pwet",
-    "timestamp": 1790673891000,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618078_xxg6",
+    "timestamp": 1790761618078,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAITO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.33,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.06,
-      "currentPrice": 0.4993
+      "symbol": "KAITO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890946_jkv7",
-    "timestamp": 1790673890946,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618077_0wp6",
+    "timestamp": 1790761618077,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate KAITO-USDT-SWAP (Score: 68.6/100, Rank #68, ATR: 1.29%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "KAITO-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 68.6,
+      "profile": "MOMENTUM",
+      "rank": 68,
+      "currentPrice": 0.3415,
+      "currentAtr": 0.004400000000000015,
+      "atrPct": 1.29
     }
   },
   {
-    "id": "1790673890945_nbsh",
-    "timestamp": 1790673890945,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618077_r2ai",
+    "timestamp": 1790761618077,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #68 Selected: KAITO-USDT-SWAP (Momentum Score: 68.6/100, RVOL: 0.65x, 24h Vol: $17.5M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "KAITO-USDT-SWAP",
+      "rank": 68,
+      "score": 68.6,
+      "rvol": 0.65,
+      "atrExpansion": 1.01,
+      "price": 0.3415,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890944_glz2",
-    "timestamp": 1790673890944,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618076_p5py",
+    "timestamp": 1790761618076,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890907_xn8f",
-    "timestamp": 1790673890907,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618076_korc",
+    "timestamp": 1790761618076,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FIL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "FIL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890907_l7ew",
-    "timestamp": 1790673890907,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618075_56p1",
+    "timestamp": 1790761618075,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate FIL-USDT-SWAP (Score: 69.0/100, Rank #67, ATR: 1.53%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "FIL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 69,
+      "profile": "MOMENTUM",
+      "rank": 67,
+      "currentPrice": 1.0802,
+      "currentAtr": 0.01649999999999996,
+      "atrPct": 1.53
     }
   },
   {
-    "id": "1790673890902_l3ij",
-    "timestamp": 1790673890902,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618074_kkng",
+    "timestamp": 1790761618074,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #67 Selected: FIL-USDT-SWAP (Momentum Score: 69/100, RVOL: 0.74x, 24h Vol: $66.5M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "FIL-USDT-SWAP",
+      "rank": 67,
+      "score": 69,
+      "rvol": 0.74,
+      "atrExpansion": 0.95,
+      "price": 1.0802,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890902_d2gc",
-    "timestamp": 1790673890902,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618073_8x3p",
+    "timestamp": 1790761618073,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "PARTI-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890893_b980",
-    "timestamp": 1790673890893,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618073_u3uz",
+    "timestamp": 1790761618073,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PARTI-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PARTI-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890892_3p2k",
-    "timestamp": 1790673890892,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618072_3tsm",
+    "timestamp": 1790761618072,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PARTI-USDT-SWAP (Score: 69.1/100, Rank #66, ATR: 1.43%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "PARTI-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 69.1,
+      "profile": "MOMENTUM",
+      "rank": 66,
+      "currentPrice": 0.02661,
+      "currentAtr": 0.00038000000000000186,
+      "atrPct": 1.43
     }
   },
   {
-    "id": "1790673890812_3y81",
-    "timestamp": 1790673890812,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618071_k4b6",
+    "timestamp": 1790761618071,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #66 Selected: PARTI-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.38x, 24h Vol: $19.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PARTI-USDT-SWAP",
+      "rank": 66,
+      "score": 69.1,
+      "rvol": 0.38,
+      "atrExpansion": 1.11,
+      "price": 0.02661,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890812_7lqw",
-    "timestamp": 1790673890812,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618070_kkex",
+    "timestamp": 1790761618070,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "XRP-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890807_nopz",
-    "timestamp": 1790673890807,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618069_jb9g",
+    "timestamp": 1790761618069,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate XRP-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XRP-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890806_3y0m",
-    "timestamp": 1790673890806,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618068_fv2h",
+    "timestamp": 1790761618068,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate XRP-USDT-SWAP (Score: 69.1/100, Rank #65, ATR: 1.3%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "XRP-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 69.1,
+      "profile": "MOMENTUM",
+      "rank": 65,
+      "currentPrice": 1.5118,
+      "currentAtr": 0.019600000000000062,
+      "atrPct": 1.3
     }
   },
   {
-    "id": "1790673890716_vhoy",
-    "timestamp": 1790673890716,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618068_8j6r",
+    "timestamp": 1790761618068,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #65 Selected: XRP-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.92x, 24h Vol: $374.0M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XRP-USDT-SWAP",
+      "rank": 65,
+      "score": 69.1,
+      "rvol": 0.92,
+      "atrExpansion": 1.87,
+      "price": 1.5118,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890716_icf5",
-    "timestamp": 1790673890716,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618067_e4hs",
+    "timestamp": 1790761618067,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "NOT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890701_5q4l",
-    "timestamp": 1790673890701,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618062_3b6m",
+    "timestamp": 1790761618062,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate NOT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "NOT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890700_bncm",
-    "timestamp": 1790673890700,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618061_ma3b",
+    "timestamp": 1790761618061,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate NOT-USDT-SWAP (Score: 69.1/100, Rank #64, ATR: 1.24%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "NOT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 69.1,
+      "profile": "MOMENTUM",
+      "rank": 64,
+      "currentPrice": 0.0004998,
+      "currentAtr": 0.000006199999999999934,
+      "atrPct": 1.24
     }
   },
   {
-    "id": "1790673890687_8n1p",
-    "timestamp": 1790673890687,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618060_rwlt",
+    "timestamp": 1790761618060,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #64 Selected: NOT-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.71x, 24h Vol: $730.2M)",
     "details": {
-      "orderId": "tb5_close_1790673890687_svz3",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "NOT-USDT-SWAP",
+      "rank": 64,
+      "score": 69.1,
+      "rvol": 0.71,
+      "atrExpansion": 0.99,
+      "price": 0.0004998,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890686_e0kf",
-    "timestamp": 1790673890686,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618059_2aj6",
+    "timestamp": 1790761618059,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.32,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.06,
-      "currentPrice": 0.4993
+      "symbol": "H-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890636_hr7t",
-    "timestamp": 1790673890636,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618058_jsu7",
+    "timestamp": 1790761618058,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate H-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "H-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890636_u4gc",
-    "timestamp": 1790673890636,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618056_su2j",
+    "timestamp": 1790761618056,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate H-USDT-SWAP (Score: 70.1/100, Rank #63, ATR: 0.87%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "H-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 70.1,
+      "profile": "MOMENTUM",
+      "rank": 63,
+      "currentPrice": 0.0705,
+      "currentAtr": 0.0006099999999999994,
+      "atrPct": 0.87
     }
   },
   {
-    "id": "1790673890635_koyg",
-    "timestamp": 1790673890635,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618055_1bt7",
+    "timestamp": 1790761618055,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #63 Selected: H-USDT-SWAP (Momentum Score: 70.1/100, RVOL: 1.13x, 24h Vol: $31.0M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "H-USDT-SWAP",
+      "rank": 63,
+      "score": 70.1,
+      "rvol": 1.13,
+      "atrExpansion": 0.8,
+      "price": 0.0705,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890602_eqm3",
-    "timestamp": 1790673890602,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618055_45nv",
+    "timestamp": 1790761618055,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SOL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890601_sr5f",
-    "timestamp": 1790673890601,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618054_kvn0",
+    "timestamp": 1790761618054,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SOL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SOL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890535_bwj7",
-    "timestamp": 1790673890535,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618053_80rj",
+    "timestamp": 1790761618053,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate SOL-USDT-SWAP (Score: 70.2/100, Rank #62, ATR: 1.39%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SOL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 70.2,
+      "profile": "MOMENTUM",
+      "rank": 62,
+      "currentPrice": 119.18,
+      "currentAtr": 1.6600000000000108,
+      "atrPct": 1.39
     }
   },
   {
-    "id": "1790673890534_9fkj",
-    "timestamp": 1790673890534,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618052_93uj",
+    "timestamp": 1790761618052,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #62 Selected: SOL-USDT-SWAP (Momentum Score: 70.2/100, RVOL: 1.35x, 24h Vol: $9.4M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.44,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SOL-USDT-SWAP",
+      "rank": 62,
+      "score": 70.2,
+      "rvol": 1.35,
+      "atrExpansion": 1.84,
+      "price": 119.18,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890515_hov6",
-    "timestamp": 1790673890515,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618052_0ctr",
+    "timestamp": 1790761618052,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WAL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890514_vdfc",
-    "timestamp": 1790673890514,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618051_epi1",
+    "timestamp": 1790761618051,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate WAL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "WAL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890484_ntiw",
-    "timestamp": 1790673890484,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618050_6hat",
+    "timestamp": 1790761618050,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate WAL-USDT-SWAP (Score: 70.3/100, Rank #61, ATR: 1.61%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WAL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 70.3,
+      "profile": "MOMENTUM",
+      "rank": 61,
+      "currentPrice": 0.03426,
+      "currentAtr": 0.0005499999999999949,
+      "atrPct": 1.61
     }
   },
   {
-    "id": "1790673890483_hv7z",
-    "timestamp": 1790673890483,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618049_s31n",
+    "timestamp": 1790761618049,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #61 Selected: WAL-USDT-SWAP (Momentum Score: 70.3/100, RVOL: 0.94x, 24h Vol: $12.8M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "WAL-USDT-SWAP",
+      "rank": 61,
+      "score": 70.3,
+      "rvol": 0.94,
+      "atrExpansion": 1.04,
+      "price": 0.03426,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890386_erd2",
-    "timestamp": 1790673890386,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618048_p556",
+    "timestamp": 1790761618048,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "orderId": "tb5_close_1790673890386_b6jp",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "RLS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890386_fydt",
-    "timestamp": 1790673890386,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618047_uvmu",
+    "timestamp": 1790761618047,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RLS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.32,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "RLS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890339_3dae",
-    "timestamp": 1790673890339,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618045_y7lp",
+    "timestamp": 1790761618045,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate RLS-USDT-SWAP (Score: 70.5/100, Rank #60, ATR: 1.66%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "RLS-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.5,
+      "profile": "MOMENTUM",
+      "rank": 60,
+      "currentPrice": 0.00229,
+      "currentAtr": 0.00003800000000000027,
+      "atrPct": 1.66
     }
   },
   {
-    "id": "1790673890338_jzxp",
-    "timestamp": 1790673890338,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618044_b7zi",
+    "timestamp": 1790761618044,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #60 Selected: RLS-USDT-SWAP (Momentum Score: 70.5/100, RVOL: 0.5x, 24h Vol: $228.1M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "RLS-USDT-SWAP",
+      "rank": 60,
+      "score": 70.5,
+      "rvol": 0.5,
+      "atrExpansion": 1.22,
+      "price": 0.00229,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890338_fnxu",
-    "timestamp": 1790673890338,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618044_pr96",
+    "timestamp": 1790761618044,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "XPL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890301_o6g1",
-    "timestamp": 1790673890301,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618043_nj14",
+    "timestamp": 1790761618043,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate XPL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XPL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890300_kfda",
-    "timestamp": 1790673890300,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618042_u1mc",
+    "timestamp": 1790761618042,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate XPL-USDT-SWAP (Score: 70.6/100, Rank #59, ATR: 2.61%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "XPL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 70.6,
+      "profile": "MOMENTUM",
+      "rank": 59,
+      "currentPrice": 0.09732,
+      "currentAtr": 0.0025400000000000006,
+      "atrPct": 2.61
     }
   },
   {
-    "id": "1790673890200_sxrh",
-    "timestamp": 1790673890200,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618041_a187",
+    "timestamp": 1790761618041,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #59 Selected: XPL-USDT-SWAP (Momentum Score: 70.6/100, RVOL: 0.89x, 24h Vol: $440.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XPL-USDT-SWAP",
+      "rank": 59,
+      "score": 70.6,
+      "rvol": 0.89,
+      "atrExpansion": 1.26,
+      "price": 0.09732,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890199_ehpf",
-    "timestamp": 1790673890199,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618040_luvh",
+    "timestamp": 1790761618040,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ETH-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890146_la9s",
-    "timestamp": 1790673890146,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618039_7ajb",
+    "timestamp": 1790761618039,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ETH-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ETH-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890145_173w",
-    "timestamp": 1790673890145,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618038_mi0e",
+    "timestamp": 1790761618038,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ETH-USDT-SWAP (Score: 70.9/100, Rank #58, ATR: 1.12%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ETH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 70.9,
+      "profile": "MOMENTUM",
+      "rank": 58,
+      "currentPrice": 2687.2,
+      "currentAtr": 30.210000000000036,
+      "atrPct": 1.12
     }
   },
   {
-    "id": "1790673890093_minu",
-    "timestamp": 1790673890093,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618038_d21y",
+    "timestamp": 1790761618038,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #58 Selected: ETH-USDT-SWAP (Momentum Score: 70.9/100, RVOL: 1.62x, 24h Vol: $2.4M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ETH-USDT-SWAP",
+      "rank": 58,
+      "score": 70.9,
+      "rvol": 1.62,
+      "atrExpansion": 2.5,
+      "price": 2687.2,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890093_e8jz",
-    "timestamp": 1790673890093,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618037_04o2",
+    "timestamp": 1790761618037,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "STX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890092_jwb7",
-    "timestamp": 1790673890092,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618036_c2v6",
+    "timestamp": 1790761618036,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate STX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "STX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890091_2eke",
-    "timestamp": 1790673890091,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618034_6eyw",
+    "timestamp": 1790761618034,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate STX-USDT-SWAP (Score: 71.2/100, Rank #57, ATR: 1.38%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "STX-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 71.2,
+      "profile": "MOMENTUM",
+      "rank": 57,
+      "currentPrice": 0.3183,
+      "currentAtr": 0.0043999999999999595,
+      "atrPct": 1.38
     }
   },
   {
-    "id": "1790673890082_0hv6",
-    "timestamp": 1790673890082,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618034_sl59",
+    "timestamp": 1790761618034,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #57 Selected: STX-USDT-SWAP (Momentum Score: 71.2/100, RVOL: 1.1x, 24h Vol: $7.2M)",
     "details": {
-      "orderId": "tb5_close_1790673890082_hdmk",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "STX-USDT-SWAP",
+      "rank": 57,
+      "score": 71.2,
+      "rvol": 1.1,
+      "atrExpansion": 1.06,
+      "price": 0.3183,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673890081_sdt0",
-    "timestamp": 1790673890081,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618033_8ol7",
+    "timestamp": 1790761618033,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.31,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "GLM-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890047_md8x",
-    "timestamp": 1790673890047,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618031_x9lf",
+    "timestamp": 1790761618031,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate GLM-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "GLM-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673890046_ossf",
-    "timestamp": 1790673890046,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618031_051i",
+    "timestamp": 1790761618031,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate GLM-USDT-SWAP (Score: 71.7/100, Rank #56, ATR: 1.22%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "GLM-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 71.7,
+      "profile": "MOMENTUM",
+      "rank": 56,
+      "currentPrice": 0.12666,
+      "currentAtr": 0.0015400000000000136,
+      "atrPct": 1.22
     }
   },
   {
-    "id": "1790673890046_1d55",
-    "timestamp": 1790673890046,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618030_s9d6",
+    "timestamp": 1790761618030,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #56 Selected: GLM-USDT-SWAP (Momentum Score: 71.7/100, RVOL: 1.04x, 24h Vol: $1.8M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "GLM-USDT-SWAP",
+      "rank": 56,
+      "score": 71.7,
+      "rvol": 1.04,
+      "atrExpansion": 1.22,
+      "price": 0.12666,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889991_2wqz",
-    "timestamp": 1790673889991,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618028_f90o",
+    "timestamp": 1790761618028,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "MOVE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889990_wrgr",
-    "timestamp": 1790673889990,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618026_r36q",
+    "timestamp": 1790761618026,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate MOVE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "MOVE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889984_g1vx",
-    "timestamp": 1790673889984,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618026_o6iv",
+    "timestamp": 1790761618026,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate MOVE-USDT-SWAP (Score: 72.0/100, Rank #55, ATR: 1.39%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "MOVE-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72,
+      "profile": "MOMENTUM",
+      "rank": 55,
+      "currentPrice": 0.009195,
+      "currentAtr": 0.00012799999999999964,
+      "atrPct": 1.39
     }
   },
   {
-    "id": "1790673889983_yw5x",
-    "timestamp": 1790673889983,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618025_56pv",
+    "timestamp": 1790761618025,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #55 Selected: MOVE-USDT-SWAP (Momentum Score: 72/100, RVOL: 1.03x, 24h Vol: $70.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "MOVE-USDT-SWAP",
+      "rank": 55,
+      "score": 72,
+      "rvol": 1.03,
+      "atrExpansion": 0.97,
+      "price": 0.009195,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889975_lskb",
-    "timestamp": 1790673889975,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618025_0ke3",
+    "timestamp": 1790761618025,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889974_adxm",
-    "timestamp": 1790673889974,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618024_432a",
+    "timestamp": 1790761618024,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ACH-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.43,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ACH-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889880_397z",
-    "timestamp": 1790673889880,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618022_e95a",
+    "timestamp": 1790761618022,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ACH-USDT-SWAP (Score: 72.2/100, Rank #54, ATR: 1.34%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ACH-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.2,
+      "profile": "MOMENTUM",
+      "rank": 54,
+      "currentPrice": 0.006174,
+      "currentAtr": 0.00008300000000000061,
+      "atrPct": 1.34
     }
   },
   {
-    "id": "1790673889879_p9ob",
-    "timestamp": 1790673889879,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618021_xyys",
+    "timestamp": 1790761618021,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #54 Selected: ACH-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 0.89x, 24h Vol: $35.6M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ACH-USDT-SWAP",
+      "rank": 54,
+      "score": 72.2,
+      "rvol": 0.89,
+      "atrExpansion": 1.12,
+      "price": 0.006174,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889792_psdl",
-    "timestamp": 1790673889792,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618021_bnwb",
+    "timestamp": 1790761618021,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SOON-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889792_va8o",
-    "timestamp": 1790673889792,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618020_vyp6",
+    "timestamp": 1790761618020,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SOON-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SOON-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889789_h2n4",
-    "timestamp": 1790673889789,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618019_v6do",
+    "timestamp": 1790761618019,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate SOON-USDT-SWAP (Score: 72.2/100, Rank #53, ATR: 4.39%)",
     "details": {
-      "orderId": "tb5_close_1790673889789_y9gn",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "SOON-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.2,
+      "profile": "MOMENTUM",
+      "rank": 53,
+      "currentPrice": 0.4535,
+      "currentAtr": 0.019899999999999973,
+      "atrPct": 4.39
     }
   },
   {
-    "id": "1790673889788_tcp2",
-    "timestamp": 1790673889788,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618018_7yha",
+    "timestamp": 1790761618018,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #53 Selected: SOON-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 0.96x, 24h Vol: $367.5M)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.31,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "SOON-USDT-SWAP",
+      "rank": 53,
+      "score": 72.2,
+      "rvol": 0.96,
+      "atrExpansion": 0.82,
+      "price": 0.4535,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889728_xiqz",
-    "timestamp": 1790673889728,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618018_8uj3",
+    "timestamp": 1790761618018,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZETA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889728_sh3r",
-    "timestamp": 1790673889728,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618017_mlu0",
+    "timestamp": 1790761618017,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ZETA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ZETA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889727_3l6h",
-    "timestamp": 1790673889727,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618015_y682",
+    "timestamp": 1790761618015,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ZETA-USDT-SWAP (Score: 72.3/100, Rank #52, ATR: 1.58%)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "ZETA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.3,
+      "profile": "MOMENTUM",
+      "rank": 52,
+      "currentPrice": 0.05318,
+      "currentAtr": 0.0008400000000000005,
+      "atrPct": 1.58
     }
   },
   {
-    "id": "1790673889680_ynbw",
-    "timestamp": 1790673889680,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618015_2wl4",
+    "timestamp": 1790761618015,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #52 Selected: ZETA-USDT-SWAP (Momentum Score: 72.3/100, RVOL: 1.06x, 24h Vol: $18.7M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZETA-USDT-SWAP",
+      "rank": 52,
+      "score": 72.3,
+      "rvol": 1.06,
+      "atrExpansion": 1.01,
+      "price": 0.05318,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889679_h319",
-    "timestamp": 1790673889679,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618013_a82n",
+    "timestamp": 1790761618013,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "YGG-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889596_yfbp",
-    "timestamp": 1790673889596,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618012_iusc",
+    "timestamp": 1790761618012,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate YGG-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "YGG-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889595_0jeh",
-    "timestamp": 1790673889595,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618011_1ohd",
+    "timestamp": 1790761618011,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate YGG-USDT-SWAP (Score: 72.3/100, Rank #51, ATR: 1.19%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "YGG-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.3,
+      "profile": "MOMENTUM",
+      "rank": 51,
+      "currentPrice": 0.02683,
+      "currentAtr": 0.00032000000000000084,
+      "atrPct": 1.19
     }
   },
   {
-    "id": "1790673889483_scz7",
-    "timestamp": 1790673889483,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618009_z531",
+    "timestamp": 1790761618009,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #51 Selected: YGG-USDT-SWAP (Momentum Score: 72.3/100, RVOL: 0.94x, 24h Vol: $23.0M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "YGG-USDT-SWAP",
+      "rank": 51,
+      "score": 72.3,
+      "rvol": 0.94,
+      "atrExpansion": 0.91,
+      "price": 0.02683,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889482_zbgo",
-    "timestamp": 1790673889482,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618009_ddyv",
+    "timestamp": 1790761618009,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "AVNT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889480_5nf0",
-    "timestamp": 1790673889480,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618008_6fox",
+    "timestamp": 1790761618008,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AVNT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "AVNT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889479_mey4",
-    "timestamp": 1790673889479,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618007_w2x3",
+    "timestamp": 1790761618007,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AVNT-USDT-SWAP (Score: 72.4/100, Rank #50, ATR: 1.45%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "AVNT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.4,
+      "profile": "MOMENTUM",
+      "rank": 50,
+      "currentPrice": 0.1291,
+      "currentAtr": 0.0018700000000000105,
+      "atrPct": 1.45
     }
   },
   {
-    "id": "1790673889467_g30e",
-    "timestamp": 1790673889467,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761618006_rgnz",
+    "timestamp": 1790761618006,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #50 Selected: AVNT-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 0.85x, 24h Vol: $4.5M)",
     "details": {
-      "orderId": "tb5_close_1790673889467_vzj5",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "AVNT-USDT-SWAP",
+      "rank": 50,
+      "score": 72.4,
+      "rvol": 0.85,
+      "atrExpansion": 1.01,
+      "price": 0.1291,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889466_04sk",
-    "timestamp": 1790673889466,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618006_qtnh",
+    "timestamp": 1790761618006,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.3,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "PONS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889416_lpln",
-    "timestamp": 1790673889416,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618005_a05g",
+    "timestamp": 1790761618005,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PONS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PONS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889415_dcqx",
-    "timestamp": 1790673889415,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618004_r2g2",
+    "timestamp": 1790761618004,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PONS-USDT-SWAP (Score: 72.4/100, Rank #49, ATR: 4.26%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "PONS-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.4,
+      "profile": "MOMENTUM",
+      "rank": 49,
+      "currentPrice": 0.5569,
+      "currentAtr": 0.023699999999999943,
+      "atrPct": 4.26
     }
   },
   {
-    "id": "1790673889414_lvw8",
-    "timestamp": 1790673889414,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761618003_nciz",
+    "timestamp": 1790761618003,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #49 Selected: PONS-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 0.86x, 24h Vol: $111.4M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "PONS-USDT-SWAP",
+      "rank": 49,
+      "score": 72.4,
+      "rvol": 0.86,
+      "atrExpansion": 1.09,
+      "price": 0.5569,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889378_0e36",
-    "timestamp": 1790673889378,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618002_0gel",
+    "timestamp": 1790761618002,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "STRK-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889377_w43c",
-    "timestamp": 1790673889377,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761618001_qu6m",
+    "timestamp": 1790761618001,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate STRK-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.42,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "STRK-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889184_j5p5",
-    "timestamp": 1790673889184,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761618000_583i",
+    "timestamp": 1790761618000,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate STRK-USDT-SWAP (Score: 72.6/100, Rank #48, ATR: 2.14%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "STRK-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.6,
+      "profile": "MOMENTUM",
+      "rank": 48,
+      "currentPrice": 0.04252,
+      "currentAtr": 0.0009100000000000011,
+      "atrPct": 2.14
     }
   },
   {
-    "id": "1790673889183_h98a",
-    "timestamp": 1790673889183,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617999_0937",
+    "timestamp": 1790761617999,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #48 Selected: STRK-USDT-SWAP (Momentum Score: 72.6/100, RVOL: 0.66x, 24h Vol: $205.3M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "STRK-USDT-SWAP",
+      "rank": 48,
+      "score": 72.6,
+      "rvol": 0.66,
+      "atrExpansion": 1.42,
+      "price": 0.04252,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889181_whvw",
-    "timestamp": 1790673889181,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617998_b3v6",
+    "timestamp": 1790761617998,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ESP-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889181_80vj",
-    "timestamp": 1790673889181,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617996_2zde",
+    "timestamp": 1790761617996,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ESP-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ESP-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889180_b0c3",
-    "timestamp": 1790673889180,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617995_zpz2",
+    "timestamp": 1790761617995,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ESP-USDT-SWAP (Score: 72.7/100, Rank #47, ATR: 1.2%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ESP-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 72.7,
+      "profile": "MOMENTUM",
+      "rank": 47,
+      "currentPrice": 0.10034,
+      "currentAtr": 0.0012000000000000066,
+      "atrPct": 1.2
     }
   },
   {
-    "id": "1790673889179_hisy",
-    "timestamp": 1790673889179,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617994_ia4h",
+    "timestamp": 1790761617994,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #47 Selected: ESP-USDT-SWAP (Momentum Score: 72.7/100, RVOL: 0.62x, 24h Vol: $3.9M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ESP-USDT-SWAP",
+      "rank": 47,
+      "score": 72.7,
+      "rvol": 0.62,
+      "atrExpansion": 1.21,
+      "price": 0.10034,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889158_9nh3",
-    "timestamp": 1790673889158,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617993_e21b",
+    "timestamp": 1790761617993,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "orderId": "tb5_close_1790673889158_ut96",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "AXS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889157_g7if",
-    "timestamp": 1790673889157,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617992_gzh9",
+    "timestamp": 1790761617992,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AXS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.3,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "AXS-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889141_afhp",
-    "timestamp": 1790673889141,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617990_e8gd",
+    "timestamp": 1790761617990,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AXS-USDT-SWAP (Score: 73.1/100, Rank #46, ATR: 1.15%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "AXS-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 73.1,
+      "profile": "MOMENTUM",
+      "rank": 46,
+      "currentPrice": 1.1828,
+      "currentAtr": 0.013600000000000056,
+      "atrPct": 1.15
     }
   },
   {
-    "id": "1790673889140_tbvq",
-    "timestamp": 1790673889140,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617989_xzoj",
+    "timestamp": 1790761617989,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #46 Selected: AXS-USDT-SWAP (Momentum Score: 73.1/100, RVOL: 0.99x, 24h Vol: $3.6M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "AXS-USDT-SWAP",
+      "rank": 46,
+      "score": 73.1,
+      "rvol": 0.99,
+      "atrExpansion": 1.08,
+      "price": 1.1828,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889139_4jtq",
-    "timestamp": 1790673889139,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617769_knr1",
+    "timestamp": 1790761617769,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #44 Selected: AKE-USDT-SWAP (Momentum Score: 73.1/100, RVOL: 10x, 24h Vol: $1455.5M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "AKE-USDT-SWAP",
+      "rank": 44,
+      "score": 73.1,
+      "rvol": 10,
+      "atrExpansion": 5,
+      "price": 0.03417,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673889121_x9rc",
-    "timestamp": 1790673889121,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617768_jget",
+    "timestamp": 1790761617768,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZRX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889120_d4v7",
-    "timestamp": 1790673889120,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617768_1cw5",
+    "timestamp": 1790761617768,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ZRX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ZRX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673889086_labe",
-    "timestamp": 1790673889086,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617767_5l14",
+    "timestamp": 1790761617767,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ZRX-USDT-SWAP (Score: 73.6/100, Rank #43, ATR: 1.43%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZRX-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 73.6,
+      "profile": "MOMENTUM",
+      "rank": 43,
+      "currentPrice": 0.12195,
+      "currentAtr": 0.0017400000000000054,
+      "atrPct": 1.43
     }
   },
   {
-    "id": "1790673889086_40st",
-    "timestamp": 1790673889086,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617763_cixy",
+    "timestamp": 1790761617763,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #43 Selected: ZRX-USDT-SWAP (Momentum Score: 73.6/100, RVOL: 0.86x, 24h Vol: $3.0M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ZRX-USDT-SWAP",
+      "rank": 43,
+      "score": 73.6,
+      "rvol": 0.86,
+      "atrExpansion": 1.2,
+      "price": 0.12195,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888988_p1ny",
-    "timestamp": 1790673888988,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617762_dhus",
+    "timestamp": 1790761617762,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WCT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888987_kv91",
-    "timestamp": 1790673888987,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617761_c1e9",
+    "timestamp": 1790761617761,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate WCT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "WCT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888908_3pr8",
-    "timestamp": 1790673888908,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617760_ztsk",
+    "timestamp": 1790761617760,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate WCT-USDT-SWAP (Score: 74.2/100, Rank #42, ATR: 1.39%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WCT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 74.2,
+      "profile": "MOMENTUM",
+      "rank": 42,
+      "currentPrice": 0.04251,
+      "currentAtr": 0.0005900000000000002,
+      "atrPct": 1.39
     }
   },
   {
-    "id": "1790673888907_s9i6",
-    "timestamp": 1790673888907,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617759_q5it",
+    "timestamp": 1790761617759,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #42 Selected: WCT-USDT-SWAP (Momentum Score: 74.2/100, RVOL: 1.14x, 24h Vol: $6.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "WCT-USDT-SWAP",
+      "rank": 42,
+      "score": 74.2,
+      "rvol": 1.14,
+      "atrExpansion": 0.99,
+      "price": 0.04251,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888887_em5i",
-    "timestamp": 1790673888887,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617759_0h0h",
+    "timestamp": 1790761617759,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "LDO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888886_w5i3",
-    "timestamp": 1790673888886,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617758_xx8a",
+    "timestamp": 1790761617758,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate LDO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "LDO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888885_9ey0",
-    "timestamp": 1790673888885,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617757_7nrz",
+    "timestamp": 1790761617757,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate LDO-USDT-SWAP (Score: 75.7/100, Rank #40, ATR: 2.24%)",
     "details": {
-      "orderId": "tb5_close_1790673888885_kt6h",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "LDO-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 75.7,
+      "profile": "MOMENTUM",
+      "rank": 40,
+      "currentPrice": 0.4819,
+      "currentAtr": 0.010799999999999976,
+      "atrPct": 2.24
     }
   },
   {
-    "id": "1790673888884_g0d4",
-    "timestamp": 1790673888884,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617756_w7ud",
+    "timestamp": 1790761617756,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #40 Selected: LDO-USDT-SWAP (Momentum Score: 75.7/100, RVOL: 0.9x, 24h Vol: $24.1M)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.29,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "LDO-USDT-SWAP",
+      "rank": 40,
+      "score": 75.7,
+      "rvol": 0.9,
+      "atrExpansion": 1.16,
+      "price": 0.4819,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888848_5p12",
-    "timestamp": 1790673888848,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617755_thrb",
+    "timestamp": 1790761617755,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PNUT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888848_f5d9",
-    "timestamp": 1790673888848,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617755_pinh",
+    "timestamp": 1790761617755,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PNUT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "PNUT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888847_70yb",
-    "timestamp": 1790673888847,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617754_wzlw",
+    "timestamp": 1790761617754,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PNUT-USDT-SWAP (Score: 76.1/100, Rank #39, ATR: 1.67%)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "PNUT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 76.1,
+      "profile": "MOMENTUM",
+      "rank": 39,
+      "currentPrice": 0.05457,
+      "currentAtr": 0.0009100000000000011,
+      "atrPct": 1.67
     }
   },
   {
-    "id": "1790673888801_ol2x",
-    "timestamp": 1790673888801,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617753_y6l0",
+    "timestamp": 1790761617753,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #39 Selected: PNUT-USDT-SWAP (Momentum Score: 76.1/100, RVOL: 1.04x, 24h Vol: $30.8M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PNUT-USDT-SWAP",
+      "rank": 39,
+      "score": 76.1,
+      "rvol": 1.04,
+      "atrExpansion": 1.21,
+      "price": 0.05457,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888800_sspi",
-    "timestamp": 1790673888800,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617753_4gjo",
+    "timestamp": 1790761617753,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.41,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "XLM-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888695_83qe",
-    "timestamp": 1790673888695,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617752_w41r",
+    "timestamp": 1790761617752,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate XLM-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XLM-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888694_41sk",
-    "timestamp": 1790673888694,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617752_klew",
+    "timestamp": 1790761617752,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate XLM-USDT-SWAP (Score: 76.3/100, Rank #38, ATR: 2.01%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "XLM-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 76.3,
+      "profile": "MOMENTUM",
+      "rank": 38,
+      "currentPrice": 0.22799,
+      "currentAtr": 0.004580000000000001,
+      "atrPct": 2.01
     }
   },
   {
-    "id": "1790673888685_4df8",
-    "timestamp": 1790673888685,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617751_ao31",
+    "timestamp": 1790761617751,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #38 Selected: XLM-USDT-SWAP (Momentum Score: 76.3/100, RVOL: 0.97x, 24h Vol: $149.7M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "XLM-USDT-SWAP",
+      "rank": 38,
+      "score": 76.3,
+      "rvol": 0.97,
+      "atrExpansion": 1.69,
+      "price": 0.22799,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888684_52pb",
-    "timestamp": 1790673888684,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617750_dru1",
+    "timestamp": 1790761617750,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ONT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888611_qnka",
-    "timestamp": 1790673888611,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617749_dumv",
+    "timestamp": 1790761617749,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ONT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ONT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888610_z45k",
-    "timestamp": 1790673888610,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617748_01qj",
+    "timestamp": 1790761617748,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ONT-USDT-SWAP (Score: 76.8/100, Rank #37, ATR: 1.15%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ONT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 76.8,
+      "profile": "MOMENTUM",
+      "rank": 37,
+      "currentPrice": 0.05834,
+      "currentAtr": 0.0006700000000000039,
+      "atrPct": 1.15
     }
   },
   {
-    "id": "1790673888586_kgpt",
-    "timestamp": 1790673888586,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617748_ct8m",
+    "timestamp": 1790761617748,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #37 Selected: ONT-USDT-SWAP (Momentum Score: 76.8/100, RVOL: 1.43x, 24h Vol: $9.7M)",
     "details": {
-      "orderId": "tb5_close_1790673888586_tcrj",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "ONT-USDT-SWAP",
+      "rank": 37,
+      "score": 76.8,
+      "rvol": 1.43,
+      "atrExpansion": 1.15,
+      "price": 0.05834,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888585_f1l9",
-    "timestamp": 1790673888585,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617747_k785",
+    "timestamp": 1790761617747,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.29,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "TURBO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888554_e6o7",
-    "timestamp": 1790673888554,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617746_bhij",
+    "timestamp": 1790761617746,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate TURBO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "TURBO-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888553_943f",
-    "timestamp": 1790673888553,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617746_ezes",
+    "timestamp": 1790761617746,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate TURBO-USDT-SWAP (Score: 76.8/100, Rank #36, ATR: 1.62%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "TURBO-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 76.8,
+      "profile": "MOMENTUM",
+      "rank": 36,
+      "currentPrice": 0.0010405,
+      "currentAtr": 0.00001690000000000003,
+      "atrPct": 1.62
     }
   },
   {
-    "id": "1790673888552_fibd",
-    "timestamp": 1790673888552,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617745_w30e",
+    "timestamp": 1790761617745,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #36 Selected: TURBO-USDT-SWAP (Momentum Score: 76.8/100, RVOL: 1.28x, 24h Vol: $637.8M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "TURBO-USDT-SWAP",
+      "rank": 36,
+      "score": 76.8,
+      "rvol": 1.28,
+      "atrExpansion": 1.14,
+      "price": 0.0010405,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888541_uyjt",
-    "timestamp": 1790673888541,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617642_3jc7",
+    "timestamp": 1790761617642,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #35 Selected: ZORA-USDT-SWAP (Momentum Score: 78.4/100, RVOL: 1.98x, 24h Vol: $101.5M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZORA-USDT-SWAP",
+      "rank": 35,
+      "score": 78.4,
+      "rvol": 1.98,
+      "atrExpansion": 1.43,
+      "price": 0.008022,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888540_uqdl",
-    "timestamp": 1790673888540,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617642_wgqv",
+    "timestamp": 1790761617642,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "RE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888470_yljp",
-    "timestamp": 1790673888470,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617641_9f04",
+    "timestamp": 1790761617641,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "RE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888469_7muw",
-    "timestamp": 1790673888469,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617640_v9n1",
+    "timestamp": 1790761617640,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate RE-USDT-SWAP (Score: 78.7/100, Rank #34, ATR: 1.74%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "RE-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 78.7,
+      "profile": "MOMENTUM",
+      "rank": 34,
+      "currentPrice": 0.48554,
+      "currentAtr": 0.008459999999999968,
+      "atrPct": 1.74
     }
   },
   {
-    "id": "1790673888384_ly7j",
-    "timestamp": 1790673888384,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617640_4bq5",
+    "timestamp": 1790761617640,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #34 Selected: RE-USDT-SWAP (Momentum Score: 78.7/100, RVOL: 0.79x, 24h Vol: $5.1M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "RE-USDT-SWAP",
+      "rank": 34,
+      "score": 78.7,
+      "rvol": 0.79,
+      "atrExpansion": 1.53,
+      "price": 0.48554,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888383_oet0",
-    "timestamp": 1790673888383,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617639_pimo",
+    "timestamp": 1790761617639,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "ZIL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888297_bdoh",
-    "timestamp": 1790673888297,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617639_qmjf",
+    "timestamp": 1790761617639,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ZIL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "orderId": "tb5_close_1790673888297_xfwy",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "ZIL-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888296_kxu8",
-    "timestamp": 1790673888296,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617638_1ya8",
+    "timestamp": 1790761617638,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ZIL-USDT-SWAP (Score: 78.7/100, Rank #33, ATR: 1.36%)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.28,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "ZIL-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 78.7,
+      "profile": "MOMENTUM",
+      "rank": 33,
+      "currentPrice": 0.00361,
+      "currentAtr": 0.000049,
+      "atrPct": 1.36
     }
   },
   {
-    "id": "1790673888201_1hxi",
-    "timestamp": 1790673888201,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617638_k4mh",
+    "timestamp": 1790761617638,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #33 Selected: ZIL-USDT-SWAP (Momentum Score: 78.7/100, RVOL: 1.34x, 24h Vol: $141.8M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ZIL-USDT-SWAP",
+      "rank": 33,
+      "score": 78.7,
+      "rvol": 1.34,
+      "atrExpansion": 1.17,
+      "price": 0.00361,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888201_970i",
-    "timestamp": 1790673888201,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617638_darw",
+    "timestamp": 1790761617638,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "BOME-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888200_392x",
-    "timestamp": 1790673888200,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617637_gifk",
+    "timestamp": 1790761617637,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BOME-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "BOME-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888182_hc9h",
-    "timestamp": 1790673888182,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617637_1f6q",
+    "timestamp": 1790761617637,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate BOME-USDT-SWAP (Score: 79.0/100, Rank #32, ATR: 1.75%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "BOME-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79,
+      "profile": "MOMENTUM",
+      "rank": 32,
+      "currentPrice": 0.0010081,
+      "currentAtr": 0.000017599999999999994,
+      "atrPct": 1.75
     }
   },
   {
-    "id": "1790673888182_kt44",
-    "timestamp": 1790673888182,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617636_iy8y",
+    "timestamp": 1790761617636,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #32 Selected: BOME-USDT-SWAP (Momentum Score: 79/100, RVOL: 1x, 24h Vol: $4442.3M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "BOME-USDT-SWAP",
+      "rank": 32,
+      "score": 79,
+      "rvol": 1,
+      "atrExpansion": 1.47,
+      "price": 0.0010081,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888180_tvlf",
-    "timestamp": 1790673888180,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617636_xobq",
+    "timestamp": 1790761617636,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SNX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888179_k4s8",
-    "timestamp": 1790673888179,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617635_7viw",
+    "timestamp": 1790761617635,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SNX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.4,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SNX-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888135_4w00",
-    "timestamp": 1790673888135,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617635_5ml5",
+    "timestamp": 1790761617635,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate SNX-USDT-SWAP (Score: 79.1/100, Rank #31, ATR: 1.86%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SNX-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.1,
+      "profile": "MOMENTUM",
+      "rank": 31,
+      "currentPrice": 0.2587,
+      "currentAtr": 0.004799999999999971,
+      "atrPct": 1.86
     }
   },
   {
-    "id": "1790673888134_6k1l",
-    "timestamp": 1790673888134,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617634_ybre",
+    "timestamp": 1790761617634,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #31 Selected: SNX-USDT-SWAP (Momentum Score: 79.1/100, RVOL: 1.13x, 24h Vol: $5.0M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SNX-USDT-SWAP",
+      "rank": 31,
+      "score": 79.1,
+      "rvol": 1.13,
+      "atrExpansion": 1.24,
+      "price": 0.2587,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888090_fmzu",
-    "timestamp": 1790673888090,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617634_nk9k",
+    "timestamp": 1790761617634,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "MANA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888089_t74a",
-    "timestamp": 1790673888089,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617634_dyx9",
+    "timestamp": 1790761617634,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate MANA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "MANA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888088_btjc",
-    "timestamp": 1790673888088,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617633_p3a1",
+    "timestamp": 1790761617633,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate MANA-USDT-SWAP (Score: 79.4/100, Rank #30, ATR: 1.64%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "MANA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.4,
+      "profile": "MOMENTUM",
+      "rank": 30,
+      "currentPrice": 0.09156,
+      "currentAtr": 0.0015000000000000013,
+      "atrPct": 1.64
     }
   },
   {
-    "id": "1790673888087_uwu9",
-    "timestamp": 1790673888087,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617633_7vyp",
+    "timestamp": 1790761617633,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #30 Selected: MANA-USDT-SWAP (Momentum Score: 79.4/100, RVOL: 1.12x, 24h Vol: $8.0M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "MANA-USDT-SWAP",
+      "rank": 30,
+      "score": 79.4,
+      "rvol": 1.12,
+      "atrExpansion": 1.42,
+      "price": 0.09156,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673888083_77aq",
-    "timestamp": 1790673888083,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617632_s97l",
+    "timestamp": 1790761617632,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SAND-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888082_67k1",
-    "timestamp": 1790673888082,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617632_zpxr",
+    "timestamp": 1790761617632,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SAND-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SAND-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673888013_s6x6",
-    "timestamp": 1790673888013,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617631_jw4o",
+    "timestamp": 1790761617631,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate SAND-USDT-SWAP (Score: 79.4/100, Rank #29, ATR: 1.73%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "SAND-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.4,
+      "profile": "MOMENTUM",
+      "rank": 29,
+      "currentPrice": 0.04565,
+      "currentAtr": 0.000789999999999999,
+      "atrPct": 1.73
     }
   },
   {
-    "id": "1790673888012_kdi6",
-    "timestamp": 1790673888012,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617631_3qg1",
+    "timestamp": 1790761617631,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #29 Selected: SAND-USDT-SWAP (Momentum Score: 79.4/100, RVOL: 1.1x, 24h Vol: $69.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.57,
-      "currentPrice": 0.0805
+      "symbol": "SAND-USDT-SWAP",
+      "rank": 29,
+      "score": 79.4,
+      "rvol": 1.1,
+      "atrExpansion": 1.13,
+      "price": 0.04565,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887984_ihh5",
-    "timestamp": 1790673887984,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617631_m2ux",
+    "timestamp": 1790761617631,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "APT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887983_oboz",
-    "timestamp": 1790673887983,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617630_34h0",
+    "timestamp": 1790761617630,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate APT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "APT-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887942_itww",
-    "timestamp": 1790673887942,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617630_nnl7",
+    "timestamp": 1790761617630,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate APT-USDT-SWAP (Score: 79.6/100, Rank #28, ATR: 2.05%)",
     "details": {
-      "orderId": "tb5_close_1790673887942_3kuc",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "APT-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.6,
+      "profile": "MOMENTUM",
+      "rank": 28,
+      "currentPrice": 0.8061,
+      "currentAtr": 0.01650000000000007,
+      "atrPct": 2.05
     }
   },
   {
-    "id": "1790673887941_10uo",
-    "timestamp": 1790673887941,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617629_g3gi",
+    "timestamp": 1790761617629,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #28 Selected: APT-USDT-SWAP (Momentum Score: 79.6/100, RVOL: 1.03x, 24h Vol: $14.4M)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.28,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "APT-USDT-SWAP",
+      "rank": 28,
+      "score": 79.6,
+      "rvol": 1.03,
+      "atrExpansion": 1.44,
+      "price": 0.8061,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887936_7v1z",
-    "timestamp": 1790673887936,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617629_6q54",
+    "timestamp": 1790761617629,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "S-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887935_avks",
-    "timestamp": 1790673887935,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617628_d8q0",
+    "timestamp": 1790761617628,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "S-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887935_7o41",
-    "timestamp": 1790673887935,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617628_yl3w",
+    "timestamp": 1790761617628,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 79.7/100, Rank #27, ATR: 1.77%)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "S-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.7,
+      "profile": "MOMENTUM",
+      "rank": 27,
+      "currentPrice": 0.0396,
+      "currentAtr": 0.0006999999999999992,
+      "atrPct": 1.77
     }
   },
   {
-    "id": "1790673887898_z65h",
-    "timestamp": 1790673887898,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617627_2jd0",
+    "timestamp": 1790761617627,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #27 Selected: S-USDT-SWAP (Momentum Score: 79.7/100, RVOL: 0.92x, 24h Vol: $28.5M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "S-USDT-SWAP",
+      "rank": 27,
+      "score": 79.7,
+      "rvol": 0.92,
+      "atrExpansion": 1.29,
+      "price": 0.0396,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887897_2mkj",
-    "timestamp": 1790673887897,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617627_avv4",
+    "timestamp": 1790761617627,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887796_n3mt",
-    "timestamp": 1790673887796,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617627_dgi4",
+    "timestamp": 1790761617627,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate WIF-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WIF-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887795_8vjj",
-    "timestamp": 1790673887795,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617626_syv7",
+    "timestamp": 1790761617626,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate WIF-USDT-SWAP (Score: 79.9/100, Rank #26, ATR: 2.45%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "WIF-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 79.9,
+      "profile": "MOMENTUM",
+      "rank": 26,
+      "currentPrice": 0.2526,
+      "currentAtr": 0.006200000000000011,
+      "atrPct": 2.45
     }
   },
   {
-    "id": "1790673887782_a7nd",
-    "timestamp": 1790673887782,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617626_7eg2",
+    "timestamp": 1790761617626,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #26 Selected: WIF-USDT-SWAP (Momentum Score: 79.9/100, RVOL: 1.17x, 24h Vol: $48.3M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "WIF-USDT-SWAP",
+      "rank": 26,
+      "score": 79.9,
+      "rvol": 1.17,
+      "atrExpansion": 1.34,
+      "price": 0.2526,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887782_vacg",
-    "timestamp": 1790673887782,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617625_qn6q",
+    "timestamp": 1790761617625,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "F-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887780_w87w",
-    "timestamp": 1790673887780,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617625_8khc",
+    "timestamp": 1790761617625,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate F-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "F-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887780_f6hf",
-    "timestamp": 1790673887780,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617624_qpx4",
+    "timestamp": 1790761617624,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate F-USDT-SWAP (Score: 80.5/100, Rank #25, ATR: 1.29%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "F-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 80.5,
+      "profile": "MOMENTUM",
+      "rank": 25,
+      "currentPrice": 0.003577,
+      "currentAtr": 0.000046000000000000034,
+      "atrPct": 1.29
     }
   },
   {
-    "id": "1790673887695_emo5",
-    "timestamp": 1790673887695,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617624_clu5",
+    "timestamp": 1790761617624,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #25 Selected: F-USDT-SWAP (Momentum Score: 80.5/100, RVOL: 1.32x, 24h Vol: $114.9M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "F-USDT-SWAP",
+      "rank": 25,
+      "score": 80.5,
+      "rvol": 1.32,
+      "atrExpansion": 1.32,
+      "price": 0.003577,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887694_moxd",
-    "timestamp": 1790673887694,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617623_9u6o",
+    "timestamp": 1790761617623,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "PEOPLE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887682_8ge6",
-    "timestamp": 1790673887682,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617623_nr8j",
+    "timestamp": 1790761617623,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PEOPLE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "PEOPLE-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887681_gogi",
-    "timestamp": 1790673887681,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617622_0grf",
+    "timestamp": 1790761617622,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate PEOPLE-USDT-SWAP (Score: 82.4/100, Rank #23, ATR: 1.98%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "PEOPLE-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 82.4,
+      "profile": "MOMENTUM",
+      "rank": 23,
+      "currentPrice": 0.009511,
+      "currentAtr": 0.00018799999999999893,
+      "atrPct": 1.98
     }
   },
   {
-    "id": "1790673887672_itmv",
-    "timestamp": 1790673887672,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617622_xfqz",
+    "timestamp": 1790761617622,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #23 Selected: PEOPLE-USDT-SWAP (Momentum Score: 82.4/100, RVOL: 1.04x, 24h Vol: $445.5M)",
     "details": {
-      "orderId": "tb5_close_1790673887672_y260",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "PEOPLE-USDT-SWAP",
+      "rank": 23,
+      "score": 82.4,
+      "rvol": 1.04,
+      "atrExpansion": 1.41,
+      "price": 0.009511,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887672_xkgy",
-    "timestamp": 1790673887672,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 131.3m for WLD-USDT-SWAP: Peak +0.46% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617621_bs66",
+    "timestamp": 1790761617621,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "WLD-USDT-SWAP",
-      "heldMinutes": 131.27,
-      "peakPnlPct": 0.46,
-      "currentPnlPct": 0.04,
-      "currentPrice": 0.4992
+      "symbol": "ANIME-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887636_mvm9",
-    "timestamp": 1790673887636,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617621_hdzr",
+    "timestamp": 1790761617621,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ANIME-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ANIME-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887636_d8yb",
-    "timestamp": 1790673887636,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617620_3nbo",
+    "timestamp": 1790761617620,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ANIME-USDT-SWAP (Score: 82.7/100, Rank #22, ATR: 1.87%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "ANIME-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 82.7,
+      "profile": "MOMENTUM",
+      "rank": 22,
+      "currentPrice": 0.003378,
+      "currentAtr": 0.00006300000000000012,
+      "atrPct": 1.87
     }
   },
   {
-    "id": "1790673887635_6fn6",
-    "timestamp": 1790673887635,
-    "type": "ORDER_FAILED",
-    "message": "CRITICAL: Failed to close position WLD-USDT-SWAP: OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}. Position remains OPEN.",
+    "id": "1790761617620_yduu",
+    "timestamp": 1790761617620,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #22 Selected: ANIME-USDT-SWAP (Momentum Score: 82.7/100, RVOL: 1.34x, 24h Vol: $85.8M)",
     "details": {
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "error": "OKX HTTP Error [401]: {\"msg\":\"API key doesn't exist\",\"code\":\"50119\"}",
-      "reason": "TIME_STOP"
+      "symbol": "ANIME-USDT-SWAP",
+      "rank": 22,
+      "score": 82.7,
+      "rvol": 1.34,
+      "atrExpansion": 1.53,
+      "price": 0.003378,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887599_qsmw",
-    "timestamp": 1790673887599,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617241_f7nt",
+    "timestamp": 1790761617241,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #21 Selected: FLOCK-USDT-SWAP (Momentum Score: 82.7/100, RVOL: 2x, 24h Vol: $35.6M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "FLOCK-USDT-SWAP",
+      "rank": 21,
+      "score": 82.7,
+      "rvol": 2,
+      "atrExpansion": 1.62,
+      "price": 0.0657,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887598_cye9",
-    "timestamp": 1790673887598,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617240_fyrm",
+    "timestamp": 1790761617240,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.39,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "ADA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887452_1vml",
-    "timestamp": 1790673887452,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617239_jv47",
+    "timestamp": 1790761617239,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ADA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ADA-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887451_azvj",
-    "timestamp": 1790673887451,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617236_z6d5",
+    "timestamp": 1790761617236,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ADA-USDT-SWAP (Score: 83.4/100, Rank #20, ATR: 2.06%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.38,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "ADA-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 83.4,
+      "profile": "MOMENTUM",
+      "rank": 20,
+      "currentPrice": 0.2478,
+      "currentAtr": 0.005099999999999993,
+      "atrPct": 2.06
     }
   },
   {
-    "id": "1790673887392_eswr",
-    "timestamp": 1790673887392,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617235_h9bk",
+    "timestamp": 1790761617235,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #20 Selected: ADA-USDT-SWAP (Momentum Score: 83.4/100, RVOL: 1.25x, 24h Vol: $250.2M)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ADA-USDT-SWAP",
+      "rank": 20,
+      "score": 83.4,
+      "rvol": 1.25,
+      "atrExpansion": 1.8,
+      "price": 0.2478,
+      "profile": "MOMENTUM"
     }
   },
   {
-    "id": "1790673887391_c7qh",
-    "timestamp": 1790673887391,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617234_n09m",
+    "timestamp": 1790761617234,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.38,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "ENJ-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887385_k09y",
-    "timestamp": 1790673887385,
-    "type": "ORDER_FAILED",
-    "message": "A pending order already exists for SKY-USDT-SWAP. Close order postponed until pending order completes.",
+    "id": "1790761617233_uzsg",
+    "timestamp": 1790761617233,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ENJ-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "positionId": "okx_sync_1790673599647_SKY-USDT-SWAP"
+      "symbol": "ENJ-USDT-SWAP",
+      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
     }
   },
   {
-    "id": "1790673887384_wnr9",
-    "timestamp": 1790673887384,
-    "type": "RISK_REJECTED",
-    "message": "Stagnation Time-Stop at 89.4m for SKY-USDT-SWAP: Peak +0.00% < +0.5%. Closing early to preserve winrate.",
+    "id": "1790761617232_85t7",
+    "timestamp": 1790761617232,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ENJ-USDT-SWAP (Score: 84.1/100, Rank #19, ATR: 2.11%)",
     "details": {
-      "symbol": "SKY-USDT-SWAP",
-      "heldMinutes": 89.38,
-      "peakPnlPct": 0,
-      "currentPnlPct": -1.68,
-      "currentPrice": 0.08041
+      "symbol": "ENJ-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 84.1,
+      "profile": "MOMENTUM",
+      "rank": 19,
+      "currentPrice": 0.0298,
+      "currentAtr": 0.0006300000000000021,
+      "atrPct": 2.11
     }
   },
   {
-    "id": "1790673887382_rsch",
-    "timestamp": 1790673887382,
-    "type": "ORDER_SUBMITTED",
-    "message": "Submitting Close Order for WLD-USDT-SWAP (TIME_STOP) - Side: Sell, Qty: 120 via PAPER",
+    "id": "1790761617231_519s",
+    "timestamp": 1790761617231,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #19 Selected: ENJ-USDT-SWAP (Momentum Score: 84.1/100, RVOL: 1.29x, 24h Vol: $12.5M)",
     "details": {
-      "orderId": "tb5_close_1790673887382_6f0z",
-      "positionId": "okx_sync_1790673329510_WLD-USDT-SWAP",
-      "symbol": "WLD-USDT-SWAP",
-      "reason": "TIME_STOP",
-      "qty": 120,
-      "mode": "PAPER",
-      "accountEquity": 216.01,
-      "openPositionsCount": 3,
-      "maePct": -0.14,
-      "mfePct": 0.46
+      "symbol": "ENJ-USDT-SWAP",
+      "rank": 19,
+      "score": 84.1,
+      "rvol": 1.29,
+      "atrExpansion": 1.71,
+      "price": 0.0298,
+      "profile": "MOMENTUM"
     }
   }
 ]
