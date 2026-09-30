@@ -16,8 +16,8 @@
     "cap:add:android": "npx cap add android",
     "cap:sync": "vite build && npx cap sync",
     "cap:open:android": "npx cap open android",
-    "cap:build:apk": "vite build && npx cap sync android && cd android && ./gradlew assembleDebug",
-    "cap:build:release": "vite build && npx cap sync android && cd android && ./gradlew assembleRelease"
+    "cap:build:apk": "vite build && npx cap sync android && cd android && gradlew assembleDebug",
+    "cap:build:release": "vite build && npx cap sync android && cd android && gradlew assembleRelease"
   },
   "build": {
     "appId": "com.bloomberg.tradebot5",
