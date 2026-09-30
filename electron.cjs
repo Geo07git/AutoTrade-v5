@@ -1,40 +1,16 @@
 /**
  * Bloomberg // TradeBot v5.0 Pro - Electron Main Process
- * Standalone architecture using Electron's embedded Node.js runtime for the backend server.
+ * Professional standalone desktop architecture using ELECTRON_RUN_AS_NODE.
  */
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
 
-const SERVER_PORT = 3000;
-const SERVER_URL = `http://localhost:${SERVER_PORT}`;
-
-// ==========================================
-// BACKEND SERVER PROCESS MODE
-// ==========================================
-if (process.argv.includes('--server-process')) {
-  process.env.PORT = `${SERVER_PORT}`;
-  process.env.NODE_ENV = 'production';
-  try {
-    const serverScript = path.join(__dirname, 'dist', 'server.cjs');
-    require(serverScript);
-  } catch (err) {
-    console.error('[Backend Process] Failed to load server.cjs:', err);
-    process.exit(1);
-  }
-  // Keep process alive
-  process.on('uncaughtException', (err) => {
-    console.error('[Backend Process Uncaught Exception]:', err);
-  });
-  return;
-}
-
-// ==========================================
-// ELECTRON GUI MAIN PROCESS MODE
-// ==========================================
 let mainWindow = null;
 let serverProcess = null;
+const SERVER_PORT = 3000;
+const SERVER_URL = `http://localhost:${SERVER_PORT}`;
 
 function checkServerHealth() {
   return new Promise((resolve) => {
@@ -49,6 +25,17 @@ function checkServerHealth() {
   });
 }
 
+function getServerScriptPath() {
+  if (app.isPackaged) {
+    // In packaged app, look in app.asar.unpacked/dist/server.cjs
+    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'server.cjs');
+    if (require('fs').existsSync(unpackedPath)) {
+      return unpackedPath;
+    }
+  }
+  return path.join(__dirname, 'dist', 'server.cjs');
+}
+
 function startBackendServer() {
   return new Promise(async (resolve) => {
     const alreadyRunning = await checkServerHealth();
@@ -57,21 +44,23 @@ function startBackendServer() {
       return resolve();
     }
 
-    const distServer = path.join(__dirname, 'dist', 'server.cjs');
-    if (!require('fs').existsSync(distServer)) {
-      console.warn('[Electron] Warning: dist/server.cjs not found on disk.');
+    const serverScript = getServerScriptPath();
+    if (!require('fs').existsSync(serverScript)) {
+      console.error('[Electron] CRITICAL: server.cjs not found at:', serverScript);
+      return resolve();
     }
 
-    console.log('[Electron] Launching self-contained backend server using process.execPath...');
+    console.log('[Electron] Launching backend server using ELECTRON_RUN_AS_NODE with:', serverScript);
 
-    // Spawn backend server using Electron's own embedded Node runtime (process.execPath) with --server-process flag
-    serverProcess = spawn(process.execPath, [__filename, '--server-process'], {
-      cwd: __dirname,
+    // Spawn Electron binary as a pure Node.js process using ELECTRON_RUN_AS_NODE=1
+    serverProcess = spawn(process.execPath, [serverScript], {
+      cwd: path.dirname(serverScript),
       stdio: 'inherit',
       env: {
         ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
         PORT: `${SERVER_PORT}`,
-        NODE_ENV: 'production',
+        NODE_ENV: app.isPackaged ? 'production' : 'development',
       },
     });
 
@@ -91,7 +80,7 @@ function startBackendServer() {
       const healthy = await checkServerHealth();
       if (healthy) {
         clearInterval(interval);
-        console.log('[Electron] Self-contained backend server is healthy and ready.');
+        console.log('[Electron] Backend server is healthy and ready.');
         resolve();
       } else if (attempts > 40) {
         clearInterval(interval);
