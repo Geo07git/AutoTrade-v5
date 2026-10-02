@@ -143,6 +143,9 @@ export interface ProfileConfig {
   stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
+  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF'; // SELL/SHORT doar când BTC e în regim BEAR (implicit: BEAR_ONLY)
+  maxEntriesPerSymbolPerHour?: number; // Plafon intrări/simbol/oră (implicit: 3, 0 = dezactivat)
+  cooldownAfterLossMinutes?: number; // Pauză pe simbol după pierdere/SL (implicit: 30 min, 0 = dezactivat)
 }
 
 export interface Kline {
@@ -327,6 +330,7 @@ export interface Position {
   consecutiveBeHits?: number;
   currentPrice?: number;
   holdingTimeMinutes?: number;
+  exitReason?: string;
   exitReasonDetail?: string;
   profile: ProfileType;
   source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';

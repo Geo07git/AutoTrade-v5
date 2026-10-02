@@ -18,6 +18,9 @@ export class RiskEngine {
       profitVault?: number;
       marketRegime?: string;
       excludedSymbols?: string[];
+      entriesLastHour?: number;
+      lastClosedTradeWasLoss?: boolean;
+      lastClosedTradeTime?: number;
     }
   ): RiskApproval {
     // 1. Kill Switch check
@@ -55,6 +58,42 @@ export class RiskEngine {
           approved: false,
           sizeUSDT: 0,
           reason: `[BTC_BEAR_GUARD] Pozițiile LONG sunt temporar dezactivate în regim BTC BEAR (${marketRegime}) pentru scoruri sub 68 (scor semnal: ${signal.score.toFixed(1)}). Risk/reward asimetric negativ pe date.`,
+        };
+      }
+    }
+
+    // 3b. Short Regime Guard for SELL/SHORT entries (SELL doar când BTC e în regim BEAR)
+    const shortGuard = config.shortRegimeGuard !== undefined ? config.shortRegimeGuard : 'BEAR_ONLY';
+    if (shortGuard === 'BEAR_ONLY' && signal.side === 'SELL') {
+      if (!isBtcBear) {
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[SHORT_REGIME_GUARD] Pozițiile SELL (SHORT) sunt permise exclusiv când BTC se află în regim BEAR (regim actual: ${marketRegime || 'BULL/NEUTRAL'}). Setează shortRegimeGuard: 'OFF' în profil pentru dezactivare.`,
+        };
+      }
+    }
+
+    // 3c. Hourly Entry Cap per Symbol
+    const maxEntriesPerHour = config.maxEntriesPerSymbolPerHour !== undefined ? config.maxEntriesPerSymbolPerHour : 3;
+    if (maxEntriesPerHour > 0 && options?.entriesLastHour !== undefined && options.entriesLastHour >= maxEntriesPerHour) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `[HOURLY_SYMBOL_CAP] Plafonul de ${maxEntriesPerHour} intrări/oră pe simbol a fost atins pentru ${signal.symbol} (${options.entriesLastHour} intrări în ultima oră). Setează maxEntriesPerSymbolPerHour: 0 pentru dezactivare.`,
+      };
+    }
+
+    // 3d. Cooldown after Loss / Stop-Loss
+    const lossCooldown = config.cooldownAfterLossMinutes !== undefined ? config.cooldownAfterLossMinutes : 30;
+    if (lossCooldown > 0 && options?.lastClosedTradeWasLoss && options?.lastClosedTradeTime) {
+      const minutesSinceLoss = (Date.now() - options.lastClosedTradeTime) / 60000;
+      if (minutesSinceLoss < lossCooldown) {
+        const remainingMin = (lossCooldown - minutesSinceLoss).toFixed(1);
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[POST_LOSS_COOLDOWN] Simbolul ${signal.symbol} este în pauză post-pierdere/SL (${lossCooldown}m configurat; ${remainingMin}m rămase). Setează cooldownAfterLossMinutes: 0 pentru dezactivare.`,
         };
       }
     }

@@ -308,6 +308,20 @@ export class PositionManager {
     return closedForSymbol[0].exitTime || 0;
   }
 
+  public getLastClosedPosition(symbol: string): Position | undefined {
+    const closedForSymbol = this.closedHistory.filter(p => p.symbol === symbol);
+    if (closedForSymbol.length === 0) return undefined;
+    closedForSymbol.sort((a, b) => (b.exitTime || 0) - (a.exitTime || 0));
+    return closedForSymbol[0];
+  }
+
+  public getEntriesCountLastHour(symbol: string): number {
+    const oneHourAgo = Date.now() - 3600000;
+    const closedCount = this.closedHistory.filter(p => p.symbol === symbol && (p.entryTime || 0) >= oneHourAgo).length;
+    const activeCount = this.activePositions.filter(p => p.symbol === symbol && (p.entryTime || 0) >= oneHourAgo).length;
+    return closedCount + activeCount;
+  }
+
   public setActivePositions(positions: Position[]) {
     this.activePositions = positions
       .filter((p) => p.status === 'OPEN')
@@ -435,7 +449,18 @@ export class PositionManager {
       openPositionsAtEntry: newPosition.openPositionsAtEntry,
     });
 
-    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore || 50, newPosition.entryPrice, newPosition.sizeUSDT);
+    experimentManager.logTradeEntry(
+      newPosition.symbol,
+      newPosition.side,
+      newPosition.signalScore || 50,
+      newPosition.entryPrice,
+      newPosition.sizeUSDT,
+      {
+        entryRegime: newPosition.marketRegime,
+        openPositionsAtEntry: newPosition.openPositionsAtEntry,
+        slippagePct: order.estimatedSlippagePct,
+      }
+    );
 
     return newPosition;
   }
@@ -898,6 +923,7 @@ export class PositionManager {
     pos.status = 'CLOSED';
     pos.exitPrice = exitPrice;
     pos.exitTime = exitTime;
+    pos.exitReason = reason;
     if (telemetry) {
       if (telemetry.exitMarketRegime) pos.exitMarketRegime = telemetry.exitMarketRegime;
       if (telemetry.accountEquity !== undefined) pos.accountEquityAtExit = telemetry.accountEquity;

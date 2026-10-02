@@ -65,6 +65,9 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 0,
     sentimentThreshold: 5.0,
+    shortRegimeGuard: 'BEAR_ONLY',
+    maxEntriesPerSymbolPerHour: 3,
+    cooldownAfterLossMinutes: 30,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
@@ -87,6 +90,9 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
+    shortRegimeGuard: 'BEAR_ONLY',
+    maxEntriesPerSymbolPerHour: 3,
+    cooldownAfterLossMinutes: 30,
   },
 };
 
@@ -119,6 +125,7 @@ export class TradeBot {
   private lastSyncTime: number = 0;
   private latestPrices: Record<string, number> = {};
   private isProcessingTick: boolean = false;
+  private isStoppingExperiment: boolean = false;
   private marketRegime: string = 'BTC: --';
   private regimeInterval?: NodeJS.Timeout;
   private marketSentiment: string = 'OKX NEUTRAL (+0.00%)';
@@ -597,6 +604,11 @@ export class TradeBot {
     try {
       const config = this.configStore.get();
 
+      // Guard: If experiment is currently stopping, do not open new entries!
+      if (this.isStoppingExperiment) {
+        return;
+      }
+
       // Guard: If Kill Switch is engaged, do not process entries
       if (config.killSwitchEngaged) {
         return;
@@ -788,6 +800,11 @@ export class TradeBot {
           const profitVault = isExpActive ? 0 : (config.profitVault || 0);
           const operatingEquity = isExpActive ? 1_000_000_000 : Math.max(10, this.currentEquity - profitVault);
 
+          const entriesLastHour = this.positionManager.getEntriesCountLastHour(symbol);
+          const lastClosed = this.positionManager.getLastClosedPosition(symbol);
+          const lastClosedTradeWasLoss = lastClosed ? (lastClosed.pnl !== undefined && lastClosed.pnl < 0) || (lastClosed.exitReason === 'STOP_LOSS') : false;
+          const lastClosedTradeTime = lastClosed ? lastClosed.exitTime : undefined;
+
           const riskApproval = this.riskEngine.validateSignal(
             signal,
             profile,
@@ -800,6 +817,9 @@ export class TradeBot {
               profitVault,
               marketRegime: this.marketRegime,
               excludedSymbols: config.scannerFilter?.excludedSymbols || ['CAP', 'ONDO', 'NIGHT', 'ARX', 'GPS', 'ZAMA'],
+              entriesLastHour,
+              lastClosedTradeWasLoss,
+              lastClosedTradeTime,
             }
           );
 
@@ -1561,44 +1581,52 @@ export class TradeBot {
   }
 
   public async stopExperiment(reason: string = 'MANUAL_STOP'): Promise<ExperimentState> {
-    const expState = experimentManager.getState();
-    const activePositions = [...this.positionManager.getActivePositions()];
-    const exitReasonDetail = reason === 'EXPERIMENT_EXPIRED'
-      ? `Închidere automată la expirarea duratei experimentului (${expState.durationHours}h)`
-      : `Închidere automată la oprirea manuală a experimentului (${expState.durationHours}h)`;
+    this.isStoppingExperiment = true;
+    let closedCount = 0;
+    try {
+      const expState = experimentManager.getState();
+      const activePositions = [...this.positionManager.getActivePositions()];
+      const initialOpenCount = activePositions.length;
+      const exitReasonDetail = reason === 'EXPERIMENT_EXPIRED'
+        ? `Închidere automată la expirarea duratei experimentului (${expState.durationHours}h)`
+        : `Închidere automată la oprirea manuală a experimentului (${expState.durationHours}h)`;
 
-    for (const pos of activePositions) {
-      try {
-        const currentPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
-        const activeCount = this.positionManager.getActivePositions().length;
-        const unrealizedPnlTotal = this.positionManager.getActivePositions().reduce((acc, p) => acc + (p.pnl || 0), 0);
-        const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+      for (const pos of activePositions) {
+        try {
+          const currentPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
+          const activeCount = this.positionManager.getActivePositions().length;
+          const unrealizedPnlTotal = this.positionManager.getActivePositions().reduce((acc, p) => acc + (p.pnl || 0), 0);
+          const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
 
-        await this.orderManager.executeCloseOrder({
-          position: pos,
-          reason: 'EXPERIMENT_END',
-          currentPrice,
-          exitReasonDetail,
-          exitMarketRegime: this.marketRegime,
-          accountEquity: parseFloat(this.currentEquity.toFixed(2)),
-          accountBalance: currentWalletBalance,
-          openPositionsCount: activeCount,
-        });
-      } catch (err: any) {
-        console.error(`[TradeBot] Failed to close position ${pos.symbol} on experiment stop:`, err);
+          const res = await this.orderManager.executeCloseOrder({
+            position: pos,
+            reason: 'EXPERIMENT_END',
+            currentPrice,
+            exitReasonDetail,
+            exitMarketRegime: this.marketRegime,
+            accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+            accountBalance: currentWalletBalance,
+            openPositionsCount: activeCount,
+          });
+          if (res.success) closedCount++;
+        } catch (err: any) {
+          console.error(`[TradeBot] Failed to close position ${pos.symbol} on experiment stop:`, err);
+        }
       }
-    }
 
-    const state = experimentManager.stopExperiment();
-    this.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
-    this.positionStore.save(this.positionManager.getActivePositions());
-    this.orderStore.save(this.orderManager.getOrders());
-    this.logAudit(
-      'EXPERIMENT',
-      `Experimentul de ${state.durationHours}h a fost oprit (${reason}). S-au închis și contabilizat ${activePositions.length} poziții active. PnL Total: $${state.totalPnl.toFixed(4)}`,
-      { totalEntries: state.totalEntries, totalExits: state.totalExits, totalPnl: state.totalPnl }
-    );
-    return state;
+      const state = experimentManager.stopExperiment();
+      this.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.orderStore.save(this.orderManager.getOrders());
+      this.logAudit(
+        'EXPERIMENT',
+        `Experimentul de ${state.durationHours}h a fost oprit (${reason}). S-au închis efectiv ${closedCount} din ${initialOpenCount} poziții deschise. PnL Total: $${state.totalPnl.toFixed(4)}`,
+        { closedCount, initialOpenCount, totalEntries: state.totalEntries, totalExits: state.totalExits, totalPnl: state.totalPnl }
+      );
+      return state;
+    } finally {
+      this.isStoppingExperiment = false;
+    }
   }
 
   public updateProfileSettings(profileType: ProfileType, settings: Partial<ProfileConfig>) {

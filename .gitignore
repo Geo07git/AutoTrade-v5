@@ -5,12 +5,13 @@ release/
 coverage/
 .DS_Store
 *.log
+# Runtime data & secrets
+.data/
 .env*
 !.env.example
 .telegram*.json
-
-# Allow tracking runtime state data
-!.data/
-!.data/*.json
+*.zip
+*.patch
+*.tar.gz
 
 

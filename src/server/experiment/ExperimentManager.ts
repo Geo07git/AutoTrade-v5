@@ -298,7 +298,18 @@ class ExperimentManager {
     return this.getState();
   }
 
-  public logTradeEntry(symbol: string, side: string, score: number, entryPrice: number, sizeUSDT: number) {
+  public logTradeEntry(
+    symbol: string,
+    side: string,
+    score: number,
+    entryPrice: number,
+    sizeUSDT: number,
+    telemetry?: {
+      entryRegime?: string;
+      openPositionsAtEntry?: number;
+      slippagePct?: number;
+    }
+  ) {
     if (!this.state.isActive) return;
     this.state.totalEntries++;
     this.saveState();
@@ -314,6 +325,9 @@ class ExperimentManager {
         profile: 'SCALP',
         entryTimestamp: Date.now(),
         configuredMaxHoldMin: this.state.maxHoldingTimeMinutes,
+        entryRegime: telemetry?.entryRegime,
+        openPositionsAtEntry: telemetry?.openPositionsAtEntry,
+        slippagePct: telemetry?.slippagePct,
       },
     });
   }
@@ -328,7 +342,16 @@ class ExperimentManager {
     pnl: number,
     pnlPct: number,
     holdingTimeMinutes: number,
-    exitReason: string
+    exitReason: string,
+    telemetry?: {
+      mfePct?: number;
+      maePct?: number;
+      timeToMfe15Min?: number;
+      entryRegime?: string;
+      exitRegime?: string;
+      slippagePct?: number;
+      openPositionsAtEntry?: number;
+    }
   ) {
     if (!this.state.isActive) return;
     this.state.totalExits++;
@@ -347,7 +370,16 @@ class ExperimentManager {
       holdingTimeMinutes: parseFloat(holdingTimeMinutes.toFixed(1)),
       exitReason,
       capital: parseFloat((this.state.unlimitedCapital + this.state.totalPnl).toFixed(2)),
-      details: { totalPnl: parseFloat(this.state.totalPnl.toFixed(4)) },
+      details: {
+        totalPnl: parseFloat(this.state.totalPnl.toFixed(4)),
+        mfePct: telemetry?.mfePct !== undefined ? parseFloat(telemetry.mfePct.toFixed(2)) : undefined,
+        maePct: telemetry?.maePct !== undefined ? parseFloat(telemetry.maePct.toFixed(2)) : undefined,
+        timeToMfe15Min: telemetry?.timeToMfe15Min !== undefined ? parseFloat(telemetry.timeToMfe15Min.toFixed(1)) : undefined,
+        entryRegime: telemetry?.entryRegime,
+        exitRegime: telemetry?.exitRegime,
+        slippagePct: telemetry?.slippagePct !== undefined ? parseFloat(telemetry.slippagePct.toFixed(3)) : undefined,
+        openPositionsAtEntry: telemetry?.openPositionsAtEntry,
+      },
     });
   }
 

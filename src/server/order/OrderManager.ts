@@ -673,7 +673,16 @@ export class OrderManager {
           pnl,
           pnlPct,
           closeOrder.holdingTimeMinutes || 0,
-          reason
+          reason,
+          {
+            mfePct: position.mfePct,
+            maePct: position.maePct,
+            timeToMfe15Min: position.timeToMfe15Minutes,
+            entryRegime: position.marketRegime,
+            exitRegime: exitMarketRegime,
+            slippagePct: closeOrder.estimatedSlippagePct,
+            openPositionsAtEntry: position.openPositionsAtEntry,
+          }
         );
 
         return { success: true, order: closeOrder };
@@ -816,7 +825,9 @@ export class OrderManager {
     delayMs: number = 800
   ): Promise<boolean> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      await new Promise((r) => setTimeout(r, delayMs));
+      if (attempt > 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
 
       const activeAdapter = this.getActiveAdapter();
       const statusRes = await activeAdapter.queryOrderStatus(order.symbol, order.id, order.exchangeOrderId);

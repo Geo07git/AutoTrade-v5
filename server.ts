@@ -23,10 +23,7 @@ function requireControlAuth(req: express.Request, res: express.Response, next: e
     providedToken = queryToken;
   }
 
-  const isValid =
-    providedToken === CONTROL_TOKEN ||
-    providedToken === 'tradebot5_admin_token' ||
-    providedToken === 'MariaCatalina.07';
+  const isValid = Boolean(providedToken && providedToken === CONTROL_TOKEN);
 
   if (!providedToken || !isValid) {
     return res.status(401).json({
@@ -551,17 +548,6 @@ async function startServer() {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(experimentManager.generateJSON());
-    }
-  });
-
-  app.get('/api/bot/download-zip', (req, res) => {
-    const zipPath = path.join(process.cwd(), 'public', 'AutoTrade-v5_latest.zip');
-    if (fs.existsSync(zipPath)) {
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename="AutoTrade-v5_latest.zip"');
-      res.sendFile(zipPath);
-    } else {
-      res.status(404).json({ error: 'Zip file not found' });
     }
   });
 
