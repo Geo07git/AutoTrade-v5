@@ -1,4 +1,5 @@
 import { TradeSignal, ProfileConfig, Position, RiskApproval } from '../../shared/types';
+import { experimentManager } from '../experiment/ExperimentManager';
 
 export class RiskEngine {
   /**
@@ -58,12 +59,15 @@ export class RiskEngine {
       }
     }
 
-    // 4. Max Open Positions & Risk Allocation check (User Rule: riskPerTradePct determines max trades = floor(100 / riskPct), capped by maxOpenPositions)
+    const expState = experimentManager.getState();
+    const isExpActive = expState.isActive;
+
+    // 4. Max Open Positions & Risk Allocation check
     const riskPct = config.riskPerTradePct > 0 ? config.riskPerTradePct : 50;
     const maxTradesByRisk = Math.max(1, Math.floor(100 / riskPct));
-    const effectiveMaxOpenPositions = Math.min(config.maxOpenPositions, maxTradesByRisk);
+    const effectiveMaxOpenPositions = isExpActive ? 999999 : Math.min(config.maxOpenPositions, maxTradesByRisk);
 
-    if (activePositions.length >= effectiveMaxOpenPositions) {
+    if (!isExpActive && activePositions.length >= effectiveMaxOpenPositions) {
       return {
         approved: false,
         sizeUSDT: 0,
@@ -95,11 +99,14 @@ export class RiskEngine {
       };
     }
 
-    if (signal.score < minScoreRequired) {
+    const expMinScore = isExpActive ? (expState.minMomentumScore || 50) : 50;
+    if (signal.score < minScoreRequired || (isExpActive && signal.score < expMinScore)) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Scorul semnalului (${signal.score.toFixed(1)}) este sub pragul minim configurat (${minScoreRequired}/100).`,
+        reason: isExpActive 
+          ? `[EXPERIMENT_FILTER] Scorul (${signal.score.toFixed(1)}) este sub pragul configurat pentru experiment (${expMinScore}/100).` 
+          : `Scorul semnalului (${signal.score.toFixed(1)}) este sub pragul minim configurat (${minScoreRequired}/100).`,
       };
     }
 
@@ -112,13 +119,14 @@ export class RiskEngine {
       };
     }
 
+    const effectiveEquity = isExpActive ? 1_000_000_000 : currentEquity;
     const profitVault = Math.max(0, options?.profitVault || 0);
     const operatingEquity = options?.operatingEquity && options.operatingEquity > 0
       ? options.operatingEquity
-      : Math.max(10, currentEquity - profitVault);
+      : Math.max(10, effectiveEquity - profitVault);
 
     // 8. Equity & Sizing check
-    if (operatingEquity <= 0 || currentEquity <= 0) {
+    if (operatingEquity <= 0 || effectiveEquity <= 0) {
       return {
         approved: false,
         sizeUSDT: 0,
@@ -130,12 +138,12 @@ export class RiskEngine {
     // Formula: Margin (Invested) + Free Balance = Total Equity - Unrealized PnL (Wallet Balance)
     const marginInvested = activePositions.reduce((acc, p) => acc + (p.sizeUSDT || 0), 0);
     const unrealizedPnL = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
-    const walletBalance = currentEquity - unrealizedPnL;
+    const walletBalance = effectiveEquity - unrealizedPnL;
     const rawFreeBalance = Math.max(0, walletBalance - marginInvested);
     // Usable Free Balance strictly respects the profit vault (reserve):
     const usableFreeBalance = Math.max(0, rawFreeBalance - profitVault);
 
-    if (usableFreeBalance < 5) {
+    if (!isExpActive && usableFreeBalance < 5) {
       return {
         approved: false,
         sizeUSDT: 0,
@@ -162,7 +170,8 @@ export class RiskEngine {
     const netCapital = operatingEquity * 0.90;
 
     // Position Size (USDT) allocated by riskPerTradePct of Net Capital (-10% reserve):
-    let desiredSizeUSDT = netCapital * (riskPct / 100);
+    // In unlimited experiment mode, use fixed 50 USDT per trade for clean execution across unlimited pairs
+    let desiredSizeUSDT = isExpActive ? 50 : netCapital * (riskPct / 100);
 
     // If LONG in BTC BEAR regime: reduce size by 50% for conservative exposure
     if (isBtcBear && signal.side === 'BUY') {
@@ -175,7 +184,12 @@ export class RiskEngine {
 
     // Strict Usable Free Balance Cap:
     const maxAllocatableSize = usableFreeBalance * 0.95;
-    const targetSizeUSDT = Math.min(desiredSizeUSDT, maxAllocatableSize);
+    let targetSizeUSDT = Math.min(desiredSizeUSDT, maxAllocatableSize);
+
+    // If calculated percentage size is below 5 USDT but user has enough free balance, scale up to minimum 5 USDT
+    if (targetSizeUSDT < 5 && usableFreeBalance >= 5.2) {
+      targetSizeUSDT = Math.min(5.0, maxAllocatableSize);
+    }
 
     // Stop Loss Price Calculation:
     const stopDistanceRatio = effectiveStopDistancePct / 100;
@@ -186,11 +200,11 @@ export class RiskEngine {
       : undefined;
 
     // Minimum notional value for OKX is 5 USDT
-    if (targetSizeUSDT < 5) {
+    if (targetSizeUSDT < 5 && !isExpActive) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Mărimea calculată pe bază de volatilitate/ATR ($${targetSizeUSDT.toFixed(2)}) sau balanța operativă disponibilă ($${usableFreeBalance.toFixed(2)}) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: ${effectiveStopDistancePct.toFixed(2)}%, ATR: ${atrPct.toFixed(2)}%).`,
+        reason: `Mărimea calculată ($${targetSizeUSDT.toFixed(2)}) sau balanța operativă disponibilă ($${usableFreeBalance.toFixed(2)}) este sub minimul de 5 USDT cerut de OKX.`,
       };
     }
 

@@ -1,2659 +1,2771 @@
 [
   {
-    "id": "1790761618092_uqqy",
-    "timestamp": 1790761618092,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #74 Selected: ALGO-USDT-SWAP (Momentum Score: 66.5/100, RVOL: 1.45x, 24h Vol: $72.9M)",
-    "details": {
-      "symbol": "ALGO-USDT-SWAP",
-      "rank": 74,
-      "score": 66.5,
-      "rvol": 1.45,
-      "atrExpansion": 1.61,
-      "price": 0.12435,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618091_g41n",
-    "timestamp": 1790761618091,
+    "id": "1790843982352_ffo7",
+    "timestamp": 1790843982352,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.93%).",
     "details": {
-      "symbol": "SUI-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.93%)."
     }
   },
   {
-    "id": "1790761618090_d3xx",
-    "timestamp": 1790761618090,
+    "id": "1790843982351_lw8s",
+    "timestamp": 1790843982351,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate SUI-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.93%).",
     "details": {
-      "symbol": "SUI-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.93%)."
     }
   },
   {
-    "id": "1790761618089_9x54",
-    "timestamp": 1790761618089,
+    "id": "1790843982350_0kki",
+    "timestamp": 1790843982350,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate SUI-USDT-SWAP (Score: 66.9/100, Rank #73, ATR: 1.77%)",
+    "message": "Momentum Engine confirmed SELL signal on candidate PUMP-USDT-SWAP (Score: 73.8/100, Rank #9, ATR: 1.93%)",
     "details": {
-      "symbol": "SUI-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 66.9,
-      "profile": "MOMENTUM",
-      "rank": 73,
-      "currentPrice": 1.1669,
-      "currentAtr": 0.02069999999999994,
-      "atrPct": 1.77
-    }
-  },
-  {
-    "id": "1790761618089_4klc",
-    "timestamp": 1790761618089,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #73 Selected: SUI-USDT-SWAP (Momentum Score: 66.9/100, RVOL: 1.2x, 24h Vol: $157.1M)",
-    "details": {
-      "symbol": "SUI-USDT-SWAP",
-      "rank": 73,
-      "score": 66.9,
-      "rvol": 1.2,
-      "atrExpansion": 1.23,
-      "price": 1.1669,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618088_9e0k",
-    "timestamp": 1790761618088,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "FLOW-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618088_29b1",
-    "timestamp": 1790761618088,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate FLOW-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "FLOW-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618087_zafi",
-    "timestamp": 1790761618087,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate FLOW-USDT-SWAP (Score: 67.1/100, Rank #72, ATR: 2.26%)",
-    "details": {
-      "symbol": "FLOW-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 67.1,
-      "profile": "MOMENTUM",
-      "rank": 72,
-      "currentPrice": 0.03273,
-      "currentAtr": 0.0007399999999999976,
-      "atrPct": 2.26
-    }
-  },
-  {
-    "id": "1790761618087_zeqs",
-    "timestamp": 1790761618087,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #72 Selected: FLOW-USDT-SWAP (Momentum Score: 67.1/100, RVOL: 0.87x, 24h Vol: $53.2M)",
-    "details": {
-      "symbol": "FLOW-USDT-SWAP",
-      "rank": 72,
-      "score": 67.1,
-      "rvol": 0.87,
-      "atrExpansion": 0.98,
-      "price": 0.03273,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618086_7qw8",
-    "timestamp": 1790761618086,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "KAT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618085_265c",
-    "timestamp": 1790761618085,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "KAT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618085_jbdm",
-    "timestamp": 1790761618085,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate KAT-USDT-SWAP (Score: 67.5/100, Rank #71, ATR: 1.46%)",
-    "details": {
-      "symbol": "KAT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 67.5,
-      "profile": "MOMENTUM",
-      "rank": 71,
-      "currentPrice": 0.005017,
-      "currentAtr": 0.00007300000000000015,
-      "atrPct": 1.46
-    }
-  },
-  {
-    "id": "1790761618084_0dut",
-    "timestamp": 1790761618084,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #71 Selected: KAT-USDT-SWAP (Momentum Score: 67.5/100, RVOL: 0.52x, 24h Vol: $235.1M)",
-    "details": {
-      "symbol": "KAT-USDT-SWAP",
-      "rank": 71,
-      "score": 67.5,
-      "rvol": 0.52,
-      "atrExpansion": 1.14,
-      "price": 0.005017,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618084_lbfa",
-    "timestamp": 1790761618084,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "RESOLV-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618083_1jr9",
-    "timestamp": 1790761618083,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate RESOLV-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "RESOLV-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618083_0cqx",
-    "timestamp": 1790761618083,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate RESOLV-USDT-SWAP (Score: 68.2/100, Rank #70, ATR: 1.45%)",
-    "details": {
-      "symbol": "RESOLV-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 68.2,
-      "profile": "MOMENTUM",
-      "rank": 70,
-      "currentPrice": 0.01935,
-      "currentAtr": 0.00028000000000000247,
-      "atrPct": 1.45
-    }
-  },
-  {
-    "id": "1790761618082_p716",
-    "timestamp": 1790761618082,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #70 Selected: RESOLV-USDT-SWAP (Momentum Score: 68.2/100, RVOL: 0.68x, 24h Vol: $27.6M)",
-    "details": {
-      "symbol": "RESOLV-USDT-SWAP",
-      "rank": 70,
-      "score": 68.2,
-      "rvol": 0.68,
-      "atrExpansion": 1.12,
-      "price": 0.01935,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618081_ha4w",
-    "timestamp": 1790761618081,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AEVO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618081_fmc9",
-    "timestamp": 1790761618081,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate AEVO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AEVO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618080_h0n5",
-    "timestamp": 1790761618080,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate AEVO-USDT-SWAP (Score: 68.3/100, Rank #69, ATR: 1.45%)",
-    "details": {
-      "symbol": "AEVO-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 68.3,
-      "profile": "MOMENTUM",
-      "rank": 69,
-      "currentPrice": 0.02616,
-      "currentAtr": 0.0003799999999999984,
-      "atrPct": 1.45
-    }
-  },
-  {
-    "id": "1790761618079_v70s",
-    "timestamp": 1790761618079,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #69 Selected: AEVO-USDT-SWAP (Momentum Score: 68.3/100, RVOL: 0.31x, 24h Vol: $9.7M)",
-    "details": {
-      "symbol": "AEVO-USDT-SWAP",
-      "rank": 69,
-      "score": 68.3,
-      "rvol": 0.31,
-      "atrExpansion": 1.2,
-      "price": 0.02616,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618079_bgzm",
-    "timestamp": 1790761618079,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "KAITO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618078_xxg6",
-    "timestamp": 1790761618078,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate KAITO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "KAITO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618077_0wp6",
-    "timestamp": 1790761618077,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate KAITO-USDT-SWAP (Score: 68.6/100, Rank #68, ATR: 1.29%)",
-    "details": {
-      "symbol": "KAITO-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 68.6,
-      "profile": "MOMENTUM",
-      "rank": 68,
-      "currentPrice": 0.3415,
-      "currentAtr": 0.004400000000000015,
-      "atrPct": 1.29
-    }
-  },
-  {
-    "id": "1790761618077_r2ai",
-    "timestamp": 1790761618077,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #68 Selected: KAITO-USDT-SWAP (Momentum Score: 68.6/100, RVOL: 0.65x, 24h Vol: $17.5M)",
-    "details": {
-      "symbol": "KAITO-USDT-SWAP",
-      "rank": 68,
-      "score": 68.6,
-      "rvol": 0.65,
-      "atrExpansion": 1.01,
-      "price": 0.3415,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618076_p5py",
-    "timestamp": 1790761618076,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "FIL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618076_korc",
-    "timestamp": 1790761618076,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate FIL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "FIL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618075_56p1",
-    "timestamp": 1790761618075,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate FIL-USDT-SWAP (Score: 69.0/100, Rank #67, ATR: 1.53%)",
-    "details": {
-      "symbol": "FIL-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 69,
-      "profile": "MOMENTUM",
-      "rank": 67,
-      "currentPrice": 1.0802,
-      "currentAtr": 0.01649999999999996,
-      "atrPct": 1.53
-    }
-  },
-  {
-    "id": "1790761618074_kkng",
-    "timestamp": 1790761618074,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #67 Selected: FIL-USDT-SWAP (Momentum Score: 69/100, RVOL: 0.74x, 24h Vol: $66.5M)",
-    "details": {
-      "symbol": "FIL-USDT-SWAP",
-      "rank": 67,
-      "score": 69,
-      "rvol": 0.74,
-      "atrExpansion": 0.95,
-      "price": 1.0802,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618073_8x3p",
-    "timestamp": 1790761618073,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PARTI-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618073_u3uz",
-    "timestamp": 1790761618073,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate PARTI-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PARTI-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618072_3tsm",
-    "timestamp": 1790761618072,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate PARTI-USDT-SWAP (Score: 69.1/100, Rank #66, ATR: 1.43%)",
-    "details": {
-      "symbol": "PARTI-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 69.1,
-      "profile": "MOMENTUM",
-      "rank": 66,
-      "currentPrice": 0.02661,
-      "currentAtr": 0.00038000000000000186,
-      "atrPct": 1.43
-    }
-  },
-  {
-    "id": "1790761618071_k4b6",
-    "timestamp": 1790761618071,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #66 Selected: PARTI-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.38x, 24h Vol: $19.2M)",
-    "details": {
-      "symbol": "PARTI-USDT-SWAP",
-      "rank": 66,
-      "score": 69.1,
-      "rvol": 0.38,
-      "atrExpansion": 1.11,
-      "price": 0.02661,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618070_kkex",
-    "timestamp": 1790761618070,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "XRP-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618069_jb9g",
-    "timestamp": 1790761618069,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate XRP-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "XRP-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618068_fv2h",
-    "timestamp": 1790761618068,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate XRP-USDT-SWAP (Score: 69.1/100, Rank #65, ATR: 1.3%)",
-    "details": {
-      "symbol": "XRP-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 69.1,
-      "profile": "MOMENTUM",
-      "rank": 65,
-      "currentPrice": 1.5118,
-      "currentAtr": 0.019600000000000062,
-      "atrPct": 1.3
-    }
-  },
-  {
-    "id": "1790761618068_8j6r",
-    "timestamp": 1790761618068,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #65 Selected: XRP-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.92x, 24h Vol: $374.0M)",
-    "details": {
-      "symbol": "XRP-USDT-SWAP",
-      "rank": 65,
-      "score": 69.1,
-      "rvol": 0.92,
-      "atrExpansion": 1.87,
-      "price": 1.5118,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618067_e4hs",
-    "timestamp": 1790761618067,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "NOT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618062_3b6m",
-    "timestamp": 1790761618062,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate NOT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "NOT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618061_ma3b",
-    "timestamp": 1790761618061,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate NOT-USDT-SWAP (Score: 69.1/100, Rank #64, ATR: 1.24%)",
-    "details": {
-      "symbol": "NOT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 69.1,
-      "profile": "MOMENTUM",
-      "rank": 64,
-      "currentPrice": 0.0004998,
-      "currentAtr": 0.000006199999999999934,
-      "atrPct": 1.24
-    }
-  },
-  {
-    "id": "1790761618060_rwlt",
-    "timestamp": 1790761618060,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #64 Selected: NOT-USDT-SWAP (Momentum Score: 69.1/100, RVOL: 0.71x, 24h Vol: $730.2M)",
-    "details": {
-      "symbol": "NOT-USDT-SWAP",
-      "rank": 64,
-      "score": 69.1,
-      "rvol": 0.71,
-      "atrExpansion": 0.99,
-      "price": 0.0004998,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618059_2aj6",
-    "timestamp": 1790761618059,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "H-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618058_jsu7",
-    "timestamp": 1790761618058,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate H-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "H-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618056_su2j",
-    "timestamp": 1790761618056,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate H-USDT-SWAP (Score: 70.1/100, Rank #63, ATR: 0.87%)",
-    "details": {
-      "symbol": "H-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 70.1,
-      "profile": "MOMENTUM",
-      "rank": 63,
-      "currentPrice": 0.0705,
-      "currentAtr": 0.0006099999999999994,
-      "atrPct": 0.87
-    }
-  },
-  {
-    "id": "1790761618055_1bt7",
-    "timestamp": 1790761618055,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #63 Selected: H-USDT-SWAP (Momentum Score: 70.1/100, RVOL: 1.13x, 24h Vol: $31.0M)",
-    "details": {
-      "symbol": "H-USDT-SWAP",
-      "rank": 63,
-      "score": 70.1,
-      "rvol": 1.13,
-      "atrExpansion": 0.8,
-      "price": 0.0705,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618055_45nv",
-    "timestamp": 1790761618055,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SOL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618054_kvn0",
-    "timestamp": 1790761618054,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate SOL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SOL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618053_80rj",
-    "timestamp": 1790761618053,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate SOL-USDT-SWAP (Score: 70.2/100, Rank #62, ATR: 1.39%)",
-    "details": {
-      "symbol": "SOL-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 70.2,
-      "profile": "MOMENTUM",
-      "rank": 62,
-      "currentPrice": 119.18,
-      "currentAtr": 1.6600000000000108,
-      "atrPct": 1.39
-    }
-  },
-  {
-    "id": "1790761618052_93uj",
-    "timestamp": 1790761618052,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #62 Selected: SOL-USDT-SWAP (Momentum Score: 70.2/100, RVOL: 1.35x, 24h Vol: $9.4M)",
-    "details": {
-      "symbol": "SOL-USDT-SWAP",
-      "rank": 62,
-      "score": 70.2,
-      "rvol": 1.35,
-      "atrExpansion": 1.84,
-      "price": 119.18,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618052_0ctr",
-    "timestamp": 1790761618052,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WAL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618051_epi1",
-    "timestamp": 1790761618051,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate WAL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WAL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618050_6hat",
-    "timestamp": 1790761618050,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate WAL-USDT-SWAP (Score: 70.3/100, Rank #61, ATR: 1.61%)",
-    "details": {
-      "symbol": "WAL-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 70.3,
-      "profile": "MOMENTUM",
-      "rank": 61,
-      "currentPrice": 0.03426,
-      "currentAtr": 0.0005499999999999949,
-      "atrPct": 1.61
-    }
-  },
-  {
-    "id": "1790761618049_s31n",
-    "timestamp": 1790761618049,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #61 Selected: WAL-USDT-SWAP (Momentum Score: 70.3/100, RVOL: 0.94x, 24h Vol: $12.8M)",
-    "details": {
-      "symbol": "WAL-USDT-SWAP",
-      "rank": 61,
-      "score": 70.3,
-      "rvol": 0.94,
-      "atrExpansion": 1.04,
-      "price": 0.03426,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618048_p556",
-    "timestamp": 1790761618048,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "RLS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618047_uvmu",
-    "timestamp": 1790761618047,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate RLS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "RLS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618045_y7lp",
-    "timestamp": 1790761618045,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed SELL signal on candidate RLS-USDT-SWAP (Score: 70.5/100, Rank #60, ATR: 1.66%)",
-    "details": {
-      "symbol": "RLS-USDT-SWAP",
+      "symbol": "PUMP-USDT-SWAP",
       "originalSide": "SELL",
       "side": "SELL",
       "isFadeTrade": false,
-      "score": 70.5,
-      "profile": "MOMENTUM",
-      "rank": 60,
-      "currentPrice": 0.00229,
-      "currentAtr": 0.00003800000000000027,
-      "atrPct": 1.66
+      "score": 73.8,
+      "profile": "SCALP",
+      "rank": 9,
+      "currentPrice": 0.005588,
+      "currentAtr": 0.00010799999999999959,
+      "atrPct": 1.93
     }
   },
   {
-    "id": "1790761618044_b7zi",
-    "timestamp": 1790761618044,
+    "id": "1790843982348_hvk4",
+    "timestamp": 1790843982348,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #60 Selected: RLS-USDT-SWAP (Momentum Score: 70.5/100, RVOL: 0.5x, 24h Vol: $228.1M)",
+    "message": "Dynamic Candidate #9 Selected: PUMP-USDT-SWAP (Momentum Score: 73.8/100, RVOL: 1.35x, 24h Vol: $46441.9M)",
     "details": {
-      "symbol": "RLS-USDT-SWAP",
-      "rank": 60,
-      "score": 70.5,
-      "rvol": 0.5,
-      "atrExpansion": 1.22,
-      "price": 0.00229,
-      "profile": "MOMENTUM"
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 9,
+      "score": 73.8,
+      "rvol": 1.35,
+      "atrExpansion": 1.35,
+      "price": 0.005588,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1790761618044_pr96",
-    "timestamp": 1790761618044,
+    "id": "1790843982347_avet",
+    "timestamp": 1790843982347,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.12%).",
     "details": {
-      "symbol": "XPL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "FLOW-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.12%)."
     }
   },
   {
-    "id": "1790761618043_nj14",
-    "timestamp": 1790761618043,
+    "id": "1790843982345_42kr",
+    "timestamp": 1790843982345,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate XPL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Candidate FLOW-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.12%).",
     "details": {
-      "symbol": "XPL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "FLOW-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.12%)."
     }
   },
   {
-    "id": "1790761618042_u1mc",
-    "timestamp": 1790761618042,
+    "id": "1790843982344_kszt",
+    "timestamp": 1790843982344,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate XPL-USDT-SWAP (Score: 70.6/100, Rank #59, ATR: 2.61%)",
+    "message": "Momentum Engine confirmed BUY signal on candidate FLOW-USDT-SWAP (Score: 74.0/100, Rank #8, ATR: 1.12%)",
     "details": {
-      "symbol": "XPL-USDT-SWAP",
+      "symbol": "FLOW-USDT-SWAP",
       "originalSide": "BUY",
       "side": "BUY",
       "isFadeTrade": false,
-      "score": 70.6,
-      "profile": "MOMENTUM",
-      "rank": 59,
-      "currentPrice": 0.09732,
-      "currentAtr": 0.0025400000000000006,
-      "atrPct": 2.61
-    }
-  },
-  {
-    "id": "1790761618041_a187",
-    "timestamp": 1790761618041,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #59 Selected: XPL-USDT-SWAP (Momentum Score: 70.6/100, RVOL: 0.89x, 24h Vol: $440.2M)",
-    "details": {
-      "symbol": "XPL-USDT-SWAP",
-      "rank": 59,
-      "score": 70.6,
-      "rvol": 0.89,
-      "atrExpansion": 1.26,
-      "price": 0.09732,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618040_luvh",
-    "timestamp": 1790761618040,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ETH-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618039_7ajb",
-    "timestamp": 1790761618039,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ETH-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ETH-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618038_mi0e",
-    "timestamp": 1790761618038,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ETH-USDT-SWAP (Score: 70.9/100, Rank #58, ATR: 1.12%)",
-    "details": {
-      "symbol": "ETH-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 70.9,
-      "profile": "MOMENTUM",
-      "rank": 58,
-      "currentPrice": 2687.2,
-      "currentAtr": 30.210000000000036,
+      "score": 74,
+      "profile": "SCALP",
+      "rank": 8,
+      "currentPrice": 0.03226,
+      "currentAtr": 0.0003599999999999992,
       "atrPct": 1.12
     }
   },
   {
-    "id": "1790761618038_d21y",
-    "timestamp": 1790761618038,
+    "id": "1790843982343_gnou",
+    "timestamp": 1790843982343,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #58 Selected: ETH-USDT-SWAP (Momentum Score: 70.9/100, RVOL: 1.62x, 24h Vol: $2.4M)",
+    "message": "Dynamic Candidate #8 Selected: FLOW-USDT-SWAP (Momentum Score: 74/100, RVOL: 1.36x, 24h Vol: $37.9M)",
     "details": {
-      "symbol": "ETH-USDT-SWAP",
-      "rank": 58,
-      "score": 70.9,
-      "rvol": 1.62,
-      "atrExpansion": 2.5,
-      "price": 2687.2,
-      "profile": "MOMENTUM"
+      "symbol": "FLOW-USDT-SWAP",
+      "rank": 8,
+      "score": 74,
+      "rvol": 1.36,
+      "atrExpansion": 1.37,
+      "price": 0.03226,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1790761618037_04o2",
-    "timestamp": 1790761618037,
+    "id": "1790843982341_trat",
+    "timestamp": 1790843982341,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
     "details": {
-      "symbol": "STX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
     }
   },
   {
-    "id": "1790761618036_c2v6",
-    "timestamp": 1790761618036,
+    "id": "1790843982340_ypxb",
+    "timestamp": 1790843982340,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate STX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Candidate ASTER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
     "details": {
-      "symbol": "STX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
     }
   },
   {
-    "id": "1790761618034_6eyw",
-    "timestamp": 1790761618034,
+    "id": "1790843982338_4wp7",
+    "timestamp": 1790843982338,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate STX-USDT-SWAP (Score: 71.2/100, Rank #57, ATR: 1.38%)",
+    "message": "Momentum Engine confirmed SELL signal on candidate ASTER-USDT-SWAP (Score: 74.7/100, Rank #7, ATR: 0.94%)",
     "details": {
-      "symbol": "STX-USDT-SWAP",
+      "symbol": "ASTER-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.7,
+      "profile": "SCALP",
+      "rank": 7,
+      "currentPrice": 0.747,
+      "currentAtr": 0.007000000000000006,
+      "atrPct": 0.94
+    }
+  },
+  {
+    "id": "1790843982336_wg36",
+    "timestamp": 1790843982336,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: ASTER-USDT-SWAP (Momentum Score: 74.7/100, RVOL: 1.46x, 24h Vol: $32.6M)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "rank": 7,
+      "score": 74.7,
+      "rvol": 1.46,
+      "atrExpansion": 1.23,
+      "price": 0.747,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982334_rnhl",
+    "timestamp": 1790843982334,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%).",
+    "details": {
+      "symbol": "RE-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%)."
+    }
+  },
+  {
+    "id": "1790843982332_jb3e",
+    "timestamp": 1790843982332,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate RE-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%).",
+    "details": {
+      "symbol": "RE-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%)."
+    }
+  },
+  {
+    "id": "1790843982329_6al6",
+    "timestamp": 1790843982329,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate RE-USDT-SWAP (Score: 77.0/100, Rank #6, ATR: 1.1%)",
+    "details": {
+      "symbol": "RE-USDT-SWAP",
       "originalSide": "BUY",
       "side": "BUY",
       "isFadeTrade": false,
-      "score": 71.2,
-      "profile": "MOMENTUM",
-      "rank": 57,
-      "currentPrice": 0.3183,
-      "currentAtr": 0.0043999999999999595,
-      "atrPct": 1.38
+      "score": 77,
+      "profile": "SCALP",
+      "rank": 6,
+      "currentPrice": 0.52286,
+      "currentAtr": 0.005739999999999967,
+      "atrPct": 1.1
     }
   },
   {
-    "id": "1790761618034_sl59",
-    "timestamp": 1790761618034,
+    "id": "1790843982328_wj3o",
+    "timestamp": 1790843982328,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #57 Selected: STX-USDT-SWAP (Momentum Score: 71.2/100, RVOL: 1.1x, 24h Vol: $7.2M)",
-    "details": {
-      "symbol": "STX-USDT-SWAP",
-      "rank": 57,
-      "score": 71.2,
-      "rvol": 1.1,
-      "atrExpansion": 1.06,
-      "price": 0.3183,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618033_8ol7",
-    "timestamp": 1790761618033,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "GLM-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618031_x9lf",
-    "timestamp": 1790761618031,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate GLM-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "GLM-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618031_051i",
-    "timestamp": 1790761618031,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate GLM-USDT-SWAP (Score: 71.7/100, Rank #56, ATR: 1.22%)",
-    "details": {
-      "symbol": "GLM-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 71.7,
-      "profile": "MOMENTUM",
-      "rank": 56,
-      "currentPrice": 0.12666,
-      "currentAtr": 0.0015400000000000136,
-      "atrPct": 1.22
-    }
-  },
-  {
-    "id": "1790761618030_s9d6",
-    "timestamp": 1790761618030,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #56 Selected: GLM-USDT-SWAP (Momentum Score: 71.7/100, RVOL: 1.04x, 24h Vol: $1.8M)",
-    "details": {
-      "symbol": "GLM-USDT-SWAP",
-      "rank": 56,
-      "score": 71.7,
-      "rvol": 1.04,
-      "atrExpansion": 1.22,
-      "price": 0.12666,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618028_f90o",
-    "timestamp": 1790761618028,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "MOVE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618026_r36q",
-    "timestamp": 1790761618026,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate MOVE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "MOVE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618026_o6iv",
-    "timestamp": 1790761618026,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate MOVE-USDT-SWAP (Score: 72.0/100, Rank #55, ATR: 1.39%)",
-    "details": {
-      "symbol": "MOVE-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72,
-      "profile": "MOMENTUM",
-      "rank": 55,
-      "currentPrice": 0.009195,
-      "currentAtr": 0.00012799999999999964,
-      "atrPct": 1.39
-    }
-  },
-  {
-    "id": "1790761618025_56pv",
-    "timestamp": 1790761618025,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #55 Selected: MOVE-USDT-SWAP (Momentum Score: 72/100, RVOL: 1.03x, 24h Vol: $70.2M)",
-    "details": {
-      "symbol": "MOVE-USDT-SWAP",
-      "rank": 55,
-      "score": 72,
-      "rvol": 1.03,
-      "atrExpansion": 0.97,
-      "price": 0.009195,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618025_0ke3",
-    "timestamp": 1790761618025,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ACH-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618024_432a",
-    "timestamp": 1790761618024,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ACH-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ACH-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618022_e95a",
-    "timestamp": 1790761618022,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ACH-USDT-SWAP (Score: 72.2/100, Rank #54, ATR: 1.34%)",
-    "details": {
-      "symbol": "ACH-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.2,
-      "profile": "MOMENTUM",
-      "rank": 54,
-      "currentPrice": 0.006174,
-      "currentAtr": 0.00008300000000000061,
-      "atrPct": 1.34
-    }
-  },
-  {
-    "id": "1790761618021_xyys",
-    "timestamp": 1790761618021,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #54 Selected: ACH-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 0.89x, 24h Vol: $35.6M)",
-    "details": {
-      "symbol": "ACH-USDT-SWAP",
-      "rank": 54,
-      "score": 72.2,
-      "rvol": 0.89,
-      "atrExpansion": 1.12,
-      "price": 0.006174,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618021_bnwb",
-    "timestamp": 1790761618021,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SOON-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618020_vyp6",
-    "timestamp": 1790761618020,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate SOON-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SOON-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618019_v6do",
-    "timestamp": 1790761618019,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate SOON-USDT-SWAP (Score: 72.2/100, Rank #53, ATR: 4.39%)",
-    "details": {
-      "symbol": "SOON-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.2,
-      "profile": "MOMENTUM",
-      "rank": 53,
-      "currentPrice": 0.4535,
-      "currentAtr": 0.019899999999999973,
-      "atrPct": 4.39
-    }
-  },
-  {
-    "id": "1790761618018_7yha",
-    "timestamp": 1790761618018,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #53 Selected: SOON-USDT-SWAP (Momentum Score: 72.2/100, RVOL: 0.96x, 24h Vol: $367.5M)",
-    "details": {
-      "symbol": "SOON-USDT-SWAP",
-      "rank": 53,
-      "score": 72.2,
-      "rvol": 0.96,
-      "atrExpansion": 0.82,
-      "price": 0.4535,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618018_8uj3",
-    "timestamp": 1790761618018,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZETA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618017_mlu0",
-    "timestamp": 1790761618017,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ZETA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZETA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618015_y682",
-    "timestamp": 1790761618015,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ZETA-USDT-SWAP (Score: 72.3/100, Rank #52, ATR: 1.58%)",
-    "details": {
-      "symbol": "ZETA-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.3,
-      "profile": "MOMENTUM",
-      "rank": 52,
-      "currentPrice": 0.05318,
-      "currentAtr": 0.0008400000000000005,
-      "atrPct": 1.58
-    }
-  },
-  {
-    "id": "1790761618015_2wl4",
-    "timestamp": 1790761618015,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #52 Selected: ZETA-USDT-SWAP (Momentum Score: 72.3/100, RVOL: 1.06x, 24h Vol: $18.7M)",
-    "details": {
-      "symbol": "ZETA-USDT-SWAP",
-      "rank": 52,
-      "score": 72.3,
-      "rvol": 1.06,
-      "atrExpansion": 1.01,
-      "price": 0.05318,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618013_a82n",
-    "timestamp": 1790761618013,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "YGG-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618012_iusc",
-    "timestamp": 1790761618012,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate YGG-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "YGG-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618011_1ohd",
-    "timestamp": 1790761618011,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate YGG-USDT-SWAP (Score: 72.3/100, Rank #51, ATR: 1.19%)",
-    "details": {
-      "symbol": "YGG-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.3,
-      "profile": "MOMENTUM",
-      "rank": 51,
-      "currentPrice": 0.02683,
-      "currentAtr": 0.00032000000000000084,
-      "atrPct": 1.19
-    }
-  },
-  {
-    "id": "1790761618009_z531",
-    "timestamp": 1790761618009,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #51 Selected: YGG-USDT-SWAP (Momentum Score: 72.3/100, RVOL: 0.94x, 24h Vol: $23.0M)",
-    "details": {
-      "symbol": "YGG-USDT-SWAP",
-      "rank": 51,
-      "score": 72.3,
-      "rvol": 0.94,
-      "atrExpansion": 0.91,
-      "price": 0.02683,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618009_ddyv",
-    "timestamp": 1790761618009,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AVNT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618008_6fox",
-    "timestamp": 1790761618008,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate AVNT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AVNT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618007_w2x3",
-    "timestamp": 1790761618007,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate AVNT-USDT-SWAP (Score: 72.4/100, Rank #50, ATR: 1.45%)",
-    "details": {
-      "symbol": "AVNT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.4,
-      "profile": "MOMENTUM",
-      "rank": 50,
-      "currentPrice": 0.1291,
-      "currentAtr": 0.0018700000000000105,
-      "atrPct": 1.45
-    }
-  },
-  {
-    "id": "1790761618006_rgnz",
-    "timestamp": 1790761618006,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #50 Selected: AVNT-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 0.85x, 24h Vol: $4.5M)",
-    "details": {
-      "symbol": "AVNT-USDT-SWAP",
-      "rank": 50,
-      "score": 72.4,
-      "rvol": 0.85,
-      "atrExpansion": 1.01,
-      "price": 0.1291,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618006_qtnh",
-    "timestamp": 1790761618006,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PONS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618005_a05g",
-    "timestamp": 1790761618005,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate PONS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PONS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618004_r2g2",
-    "timestamp": 1790761618004,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate PONS-USDT-SWAP (Score: 72.4/100, Rank #49, ATR: 4.26%)",
-    "details": {
-      "symbol": "PONS-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.4,
-      "profile": "MOMENTUM",
-      "rank": 49,
-      "currentPrice": 0.5569,
-      "currentAtr": 0.023699999999999943,
-      "atrPct": 4.26
-    }
-  },
-  {
-    "id": "1790761618003_nciz",
-    "timestamp": 1790761618003,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #49 Selected: PONS-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 0.86x, 24h Vol: $111.4M)",
-    "details": {
-      "symbol": "PONS-USDT-SWAP",
-      "rank": 49,
-      "score": 72.4,
-      "rvol": 0.86,
-      "atrExpansion": 1.09,
-      "price": 0.5569,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761618002_0gel",
-    "timestamp": 1790761618002,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "STRK-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618001_qu6m",
-    "timestamp": 1790761618001,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate STRK-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "STRK-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761618000_583i",
-    "timestamp": 1790761618000,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate STRK-USDT-SWAP (Score: 72.6/100, Rank #48, ATR: 2.14%)",
-    "details": {
-      "symbol": "STRK-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.6,
-      "profile": "MOMENTUM",
-      "rank": 48,
-      "currentPrice": 0.04252,
-      "currentAtr": 0.0009100000000000011,
-      "atrPct": 2.14
-    }
-  },
-  {
-    "id": "1790761617999_0937",
-    "timestamp": 1790761617999,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #48 Selected: STRK-USDT-SWAP (Momentum Score: 72.6/100, RVOL: 0.66x, 24h Vol: $205.3M)",
-    "details": {
-      "symbol": "STRK-USDT-SWAP",
-      "rank": 48,
-      "score": 72.6,
-      "rvol": 0.66,
-      "atrExpansion": 1.42,
-      "price": 0.04252,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617998_b3v6",
-    "timestamp": 1790761617998,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ESP-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617996_2zde",
-    "timestamp": 1790761617996,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ESP-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ESP-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617995_zpz2",
-    "timestamp": 1790761617995,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ESP-USDT-SWAP (Score: 72.7/100, Rank #47, ATR: 1.2%)",
-    "details": {
-      "symbol": "ESP-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 72.7,
-      "profile": "MOMENTUM",
-      "rank": 47,
-      "currentPrice": 0.10034,
-      "currentAtr": 0.0012000000000000066,
-      "atrPct": 1.2
-    }
-  },
-  {
-    "id": "1790761617994_ia4h",
-    "timestamp": 1790761617994,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #47 Selected: ESP-USDT-SWAP (Momentum Score: 72.7/100, RVOL: 0.62x, 24h Vol: $3.9M)",
-    "details": {
-      "symbol": "ESP-USDT-SWAP",
-      "rank": 47,
-      "score": 72.7,
-      "rvol": 0.62,
-      "atrExpansion": 1.21,
-      "price": 0.10034,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617993_e21b",
-    "timestamp": 1790761617993,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AXS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617992_gzh9",
-    "timestamp": 1790761617992,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate AXS-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "AXS-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617990_e8gd",
-    "timestamp": 1790761617990,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate AXS-USDT-SWAP (Score: 73.1/100, Rank #46, ATR: 1.15%)",
-    "details": {
-      "symbol": "AXS-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 73.1,
-      "profile": "MOMENTUM",
-      "rank": 46,
-      "currentPrice": 1.1828,
-      "currentAtr": 0.013600000000000056,
-      "atrPct": 1.15
-    }
-  },
-  {
-    "id": "1790761617989_xzoj",
-    "timestamp": 1790761617989,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #46 Selected: AXS-USDT-SWAP (Momentum Score: 73.1/100, RVOL: 0.99x, 24h Vol: $3.6M)",
-    "details": {
-      "symbol": "AXS-USDT-SWAP",
-      "rank": 46,
-      "score": 73.1,
-      "rvol": 0.99,
-      "atrExpansion": 1.08,
-      "price": 1.1828,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617769_knr1",
-    "timestamp": 1790761617769,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #44 Selected: AKE-USDT-SWAP (Momentum Score: 73.1/100, RVOL: 10x, 24h Vol: $1455.5M)",
-    "details": {
-      "symbol": "AKE-USDT-SWAP",
-      "rank": 44,
-      "score": 73.1,
-      "rvol": 10,
-      "atrExpansion": 5,
-      "price": 0.03417,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617768_jget",
-    "timestamp": 1790761617768,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZRX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617768_1cw5",
-    "timestamp": 1790761617768,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ZRX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZRX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617767_5l14",
-    "timestamp": 1790761617767,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ZRX-USDT-SWAP (Score: 73.6/100, Rank #43, ATR: 1.43%)",
-    "details": {
-      "symbol": "ZRX-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 73.6,
-      "profile": "MOMENTUM",
-      "rank": 43,
-      "currentPrice": 0.12195,
-      "currentAtr": 0.0017400000000000054,
-      "atrPct": 1.43
-    }
-  },
-  {
-    "id": "1790761617763_cixy",
-    "timestamp": 1790761617763,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #43 Selected: ZRX-USDT-SWAP (Momentum Score: 73.6/100, RVOL: 0.86x, 24h Vol: $3.0M)",
-    "details": {
-      "symbol": "ZRX-USDT-SWAP",
-      "rank": 43,
-      "score": 73.6,
-      "rvol": 0.86,
-      "atrExpansion": 1.2,
-      "price": 0.12195,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617762_dhus",
-    "timestamp": 1790761617762,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WCT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617761_c1e9",
-    "timestamp": 1790761617761,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate WCT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WCT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617760_ztsk",
-    "timestamp": 1790761617760,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate WCT-USDT-SWAP (Score: 74.2/100, Rank #42, ATR: 1.39%)",
-    "details": {
-      "symbol": "WCT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 74.2,
-      "profile": "MOMENTUM",
-      "rank": 42,
-      "currentPrice": 0.04251,
-      "currentAtr": 0.0005900000000000002,
-      "atrPct": 1.39
-    }
-  },
-  {
-    "id": "1790761617759_q5it",
-    "timestamp": 1790761617759,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #42 Selected: WCT-USDT-SWAP (Momentum Score: 74.2/100, RVOL: 1.14x, 24h Vol: $6.2M)",
-    "details": {
-      "symbol": "WCT-USDT-SWAP",
-      "rank": 42,
-      "score": 74.2,
-      "rvol": 1.14,
-      "atrExpansion": 0.99,
-      "price": 0.04251,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617759_0h0h",
-    "timestamp": 1790761617759,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "LDO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617758_xx8a",
-    "timestamp": 1790761617758,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate LDO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "LDO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617757_7nrz",
-    "timestamp": 1790761617757,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate LDO-USDT-SWAP (Score: 75.7/100, Rank #40, ATR: 2.24%)",
-    "details": {
-      "symbol": "LDO-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 75.7,
-      "profile": "MOMENTUM",
-      "rank": 40,
-      "currentPrice": 0.4819,
-      "currentAtr": 0.010799999999999976,
-      "atrPct": 2.24
-    }
-  },
-  {
-    "id": "1790761617756_w7ud",
-    "timestamp": 1790761617756,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #40 Selected: LDO-USDT-SWAP (Momentum Score: 75.7/100, RVOL: 0.9x, 24h Vol: $24.1M)",
-    "details": {
-      "symbol": "LDO-USDT-SWAP",
-      "rank": 40,
-      "score": 75.7,
-      "rvol": 0.9,
-      "atrExpansion": 1.16,
-      "price": 0.4819,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617755_thrb",
-    "timestamp": 1790761617755,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PNUT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617755_pinh",
-    "timestamp": 1790761617755,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate PNUT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PNUT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617754_wzlw",
-    "timestamp": 1790761617754,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate PNUT-USDT-SWAP (Score: 76.1/100, Rank #39, ATR: 1.67%)",
-    "details": {
-      "symbol": "PNUT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 76.1,
-      "profile": "MOMENTUM",
-      "rank": 39,
-      "currentPrice": 0.05457,
-      "currentAtr": 0.0009100000000000011,
-      "atrPct": 1.67
-    }
-  },
-  {
-    "id": "1790761617753_y6l0",
-    "timestamp": 1790761617753,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #39 Selected: PNUT-USDT-SWAP (Momentum Score: 76.1/100, RVOL: 1.04x, 24h Vol: $30.8M)",
-    "details": {
-      "symbol": "PNUT-USDT-SWAP",
-      "rank": 39,
-      "score": 76.1,
-      "rvol": 1.04,
-      "atrExpansion": 1.21,
-      "price": 0.05457,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617753_4gjo",
-    "timestamp": 1790761617753,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "XLM-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617752_w41r",
-    "timestamp": 1790761617752,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate XLM-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "XLM-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617752_klew",
-    "timestamp": 1790761617752,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate XLM-USDT-SWAP (Score: 76.3/100, Rank #38, ATR: 2.01%)",
-    "details": {
-      "symbol": "XLM-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 76.3,
-      "profile": "MOMENTUM",
-      "rank": 38,
-      "currentPrice": 0.22799,
-      "currentAtr": 0.004580000000000001,
-      "atrPct": 2.01
-    }
-  },
-  {
-    "id": "1790761617751_ao31",
-    "timestamp": 1790761617751,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #38 Selected: XLM-USDT-SWAP (Momentum Score: 76.3/100, RVOL: 0.97x, 24h Vol: $149.7M)",
-    "details": {
-      "symbol": "XLM-USDT-SWAP",
-      "rank": 38,
-      "score": 76.3,
-      "rvol": 0.97,
-      "atrExpansion": 1.69,
-      "price": 0.22799,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617750_dru1",
-    "timestamp": 1790761617750,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ONT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617749_dumv",
-    "timestamp": 1790761617749,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ONT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ONT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617748_01qj",
-    "timestamp": 1790761617748,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ONT-USDT-SWAP (Score: 76.8/100, Rank #37, ATR: 1.15%)",
-    "details": {
-      "symbol": "ONT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 76.8,
-      "profile": "MOMENTUM",
-      "rank": 37,
-      "currentPrice": 0.05834,
-      "currentAtr": 0.0006700000000000039,
-      "atrPct": 1.15
-    }
-  },
-  {
-    "id": "1790761617748_ct8m",
-    "timestamp": 1790761617748,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #37 Selected: ONT-USDT-SWAP (Momentum Score: 76.8/100, RVOL: 1.43x, 24h Vol: $9.7M)",
-    "details": {
-      "symbol": "ONT-USDT-SWAP",
-      "rank": 37,
-      "score": 76.8,
-      "rvol": 1.43,
-      "atrExpansion": 1.15,
-      "price": 0.05834,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617747_k785",
-    "timestamp": 1790761617747,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "TURBO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617746_bhij",
-    "timestamp": 1790761617746,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate TURBO-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "TURBO-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617746_ezes",
-    "timestamp": 1790761617746,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate TURBO-USDT-SWAP (Score: 76.8/100, Rank #36, ATR: 1.62%)",
-    "details": {
-      "symbol": "TURBO-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 76.8,
-      "profile": "MOMENTUM",
-      "rank": 36,
-      "currentPrice": 0.0010405,
-      "currentAtr": 0.00001690000000000003,
-      "atrPct": 1.62
-    }
-  },
-  {
-    "id": "1790761617745_w30e",
-    "timestamp": 1790761617745,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #36 Selected: TURBO-USDT-SWAP (Momentum Score: 76.8/100, RVOL: 1.28x, 24h Vol: $637.8M)",
-    "details": {
-      "symbol": "TURBO-USDT-SWAP",
-      "rank": 36,
-      "score": 76.8,
-      "rvol": 1.28,
+    "message": "Dynamic Candidate #6 Selected: RE-USDT-SWAP (Momentum Score: 77/100, RVOL: 1.41x, 24h Vol: $6.7M)",
+    "details": {
+      "symbol": "RE-USDT-SWAP",
+      "rank": 6,
+      "score": 77,
+      "rvol": 1.41,
       "atrExpansion": 1.14,
-      "price": 0.0010405,
-      "profile": "MOMENTUM"
+      "price": 0.52286,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1790761617642_3jc7",
-    "timestamp": 1790761617642,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #35 Selected: ZORA-USDT-SWAP (Momentum Score: 78.4/100, RVOL: 1.98x, 24h Vol: $101.5M)",
-    "details": {
-      "symbol": "ZORA-USDT-SWAP",
-      "rank": 35,
-      "score": 78.4,
-      "rvol": 1.98,
-      "atrExpansion": 1.43,
-      "price": 0.008022,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617642_wgqv",
-    "timestamp": 1790761617642,
+    "id": "1790843982326_8stx",
+    "timestamp": 1790843982326,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%).",
+    "details": {
+      "symbol": "ORDER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%)."
+    }
+  },
+  {
+    "id": "1790843982323_v18g",
+    "timestamp": 1790843982323,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ORDER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%).",
+    "details": {
+      "symbol": "ORDER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%)."
+    }
+  },
+  {
+    "id": "1790843982321_foq8",
+    "timestamp": 1790843982321,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate ORDER-USDT-SWAP (Score: 77.5/100, Rank #5, ATR: 0.91%)",
+    "details": {
+      "symbol": "ORDER-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 77.5,
+      "profile": "SCALP",
+      "rank": 5,
+      "currentPrice": 0.04054,
+      "currentAtr": 0.00037000000000000227,
+      "atrPct": 0.91
+    }
+  },
+  {
+    "id": "1790843982319_l73o",
+    "timestamp": 1790843982319,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: ORDER-USDT-SWAP (Momentum Score: 77.5/100, RVOL: 1.9x, 24h Vol: $1.8M)",
+    "details": {
+      "symbol": "ORDER-USDT-SWAP",
+      "rank": 5,
+      "score": 77.5,
+      "rvol": 1.9,
+      "atrExpansion": 2.19,
+      "price": 0.04054,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982317_ngqb",
+    "timestamp": 1790843982317,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.82%).",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.82%)."
+    }
+  },
+  {
+    "id": "1790843982316_lg45",
+    "timestamp": 1790843982316,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate UNI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.82%).",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.82%)."
+    }
+  },
+  {
+    "id": "1790843982315_d78n",
+    "timestamp": 1790843982315,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate UNI-USDT-SWAP (Score: 84.8/100, Rank #4, ATR: 1.82%)",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 84.8,
+      "profile": "SCALP",
+      "rank": 4,
+      "currentPrice": 8.979,
+      "currentAtr": 0.16300000000000026,
+      "atrPct": 1.82
+    }
+  },
+  {
+    "id": "1790843982313_edls",
+    "timestamp": 1790843982313,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: UNI-USDT-SWAP (Momentum Score: 84.8/100, RVOL: 2.72x, 24h Vol: $15.0M)",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "rank": 4,
+      "score": 84.8,
+      "rvol": 2.72,
+      "atrExpansion": 2.14,
+      "price": 8.979,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982311_bclx",
+    "timestamp": 1790843982311,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843982308_5z8y",
+    "timestamp": 1790843982308,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843982305_5zcp",
+    "timestamp": 1790843982305,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate KAT-USDT-SWAP (Score: 85.9/100, Rank #3, ATR: 1.37%)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 85.9,
+      "profile": "SCALP",
+      "rank": 3,
+      "currentPrice": 0.004905,
+      "currentAtr": 0.00006700000000000022,
+      "atrPct": 1.37
+    }
+  },
+  {
+    "id": "1790843982303_1vbe",
+    "timestamp": 1790843982303,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: KAT-USDT-SWAP (Momentum Score: 85.9/100, RVOL: 10x, 24h Vol: $246.7M)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "rank": 3,
+      "score": 85.9,
+      "rvol": 10,
+      "atrExpansion": 2.33,
+      "price": 0.004905,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982301_wjdl",
+    "timestamp": 1790843982301,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843982299_49u2",
+    "timestamp": 1790843982299,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate USELESS-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843982296_s9lk",
+    "timestamp": 1790843982296,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate USELESS-USDT-SWAP (Score: 95.2/100, Rank #2, ATR: 2.67%)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 95.2,
+      "profile": "SCALP",
+      "rank": 2,
+      "currentPrice": 0.22948,
+      "currentAtr": 0.0061199999999999866,
+      "atrPct": 2.67
+    }
+  },
+  {
+    "id": "1790843982294_5962",
+    "timestamp": 1790843982294,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: USELESS-USDT-SWAP (Momentum Score: 95.2/100, RVOL: 2.68x, 24h Vol: $139.6M)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "rank": 2,
+      "score": 95.2,
+      "rvol": 2.68,
+      "atrExpansion": 1.74,
+      "price": 0.22948,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982292_tlyn",
+    "timestamp": 1790843982292,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843982290_v4nn",
+    "timestamp": 1790843982290,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AR-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843982286_zf4o",
+    "timestamp": 1790843982286,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AR-USDT-SWAP (Score: 98.8/100, Rank #1, ATR: 2.2%)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 98.8,
+      "profile": "SCALP",
+      "rank": 1,
+      "currentPrice": 4.281,
+      "currentAtr": 0.0940000000000003,
+      "atrPct": 2.2
+    }
+  },
+  {
+    "id": "1790843982283_2ifs",
+    "timestamp": 1790843982283,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: AR-USDT-SWAP (Momentum Score: 98.8/100, RVOL: 4.47x, 24h Vol: $1.8M)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "rank": 1,
+      "score": 98.8,
+      "rvol": 4.47,
+      "atrExpansion": 2.45,
+      "price": 4.281,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843982282_wksp",
+    "timestamp": 1790843982282,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 20.50s. Scanned: 231/231 pairs. Candidates: 16. Top: AR-USDT-SWAP (98.8), USELESS-USDT-SWAP (95.2), KAT-USDT-SWAP (85.9), UNI-USDT-SWAP (84.8), ORDER-USDT-SWAP (77.5).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 231,
+      "scannedCount": 231,
+      "candidatesCount": 16,
+      "topRanked": [
+        {
+          "symbol": "AR-USDT-SWAP",
+          "score": 98.8,
+          "rvol": 4.47,
+          "price": 4.281
+        },
+        {
+          "symbol": "USELESS-USDT-SWAP",
+          "score": 95.2,
+          "rvol": 2.68,
+          "price": 0.22948
+        },
+        {
+          "symbol": "KAT-USDT-SWAP",
+          "score": 85.9,
+          "rvol": 10,
+          "price": 0.004905
+        },
+        {
+          "symbol": "UNI-USDT-SWAP",
+          "score": 84.8,
+          "rvol": 2.72,
+          "price": 8.979
+        },
+        {
+          "symbol": "ORDER-USDT-SWAP",
+          "score": 77.5,
+          "rvol": 1.9,
+          "price": 0.04054
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790843961836_qh3h",
+    "timestamp": 1790843961836,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 231 liquid candidates selected from 480 total (Min 24h Volume: $1.5M USDT).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 231,
+      "maxSymbols": 500,
+      "minVolumeUSDT": 1500000,
+      "topSymbols": [
+        "PUMP-USDT-SWAP",
+        "MEW-USDT-SWAP",
+        "ONE-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "PENGU-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790843961777_pqu3",
+    "timestamp": 1790843961777,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1790843952430_tbky",
+    "timestamp": 1790843952430,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%).",
     "details": {
       "symbol": "RE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%)."
     }
   },
   {
-    "id": "1790761617641_9f04",
-    "timestamp": 1790761617641,
+    "id": "1790843952429_leb2",
+    "timestamp": 1790843952429,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate RE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Candidate RE-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%).",
     "details": {
       "symbol": "RE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.91%)."
     }
   },
   {
-    "id": "1790761617640_v9n1",
-    "timestamp": 1790761617640,
+    "id": "1790843952427_m2qg",
+    "timestamp": 1790843952427,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate RE-USDT-SWAP (Score: 78.7/100, Rank #34, ATR: 1.74%)",
+    "message": "Momentum Engine confirmed BUY signal on candidate RE-USDT-SWAP (Score: 71.0/100, Rank #11, ATR: 0.91%)",
     "details": {
       "symbol": "RE-USDT-SWAP",
       "originalSide": "BUY",
       "side": "BUY",
       "isFadeTrade": false,
-      "score": 78.7,
-      "profile": "MOMENTUM",
-      "rank": 34,
-      "currentPrice": 0.48554,
-      "currentAtr": 0.008459999999999968,
-      "atrPct": 1.74
+      "score": 71,
+      "profile": "SCALP",
+      "rank": 11,
+      "currentPrice": 0.52171,
+      "currentAtr": 0.004730000000000012,
+      "atrPct": 0.91
     }
   },
   {
-    "id": "1790761617640_4bq5",
-    "timestamp": 1790761617640,
+    "id": "1790843952426_gnxx",
+    "timestamp": 1790843952426,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #34 Selected: RE-USDT-SWAP (Momentum Score: 78.7/100, RVOL: 0.79x, 24h Vol: $5.1M)",
+    "message": "Dynamic Candidate #11 Selected: RE-USDT-SWAP (Momentum Score: 71/100, RVOL: 1.25x, 24h Vol: $6.7M)",
     "details": {
       "symbol": "RE-USDT-SWAP",
-      "rank": 34,
-      "score": 78.7,
-      "rvol": 0.79,
-      "atrExpansion": 1.53,
-      "price": 0.48554,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617639_pimo",
-    "timestamp": 1790761617639,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZIL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617639_qmjf",
-    "timestamp": 1790761617639,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ZIL-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ZIL-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617638_1ya8",
-    "timestamp": 1790761617638,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ZIL-USDT-SWAP (Score: 78.7/100, Rank #33, ATR: 1.36%)",
-    "details": {
-      "symbol": "ZIL-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 78.7,
-      "profile": "MOMENTUM",
-      "rank": 33,
-      "currentPrice": 0.00361,
-      "currentAtr": 0.000049,
-      "atrPct": 1.36
-    }
-  },
-  {
-    "id": "1790761617638_k4mh",
-    "timestamp": 1790761617638,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #33 Selected: ZIL-USDT-SWAP (Momentum Score: 78.7/100, RVOL: 1.34x, 24h Vol: $141.8M)",
-    "details": {
-      "symbol": "ZIL-USDT-SWAP",
-      "rank": 33,
-      "score": 78.7,
-      "rvol": 1.34,
-      "atrExpansion": 1.17,
-      "price": 0.00361,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617638_darw",
-    "timestamp": 1790761617638,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "BOME-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617637_gifk",
-    "timestamp": 1790761617637,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate BOME-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "BOME-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617637_1f6q",
-    "timestamp": 1790761617637,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate BOME-USDT-SWAP (Score: 79.0/100, Rank #32, ATR: 1.75%)",
-    "details": {
-      "symbol": "BOME-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79,
-      "profile": "MOMENTUM",
-      "rank": 32,
-      "currentPrice": 0.0010081,
-      "currentAtr": 0.000017599999999999994,
-      "atrPct": 1.75
-    }
-  },
-  {
-    "id": "1790761617636_iy8y",
-    "timestamp": 1790761617636,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #32 Selected: BOME-USDT-SWAP (Momentum Score: 79/100, RVOL: 1x, 24h Vol: $4442.3M)",
-    "details": {
-      "symbol": "BOME-USDT-SWAP",
-      "rank": 32,
-      "score": 79,
-      "rvol": 1,
-      "atrExpansion": 1.47,
-      "price": 0.0010081,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617636_xobq",
-    "timestamp": 1790761617636,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SNX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617635_7viw",
-    "timestamp": 1790761617635,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate SNX-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SNX-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617635_5ml5",
-    "timestamp": 1790761617635,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate SNX-USDT-SWAP (Score: 79.1/100, Rank #31, ATR: 1.86%)",
-    "details": {
-      "symbol": "SNX-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.1,
-      "profile": "MOMENTUM",
-      "rank": 31,
-      "currentPrice": 0.2587,
-      "currentAtr": 0.004799999999999971,
-      "atrPct": 1.86
-    }
-  },
-  {
-    "id": "1790761617634_ybre",
-    "timestamp": 1790761617634,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #31 Selected: SNX-USDT-SWAP (Momentum Score: 79.1/100, RVOL: 1.13x, 24h Vol: $5.0M)",
-    "details": {
-      "symbol": "SNX-USDT-SWAP",
-      "rank": 31,
-      "score": 79.1,
-      "rvol": 1.13,
-      "atrExpansion": 1.24,
-      "price": 0.2587,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617634_nk9k",
-    "timestamp": 1790761617634,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "MANA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617634_dyx9",
-    "timestamp": 1790761617634,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate MANA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "MANA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617633_p3a1",
-    "timestamp": 1790761617633,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate MANA-USDT-SWAP (Score: 79.4/100, Rank #30, ATR: 1.64%)",
-    "details": {
-      "symbol": "MANA-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.4,
-      "profile": "MOMENTUM",
-      "rank": 30,
-      "currentPrice": 0.09156,
-      "currentAtr": 0.0015000000000000013,
-      "atrPct": 1.64
-    }
-  },
-  {
-    "id": "1790761617633_7vyp",
-    "timestamp": 1790761617633,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #30 Selected: MANA-USDT-SWAP (Momentum Score: 79.4/100, RVOL: 1.12x, 24h Vol: $8.0M)",
-    "details": {
-      "symbol": "MANA-USDT-SWAP",
-      "rank": 30,
-      "score": 79.4,
-      "rvol": 1.12,
-      "atrExpansion": 1.42,
-      "price": 0.09156,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617632_s97l",
-    "timestamp": 1790761617632,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SAND-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617632_zpxr",
-    "timestamp": 1790761617632,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate SAND-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "SAND-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617631_jw4o",
-    "timestamp": 1790761617631,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate SAND-USDT-SWAP (Score: 79.4/100, Rank #29, ATR: 1.73%)",
-    "details": {
-      "symbol": "SAND-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.4,
-      "profile": "MOMENTUM",
-      "rank": 29,
-      "currentPrice": 0.04565,
-      "currentAtr": 0.000789999999999999,
-      "atrPct": 1.73
-    }
-  },
-  {
-    "id": "1790761617631_3qg1",
-    "timestamp": 1790761617631,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #29 Selected: SAND-USDT-SWAP (Momentum Score: 79.4/100, RVOL: 1.1x, 24h Vol: $69.2M)",
-    "details": {
-      "symbol": "SAND-USDT-SWAP",
-      "rank": 29,
-      "score": 79.4,
-      "rvol": 1.1,
-      "atrExpansion": 1.13,
-      "price": 0.04565,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617631_m2ux",
-    "timestamp": 1790761617631,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "APT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617630_34h0",
-    "timestamp": 1790761617630,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate APT-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "APT-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617630_nnl7",
-    "timestamp": 1790761617630,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate APT-USDT-SWAP (Score: 79.6/100, Rank #28, ATR: 2.05%)",
-    "details": {
-      "symbol": "APT-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.6,
-      "profile": "MOMENTUM",
-      "rank": 28,
-      "currentPrice": 0.8061,
-      "currentAtr": 0.01650000000000007,
-      "atrPct": 2.05
-    }
-  },
-  {
-    "id": "1790761617629_g3gi",
-    "timestamp": 1790761617629,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #28 Selected: APT-USDT-SWAP (Momentum Score: 79.6/100, RVOL: 1.03x, 24h Vol: $14.4M)",
-    "details": {
-      "symbol": "APT-USDT-SWAP",
-      "rank": 28,
-      "score": 79.6,
-      "rvol": 1.03,
-      "atrExpansion": 1.44,
-      "price": 0.8061,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617629_6q54",
-    "timestamp": 1790761617629,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617628_d8q0",
-    "timestamp": 1790761617628,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate S-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617628_yl3w",
-    "timestamp": 1790761617628,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate S-USDT-SWAP (Score: 79.7/100, Rank #27, ATR: 1.77%)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.7,
-      "profile": "MOMENTUM",
-      "rank": 27,
-      "currentPrice": 0.0396,
-      "currentAtr": 0.0006999999999999992,
-      "atrPct": 1.77
-    }
-  },
-  {
-    "id": "1790761617627_2jd0",
-    "timestamp": 1790761617627,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #27 Selected: S-USDT-SWAP (Momentum Score: 79.7/100, RVOL: 0.92x, 24h Vol: $28.5M)",
-    "details": {
-      "symbol": "S-USDT-SWAP",
-      "rank": 27,
-      "score": 79.7,
-      "rvol": 0.92,
-      "atrExpansion": 1.29,
-      "price": 0.0396,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617627_avv4",
-    "timestamp": 1790761617627,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WIF-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617627_dgi4",
-    "timestamp": 1790761617627,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate WIF-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "WIF-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617626_syv7",
-    "timestamp": 1790761617626,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate WIF-USDT-SWAP (Score: 79.9/100, Rank #26, ATR: 2.45%)",
-    "details": {
-      "symbol": "WIF-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 79.9,
-      "profile": "MOMENTUM",
-      "rank": 26,
-      "currentPrice": 0.2526,
-      "currentAtr": 0.006200000000000011,
-      "atrPct": 2.45
-    }
-  },
-  {
-    "id": "1790761617626_7eg2",
-    "timestamp": 1790761617626,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #26 Selected: WIF-USDT-SWAP (Momentum Score: 79.9/100, RVOL: 1.17x, 24h Vol: $48.3M)",
-    "details": {
-      "symbol": "WIF-USDT-SWAP",
-      "rank": 26,
-      "score": 79.9,
-      "rvol": 1.17,
-      "atrExpansion": 1.34,
-      "price": 0.2526,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617625_qn6q",
-    "timestamp": 1790761617625,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "F-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617625_8khc",
-    "timestamp": 1790761617625,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate F-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "F-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617624_qpx4",
-    "timestamp": 1790761617624,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate F-USDT-SWAP (Score: 80.5/100, Rank #25, ATR: 1.29%)",
-    "details": {
-      "symbol": "F-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 80.5,
-      "profile": "MOMENTUM",
-      "rank": 25,
-      "currentPrice": 0.003577,
-      "currentAtr": 0.000046000000000000034,
-      "atrPct": 1.29
-    }
-  },
-  {
-    "id": "1790761617624_clu5",
-    "timestamp": 1790761617624,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #25 Selected: F-USDT-SWAP (Momentum Score: 80.5/100, RVOL: 1.32x, 24h Vol: $114.9M)",
-    "details": {
-      "symbol": "F-USDT-SWAP",
-      "rank": 25,
-      "score": 80.5,
-      "rvol": 1.32,
-      "atrExpansion": 1.32,
-      "price": 0.003577,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617623_9u6o",
-    "timestamp": 1790761617623,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PEOPLE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617623_nr8j",
-    "timestamp": 1790761617623,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate PEOPLE-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "PEOPLE-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617622_0grf",
-    "timestamp": 1790761617622,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate PEOPLE-USDT-SWAP (Score: 82.4/100, Rank #23, ATR: 1.98%)",
-    "details": {
-      "symbol": "PEOPLE-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 82.4,
-      "profile": "MOMENTUM",
-      "rank": 23,
-      "currentPrice": 0.009511,
-      "currentAtr": 0.00018799999999999893,
-      "atrPct": 1.98
-    }
-  },
-  {
-    "id": "1790761617622_xfqz",
-    "timestamp": 1790761617622,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #23 Selected: PEOPLE-USDT-SWAP (Momentum Score: 82.4/100, RVOL: 1.04x, 24h Vol: $445.5M)",
-    "details": {
-      "symbol": "PEOPLE-USDT-SWAP",
-      "rank": 23,
-      "score": 82.4,
-      "rvol": 1.04,
-      "atrExpansion": 1.41,
-      "price": 0.009511,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617621_bs66",
-    "timestamp": 1790761617621,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ANIME-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617621_hdzr",
-    "timestamp": 1790761617621,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ANIME-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ANIME-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617620_3nbo",
-    "timestamp": 1790761617620,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ANIME-USDT-SWAP (Score: 82.7/100, Rank #22, ATR: 1.87%)",
-    "details": {
-      "symbol": "ANIME-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 82.7,
-      "profile": "MOMENTUM",
-      "rank": 22,
-      "currentPrice": 0.003378,
-      "currentAtr": 0.00006300000000000012,
-      "atrPct": 1.87
-    }
-  },
-  {
-    "id": "1790761617620_yduu",
-    "timestamp": 1790761617620,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #22 Selected: ANIME-USDT-SWAP (Momentum Score: 82.7/100, RVOL: 1.34x, 24h Vol: $85.8M)",
-    "details": {
-      "symbol": "ANIME-USDT-SWAP",
-      "rank": 22,
-      "score": 82.7,
-      "rvol": 1.34,
-      "atrExpansion": 1.53,
-      "price": 0.003378,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617241_f7nt",
-    "timestamp": 1790761617241,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #21 Selected: FLOCK-USDT-SWAP (Momentum Score: 82.7/100, RVOL: 2x, 24h Vol: $35.6M)",
-    "details": {
-      "symbol": "FLOCK-USDT-SWAP",
-      "rank": 21,
-      "score": 82.7,
-      "rvol": 2,
-      "atrExpansion": 1.62,
-      "price": 0.0657,
-      "profile": "MOMENTUM"
-    }
-  },
-  {
-    "id": "1790761617240_fyrm",
-    "timestamp": 1790761617240,
-    "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ADA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617239_jv47",
-    "timestamp": 1790761617239,
-    "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ADA-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
-    "details": {
-      "symbol": "ADA-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
-    }
-  },
-  {
-    "id": "1790761617236_z6d5",
-    "timestamp": 1790761617236,
-    "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ADA-USDT-SWAP (Score: 83.4/100, Rank #20, ATR: 2.06%)",
-    "details": {
-      "symbol": "ADA-USDT-SWAP",
-      "originalSide": "BUY",
-      "side": "BUY",
-      "isFadeTrade": false,
-      "score": 83.4,
-      "profile": "MOMENTUM",
-      "rank": 20,
-      "currentPrice": 0.2478,
-      "currentAtr": 0.005099999999999993,
-      "atrPct": 2.06
-    }
-  },
-  {
-    "id": "1790761617235_h9bk",
-    "timestamp": 1790761617235,
-    "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #20 Selected: ADA-USDT-SWAP (Momentum Score: 83.4/100, RVOL: 1.25x, 24h Vol: $250.2M)",
-    "details": {
-      "symbol": "ADA-USDT-SWAP",
-      "rank": 20,
-      "score": 83.4,
+      "rank": 11,
+      "score": 71,
       "rvol": 1.25,
-      "atrExpansion": 1.8,
-      "price": 0.2478,
-      "profile": "MOMENTUM"
+      "atrExpansion": 0.94,
+      "price": 0.52171,
+      "profile": "SCALP"
     }
   },
   {
-    "id": "1790761617234_n09m",
-    "timestamp": 1790761617234,
+    "id": "1790843952425_ktzs",
+    "timestamp": 1790843952425,
     "type": "SIGNAL_REJECTED",
-    "message": "Signal rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
     "details": {
-      "symbol": "ENJ-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
     }
   },
   {
-    "id": "1790761617233_uzsg",
-    "timestamp": 1790761617233,
+    "id": "1790843952424_jzgi",
+    "timestamp": 1790843952424,
     "type": "CANDIDATE_REJECTED",
-    "message": "Candidate ENJ-USDT-SWAP rejected by Risk Engine: Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)",
+    "message": "Candidate FARTCOIN-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
     "details": {
-      "symbol": "ENJ-USDT-SWAP",
-      "reason": "Max open positions reached for risk setting 10% (10/10 allowed; max trades by risk: 10)"
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
     }
   },
   {
-    "id": "1790761617232_85t7",
-    "timestamp": 1790761617232,
+    "id": "1790843952422_omvt",
+    "timestamp": 1790843952422,
     "type": "SIGNAL_GENERATED",
-    "message": "Momentum Engine confirmed BUY signal on candidate ENJ-USDT-SWAP (Score: 84.1/100, Rank #19, ATR: 2.11%)",
+    "message": "Momentum Engine confirmed SELL signal on candidate FARTCOIN-USDT-SWAP (Score: 71.1/100, Rank #10, ATR: 1.14%)",
     "details": {
-      "symbol": "ENJ-USDT-SWAP",
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 71.1,
+      "profile": "SCALP",
+      "rank": 10,
+      "currentPrice": 0.1754,
+      "currentAtr": 0.0020000000000000018,
+      "atrPct": 1.14
+    }
+  },
+  {
+    "id": "1790843952421_dzey",
+    "timestamp": 1790843952421,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: FARTCOIN-USDT-SWAP (Momentum Score: 71.1/100, RVOL: 1.83x, 24h Vol: $41.4M)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "rank": 10,
+      "score": 71.1,
+      "rvol": 1.83,
+      "atrExpansion": 1.28,
+      "price": 0.1754,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952072_kpq6",
+    "timestamp": 1790843952072,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: COAI-USDT-SWAP (Momentum Score: 71.5/100, RVOL: 3.31x, 24h Vol: $2.7M)",
+    "details": {
+      "symbol": "COAI-USDT-SWAP",
+      "rank": 9,
+      "score": 71.5,
+      "rvol": 3.31,
+      "atrExpansion": 2.68,
+      "price": 0.3246,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952070_v3jn",
+    "timestamp": 1790843952070,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843952067_tb68",
+    "timestamp": 1790843952067,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ETHFI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843952066_5xsi",
+    "timestamp": 1790843952066,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ETHFI-USDT-SWAP (Score: 71.7/100, Rank #8, ATR: 0.88%)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 71.7,
+      "profile": "SCALP",
+      "rank": 8,
+      "currentPrice": 0.7528,
+      "currentAtr": 0.00660000000000005,
+      "atrPct": 0.88
+    }
+  },
+  {
+    "id": "1790843952060_2rlf",
+    "timestamp": 1790843952060,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: ETHFI-USDT-SWAP (Momentum Score: 71.7/100, RVOL: 3.01x, 24h Vol: $18.0M)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "rank": 8,
+      "score": 71.7,
+      "rvol": 3.01,
+      "atrExpansion": 1,
+      "price": 0.7528,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952059_55cc",
+    "timestamp": 1790843952059,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843952057_9wpu",
+    "timestamp": 1790843952057,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843952056_74k7",
+    "timestamp": 1790843952056,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate PUMP-USDT-SWAP (Score: 74.1/100, Rank #7, ATR: 1.94%)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.1,
+      "profile": "SCALP",
+      "rank": 7,
+      "currentPrice": 0.005578,
+      "currentAtr": 0.00010799999999999959,
+      "atrPct": 1.94
+    }
+  },
+  {
+    "id": "1790843952055_s7je",
+    "timestamp": 1790843952055,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: PUMP-USDT-SWAP (Momentum Score: 74.1/100, RVOL: 1.27x, 24h Vol: $46448.2M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 7,
+      "score": 74.1,
+      "rvol": 1.27,
+      "atrExpansion": 1.35,
+      "price": 0.005578,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952054_sc4s",
+    "timestamp": 1790843952054,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843952052_jgdy",
+    "timestamp": 1790843952052,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ASTER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843952051_slm9",
+    "timestamp": 1790843952051,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ASTER-USDT-SWAP (Score: 74.2/100, Rank #6, ATR: 0.94%)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.2,
+      "profile": "SCALP",
+      "rank": 6,
+      "currentPrice": 0.747,
+      "currentAtr": 0.007000000000000006,
+      "atrPct": 0.94
+    }
+  },
+  {
+    "id": "1790843952049_iade",
+    "timestamp": 1790843952049,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #6 Selected: ASTER-USDT-SWAP (Momentum Score: 74.2/100, RVOL: 1.4x, 24h Vol: $32.6M)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "rank": 6,
+      "score": 74.2,
+      "rvol": 1.4,
+      "atrExpansion": 1.23,
+      "price": 0.747,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952048_ksr9",
+    "timestamp": 1790843952048,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843952047_h7sl",
+    "timestamp": 1790843952047,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SYRUP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843952045_dxi6",
+    "timestamp": 1790843952045,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate SYRUP-USDT-SWAP (Score: 74.9/100, Rank #5, ATR: 1.44%)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.9,
+      "profile": "SCALP",
+      "rank": 5,
+      "currentPrice": 0.2229,
+      "currentAtr": 0.0032000000000000084,
+      "atrPct": 1.44
+    }
+  },
+  {
+    "id": "1790843952044_crum",
+    "timestamp": 1790843952044,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: SYRUP-USDT-SWAP (Momentum Score: 74.9/100, RVOL: 1.24x, 24h Vol: $6.7M)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "rank": 5,
+      "score": 74.9,
+      "rvol": 1.24,
+      "atrExpansion": 1.36,
+      "price": 0.2229,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952043_vioa",
+    "timestamp": 1790843952043,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.52%).",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.52%)."
+    }
+  },
+  {
+    "id": "1790843952041_i4nk",
+    "timestamp": 1790843952041,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate UNI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.52%).",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.52%)."
+    }
+  },
+  {
+    "id": "1790843952039_cplf",
+    "timestamp": 1790843952039,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate UNI-USDT-SWAP (Score: 78.5/100, Rank #4, ATR: 1.52%)",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
       "originalSide": "BUY",
       "side": "BUY",
       "isFadeTrade": false,
-      "score": 84.1,
-      "profile": "MOMENTUM",
-      "rank": 19,
-      "currentPrice": 0.0298,
-      "currentAtr": 0.0006300000000000021,
-      "atrPct": 2.11
+      "score": 78.5,
+      "profile": "SCALP",
+      "rank": 4,
+      "currentPrice": 8.969,
+      "currentAtr": 0.136000000000001,
+      "atrPct": 1.52
     }
   },
   {
-    "id": "1790761617231_519s",
-    "timestamp": 1790761617231,
+    "id": "1790843952036_vpr5",
+    "timestamp": 1790843952036,
     "type": "CANDIDATE_SELECTED",
-    "message": "Dynamic Candidate #19 Selected: ENJ-USDT-SWAP (Momentum Score: 84.1/100, RVOL: 1.29x, 24h Vol: $12.5M)",
+    "message": "Dynamic Candidate #4 Selected: UNI-USDT-SWAP (Momentum Score: 78.5/100, RVOL: 2.19x, 24h Vol: $15.0M)",
+    "details": {
+      "symbol": "UNI-USDT-SWAP",
+      "rank": 4,
+      "score": 78.5,
+      "rvol": 2.19,
+      "atrExpansion": 1.78,
+      "price": 8.969,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952034_2dms",
+    "timestamp": 1790843952034,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843952032_nbw1",
+    "timestamp": 1790843952032,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843952027_wsv9",
+    "timestamp": 1790843952027,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate KAT-USDT-SWAP (Score: 86.6/100, Rank #3, ATR: 1.37%)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 86.6,
+      "profile": "SCALP",
+      "rank": 3,
+      "currentPrice": 0.0049,
+      "currentAtr": 0.00006700000000000022,
+      "atrPct": 1.37
+    }
+  },
+  {
+    "id": "1790843952025_fhqa",
+    "timestamp": 1790843952025,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: KAT-USDT-SWAP (Momentum Score: 86.6/100, RVOL: 10x, 24h Vol: $246.3M)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "rank": 3,
+      "score": 86.6,
+      "rvol": 10,
+      "atrExpansion": 2.33,
+      "price": 0.0049,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952024_qtdh",
+    "timestamp": 1790843952024,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843952022_cbzr",
+    "timestamp": 1790843952022,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate USELESS-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843952021_l42m",
+    "timestamp": 1790843952021,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate USELESS-USDT-SWAP (Score: 94.4/100, Rank #2, ATR: 2.67%)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 94.4,
+      "profile": "SCALP",
+      "rank": 2,
+      "currentPrice": 0.22957,
+      "currentAtr": 0.0061199999999999866,
+      "atrPct": 2.67
+    }
+  },
+  {
+    "id": "1790843952019_8swi",
+    "timestamp": 1790843952019,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: USELESS-USDT-SWAP (Momentum Score: 94.4/100, RVOL: 2.45x, 24h Vol: $139.4M)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "rank": 2,
+      "score": 94.4,
+      "rvol": 2.45,
+      "atrExpansion": 1.74,
+      "price": 0.22957,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952017_4vsw",
+    "timestamp": 1790843952017,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843952016_infm",
+    "timestamp": 1790843952016,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AR-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843952014_mq76",
+    "timestamp": 1790843952014,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AR-USDT-SWAP (Score: 98.0/100, Rank #1, ATR: 2.2%)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 98,
+      "profile": "SCALP",
+      "rank": 1,
+      "currentPrice": 4.275,
+      "currentAtr": 0.0940000000000003,
+      "atrPct": 2.2
+    }
+  },
+  {
+    "id": "1790843952013_6u41",
+    "timestamp": 1790843952013,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: AR-USDT-SWAP (Momentum Score: 98/100, RVOL: 4.32x, 24h Vol: $1.8M)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "rank": 1,
+      "score": 98,
+      "rvol": 4.32,
+      "atrExpansion": 2.45,
+      "price": 4.275,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843952011_w8k1",
+    "timestamp": 1790843952011,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 20.23s. Scanned: 229/229 pairs. Candidates: 10. Top: AR-USDT-SWAP (98.0), USELESS-USDT-SWAP (94.4), KAT-USDT-SWAP (86.6), UNI-USDT-SWAP (78.5), SYRUP-USDT-SWAP (74.9).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 229,
+      "scannedCount": 229,
+      "candidatesCount": 10,
+      "topRanked": [
+        {
+          "symbol": "AR-USDT-SWAP",
+          "score": 98,
+          "rvol": 4.32,
+          "price": 4.275
+        },
+        {
+          "symbol": "USELESS-USDT-SWAP",
+          "score": 94.4,
+          "rvol": 2.45,
+          "price": 0.22957
+        },
+        {
+          "symbol": "KAT-USDT-SWAP",
+          "score": 86.6,
+          "rvol": 10,
+          "price": 0.0049
+        },
+        {
+          "symbol": "UNI-USDT-SWAP",
+          "score": 78.5,
+          "rvol": 2.19,
+          "price": 8.969
+        },
+        {
+          "symbol": "SYRUP-USDT-SWAP",
+          "score": 74.9,
+          "rvol": 1.24,
+          "price": 0.2229
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790843931840_a3fh",
+    "timestamp": 1790843931840,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 229 liquid candidates selected from 480 total (Min 24h Volume: $1.5M USDT).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 229,
+      "maxSymbols": 500,
+      "minVolumeUSDT": 1500000,
+      "topSymbols": [
+        "PUMP-USDT-SWAP",
+        "MEW-USDT-SWAP",
+        "ONE-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "PENGU-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790843931776_69fe",
+    "timestamp": 1790843931776,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1790843921955_3idm",
+    "timestamp": 1790843921955,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843921900_pqhk",
+    "timestamp": 1790843921900,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843921898_p1ey",
+    "timestamp": 1790843921898,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate BAT-USDT-SWAP (Score: 70.2/100, Rank #11, ATR: 0.65%)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.2,
+      "profile": "SCALP",
+      "rank": 11,
+      "currentPrice": 0.08895,
+      "currentAtr": 0.0005799999999999972,
+      "atrPct": 0.65
+    }
+  },
+  {
+    "id": "1790843921897_qorv",
+    "timestamp": 1790843921897,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: BAT-USDT-SWAP (Momentum Score: 70.2/100, RVOL: 2.57x, 24h Vol: $5.3M)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "rank": 11,
+      "score": 70.2,
+      "rvol": 2.57,
+      "atrExpansion": 1.36,
+      "price": 0.08895,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921895_q4jp",
+    "timestamp": 1790843921895,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843921894_vdio",
+    "timestamp": 1790843921894,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ETHFI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843921892_pr1b",
+    "timestamp": 1790843921892,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ETHFI-USDT-SWAP (Score: 70.5/100, Rank #10, ATR: 0.88%)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.5,
+      "profile": "SCALP",
+      "rank": 10,
+      "currentPrice": 0.7535,
+      "currentAtr": 0.00660000000000005,
+      "atrPct": 0.88
+    }
+  },
+  {
+    "id": "1790843921891_ylc3",
+    "timestamp": 1790843921891,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: ETHFI-USDT-SWAP (Momentum Score: 70.5/100, RVOL: 2.96x, 24h Vol: $18.0M)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "rank": 10,
+      "score": 70.5,
+      "rvol": 2.96,
+      "atrExpansion": 1,
+      "price": 0.7535,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921890_z369",
+    "timestamp": 1790843921890,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%).",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%)."
+    }
+  },
+  {
+    "id": "1790843921888_5eb8",
+    "timestamp": 1790843921888,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate HBAR-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%).",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.10%)."
+    }
+  },
+  {
+    "id": "1790843921887_3zuq",
+    "timestamp": 1790843921887,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate HBAR-USDT-SWAP (Score: 70.7/100, Rank #9, ATR: 1.1%)",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.7,
+      "profile": "SCALP",
+      "rank": 9,
+      "currentPrice": 0.10419,
+      "currentAtr": 0.0011499999999999982,
+      "atrPct": 1.1
+    }
+  },
+  {
+    "id": "1790843921885_tps2",
+    "timestamp": 1790843921885,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: HBAR-USDT-SWAP (Momentum Score: 70.7/100, RVOL: 1.17x, 24h Vol: $486.5M)",
+    "details": {
+      "symbol": "HBAR-USDT-SWAP",
+      "rank": 9,
+      "score": 70.7,
+      "rvol": 1.17,
+      "atrExpansion": 1.66,
+      "price": 0.10419,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921883_3nkv",
+    "timestamp": 1790843921883,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843921881_m346",
+    "timestamp": 1790843921881,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FARTCOIN-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843921879_83uc",
+    "timestamp": 1790843921879,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate FARTCOIN-USDT-SWAP (Score: 72.4/100, Rank #8, ATR: 1.14%)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 72.4,
+      "profile": "SCALP",
+      "rank": 8,
+      "currentPrice": 0.1752,
+      "currentAtr": 0.0020000000000000018,
+      "atrPct": 1.14
+    }
+  },
+  {
+    "id": "1790843921877_p1gr",
+    "timestamp": 1790843921877,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: FARTCOIN-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 1.79x, 24h Vol: $41.3M)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "rank": 8,
+      "score": 72.4,
+      "rvol": 1.79,
+      "atrExpansion": 1.28,
+      "price": 0.1752,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921668_6nkk",
+    "timestamp": 1790843921668,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: COAI-USDT-SWAP (Momentum Score: 72.4/100, RVOL: 3.3x, 24h Vol: $2.7M)",
+    "details": {
+      "symbol": "COAI-USDT-SWAP",
+      "rank": 7,
+      "score": 72.4,
+      "rvol": 3.3,
+      "atrExpansion": 2.68,
+      "price": 0.3243,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921667_3msj",
+    "timestamp": 1790843921667,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843921665_1b0e",
+    "timestamp": 1790843921665,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ASTER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843921664_9z8p",
+    "timestamp": 1790843921664,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ASTER-USDT-SWAP (Score: 73.3/100, Rank #6, ATR: 0.94%)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 73.3,
+      "profile": "SCALP",
+      "rank": 6,
+      "currentPrice": 0.7469,
+      "currentAtr": 0.007000000000000006,
+      "atrPct": 0.94
+    }
+  },
+  {
+    "id": "1790843921662_3lgr",
+    "timestamp": 1790843921662,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #6 Selected: ASTER-USDT-SWAP (Momentum Score: 73.3/100, RVOL: 1.29x, 24h Vol: $32.5M)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "rank": 6,
+      "score": 73.3,
+      "rvol": 1.29,
+      "atrExpansion": 1.23,
+      "price": 0.7469,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921659_l3e5",
+    "timestamp": 1790843921659,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843921657_lgwe",
+    "timestamp": 1790843921657,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SYRUP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843921655_i6ku",
+    "timestamp": 1790843921655,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate SYRUP-USDT-SWAP (Score: 74.9/100, Rank #5, ATR: 1.44%)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.9,
+      "profile": "SCALP",
+      "rank": 5,
+      "currentPrice": 0.2229,
+      "currentAtr": 0.0032000000000000084,
+      "atrPct": 1.44
+    }
+  },
+  {
+    "id": "1790843921622_4r5g",
+    "timestamp": 1790843921622,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: SYRUP-USDT-SWAP (Momentum Score: 74.9/100, RVOL: 1.24x, 24h Vol: $6.7M)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "rank": 5,
+      "score": 74.9,
+      "rvol": 1.24,
+      "atrExpansion": 1.36,
+      "price": 0.2229,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921621_emgz",
+    "timestamp": 1790843921621,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843921619_4gyy",
+    "timestamp": 1790843921619,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843921617_i4ft",
+    "timestamp": 1790843921617,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate PUMP-USDT-SWAP (Score: 75.3/100, Rank #4, ATR: 1.94%)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 75.3,
+      "profile": "SCALP",
+      "rank": 4,
+      "currentPrice": 0.005563,
+      "currentAtr": 0.00010799999999999959,
+      "atrPct": 1.94
+    }
+  },
+  {
+    "id": "1790843921616_3ct7",
+    "timestamp": 1790843921616,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: PUMP-USDT-SWAP (Momentum Score: 75.3/100, RVOL: 1.24x, 24h Vol: $46430.3M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 4,
+      "score": 75.3,
+      "rvol": 1.24,
+      "atrExpansion": 1.35,
+      "price": 0.005563,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921614_4lgv",
+    "timestamp": 1790843921614,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843921612_fgg6",
+    "timestamp": 1790843921612,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843921611_00c0",
+    "timestamp": 1790843921611,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate KAT-USDT-SWAP (Score: 87.1/100, Rank #3, ATR: 1.37%)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 87.1,
+      "profile": "SCALP",
+      "rank": 3,
+      "currentPrice": 0.004896,
+      "currentAtr": 0.00006700000000000022,
+      "atrPct": 1.37
+    }
+  },
+  {
+    "id": "1790843921609_j9mm",
+    "timestamp": 1790843921609,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: KAT-USDT-SWAP (Momentum Score: 87.1/100, RVOL: 10x, 24h Vol: $246.0M)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "rank": 3,
+      "score": 87.1,
+      "rvol": 10,
+      "atrExpansion": 2.33,
+      "price": 0.004896,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921606_5qz9",
+    "timestamp": 1790843921606,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843921604_wuzn",
+    "timestamp": 1790843921604,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate USELESS-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843921603_f58j",
+    "timestamp": 1790843921603,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate USELESS-USDT-SWAP (Score: 95.5/100, Rank #2, ATR: 2.67%)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 95.5,
+      "profile": "SCALP",
+      "rank": 2,
+      "currentPrice": 0.22898,
+      "currentAtr": 0.0061199999999999866,
+      "atrPct": 2.67
+    }
+  },
+  {
+    "id": "1790843921602_y4hc",
+    "timestamp": 1790843921602,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: USELESS-USDT-SWAP (Momentum Score: 95.5/100, RVOL: 2.36x, 24h Vol: $139.3M)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "rank": 2,
+      "score": 95.5,
+      "rvol": 2.36,
+      "atrExpansion": 1.74,
+      "price": 0.22898,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921600_vsan",
+    "timestamp": 1790843921600,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843921598_pcnw",
+    "timestamp": 1790843921598,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AR-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.20%)."
+    }
+  },
+  {
+    "id": "1790843921594_0j6e",
+    "timestamp": 1790843921594,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AR-USDT-SWAP (Score: 98.7/100, Rank #1, ATR: 2.2%)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 98.7,
+      "profile": "SCALP",
+      "rank": 1,
+      "currentPrice": 4.281,
+      "currentAtr": 0.0940000000000003,
+      "atrPct": 2.2
+    }
+  },
+  {
+    "id": "1790843921592_q0lq",
+    "timestamp": 1790843921592,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: AR-USDT-SWAP (Momentum Score: 98.7/100, RVOL: 4.21x, 24h Vol: $1.8M)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "rank": 1,
+      "score": 98.7,
+      "rvol": 4.21,
+      "atrExpansion": 2.45,
+      "price": 4.281,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843921589_osff",
+    "timestamp": 1790843921589,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 19.81s. Scanned: 228/228 pairs. Candidates: 10. Top: AR-USDT-SWAP (98.7), USELESS-USDT-SWAP (95.5), KAT-USDT-SWAP (87.1), PUMP-USDT-SWAP (75.3), SYRUP-USDT-SWAP (74.9).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 228,
+      "scannedCount": 228,
+      "candidatesCount": 10,
+      "topRanked": [
+        {
+          "symbol": "AR-USDT-SWAP",
+          "score": 98.7,
+          "rvol": 4.21,
+          "price": 4.281
+        },
+        {
+          "symbol": "USELESS-USDT-SWAP",
+          "score": 95.5,
+          "rvol": 2.36,
+          "price": 0.22898
+        },
+        {
+          "symbol": "KAT-USDT-SWAP",
+          "score": 87.1,
+          "rvol": 10,
+          "price": 0.004896
+        },
+        {
+          "symbol": "PUMP-USDT-SWAP",
+          "score": 75.3,
+          "rvol": 1.24,
+          "price": 0.005563
+        },
+        {
+          "symbol": "SYRUP-USDT-SWAP",
+          "score": 74.9,
+          "rvol": 1.24,
+          "price": 0.2229
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790843901843_692o",
+    "timestamp": 1790843901843,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 228 liquid candidates selected from 480 total (Min 24h Volume: $1.5M USDT).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 228,
+      "maxSymbols": 500,
+      "minVolumeUSDT": 1500000,
+      "topSymbols": [
+        "PUMP-USDT-SWAP",
+        "MEW-USDT-SWAP",
+        "ONE-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "PENGU-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790843901776_b8l3",
+    "timestamp": 1790843901776,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1790843891161_fiww",
+    "timestamp": 1790843891161,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%).",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%)."
+    }
+  },
+  {
+    "id": "1790843891159_tlmu",
+    "timestamp": 1790843891159,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate THETA-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%).",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%)."
+    }
+  },
+  {
+    "id": "1790843891158_et8y",
+    "timestamp": 1790843891158,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate THETA-USDT-SWAP (Score: 70.4/100, Rank #11, ATR: 0.62%)",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.4,
+      "profile": "SCALP",
+      "rank": 11,
+      "currentPrice": 0.2244,
+      "currentAtr": 0.0014000000000000123,
+      "atrPct": 0.62
+    }
+  },
+  {
+    "id": "1790843891156_kjda",
+    "timestamp": 1790843891156,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: THETA-USDT-SWAP (Momentum Score: 70.4/100, RVOL: 5.71x, 24h Vol: $3.0M)",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "rank": 11,
+      "score": 70.4,
+      "rvol": 5.71,
+      "atrExpansion": 1.13,
+      "price": 0.2244,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891154_qpqt",
+    "timestamp": 1790843891154,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843891152_hg3l",
+    "timestamp": 1790843891152,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843891151_zqwf",
+    "timestamp": 1790843891151,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate BAT-USDT-SWAP (Score: 71.9/100, Rank #10, ATR: 0.65%)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 71.9,
+      "profile": "SCALP",
+      "rank": 10,
+      "currentPrice": 0.08884,
+      "currentAtr": 0.0005799999999999972,
+      "atrPct": 0.65
+    }
+  },
+  {
+    "id": "1790843891149_n6bm",
+    "timestamp": 1790843891149,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: BAT-USDT-SWAP (Momentum Score: 71.9/100, RVOL: 2.44x, 24h Vol: $5.3M)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "rank": 10,
+      "score": 71.9,
+      "rvol": 2.44,
+      "atrExpansion": 1.36,
+      "price": 0.08884,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891147_4ruj",
+    "timestamp": 1790843891147,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843891146_7cp9",
+    "timestamp": 1790843891146,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ETHFI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843891144_koe9",
+    "timestamp": 1790843891144,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ETHFI-USDT-SWAP (Score: 72.9/100, Rank #9, ATR: 0.88%)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 72.9,
+      "profile": "SCALP",
+      "rank": 9,
+      "currentPrice": 0.7518,
+      "currentAtr": 0.00660000000000005,
+      "atrPct": 0.88
+    }
+  },
+  {
+    "id": "1790843891137_r53s",
+    "timestamp": 1790843891137,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: ETHFI-USDT-SWAP (Momentum Score: 72.9/100, RVOL: 2.95x, 24h Vol: $18.0M)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "rank": 9,
+      "score": 72.9,
+      "rvol": 2.95,
+      "atrExpansion": 1,
+      "price": 0.7518,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891135_2lsz",
+    "timestamp": 1790843891135,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843891133_qmf6",
+    "timestamp": 1790843891133,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ASTER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843891132_6tq8",
+    "timestamp": 1790843891132,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ASTER-USDT-SWAP (Score: 73.5/100, Rank #8, ATR: 0.94%)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 73.5,
+      "profile": "SCALP",
+      "rank": 8,
+      "currentPrice": 0.7465,
+      "currentAtr": 0.007000000000000006,
+      "atrPct": 0.94
+    }
+  },
+  {
+    "id": "1790843891130_c1k6",
+    "timestamp": 1790843891130,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: ASTER-USDT-SWAP (Momentum Score: 73.5/100, RVOL: 1.24x, 24h Vol: $32.6M)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "rank": 8,
+      "score": 73.5,
+      "rvol": 1.24,
+      "atrExpansion": 1.23,
+      "price": 0.7465,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891128_1zzb",
+    "timestamp": 1790843891128,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843891127_oy1m",
+    "timestamp": 1790843891127,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FARTCOIN-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843891125_k7kh",
+    "timestamp": 1790843891125,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate FARTCOIN-USDT-SWAP (Score: 73.8/100, Rank #7, ATR: 1.14%)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 73.8,
+      "profile": "SCALP",
+      "rank": 7,
+      "currentPrice": 0.175,
+      "currentAtr": 0.0020000000000000018,
+      "atrPct": 1.14
+    }
+  },
+  {
+    "id": "1790843891123_pr46",
+    "timestamp": 1790843891123,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: FARTCOIN-USDT-SWAP (Momentum Score: 73.8/100, RVOL: 1.77x, 24h Vol: $41.3M)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "rank": 7,
+      "score": 73.8,
+      "rvol": 1.77,
+      "atrExpansion": 1.28,
+      "price": 0.175,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891053_2gqy",
+    "timestamp": 1790843891053,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #6 Selected: COAI-USDT-SWAP (Momentum Score: 75.2/100, RVOL: 3.28x, 24h Vol: $2.7M)",
+    "details": {
+      "symbol": "COAI-USDT-SWAP",
+      "rank": 6,
+      "score": 75.2,
+      "rvol": 3.28,
+      "atrExpansion": 2.68,
+      "price": 0.3234,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891048_faoi",
+    "timestamp": 1790843891048,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843891046_3by2",
+    "timestamp": 1790843891046,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate PUMP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
+    }
+  },
+  {
+    "id": "1790843891044_3wlj",
+    "timestamp": 1790843891044,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate PUMP-USDT-SWAP (Score: 75.8/100, Rank #5, ATR: 1.94%)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 75.8,
+      "profile": "SCALP",
+      "rank": 5,
+      "currentPrice": 0.005553,
+      "currentAtr": 0.00010799999999999959,
+      "atrPct": 1.94
+    }
+  },
+  {
+    "id": "1790843891042_x3yt",
+    "timestamp": 1790843891042,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #5 Selected: PUMP-USDT-SWAP (Momentum Score: 75.8/100, RVOL: 1.2x, 24h Vol: $46462.1M)",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "rank": 5,
+      "score": 75.8,
+      "rvol": 1.2,
+      "atrExpansion": 1.35,
+      "price": 0.005553,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891041_9m3o",
+    "timestamp": 1790843891041,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843891039_d5jv",
+    "timestamp": 1790843891039,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate SYRUP-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%).",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.44%)."
+    }
+  },
+  {
+    "id": "1790843891036_z91r",
+    "timestamp": 1790843891036,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate SYRUP-USDT-SWAP (Score: 78.0/100, Rank #4, ATR: 1.44%)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 78,
+      "profile": "SCALP",
+      "rank": 4,
+      "currentPrice": 0.2223,
+      "currentAtr": 0.0032000000000000084,
+      "atrPct": 1.44
+    }
+  },
+  {
+    "id": "1790843891034_0hkw",
+    "timestamp": 1790843891034,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #4 Selected: SYRUP-USDT-SWAP (Momentum Score: 78/100, RVOL: 1.23x, 24h Vol: $6.7M)",
+    "details": {
+      "symbol": "SYRUP-USDT-SWAP",
+      "rank": 4,
+      "score": 78,
+      "rvol": 1.23,
+      "atrExpansion": 1.36,
+      "price": 0.2223,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891031_dbed",
+    "timestamp": 1790843891031,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843891029_3tt8",
+    "timestamp": 1790843891029,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate KAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%).",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.37%)."
+    }
+  },
+  {
+    "id": "1790843891027_y5ty",
+    "timestamp": 1790843891027,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate KAT-USDT-SWAP (Score: 87.0/100, Rank #3, ATR: 1.37%)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 87,
+      "profile": "SCALP",
+      "rank": 3,
+      "currentPrice": 0.004897,
+      "currentAtr": 0.00006700000000000022,
+      "atrPct": 1.37
+    }
+  },
+  {
+    "id": "1790843891025_zbvx",
+    "timestamp": 1790843891025,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #3 Selected: KAT-USDT-SWAP (Momentum Score: 87/100, RVOL: 10x, 24h Vol: $245.2M)",
+    "details": {
+      "symbol": "KAT-USDT-SWAP",
+      "rank": 3,
+      "score": 87,
+      "rvol": 10,
+      "atrExpansion": 2.33,
+      "price": 0.004897,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891023_77j2",
+    "timestamp": 1790843891023,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843891020_w7fk",
+    "timestamp": 1790843891020,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate USELESS-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%).",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.67%)."
+    }
+  },
+  {
+    "id": "1790843891018_14i0",
+    "timestamp": 1790843891018,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate USELESS-USDT-SWAP (Score: 95.7/100, Rank #2, ATR: 2.67%)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 95.7,
+      "profile": "SCALP",
+      "rank": 2,
+      "currentPrice": 0.22883,
+      "currentAtr": 0.0061199999999999866,
+      "atrPct": 2.67
+    }
+  },
+  {
+    "id": "1790843891016_omsy",
+    "timestamp": 1790843891016,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #2 Selected: USELESS-USDT-SWAP (Momentum Score: 95.7/100, RVOL: 2.31x, 24h Vol: $139.2M)",
+    "details": {
+      "symbol": "USELESS-USDT-SWAP",
+      "rank": 2,
+      "score": 95.7,
+      "rvol": 2.31,
+      "atrExpansion": 1.74,
+      "price": 0.22883,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891014_66p7",
+    "timestamp": 1790843891014,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.17%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.17%)."
+    }
+  },
+  {
+    "id": "1790843891012_sfee",
+    "timestamp": 1790843891012,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate AR-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.17%).",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 2.17%)."
+    }
+  },
+  {
+    "id": "1790843891010_40qe",
+    "timestamp": 1790843891010,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed BUY signal on candidate AR-USDT-SWAP (Score: 98.7/100, Rank #1, ATR: 2.17%)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "originalSide": "BUY",
+      "side": "BUY",
+      "isFadeTrade": false,
+      "score": 98.7,
+      "profile": "SCALP",
+      "rank": 1,
+      "currentPrice": 4.282,
+      "currentAtr": 0.09299999999999997,
+      "atrPct": 2.17
+    }
+  },
+  {
+    "id": "1790843891008_9d52",
+    "timestamp": 1790843891008,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #1 Selected: AR-USDT-SWAP (Momentum Score: 98.7/100, RVOL: 4.12x, 24h Vol: $1.8M)",
+    "details": {
+      "symbol": "AR-USDT-SWAP",
+      "rank": 1,
+      "score": 98.7,
+      "rvol": 4.12,
+      "atrExpansion": 2.42,
+      "price": 4.282,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843891005_qtbh",
+    "timestamp": 1790843891005,
+    "type": "SCAN_COMPLETED",
+    "message": "Market Scan completed in 19.23s. Scanned: 231/231 pairs. Candidates: 10. Top: AR-USDT-SWAP (98.7), USELESS-USDT-SWAP (95.7), KAT-USDT-SWAP (87.0), SYRUP-USDT-SWAP (78.0), PUMP-USDT-SWAP (75.8).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 231,
+      "scannedCount": 231,
+      "candidatesCount": 10,
+      "topRanked": [
+        {
+          "symbol": "AR-USDT-SWAP",
+          "score": 98.7,
+          "rvol": 4.12,
+          "price": 4.282
+        },
+        {
+          "symbol": "USELESS-USDT-SWAP",
+          "score": 95.7,
+          "rvol": 2.31,
+          "price": 0.22883
+        },
+        {
+          "symbol": "KAT-USDT-SWAP",
+          "score": 87,
+          "rvol": 10,
+          "price": 0.004897
+        },
+        {
+          "symbol": "SYRUP-USDT-SWAP",
+          "score": 78,
+          "rvol": 1.23,
+          "price": 0.2223
+        },
+        {
+          "symbol": "PUMP-USDT-SWAP",
+          "score": 75.8,
+          "rvol": 1.2,
+          "price": 0.005553
+        }
+      ]
+    }
+  },
+  {
+    "id": "1790843871841_ngz4",
+    "timestamp": 1790843871841,
+    "type": "UNIVERSE_FILTERED",
+    "message": "Universe filtered: 231 liquid candidates selected from 480 total (Min 24h Volume: $1.5M USDT).",
+    "details": {
+      "totalUniverse": 480,
+      "eligibleCount": 231,
+      "maxSymbols": 500,
+      "minVolumeUSDT": 1500000,
+      "topSymbols": [
+        "PUMP-USDT-SWAP",
+        "MEW-USDT-SWAP",
+        "ONE-USDT-SWAP",
+        "BOME-USDT-SWAP",
+        "PENGU-USDT-SWAP"
+      ]
+    }
+  },
+  {
+    "id": "1790843871775_3xt9",
+    "timestamp": 1790843871775,
+    "type": "SCAN_STARTED",
+    "message": "Market Scanner started. Profiling universe for profile: SCALP (LTF: 15m, HTF: 60m)..."
+  },
+  {
+    "id": "1790843861088_z4ue",
+    "timestamp": 1790843861088,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%).",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%)."
+    }
+  },
+  {
+    "id": "1790843861087_xlew",
+    "timestamp": 1790843861087,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate THETA-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%).",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.62%)."
+    }
+  },
+  {
+    "id": "1790843861083_3tal",
+    "timestamp": 1790843861083,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate THETA-USDT-SWAP (Score: 70.4/100, Rank #13, ATR: 0.62%)",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.4,
+      "profile": "SCALP",
+      "rank": 13,
+      "currentPrice": 0.2244,
+      "currentAtr": 0.0014000000000000123,
+      "atrPct": 0.62
+    }
+  },
+  {
+    "id": "1790843861082_xrwz",
+    "timestamp": 1790843861082,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #13 Selected: THETA-USDT-SWAP (Momentum Score: 70.4/100, RVOL: 5.71x, 24h Vol: $3.0M)",
+    "details": {
+      "symbol": "THETA-USDT-SWAP",
+      "rank": 13,
+      "score": 70.4,
+      "rvol": 5.71,
+      "atrExpansion": 1.13,
+      "price": 0.2244,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861080_cn82",
+    "timestamp": 1790843861080,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.72%).",
     "details": {
       "symbol": "ENJ-USDT-SWAP",
-      "rank": 19,
-      "score": 84.1,
-      "rvol": 1.29,
-      "atrExpansion": 1.71,
-      "price": 0.0298,
-      "profile": "MOMENTUM"
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.72%)."
+    }
+  },
+  {
+    "id": "1790843861078_z1ku",
+    "timestamp": 1790843861078,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ENJ-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.72%).",
+    "details": {
+      "symbol": "ENJ-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.72%)."
+    }
+  },
+  {
+    "id": "1790843861076_zo50",
+    "timestamp": 1790843861076,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ENJ-USDT-SWAP (Score: 70.5/100, Rank #12, ATR: 0.72%)",
+    "details": {
+      "symbol": "ENJ-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.5,
+      "profile": "SCALP",
+      "rank": 12,
+      "currentPrice": 0.02921,
+      "currentAtr": 0.00021000000000000185,
+      "atrPct": 0.72
+    }
+  },
+  {
+    "id": "1790843861075_mj2c",
+    "timestamp": 1790843861075,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #12 Selected: ENJ-USDT-SWAP (Momentum Score: 70.5/100, RVOL: 3.46x, 24h Vol: $9.4M)",
+    "details": {
+      "symbol": "ENJ-USDT-SWAP",
+      "rank": 12,
+      "score": 70.5,
+      "rvol": 3.46,
+      "atrExpansion": 1.32,
+      "price": 0.02921,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861069_eozi",
+    "timestamp": 1790843861069,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.57%).",
+    "details": {
+      "symbol": "BABY-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.57%)."
+    }
+  },
+  {
+    "id": "1790843861067_3spg",
+    "timestamp": 1790843861067,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BABY-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.57%).",
+    "details": {
+      "symbol": "BABY-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.57%)."
+    }
+  },
+  {
+    "id": "1790843861065_a3xc",
+    "timestamp": 1790843861065,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate BABY-USDT-SWAP (Score: 70.5/100, Rank #11, ATR: 0.57%)",
+    "details": {
+      "symbol": "BABY-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 70.5,
+      "profile": "SCALP",
+      "rank": 11,
+      "currentPrice": 0.013577,
+      "currentAtr": 0.00007699999999999894,
+      "atrPct": 0.57
+    }
+  },
+  {
+    "id": "1790843861063_lqqt",
+    "timestamp": 1790843861063,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #11 Selected: BABY-USDT-SWAP (Momentum Score: 70.5/100, RVOL: 3.24x, 24h Vol: $36.6M)",
+    "details": {
+      "symbol": "BABY-USDT-SWAP",
+      "rank": 11,
+      "score": 70.5,
+      "rvol": 3.24,
+      "atrExpansion": 1.28,
+      "price": 0.013577,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861060_zo6s",
+    "timestamp": 1790843861061,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843861059_3lvm",
+    "timestamp": 1790843861059,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate BAT-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%).",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.65%)."
+    }
+  },
+  {
+    "id": "1790843861057_7itj",
+    "timestamp": 1790843861057,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate BAT-USDT-SWAP (Score: 71.7/100, Rank #10, ATR: 0.65%)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 71.7,
+      "profile": "SCALP",
+      "rank": 10,
+      "currentPrice": 0.08885,
+      "currentAtr": 0.0005799999999999972,
+      "atrPct": 0.65
+    }
+  },
+  {
+    "id": "1790843861056_qro2",
+    "timestamp": 1790843861056,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #10 Selected: BAT-USDT-SWAP (Momentum Score: 71.7/100, RVOL: 2.43x, 24h Vol: $5.3M)",
+    "details": {
+      "symbol": "BAT-USDT-SWAP",
+      "rank": 10,
+      "score": 71.7,
+      "rvol": 2.43,
+      "atrExpansion": 1.36,
+      "price": 0.08885,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861055_qach",
+    "timestamp": 1790843861055,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843861054_2j8i",
+    "timestamp": 1790843861054,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ETHFI-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%).",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.88%)."
+    }
+  },
+  {
+    "id": "1790843861052_2kvr",
+    "timestamp": 1790843861052,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ETHFI-USDT-SWAP (Score: 72.7/100, Rank #9, ATR: 0.88%)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 72.7,
+      "profile": "SCALP",
+      "rank": 9,
+      "currentPrice": 0.752,
+      "currentAtr": 0.00660000000000005,
+      "atrPct": 0.88
+    }
+  },
+  {
+    "id": "1790843861051_692n",
+    "timestamp": 1790843861051,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #9 Selected: ETHFI-USDT-SWAP (Momentum Score: 72.7/100, RVOL: 2.93x, 24h Vol: $18.0M)",
+    "details": {
+      "symbol": "ETHFI-USDT-SWAP",
+      "rank": 9,
+      "score": 72.7,
+      "rvol": 2.93,
+      "atrExpansion": 1,
+      "price": 0.752,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861050_vnfv",
+    "timestamp": 1790843861050,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843861049_trl0",
+    "timestamp": 1790843861049,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate ASTER-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%).",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 0.94%)."
+    }
+  },
+  {
+    "id": "1790843861047_6u97",
+    "timestamp": 1790843861047,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate ASTER-USDT-SWAP (Score: 73.5/100, Rank #8, ATR: 0.94%)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 73.5,
+      "profile": "SCALP",
+      "rank": 8,
+      "currentPrice": 0.7465,
+      "currentAtr": 0.007000000000000006,
+      "atrPct": 0.94
+    }
+  },
+  {
+    "id": "1790843861046_3ae1",
+    "timestamp": 1790843861046,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #8 Selected: ASTER-USDT-SWAP (Momentum Score: 73.5/100, RVOL: 1.23x, 24h Vol: $32.6M)",
+    "details": {
+      "symbol": "ASTER-USDT-SWAP",
+      "rank": 8,
+      "score": 73.5,
+      "rvol": 1.23,
+      "atrExpansion": 1.23,
+      "price": 0.7465,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861045_tzgf",
+    "timestamp": 1790843861045,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843861044_j5dd",
+    "timestamp": 1790843861044,
+    "type": "CANDIDATE_REJECTED",
+    "message": "Candidate FARTCOIN-USDT-SWAP rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%).",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.14%)."
+    }
+  },
+  {
+    "id": "1790843861042_5cmc",
+    "timestamp": 1790843861042,
+    "type": "SIGNAL_GENERATED",
+    "message": "Momentum Engine confirmed SELL signal on candidate FARTCOIN-USDT-SWAP (Score: 74.2/100, Rank #7, ATR: 1.14%)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "originalSide": "SELL",
+      "side": "SELL",
+      "isFadeTrade": false,
+      "score": 74.2,
+      "profile": "SCALP",
+      "rank": 7,
+      "currentPrice": 0.1749,
+      "currentAtr": 0.0020000000000000018,
+      "atrPct": 1.14
+    }
+  },
+  {
+    "id": "1790843861041_p3e7",
+    "timestamp": 1790843861041,
+    "type": "CANDIDATE_SELECTED",
+    "message": "Dynamic Candidate #7 Selected: FARTCOIN-USDT-SWAP (Momentum Score: 74.2/100, RVOL: 1.72x, 24h Vol: $41.3M)",
+    "details": {
+      "symbol": "FARTCOIN-USDT-SWAP",
+      "rank": 7,
+      "score": 74.2,
+      "rvol": 1.72,
+      "atrExpansion": 1.28,
+      "price": 0.1749,
+      "profile": "SCALP"
+    }
+  },
+  {
+    "id": "1790843861040_2fde",
+    "timestamp": 1790843861040,
+    "type": "SIGNAL_REJECTED",
+    "message": "Signal rejected by Risk Engine: Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%).",
+    "details": {
+      "symbol": "PUMP-USDT-SWAP",
+      "reason": "Mărimea calculată pe bază de volatilitate/ATR ($3.30) sau balanța operativă disponibilă ($36.67) este sub minimul de 5 USDT cerut de OKX. (Stop Volatilitate: 20.00%, ATR: 1.94%)."
     }
   }
 ]

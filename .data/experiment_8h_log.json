@@ -1,0 +1,2321 @@
+[
+  {
+    "id": "exp_1790788167233_qe0yq",
+    "timestamp": 1790788167233,
+    "dateStr": "2026-09-30T17:09:27.233Z",
+    "eventType": "EXPERIMENT_STARTED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "minScore": 50,
+      "durationHours": 8,
+      "unlimitedCapital": true
+    }
+  },
+  {
+    "id": "exp_1790788152433_qwgu6",
+    "timestamp": 1790788152433,
+    "dateStr": "2026-09-30T17:09:12.433Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ROBO-USDT-SWAP",
+    "side": "BUY",
+    "score": 63.9,
+    "entryPrice": 0.009398,
+    "sizeUSDT": 49.81,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788152433
+    }
+  },
+  {
+    "id": "exp_1790788151594_6nt3w",
+    "timestamp": 1790788151594,
+    "dateStr": "2026-09-30T17:09:11.594Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 65.6,
+    "entryPrice": 0.7448,
+    "sizeUSDT": 49.9,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788151594
+    }
+  },
+  {
+    "id": "exp_1790788150789_br1w6",
+    "timestamp": 1790788150789,
+    "dateStr": "2026-09-30T17:09:10.789Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PUMP-USDT-SWAP",
+    "side": "BUY",
+    "score": 82.7,
+    "entryPrice": 0.005992,
+    "sizeUSDT": 47.94,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788150789
+    }
+  },
+  {
+    "id": "exp_1790788149983_7n4j3",
+    "timestamp": 1790788149983,
+    "dateStr": "2026-09-30T17:09:09.983Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "UP-USDT-SWAP",
+    "side": "SELL",
+    "score": 85.2,
+    "entryPrice": 0.2331,
+    "sizeUSDT": 48.95,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788149983
+    }
+  },
+  {
+    "id": "exp_1790788148803_urybw",
+    "timestamp": 1790788148803,
+    "dateStr": "2026-09-30T17:09:08.803Z",
+    "eventType": "TRADE_EXIT",
+    "symbol": "PUMP-USDT-SWAP",
+    "side": "BUY",
+    "score": 69.6,
+    "entryPrice": 0.005936,
+    "exitPrice": 0.005989,
+    "sizeUSDT": 47.49,
+    "pnl": 0.38,
+    "pnlPct": 0.89,
+    "holdingTimeMinutes": 2.4,
+    "exitReason": "TRAILING_STOP",
+    "capital": 1000000001.16,
+    "details": {
+      "totalPnl": 1.1600000000000001
+    }
+  },
+  {
+    "id": "exp_1790788126375_hb276",
+    "timestamp": 1790788126375,
+    "dateStr": "2026-09-30T17:08:46.375Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "VIRTUAL-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.4,
+    "entryPrice": 0.8158,
+    "sizeUSDT": 49.76,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788126375
+    }
+  },
+  {
+    "id": "exp_1790788126209_6d4me",
+    "timestamp": 1790788126209,
+    "dateStr": "2026-09-30T17:08:46.209Z",
+    "eventType": "TRADE_EXIT",
+    "symbol": "UP-USDT-SWAP",
+    "side": "SELL",
+    "score": 69.2,
+    "entryPrice": 0.2354,
+    "exitPrice": 0.2335,
+    "sizeUSDT": 49.43,
+    "pnl": 0.35,
+    "pnlPct": 0.81,
+    "holdingTimeMinutes": 2,
+    "exitReason": "TRAILING_STOP",
+    "capital": 1000000000.78,
+    "details": {
+      "totalPnl": 0.78
+    }
+  },
+  {
+    "id": "exp_1790788125536_6xctv",
+    "timestamp": 1790788125536,
+    "dateStr": "2026-09-30T17:08:45.536Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ESP-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.6,
+    "entryPrice": 0.10616,
+    "sizeUSDT": 42.46,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788125536
+    }
+  },
+  {
+    "id": "exp_1790788124338_yxzxh",
+    "timestamp": 1790788124338,
+    "dateStr": "2026-09-30T17:08:44.338Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GALA-USDT-SWAP",
+    "side": "BUY",
+    "score": 51,
+    "entryPrice": 0.002312,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788124338
+    }
+  },
+  {
+    "id": "exp_1790788123497_om61m",
+    "timestamp": 1790788123497,
+    "dateStr": "2026-09-30T17:08:43.497Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ME-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.2,
+    "entryPrice": 0.07834,
+    "sizeUSDT": 49.98,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788123497
+    }
+  },
+  {
+    "id": "exp_1790788122657_ggzyd",
+    "timestamp": 1790788122657,
+    "dateStr": "2026-09-30T17:08:42.657Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AVNT-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.6,
+    "entryPrice": 0.13108,
+    "sizeUSDT": 49.94,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788122657
+    }
+  },
+  {
+    "id": "exp_1790788121816_otxbt",
+    "timestamp": 1790788121816,
+    "dateStr": "2026-09-30T17:08:41.816Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AEVO-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.2,
+    "entryPrice": 0.02644,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788121816
+    }
+  },
+  {
+    "id": "exp_1790788120976_ybf4g",
+    "timestamp": 1790788120976,
+    "dateStr": "2026-09-30T17:08:40.976Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SUI-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.6,
+    "entryPrice": 1.1991,
+    "sizeUSDT": 49.16,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788120976
+    }
+  },
+  {
+    "id": "exp_1790788119928_ejggd",
+    "timestamp": 1790788119928,
+    "dateStr": "2026-09-30T17:08:39.928Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "WLD-USDT-SWAP",
+    "side": "BUY",
+    "score": 56.6,
+    "entryPrice": 0.5479,
+    "sizeUSDT": 49.86,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788119928
+    }
+  },
+  {
+    "id": "exp_1790788091802_3yo76",
+    "timestamp": 1790788091802,
+    "dateStr": "2026-09-30T17:08:11.802Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "O-USDT-SWAP",
+    "side": "SELL",
+    "score": 50.2,
+    "entryPrice": 0.5514,
+    "sizeUSDT": 49.63,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788091802
+    }
+  },
+  {
+    "id": "exp_1790788090964_dboa1",
+    "timestamp": 1790788090964,
+    "dateStr": "2026-09-30T17:08:10.964Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "JUP-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.6,
+    "entryPrice": 0.3327,
+    "sizeUSDT": 49.91,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788090964
+    }
+  },
+  {
+    "id": "exp_1790788089715_xioly",
+    "timestamp": 1790788089715,
+    "dateStr": "2026-09-30T17:08:09.715Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "CT-USDT-SWAP",
+    "side": "SELL",
+    "score": 65.6,
+    "entryPrice": 0.3845,
+    "sizeUSDT": 49.98,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788089715
+    }
+  },
+  {
+    "id": "exp_1790788086265_scp2h",
+    "timestamp": 1790788086265,
+    "dateStr": "2026-09-30T17:08:06.265Z",
+    "eventType": "TRADE_EXIT",
+    "symbol": "CT-USDT-SWAP",
+    "side": "SELL",
+    "score": 53.3,
+    "entryPrice": 0.3887,
+    "exitPrice": 0.3847,
+    "sizeUSDT": 46.64,
+    "pnl": 0.43,
+    "pnlPct": 1.03,
+    "holdingTimeMinutes": 1.1,
+    "exitReason": "TRAILING_STOP",
+    "capital": 1000000000.43,
+    "details": {
+      "totalPnl": 0.43
+    }
+  },
+  {
+    "id": "exp_1790788063315_hsozp",
+    "timestamp": 1790788063315,
+    "dateStr": "2026-09-30T17:07:43.315Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "XDP-USDT-SWAP",
+    "side": "SELL",
+    "score": 51.6,
+    "entryPrice": 0.02154,
+    "sizeUSDT": 49.54,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788063315
+    }
+  },
+  {
+    "id": "exp_1790788062477_mtgmm",
+    "timestamp": 1790788062477,
+    "dateStr": "2026-09-30T17:07:42.477Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HOME-USDT-SWAP",
+    "side": "BUY",
+    "score": 52,
+    "entryPrice": 0.006135,
+    "sizeUSDT": 49.69,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788062477
+    }
+  },
+  {
+    "id": "exp_1790788061224_0ldth",
+    "timestamp": 1790788061224,
+    "dateStr": "2026-09-30T17:07:41.224Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "DGAI-USDT-SWAP",
+    "side": "SELL",
+    "score": 53.8,
+    "entryPrice": 0.9134,
+    "sizeUSDT": 45.67,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788061224
+    }
+  },
+  {
+    "id": "exp_1790788060386_ounf9",
+    "timestamp": 1790788060386,
+    "dateStr": "2026-09-30T17:07:40.386Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ATOM-USDT-SWAP",
+    "side": "BUY",
+    "score": 59.5,
+    "entryPrice": 1.761,
+    "sizeUSDT": 49.31,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788060386
+    }
+  },
+  {
+    "id": "exp_1790788059543_4iv5l",
+    "timestamp": 1790788059543,
+    "dateStr": "2026-09-30T17:07:39.543Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 64.1,
+    "entryPrice": 0.7444,
+    "sizeUSDT": 49.87,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788059543
+    }
+  },
+  {
+    "id": "exp_1790788025045_6oclw",
+    "timestamp": 1790788025045,
+    "dateStr": "2026-09-30T17:07:05.045Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AKE-USDT-SWAP",
+    "side": "SELL",
+    "score": 50.7,
+    "entryPrice": 0.03248,
+    "sizeUSDT": 48.72,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788025045
+    }
+  },
+  {
+    "id": "exp_1790788024207_xryls",
+    "timestamp": 1790788024207,
+    "dateStr": "2026-09-30T17:07:04.207Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MET-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.3,
+    "entryPrice": 0.3311,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788024207
+    }
+  },
+  {
+    "id": "exp_1790788023365_7gpdo",
+    "timestamp": 1790788023365,
+    "dateStr": "2026-09-30T17:07:03.365Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PONS-USDT-SWAP",
+    "side": "SELL",
+    "score": 51.9,
+    "entryPrice": 0.5355,
+    "sizeUSDT": 48.19,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788023365
+    }
+  },
+  {
+    "id": "exp_1790788022162_15vbo",
+    "timestamp": 1790788022162,
+    "dateStr": "2026-09-30T17:07:02.162Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HBAR-USDT-SWAP",
+    "side": "SELL",
+    "score": 52.6,
+    "entryPrice": 0.10713,
+    "sizeUSDT": 49.28,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788022162
+    }
+  },
+  {
+    "id": "exp_1790788021319_gfbdy",
+    "timestamp": 1790788021319,
+    "dateStr": "2026-09-30T17:07:01.319Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "BERA-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.7,
+    "entryPrice": 0.2637,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788021319
+    }
+  },
+  {
+    "id": "exp_1790788020479_cwg5h",
+    "timestamp": 1790788020479,
+    "dateStr": "2026-09-30T17:07:00.479Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "LIT-USDT-SWAP",
+    "side": "SELL",
+    "score": 53.1,
+    "entryPrice": 3.9694,
+    "sizeUSDT": 47.63,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788020479
+    }
+  },
+  {
+    "id": "exp_1790788019637_ekf8s",
+    "timestamp": 1790788019637,
+    "dateStr": "2026-09-30T17:06:59.637Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "FARTCOIN-USDT-SWAP",
+    "side": "BUY",
+    "score": 53.2,
+    "entryPrice": 0.1817,
+    "sizeUSDT": 49.97,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788019637
+    }
+  },
+  {
+    "id": "exp_1790788018796_syklt",
+    "timestamp": 1790788018796,
+    "dateStr": "2026-09-30T17:06:58.796Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "CT-USDT-SWAP",
+    "side": "SELL",
+    "score": 53.3,
+    "entryPrice": 0.3887,
+    "sizeUSDT": 46.64,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788018796
+    }
+  },
+  {
+    "id": "exp_1790788017745_joi87",
+    "timestamp": 1790788017745,
+    "dateStr": "2026-09-30T17:06:57.745Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "LIGHT-USDT-SWAP",
+    "side": "BUY",
+    "score": 54.2,
+    "entryPrice": 0.1884,
+    "sizeUSDT": 49.93,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788017745
+    }
+  },
+  {
+    "id": "exp_1790788016905_byye8",
+    "timestamp": 1790788016905,
+    "dateStr": "2026-09-30T17:06:56.905Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MORPHO-USDT-SWAP",
+    "side": "SELL",
+    "score": 54.6,
+    "entryPrice": 2.5283,
+    "sizeUSDT": 48.04,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788016905
+    }
+  },
+  {
+    "id": "exp_1790788016062_qbvbe",
+    "timestamp": 1790788016062,
+    "dateStr": "2026-09-30T17:06:56.062Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RVN-USDT-SWAP",
+    "side": "SELL",
+    "score": 57.3,
+    "entryPrice": 0.002375,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788016062
+    }
+  },
+  {
+    "id": "exp_1790788015221_wvvd7",
+    "timestamp": 1790788015221,
+    "dateStr": "2026-09-30T17:06:55.221Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MON-USDT-SWAP",
+    "side": "BUY",
+    "score": 57.4,
+    "entryPrice": 0.0285,
+    "sizeUSDT": 49.88,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788015221
+    }
+  },
+  {
+    "id": "exp_1790788014378_c2x0t",
+    "timestamp": 1790788014378,
+    "dateStr": "2026-09-30T17:06:54.378Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "OPG-USDT-SWAP",
+    "side": "SELL",
+    "score": 57.5,
+    "entryPrice": 0.127,
+    "sizeUSDT": 49.53,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788014378
+    }
+  },
+  {
+    "id": "exp_1790788013541_458z4",
+    "timestamp": 1790788013541,
+    "dateStr": "2026-09-30T17:06:53.541Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ONE-USDT-SWAP",
+    "side": "SELL",
+    "score": 58.3,
+    "entryPrice": 0.0020507,
+    "sizeUSDT": 49.83,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788013541
+    }
+  },
+  {
+    "id": "exp_1790788012700_1vfil",
+    "timestamp": 1790788012700,
+    "dateStr": "2026-09-30T17:06:52.700Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RAVE-USDT-SWAP",
+    "side": "BUY",
+    "score": 59,
+    "entryPrice": 0.212,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788012700
+    }
+  },
+  {
+    "id": "exp_1790788011855_dc8kk",
+    "timestamp": 1790788011855,
+    "dateStr": "2026-09-30T17:06:51.855Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "COAI-USDT-SWAP",
+    "side": "BUY",
+    "score": 59.5,
+    "entryPrice": 0.3307,
+    "sizeUSDT": 49.97,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788011855
+    }
+  },
+  {
+    "id": "exp_1790788011017_ytle4",
+    "timestamp": 1790788011017,
+    "dateStr": "2026-09-30T17:06:51.017Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ZRO-USDT-SWAP",
+    "side": "SELL",
+    "score": 59.6,
+    "entryPrice": 1.7305,
+    "sizeUSDT": 48.45,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788011017
+    }
+  },
+  {
+    "id": "exp_1790788010177_dwpnz",
+    "timestamp": 1790788010177,
+    "dateStr": "2026-09-30T17:06:50.177Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "STABLE-USDT-SWAP",
+    "side": "SELL",
+    "score": 60.2,
+    "entryPrice": 0.02811,
+    "sizeUSDT": 47.79,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788010177
+    }
+  },
+  {
+    "id": "exp_1790788009338_vr5ta",
+    "timestamp": 1790788009338,
+    "dateStr": "2026-09-30T17:06:49.338Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PLUME-USDT-SWAP",
+    "side": "BUY",
+    "score": 61.2,
+    "entryPrice": 0.018947,
+    "sizeUSDT": 49.83,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788009338
+    }
+  },
+  {
+    "id": "exp_1790788008476_nx0ia",
+    "timestamp": 1790788008476,
+    "dateStr": "2026-09-30T17:06:48.476Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 62.4,
+    "entryPrice": 0.7438,
+    "sizeUSDT": 49.83,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788008476
+    }
+  },
+  {
+    "id": "exp_1790788007639_okgl7",
+    "timestamp": 1790788007639,
+    "dateStr": "2026-09-30T17:06:47.639Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "INIT-USDT-SWAP",
+    "side": "SELL",
+    "score": 62.5,
+    "entryPrice": 0.10279,
+    "sizeUSDT": 49.34,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788007639
+    }
+  },
+  {
+    "id": "exp_1790788006800_lqrmk",
+    "timestamp": 1790788006800,
+    "dateStr": "2026-09-30T17:06:46.800Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "TRIA-USDT-SWAP",
+    "side": "SELL",
+    "score": 63.2,
+    "entryPrice": 0.004262,
+    "sizeUSDT": 49.87,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788006800
+    }
+  },
+  {
+    "id": "exp_1790788005961_5tvwh",
+    "timestamp": 1790788005961,
+    "dateStr": "2026-09-30T17:06:45.961Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RESOLV-USDT-SWAP",
+    "side": "SELL",
+    "score": 63.7,
+    "entryPrice": 0.01894,
+    "sizeUSDT": 49.81,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788005961
+    }
+  },
+  {
+    "id": "exp_1790788005115_l756p",
+    "timestamp": 1790788005115,
+    "dateStr": "2026-09-30T17:06:45.115Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ACH-USDT-SWAP",
+    "side": "SELL",
+    "score": 64.7,
+    "entryPrice": 0.006142,
+    "sizeUSDT": 49.75,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788005115
+    }
+  },
+  {
+    "id": "exp_1790788004273_wlyf9",
+    "timestamp": 1790788004273,
+    "dateStr": "2026-09-30T17:06:44.273Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MERL-USDT-SWAP",
+    "side": "BUY",
+    "score": 65.2,
+    "entryPrice": 0.03205,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788004273
+    }
+  },
+  {
+    "id": "exp_1790788003435_9j1ny",
+    "timestamp": 1790788003435,
+    "dateStr": "2026-09-30T17:06:43.435Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "UP-USDT-SWAP",
+    "side": "SELL",
+    "score": 69.2,
+    "entryPrice": 0.2354,
+    "sizeUSDT": 49.43,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788003435
+    }
+  },
+  {
+    "id": "exp_1790788002591_zpa8d",
+    "timestamp": 1790788002591,
+    "dateStr": "2026-09-30T17:06:42.591Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "2Z-USDT-SWAP",
+    "side": "SELL",
+    "score": 69.2,
+    "entryPrice": 0.06268,
+    "sizeUSDT": 49.52,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788002591
+    }
+  },
+  {
+    "id": "exp_1790788001753_huwlx",
+    "timestamp": 1790788001753,
+    "dateStr": "2026-09-30T17:06:41.753Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PUMP-USDT-SWAP",
+    "side": "BUY",
+    "score": 69.6,
+    "entryPrice": 0.005936,
+    "sizeUSDT": 47.49,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788001753
+    }
+  },
+  {
+    "id": "exp_1790788000906_e6l55",
+    "timestamp": 1790788000906,
+    "dateStr": "2026-09-30T17:06:40.906Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ETHFI-USDT-SWAP",
+    "side": "BUY",
+    "score": 72.6,
+    "entryPrice": 0.7996,
+    "sizeUSDT": 49.58,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788000906
+    }
+  },
+  {
+    "id": "exp_1790788000063_m5ddy",
+    "timestamp": 1790788000063,
+    "dateStr": "2026-09-30T17:06:40.063Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "STX-USDT-SWAP",
+    "side": "BUY",
+    "score": 74.4,
+    "entryPrice": 0.3526,
+    "sizeUSDT": 49.72,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790788000063
+    }
+  },
+  {
+    "id": "exp_1790787999215_zxs7i",
+    "timestamp": 1790787999215,
+    "dateStr": "2026-09-30T17:06:39.215Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HYPE-USDT-SWAP",
+    "side": "BUY",
+    "score": 76.7,
+    "entryPrice": 90.531,
+    "sizeUSDT": 45.27,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790787999215
+    }
+  },
+  {
+    "id": "exp_1790787974533_zpksv",
+    "timestamp": 1790787974533,
+    "dateStr": "2026-09-30T17:06:14.533Z",
+    "eventType": "EXPERIMENT_STARTED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "minScore": 50,
+      "durationHours": 8,
+      "unlimitedCapital": true
+    }
+  },
+  {
+    "id": "exp_1790786699668_2q0kh",
+    "timestamp": 1790786699668,
+    "dateStr": "2026-09-30T16:44:59.668Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ROBO-USDT-SWAP",
+    "side": "BUY",
+    "score": 90.4,
+    "entryPrice": 0.009326,
+    "sizeUSDT": 49.43,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786699668
+    }
+  },
+  {
+    "id": "exp_1790786698825_d4ogs",
+    "timestamp": 1790786698825,
+    "dateStr": "2026-09-30T16:44:58.825Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 94.7,
+    "entryPrice": 0.7407,
+    "sizeUSDT": 49.63,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786698825
+    }
+  },
+  {
+    "id": "exp_1790786698022_52djq",
+    "timestamp": 1790786698022,
+    "dateStr": "2026-09-30T16:44:58.022Z",
+    "eventType": "EXPERIMENT_STARTED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "minScore": 50,
+      "durationHours": 8,
+      "unlimitedCapital": true
+    }
+  },
+  {
+    "id": "exp_1790786655652_jtx64",
+    "timestamp": 1790786655652,
+    "dateStr": "2026-09-30T16:44:15.652Z",
+    "eventType": "EXPERIMENT_STOPPED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 0,
+    "capital": 1000000000,
+    "details": {
+      "totalEntries": 0,
+      "totalExits": 0,
+      "totalPnl": 0
+    }
+  },
+  {
+    "id": "exp_1790786647914_kssch",
+    "timestamp": 1790786647914,
+    "dateStr": "2026-09-30T16:44:07.914Z",
+    "eventType": "EXPERIMENT_STARTED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "minScore": 50,
+      "durationHours": 8,
+      "unlimitedCapital": true
+    }
+  },
+  {
+    "id": "exp_1790786608683_9md4j",
+    "timestamp": 1790786608683,
+    "dateStr": "2026-09-30T16:43:28.683Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SKY-USDT-SWAP",
+    "side": "SELL",
+    "score": 50.4,
+    "entryPrice": 0.07896,
+    "sizeUSDT": 47.38,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786608683
+    }
+  },
+  {
+    "id": "exp_1790786607877_nk35n",
+    "timestamp": 1790786607877,
+    "dateStr": "2026-09-30T16:43:27.877Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "WOO-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.9,
+    "entryPrice": 0.01379,
+    "sizeUSDT": 49.92,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786607877
+    }
+  },
+  {
+    "id": "exp_1790786606906_kpkzs",
+    "timestamp": 1790786606906,
+    "dateStr": "2026-09-30T16:43:26.906Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PIPPIN-USDT-SWAP",
+    "side": "BUY",
+    "score": 53.1,
+    "entryPrice": 0.01953,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786606906
+    }
+  },
+  {
+    "id": "exp_1790786606357_p7j6h",
+    "timestamp": 1790786606357,
+    "dateStr": "2026-09-30T16:43:26.357Z",
+    "eventType": "TRADE_EXIT",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 78.9,
+    "entryPrice": 0.7348,
+    "exitPrice": 0.7407,
+    "sizeUSDT": 49.97,
+    "pnl": 0.35,
+    "pnlPct": 0.8,
+    "holdingTimeMinutes": 2.7,
+    "exitReason": "TRAILING_STOP",
+    "capital": 1000000000.35,
+    "details": {
+      "totalPnl": 0.35
+    }
+  },
+  {
+    "id": "exp_1790786569710_xx46j",
+    "timestamp": 1790786569710,
+    "dateStr": "2026-09-30T16:42:49.710Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AERO-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.1,
+    "entryPrice": 0.8233,
+    "sizeUSDT": 49.4,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786569710
+    }
+  },
+  {
+    "id": "exp_1790786568832_um3vf",
+    "timestamp": 1790786568832,
+    "dateStr": "2026-09-30T16:42:48.832Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GLM-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.2,
+    "entryPrice": 0.12932,
+    "sizeUSDT": 49.14,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786568832
+    }
+  },
+  {
+    "id": "exp_1790786567988_bi9eb",
+    "timestamp": 1790786567988,
+    "dateStr": "2026-09-30T16:42:47.988Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PARTI-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.8,
+    "entryPrice": 0.02754,
+    "sizeUSDT": 49.85,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786567988
+    }
+  },
+  {
+    "id": "exp_1790786567140_y5800",
+    "timestamp": 1790786567140,
+    "dateStr": "2026-09-30T16:42:47.140Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ACH-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.9,
+    "entryPrice": 0.00616,
+    "sizeUSDT": 49.9,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786567140
+    }
+  },
+  {
+    "id": "exp_1790786566290_03jtj",
+    "timestamp": 1790786566290,
+    "dateStr": "2026-09-30T16:42:46.290Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ASTER-USDT-SWAP",
+    "side": "SELL",
+    "score": 51.4,
+    "entryPrice": 0.7661,
+    "sizeUSDT": 49.8,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786566290
+    }
+  },
+  {
+    "id": "exp_1790786565441_ytm75",
+    "timestamp": 1790786565441,
+    "dateStr": "2026-09-30T16:42:45.441Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SAND-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.7,
+    "entryPrice": 0.04427,
+    "sizeUSDT": 49.58,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786565441
+    }
+  },
+  {
+    "id": "exp_1790786564595_zoshp",
+    "timestamp": 1790786564595,
+    "dateStr": "2026-09-30T16:42:44.595Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SUI-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.8,
+    "entryPrice": 1.1921,
+    "sizeUSDT": 48.88,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786564595
+    }
+  },
+  {
+    "id": "exp_1790786563789_mudoy",
+    "timestamp": 1790786563789,
+    "dateStr": "2026-09-30T16:42:43.789Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "STRK-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.2,
+    "entryPrice": 0.04227,
+    "sizeUSDT": 49.96,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786563789
+    }
+  },
+  {
+    "id": "exp_1790786562942_8zq7s",
+    "timestamp": 1790786562942,
+    "dateStr": "2026-09-30T16:42:42.942Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "WLD-USDT-SWAP",
+    "side": "BUY",
+    "score": 53.3,
+    "entryPrice": 0.5442,
+    "sizeUSDT": 49.52,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786562942
+    }
+  },
+  {
+    "id": "exp_1790786562093_mtwiw",
+    "timestamp": 1790786562093,
+    "dateStr": "2026-09-30T16:42:42.093Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "FOGO-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.4,
+    "entryPrice": 0.005441,
+    "sizeUSDT": 49.95,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786562093
+    }
+  },
+  {
+    "id": "exp_1790786561238_zujfs",
+    "timestamp": 1790786561238,
+    "dateStr": "2026-09-30T16:42:41.238Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HUMA-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.7,
+    "entryPrice": 0.03186,
+    "sizeUSDT": 47.79,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786561238
+    }
+  },
+  {
+    "id": "exp_1790786534119_r1c75",
+    "timestamp": 1790786534119,
+    "dateStr": "2026-09-30T16:42:14.119Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MANA-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.1,
+    "entryPrice": 0.09084,
+    "sizeUSDT": 49.96,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786534119
+    }
+  },
+  {
+    "id": "exp_1790786533269_11eo8",
+    "timestamp": 1790786533270,
+    "dateStr": "2026-09-30T16:42:13.270Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AIXBT-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.5,
+    "entryPrice": 0.02352,
+    "sizeUSDT": 49.86,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786533269
+    }
+  },
+  {
+    "id": "exp_1790786532413_qr566",
+    "timestamp": 1790786532413,
+    "dateStr": "2026-09-30T16:42:12.413Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RAY-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.8,
+    "entryPrice": 2.0534,
+    "sizeUSDT": 49.28,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786532413
+    }
+  },
+  {
+    "id": "exp_1790786531562_raft9",
+    "timestamp": 1790786531562,
+    "dateStr": "2026-09-30T16:42:11.562Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SPACE-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.1,
+    "entryPrice": 0.005357,
+    "sizeUSDT": 49.82,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786531562
+    }
+  },
+  {
+    "id": "exp_1790786530718_a7wc9",
+    "timestamp": 1790786530718,
+    "dateStr": "2026-09-30T16:42:10.718Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "JUP-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.2,
+    "entryPrice": 0.3306,
+    "sizeUSDT": 49.59,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786530718
+    }
+  },
+  {
+    "id": "exp_1790786529857_45lfk",
+    "timestamp": 1790786529857,
+    "dateStr": "2026-09-30T16:42:09.857Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SPK-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.2,
+    "entryPrice": 0.0254,
+    "sizeUSDT": 48.26,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786529857
+    }
+  },
+  {
+    "id": "exp_1790786529003_odwkw",
+    "timestamp": 1790786529003,
+    "dateStr": "2026-09-30T16:42:09.003Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "LDO-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.4,
+    "entryPrice": 0.4682,
+    "sizeUSDT": 49.63,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786529003
+    }
+  },
+  {
+    "id": "exp_1790786528152_dw4nr",
+    "timestamp": 1790786528152,
+    "dateStr": "2026-09-30T16:42:08.152Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "FET-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.5,
+    "entryPrice": 0.2266,
+    "sizeUSDT": 49.85,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786528152
+    }
+  },
+  {
+    "id": "exp_1790786527293_snscn",
+    "timestamp": 1790786527293,
+    "dateStr": "2026-09-30T16:42:07.293Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RENDER-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.6,
+    "entryPrice": 1.963,
+    "sizeUSDT": 49.08,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786527293
+    }
+  },
+  {
+    "id": "exp_1790786526437_v56qy",
+    "timestamp": 1790786526437,
+    "dateStr": "2026-09-30T16:42:06.437Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "DOT-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.8,
+    "entryPrice": 1.2479,
+    "sizeUSDT": 49.92,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786526437
+    }
+  },
+  {
+    "id": "exp_1790786525592_ykx6q",
+    "timestamp": 1790786525592,
+    "dateStr": "2026-09-30T16:42:05.592Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "APE-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.2,
+    "entryPrice": 0.15353,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786525592
+    }
+  },
+  {
+    "id": "exp_1790786524752_r6f56",
+    "timestamp": 1790786524752,
+    "dateStr": "2026-09-30T16:42:04.752Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "TIA-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.3,
+    "entryPrice": 0.4488,
+    "sizeUSDT": 49.82,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786524752
+    }
+  },
+  {
+    "id": "exp_1790786523906_ffrmi",
+    "timestamp": 1790786523906,
+    "dateStr": "2026-09-30T16:42:03.906Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ZK-USDT-SWAP",
+    "side": "BUY",
+    "score": 53.2,
+    "entryPrice": 0.012326,
+    "sizeUSDT": 49.92,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786523906
+    }
+  },
+  {
+    "id": "exp_1790786523053_d8mch",
+    "timestamp": 1790786523053,
+    "dateStr": "2026-09-30T16:42:03.053Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "EIGEN-USDT-SWAP",
+    "side": "BUY",
+    "score": 54.6,
+    "entryPrice": 0.2518,
+    "sizeUSDT": 49.86,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786523053
+    }
+  },
+  {
+    "id": "exp_1790786522208_kelym",
+    "timestamp": 1790786522208,
+    "dateStr": "2026-09-30T16:42:02.208Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "EDGE-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.3,
+    "entryPrice": 0.5293,
+    "sizeUSDT": 47.64,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786522208
+    }
+  },
+  {
+    "id": "exp_1790786521358_cu2rn",
+    "timestamp": 1790786521358,
+    "dateStr": "2026-09-30T16:42:01.358Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ATH-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.3,
+    "entryPrice": 0.006136,
+    "sizeUSDT": 49.7,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786521358
+    }
+  },
+  {
+    "id": "exp_1790786520506_zr3ym",
+    "timestamp": 1790786520506,
+    "dateStr": "2026-09-30T16:42:00.506Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MEW-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.7,
+    "entryPrice": 0.0005215,
+    "sizeUSDT": 49.54,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786520506
+    }
+  },
+  {
+    "id": "exp_1790786519654_nua2v",
+    "timestamp": 1790786519654,
+    "dateStr": "2026-09-30T16:41:59.654Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PYTH-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.9,
+    "entryPrice": 0.07848,
+    "sizeUSDT": 49.44,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786519654
+    }
+  },
+  {
+    "id": "exp_1790786518809_54xz7",
+    "timestamp": 1790786518809,
+    "dateStr": "2026-09-30T16:41:58.809Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "FLOCK-USDT-SWAP",
+    "side": "SELL",
+    "score": 55.9,
+    "entryPrice": 0.06681,
+    "sizeUSDT": 46.77,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786518809
+    }
+  },
+  {
+    "id": "exp_1790786517193_w8t5h",
+    "timestamp": 1790786517193,
+    "dateStr": "2026-09-30T16:41:57.193Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "BICO-USDT-SWAP",
+    "side": "BUY",
+    "score": 57.9,
+    "entryPrice": 0.02235,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786517193
+    }
+  },
+  {
+    "id": "exp_1790786516342_gqxfu",
+    "timestamp": 1790786516342,
+    "dateStr": "2026-09-30T16:41:56.342Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "FARTCOIN-USDT-SWAP",
+    "side": "BUY",
+    "score": 58.3,
+    "entryPrice": 0.1806,
+    "sizeUSDT": 49.85,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786516342
+    }
+  },
+  {
+    "id": "exp_1790786515480_8tcbf",
+    "timestamp": 1790786515480,
+    "dateStr": "2026-09-30T16:41:55.480Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PROVE-USDT-SWAP",
+    "side": "BUY",
+    "score": 62.3,
+    "entryPrice": 0.2447,
+    "sizeUSDT": 49.92,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786515480
+    }
+  },
+  {
+    "id": "exp_1790786479658_tquf4",
+    "timestamp": 1790786479658,
+    "dateStr": "2026-09-30T16:41:19.658Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "VIRTUAL-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.1,
+    "entryPrice": 0.8139,
+    "sizeUSDT": 49.65,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786479658
+    }
+  },
+  {
+    "id": "exp_1790786478808_52erc",
+    "timestamp": 1790786478808,
+    "dateStr": "2026-09-30T16:41:18.808Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MAGIC-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.2,
+    "entryPrice": 0.05382,
+    "sizeUSDT": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786478808
+    }
+  },
+  {
+    "id": "exp_1790786477961_x3zu4",
+    "timestamp": 1790786477961,
+    "dateStr": "2026-09-30T16:41:17.961Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "TRIA-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.2,
+    "entryPrice": 0.0043,
+    "sizeUSDT": 49.88,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786477961
+    }
+  },
+  {
+    "id": "exp_1790786477103_7qldr",
+    "timestamp": 1790786477103,
+    "dateStr": "2026-09-30T16:41:17.103Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RLS-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.3,
+    "entryPrice": 0.002294,
+    "sizeUSDT": 49.78,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786477103
+    }
+  },
+  {
+    "id": "exp_1790786476233_i630x",
+    "timestamp": 1790786476233,
+    "dateStr": "2026-09-30T16:41:16.233Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "KMNO-USDT-SWAP",
+    "side": "BUY",
+    "score": 50.6,
+    "entryPrice": 0.04507,
+    "sizeUSDT": 49.58,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786476233
+    }
+  },
+  {
+    "id": "exp_1790786475018_zmhqz",
+    "timestamp": 1790786475018,
+    "dateStr": "2026-09-30T16:41:15.018Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "DOS-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.2,
+    "entryPrice": 0.2178,
+    "sizeUSDT": 47.92,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786475018
+    }
+  },
+  {
+    "id": "exp_1790786474171_25m2b",
+    "timestamp": 1790786474171,
+    "dateStr": "2026-09-30T16:41:14.171Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "LINK-USDT-SWAP",
+    "side": "BUY",
+    "score": 51.2,
+    "entryPrice": 14.437,
+    "sizeUSDT": 49.09,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786474171
+    }
+  },
+  {
+    "id": "exp_1790786473323_1ufe4",
+    "timestamp": 1790786473323,
+    "dateStr": "2026-09-30T16:41:13.323Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "UP-USDT-SWAP",
+    "side": "SELL",
+    "score": 63.2,
+    "entryPrice": 0.2393,
+    "sizeUSDT": 47.86,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786473323
+    }
+  },
+  {
+    "id": "exp_1790786472091_rrpqs",
+    "timestamp": 1790786472091,
+    "dateStr": "2026-09-30T16:41:12.091Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SOON-USDT-SWAP",
+    "side": "SELL",
+    "score": 51.3,
+    "entryPrice": 0.4853,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786472091
+    }
+  },
+  {
+    "id": "exp_1790786471242_5yenl",
+    "timestamp": 1790786471242,
+    "dateStr": "2026-09-30T16:41:11.242Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MET-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.4,
+    "entryPrice": 0.3308,
+    "sizeUSDT": 49.95,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786471242
+    }
+  },
+  {
+    "id": "exp_1790786470386_bx08t",
+    "timestamp": 1790786470386,
+    "dateStr": "2026-09-30T16:41:10.386Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "SENT-USDT-SWAP",
+    "side": "BUY",
+    "score": 52.4,
+    "entryPrice": 0.02237,
+    "sizeUSDT": 49.21,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786470386
+    }
+  },
+  {
+    "id": "exp_1790786469529_iqb4t",
+    "timestamp": 1790786469529,
+    "dateStr": "2026-09-30T16:41:09.529Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "DGAI-USDT-SWAP",
+    "side": "SELL",
+    "score": 52.8,
+    "entryPrice": 0.9256,
+    "sizeUSDT": 46.28,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786469529
+    }
+  },
+  {
+    "id": "exp_1790786468673_mjwyo",
+    "timestamp": 1790786468673,
+    "dateStr": "2026-09-30T16:41:08.673Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "TRUMP-USDT-SWAP",
+    "side": "SELL",
+    "score": 52.8,
+    "entryPrice": 2.073,
+    "sizeUSDT": 49.96,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786468673
+    }
+  },
+  {
+    "id": "exp_1790786467821_qbu6e",
+    "timestamp": 1790786467821,
+    "dateStr": "2026-09-30T16:41:07.821Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "KAITO-USDT-SWAP",
+    "side": "BUY",
+    "score": 53,
+    "entryPrice": 0.3551,
+    "sizeUSDT": 49.71,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786467821
+    }
+  },
+  {
+    "id": "exp_1790786466885_gtqhs",
+    "timestamp": 1790786466885,
+    "dateStr": "2026-09-30T16:41:06.885Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "APT-USDT-SWAP",
+    "side": "SELL",
+    "score": 54.3,
+    "entryPrice": 0.7914,
+    "sizeUSDT": 49.86,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786466885
+    }
+  },
+  {
+    "id": "exp_1790786466030_xmg1o",
+    "timestamp": 1790786466030,
+    "dateStr": "2026-09-30T16:41:06.030Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "BARD-USDT-SWAP",
+    "side": "BUY",
+    "score": 54.4,
+    "entryPrice": 0.1426,
+    "sizeUSDT": 49.91,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786466030
+    }
+  },
+  {
+    "id": "exp_1790786465170_egb8s",
+    "timestamp": 1790786465170,
+    "dateStr": "2026-09-30T16:41:05.170Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ME-USDT-SWAP",
+    "side": "BUY",
+    "score": 54.6,
+    "entryPrice": 0.07846,
+    "sizeUSDT": 49.98,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786465170
+    }
+  },
+  {
+    "id": "exp_1790786464322_rlrl2",
+    "timestamp": 1790786464322,
+    "dateStr": "2026-09-30T16:41:04.322Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "USELESS-USDT-SWAP",
+    "side": "BUY",
+    "score": 55.5,
+    "entryPrice": 0.24858,
+    "sizeUSDT": 49.72,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786464322
+    }
+  },
+  {
+    "id": "exp_1790786463454_w3pdd",
+    "timestamp": 1790786463454,
+    "dateStr": "2026-09-30T16:41:03.454Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ESP-USDT-SWAP",
+    "side": "BUY",
+    "score": 56.9,
+    "entryPrice": 0.10521,
+    "sizeUSDT": 42.08,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786463454
+    }
+  },
+  {
+    "id": "exp_1790786462603_a0tg0",
+    "timestamp": 1790786462603,
+    "dateStr": "2026-09-30T16:41:02.603Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PLUME-USDT-SWAP",
+    "side": "BUY",
+    "score": 56.9,
+    "entryPrice": 0.018658,
+    "sizeUSDT": 49.82,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786462603
+    }
+  },
+  {
+    "id": "exp_1790786461348_g39gk",
+    "timestamp": 1790786461348,
+    "dateStr": "2026-09-30T16:41:01.348Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "A-USDT-SWAP",
+    "side": "BUY",
+    "score": 58.5,
+    "entryPrice": 0.09893,
+    "sizeUSDT": 49.47,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786461348
+    }
+  },
+  {
+    "id": "exp_1790786460504_tjvx2",
+    "timestamp": 1790786460504,
+    "dateStr": "2026-09-30T16:41:00.504Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "RIVER-USDT-SWAP",
+    "side": "BUY",
+    "score": 58.6,
+    "entryPrice": 1.254,
+    "sizeUSDT": 49.91,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786460504
+    }
+  },
+  {
+    "id": "exp_1790786459651_jq4zk",
+    "timestamp": 1790786459651,
+    "dateStr": "2026-09-30T16:40:59.651Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "JELLYJELLY-USDT-SWAP",
+    "side": "BUY",
+    "score": 59.1,
+    "entryPrice": 0.05701,
+    "sizeUSDT": 45.61,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786459651
+    }
+  },
+  {
+    "id": "exp_1790786458796_yoj9w",
+    "timestamp": 1790786458796,
+    "dateStr": "2026-09-30T16:40:58.796Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "CNPY-USDT-SWAP",
+    "side": "SELL",
+    "score": 59.1,
+    "entryPrice": 0.3139,
+    "sizeUSDT": 47.09,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786458796
+    }
+  },
+  {
+    "id": "exp_1790786457943_31bux",
+    "timestamp": 1790786457943,
+    "dateStr": "2026-09-30T16:40:57.943Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "YGG-USDT-SWAP",
+    "side": "BUY",
+    "score": 59.3,
+    "entryPrice": 0.02697,
+    "sizeUSDT": 49.98,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786457943
+    }
+  },
+  {
+    "id": "exp_1790786457093_6kl23",
+    "timestamp": 1790786457093,
+    "dateStr": "2026-09-30T16:40:57.093Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "NEAR-USDT-SWAP",
+    "side": "BUY",
+    "score": 59.7,
+    "entryPrice": 5.412,
+    "sizeUSDT": 48.71,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786457093
+    }
+  },
+  {
+    "id": "exp_1790786456244_pcan0",
+    "timestamp": 1790786456244,
+    "dateStr": "2026-09-30T16:40:56.244Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "CP-USDT-SWAP",
+    "side": "BUY",
+    "score": 60.8,
+    "entryPrice": 0.01293,
+    "sizeUSDT": 49.13,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786456244
+    }
+  },
+  {
+    "id": "exp_1790786455377_sm9pp",
+    "timestamp": 1790786455377,
+    "dateStr": "2026-09-30T16:40:55.377Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HOME-USDT-SWAP",
+    "side": "BUY",
+    "score": 61.6,
+    "entryPrice": 0.006085,
+    "sizeUSDT": 49.9,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786455377
+    }
+  },
+  {
+    "id": "exp_1790786454572_el8pa",
+    "timestamp": 1790786454572,
+    "dateStr": "2026-09-30T16:40:54.572Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "TRUST-USDT-SWAP",
+    "side": "BUY",
+    "score": 62.2,
+    "entryPrice": 0.06254,
+    "sizeUSDT": 49.41,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786454572
+    }
+  },
+  {
+    "id": "exp_1790786453726_dzsus",
+    "timestamp": 1790786453726,
+    "dateStr": "2026-09-30T16:40:53.726Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "OL-USDT-SWAP",
+    "side": "SELL",
+    "score": 62.9,
+    "entryPrice": 0.006888,
+    "sizeUSDT": 49.59,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786453726
+    }
+  },
+  {
+    "id": "exp_1790786452877_40id2",
+    "timestamp": 1790786452877,
+    "dateStr": "2026-09-30T16:40:52.877Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ETHFI-USDT-SWAP",
+    "side": "BUY",
+    "score": 63,
+    "entryPrice": 0.7876,
+    "sizeUSDT": 49.62,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786452877
+    }
+  },
+  {
+    "id": "exp_1790786452021_0anph",
+    "timestamp": 1790786452021,
+    "dateStr": "2026-09-30T16:40:52.021Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AEON-USDT-SWAP",
+    "side": "SELL",
+    "score": 63.4,
+    "entryPrice": 0.05449,
+    "sizeUSDT": 49.59,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786452021
+    }
+  },
+  {
+    "id": "exp_1790786451147_3ivrs",
+    "timestamp": 1790786451147,
+    "dateStr": "2026-09-30T16:40:51.147Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "AKE-USDT-SWAP",
+    "side": "SELL",
+    "score": 64,
+    "entryPrice": 0.03277,
+    "sizeUSDT": 49.16,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786451147
+    }
+  },
+  {
+    "id": "exp_1790786450302_yerud",
+    "timestamp": 1790786450302,
+    "dateStr": "2026-09-30T16:40:50.302Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "IOST-USDT-SWAP",
+    "side": "SELL",
+    "score": 64.2,
+    "entryPrice": 0.0009083,
+    "sizeUSDT": 49.96,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786450302
+    }
+  },
+  {
+    "id": "exp_1790786449449_cxp5g",
+    "timestamp": 1790786449449,
+    "dateStr": "2026-09-30T16:40:49.449Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "PUMP-USDT-SWAP",
+    "side": "BUY",
+    "score": 64.8,
+    "entryPrice": 0.005827,
+    "sizeUSDT": 46.62,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786449449
+    }
+  },
+  {
+    "id": "exp_1790786448597_2m2gm",
+    "timestamp": 1790786448597,
+    "dateStr": "2026-09-30T16:40:48.597Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "INIT-USDT-SWAP",
+    "side": "SELL",
+    "score": 65.1,
+    "entryPrice": 0.10411,
+    "sizeUSDT": 49.97,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786448597
+    }
+  },
+  {
+    "id": "exp_1790786447257_9ix0g",
+    "timestamp": 1790786447257,
+    "dateStr": "2026-09-30T16:40:47.257Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "HYPE-USDT-SWAP",
+    "side": "BUY",
+    "score": 67.8,
+    "entryPrice": 89.365,
+    "sizeUSDT": 44.68,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786447257
+    }
+  },
+  {
+    "id": "exp_1790786446454_5bbg9",
+    "timestamp": 1790786446454,
+    "dateStr": "2026-09-30T16:40:46.454Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "LIT-USDT-SWAP",
+    "side": "BUY",
+    "score": 69.1,
+    "entryPrice": 4.0509,
+    "sizeUSDT": 48.61,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786446454
+    }
+  },
+  {
+    "id": "exp_1790786445593_ogiwa",
+    "timestamp": 1790786445593,
+    "dateStr": "2026-09-30T16:40:45.593Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ONT-USDT-SWAP",
+    "side": "BUY",
+    "score": 69.8,
+    "entryPrice": 0.05949,
+    "sizeUSDT": 49.97,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786445593
+    }
+  },
+  {
+    "id": "exp_1790786444420_f8vm1",
+    "timestamp": 1790786444420,
+    "dateStr": "2026-09-30T16:40:44.420Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "COAI-USDT-SWAP",
+    "side": "BUY",
+    "score": 70.3,
+    "entryPrice": 0.3284,
+    "sizeUSDT": 49.98,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786444420
+    }
+  },
+  {
+    "id": "exp_1790786443557_g9w2v",
+    "timestamp": 1790786443557,
+    "dateStr": "2026-09-30T16:40:43.557Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "BLUR-USDT-SWAP",
+    "side": "BUY",
+    "score": 71.2,
+    "entryPrice": 0.02197,
+    "sizeUSDT": 49.87,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786443557
+    }
+  },
+  {
+    "id": "exp_1790786442709_oojkd",
+    "timestamp": 1790786442709,
+    "dateStr": "2026-09-30T16:40:42.709Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "ROBO-USDT-SWAP",
+    "side": "BUY",
+    "score": 74.4,
+    "entryPrice": 0.009288,
+    "sizeUSDT": 49.23,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786442709
+    }
+  },
+  {
+    "id": "exp_1790786441840_3ofxy",
+    "timestamp": 1790786441840,
+    "dateStr": "2026-09-30T16:40:41.840Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "GRASS-USDT-SWAP",
+    "side": "BUY",
+    "score": 78.9,
+    "entryPrice": 0.7348,
+    "sizeUSDT": 49.97,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786441840
+    }
+  },
+  {
+    "id": "exp_1790786440988_2palk",
+    "timestamp": 1790786440988,
+    "dateStr": "2026-09-30T16:40:40.988Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "MON-USDT-SWAP",
+    "side": "BUY",
+    "score": 80.5,
+    "entryPrice": 0.02831,
+    "sizeUSDT": 49.83,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786440988
+    }
+  },
+  {
+    "id": "exp_1790786439921_cpqqc",
+    "timestamp": 1790786439921,
+    "dateStr": "2026-09-30T16:40:39.921Z",
+    "eventType": "TRADE_ENTRY",
+    "symbol": "BERA-USDT-SWAP",
+    "side": "BUY",
+    "score": 86.6,
+    "entryPrice": 0.2659,
+    "sizeUSDT": 49.99,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "entryTimestamp": 1790786439921
+    }
+  },
+  {
+    "id": "exp_1790786393868_9ayra",
+    "timestamp": 1790786393868,
+    "dateStr": "2026-09-30T16:39:53.868Z",
+    "eventType": "EXPERIMENT_STARTED",
+    "symbol": "ALL",
+    "side": "NONE",
+    "score": 50,
+    "capital": 1000000000,
+    "details": {
+      "profile": "SCALP",
+      "minScore": 50,
+      "durationHours": 8,
+      "unlimitedCapital": true
+    }
+  }
+]

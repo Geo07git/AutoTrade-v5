@@ -14,6 +14,7 @@ import {
 } from '../../shared/types';
 import { formatPrice } from '../../shared/formatters';
 import { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliation';
+import { experimentManager } from '../experiment/ExperimentManager';
 
 export class OrderManager {
   private exchange: IExecutionAdapter;
@@ -55,6 +56,16 @@ export class OrderManager {
   public setExecutionAdapter(adapter: IExecutionAdapter, mode: ExecutionMode) {
     this.exchange = adapter;
     this.executionMode = mode;
+  }
+
+  private getActiveAdapter(): IExecutionAdapter {
+    if (this.executionMode === 'PAPER' && this.paperAdapter) {
+      return this.paperAdapter;
+    }
+    if (this.executionMode !== 'PAPER' && this.okxAdapter && this.okxAdapter.hasCredentials()) {
+      return this.okxAdapter;
+    }
+    return this.exchange;
   }
 
   public getOrders(): OrderRecord[] {
@@ -165,10 +176,11 @@ export class OrderManager {
     }
 
     // 3. Quantity calculation & precision formatting according to exchange lot rules
-    const filter = await this.exchange.getInstrumentFilter(signal.symbol);
+    const activeAdapter = this.getActiveAdapter();
+    const filter = await activeAdapter.getInstrumentFilter(signal.symbol);
     const ctVal = filter.ctVal && filter.ctVal > 0 ? filter.ctVal : 1;
     const targetQty = riskApproval.sizeUSDT / currentPrice;
-    const formattedQty = await this.exchange.formatQuantity(signal.symbol, targetQty, currentPrice, false);
+    const formattedQty = await activeAdapter.formatQuantity(signal.symbol, targetQty, currentPrice, false);
 
     if (formattedQty <= 0) {
       const err = `Formatted quantity for ${signal.symbol} is 0 (below minOrderQty)`;
@@ -231,15 +243,52 @@ export class OrderManager {
     });
 
     try {
+      let activeAdapter = this.getActiveAdapter();
       const orderSide = signal.side === 'BUY' ? 'Buy' : 'Sell';
-      const submitRes = await this.exchange.submitOrder({
-        symbol: signal.symbol,
-        side: orderSide,
-        orderType: 'Market',
-        qty: formattedQty,
-        price: currentPrice,
-        orderLinkId: clientOrderId,
-      });
+      let submitRes;
+      try {
+        submitRes = await activeAdapter.submitOrder({
+          symbol: signal.symbol,
+          side: orderSide,
+          orderType: 'Market',
+          qty: formattedQty,
+          price: currentPrice,
+          orderLinkId: clientOrderId,
+        });
+      } catch (submitErr: any) {
+        if (
+          this.paperAdapter &&
+          activeAdapter !== this.paperAdapter &&
+          (submitErr?.message?.includes('401') ||
+           submitErr?.message?.includes('51001') ||
+           submitErr?.message?.includes('50119') ||
+           submitErr?.message?.includes("doesn't exist") ||
+           submitErr?.message?.includes('API key'))
+        ) {
+          if (submitErr?.message?.includes('401') || submitErr?.message?.includes('50119') || submitErr?.message?.includes('API key')) {
+            if (this.okxAdapter && typeof (this.okxAdapter as any).markCredentialsInvalid === 'function') {
+              (this.okxAdapter as any).markCredentialsInvalid();
+            }
+          }
+          this.auditLogger(
+            'ORDER_ROUTED',
+            `Adapter submitOrder routed to Paper adapter for ${signal.symbol} (${submitErr.message}).`,
+            { symbol: signal.symbol, reason: submitErr.message }
+          );
+          activeAdapter = this.paperAdapter;
+          submitRes = await activeAdapter.submitOrder({
+            symbol: signal.symbol,
+            side: orderSide,
+            orderType: 'Market',
+            qty: formattedQty,
+            price: currentPrice,
+            orderLinkId: clientOrderId,
+          });
+          orderRecord.executionMode = 'PAPER';
+        } else {
+          throw submitErr;
+        }
+      }
 
       // 6. Order Accepted by Exchange / Adapter (ACCEPTED)
       orderRecord.status = 'ACCEPTED';
@@ -263,9 +312,9 @@ export class OrderManager {
 
       if (confirmed && (currentStatus === 'FILLED' || currentStatus === 'PARTIALLY_FILLED')) {
         try {
-          const postEntryEquity = await this.exchange.getEquity();
-          const postEntryBalance = this.exchange.getWalletBalance
-            ? await this.exchange.getWalletBalance()
+          const postEntryEquity = await activeAdapter.getEquity();
+          const postEntryBalance = activeAdapter.getWalletBalance
+            ? await activeAdapter.getWalletBalance()
             : (accountBalance !== undefined ? parseFloat((accountBalance - (orderRecord.cumFee || 0)).toFixed(2)) : undefined);
 
           if (postEntryEquity > 0) {
@@ -312,7 +361,7 @@ export class OrderManager {
    */
   public async executeCloseOrder(params: {
     position: Position;
-    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
+    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'BREAK_EVEN' | 'EXPERIMENT_END';
     currentPrice?: number;
     exitReasonDetail?: string;
     triggerStopValue?: number;
@@ -366,9 +415,12 @@ export class OrderManager {
     const clientOrderId = `tb5_close_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     let isExchangePosition =
+      this.executionMode !== 'PAPER' &&
       (position.source === 'OKX_SYNC' || position.executionMode === 'TESTNET' || position.executionMode === 'LIVE') &&
       Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
-    let targetAdapter = isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter && !isExchangePosition ? this.paperAdapter : this.exchange);
+    let targetAdapter = this.executionMode === 'PAPER' && this.paperAdapter
+      ? this.paperAdapter
+      : (isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter ? this.paperAdapter : this.exchange));
 
     // Quantity to close equals the open position quantity
     const estPrice = currentPrice || position.entryPrice;
@@ -465,7 +517,15 @@ export class OrderManager {
           reduceOnly: true,
         });
       } catch (submitErr: any) {
-        if (this.paperAdapter && targetAdapter !== this.paperAdapter && (submitErr?.message?.includes('401') || submitErr?.message?.includes('51001') || submitErr?.message?.includes("doesn't exist") || submitErr?.message?.includes('API key'))) {
+        if (
+          this.paperAdapter &&
+          targetAdapter !== this.paperAdapter &&
+          (submitErr?.message?.includes('401') ||
+           submitErr?.message?.includes('51001') ||
+           submitErr?.message?.includes('50119') ||
+           submitErr?.message?.includes("doesn't exist") ||
+           submitErr?.message?.includes('API key'))
+        ) {
           this.auditLogger('ORDER_FAILED', `Adapter submitOrder failed for ${position.symbol} (${submitErr.message}). Falling back to Paper adapter.`, { symbol: position.symbol });
           targetAdapter = this.paperAdapter;
           submitRes = await targetAdapter.submitOrder({
@@ -534,9 +594,10 @@ export class OrderManager {
         closeOrder.realizedPnlPct = pnlPct;
 
         try {
-          const postCloseEquity = await this.exchange.getEquity();
-          const postCloseBalance = this.exchange.getWalletBalance
-            ? await this.exchange.getWalletBalance()
+          const activeAdapter = this.getActiveAdapter();
+          const postCloseEquity = await activeAdapter.getEquity();
+          const postCloseBalance = activeAdapter.getWalletBalance
+            ? await activeAdapter.getWalletBalance()
             : (accountBalance !== undefined ? parseFloat((accountBalance + pnl - totalFees).toFixed(2)) : undefined);
 
           if (postCloseEquity > 0) {
@@ -601,6 +662,19 @@ export class OrderManager {
           totalFees,
           fee: closeOrder.cumFee,
         });
+
+        experimentManager.logTradeExit(
+          position.symbol,
+          position.side,
+          position.signalScore || 50,
+          position.entryPrice,
+          exitPrice,
+          position.sizeUSDT,
+          pnl,
+          pnlPct,
+          closeOrder.holdingTimeMinutes || 0,
+          reason
+        );
 
         return { success: true, order: closeOrder };
       } else if (closeStatus === 'PARTIALLY_FILLED' && (closeOrder.filledQty || 0) > 0) {
@@ -744,7 +818,8 @@ export class OrderManager {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       await new Promise((r) => setTimeout(r, delayMs));
 
-      const statusRes = await this.exchange.queryOrderStatus(order.symbol, order.id, order.exchangeOrderId);
+      const activeAdapter = this.getActiveAdapter();
+      const statusRes = await activeAdapter.queryOrderStatus(order.symbol, order.id, order.exchangeOrderId);
 
       if (statusRes) {
         await this.handleOrderExecutionUpdate({

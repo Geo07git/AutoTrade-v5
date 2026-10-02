@@ -23,7 +23,7 @@ export interface IExecutionAdapter {
   testConnection(): Promise<ConnectionTestResult>;
   getEquity(): Promise<number>;
   getWalletBalance?(): Promise<number>;
-  getKlines(symbol: string, interval: string, limit?: number): Promise<Kline[]>;
+  getKlines(symbol: string, interval: string, limit?: number, signal?: AbortSignal): Promise<Kline[]>;
   getTickerPrice(symbol: string): Promise<number | null>;
   getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter>;
   getCachedCtVal?(symbol: string): number;

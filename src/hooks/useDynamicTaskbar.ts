@@ -21,7 +21,8 @@ export function useDynamicTaskbar({ status }: UseDynamicTaskbarProps) {
 
   useEffect(() => {
     // 1. Calculate metrics
-    const currentEquity = status?.equity !== undefined ? status.equity : 200.0;
+    const isExp = Boolean(status?.isExperimentActive);
+    const currentEquity = isExp ? 1_000_000_000 : (status?.equity !== undefined ? status.equity : 200.0);
     const positions = status?.positions || [];
     const activePositions = positions.filter((p) => p.status === 'OPEN');
     const hasActiveTrade = activePositions.length > 0;
@@ -32,10 +33,12 @@ export function useDynamicTaskbar({ status }: UseDynamicTaskbarProps) {
       : activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
 
     const isProfit = unrealizedPnL >= 0;
-    const formattedEq = `$${currentEquity.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    const formattedEq = isExp
+      ? '∞ EXP'
+      : `$${currentEquity.toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`;
     const pnlSign = unrealizedPnL > 0 ? '+' : '';
     const formattedPnl = `${pnlSign}$${unrealizedPnL.toFixed(2)}`;
 

@@ -54,6 +54,7 @@ import {
   Bell,
   BellOff,
   BookOpen,
+  ListFilter,
 } from 'lucide-react';
 import { TradingViewChart } from './TradingViewChart';
 import { SymbolStatsView } from './SymbolStatsView';
@@ -123,8 +124,143 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
 
-  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM'>('PORT');
+  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM' | 'EXP'>('PORT');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
+
+  // 8-Hour Experiment State
+  const [experimentState, setExperimentState] = useState<any>(null);
+  const [experimentLogsCount, setExperimentLogsCount] = useState<number>(0);
+  const [experimentLogs, setExperimentLogs] = useState<any[]>([]);
+  const [isStartingExp, setIsStartingExp] = useState(false);
+  const [isStoppingExp, setIsStoppingExp] = useState(false);
+
+  // Configurable Experiment Settings State (Dedicated exclusively to the Experiment)
+  const [expDurationHours, setExpDurationHours] = useState<number>(8);
+  const [expMinMomentum, setExpMinMomentum] = useState<number>(50);
+  const [expMaxHoldMinutes, setExpMaxHoldMinutes] = useState<number>(120);
+  const [expHardStopLoss, setExpHardStopLoss] = useState<number>(20.0);
+  const [expBreakEven, setExpBreakEven] = useState<number>(5.0);
+  const [expTrailingAct, setExpTrailingAct] = useState<number>(2.5);
+  const [expTrailingDist, setExpTrailingDist] = useState<number>(0.5);
+  const [expTakeProfit, setExpTakeProfit] = useState<number>(20.0);
+  const expConfigInitializedRef = useRef(false);
+
+  const fetchExperimentStatus = async () => {
+    try {
+      const res = await fetch('/api/bot/experiment/status');
+      if (res.ok) {
+        const data = await res.json();
+        setExperimentState(data.state);
+        setExperimentLogsCount(data.logsCount || 0);
+        if (Array.isArray(data.logs)) {
+          setExperimentLogs(data.logs);
+        }
+        // Only initialize default slider values once on initial mount, do NOT overwrite user inputs on 3s polling
+        if (data.state?.config && !expConfigInitializedRef.current) {
+          expConfigInitializedRef.current = true;
+          if (data.state.config.durationHours) setExpDurationHours(data.state.config.durationHours);
+          if (data.state.config.minMomentumScore) setExpMinMomentum(data.state.config.minMomentumScore);
+          if (data.state.config.maxHoldingTimeMinutes) setExpMaxHoldMinutes(data.state.config.maxHoldingTimeMinutes);
+          if (data.state.config.hardStopLossPct) setExpHardStopLoss(data.state.config.hardStopLossPct);
+          if (data.state.config.breakEvenActivationPct) setExpBreakEven(data.state.config.breakEvenActivationPct);
+          if (data.state.config.trailingActivationPct) setExpTrailingAct(data.state.config.trailingActivationPct);
+          if (data.state.config.trailingDistancePct) setExpTrailingDist(data.state.config.trailingDistancePct);
+          if (data.state.config.takeProfitPct) setExpTakeProfit(data.state.config.takeProfitPct);
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchExperimentStatus();
+    const timer = setInterval(fetchExperimentStatus, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleStartExperiment = async () => {
+    setIsStartingExp(true);
+    try {
+      const res = await fetch('/api/bot/experiment/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': controlToken },
+        body: JSON.stringify({
+          durationHours: expDurationHours,
+          minMomentumScore: expMinMomentum,
+          maxHoldingTimeMinutes: expMaxHoldMinutes,
+          hardStopLossPct: expHardStopLoss,
+          breakEvenActivationPct: expBreakEven,
+          trailingActivationPct: expTrailingAct,
+          trailingDistancePct: expTrailingDist,
+          takeProfitPct: expTakeProfit,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setExperimentState(data.state);
+        onRefresh();
+        fetchExperimentStatus();
+        setLocalAlert({ type: 'success', message: data.message || 'Experiment pornit cu succes!' });
+      } else {
+        setLocalAlert({ type: 'error', message: data.error || 'Erore la pornirea experimentului.' });
+      }
+    } catch (err: any) {
+      setLocalAlert({ type: 'error', message: err.message || 'Erore de rețea.' });
+    } finally {
+      setIsStartingExp(false);
+    }
+  };
+
+  const handleStopExperiment = async () => {
+    setIsStoppingExp(true);
+    try {
+      const res = await fetch('/api/bot/experiment/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': controlToken }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setExperimentState(data.state);
+        onRefresh();
+        fetchExperimentStatus();
+        setLocalAlert({ type: 'info', message: 'Experimentul a fost oprit.' });
+      }
+    } catch (err: any) {
+      setLocalAlert({ type: 'error', message: err.message || 'Erore de rețea.' });
+    } finally {
+      setIsStoppingExp(false);
+    }
+  };
+
+  const handleDownloadExperiment = async (format: 'json' | 'csv') => {
+    try {
+      const res = await fetch(`/api/bot/experiment/download?format=${format}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setLocalAlert({ type: 'error', message: err.error || 'Niciun fișier de experiment disponibil încă.' });
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('content-disposition');
+      const hours = experimentState?.durationHours || expDurationHours || 8;
+      const dateStr = new Date().toISOString().split('T')[0];
+      let filename = `experiment_${hours}h_${dateStr}.${format}`;
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setLocalAlert({ type: 'success', message: `✅ Fișierul ${filename} a fost descărcat cu succes!` });
+    } catch (err: any) {
+      setLocalAlert({ type: 'error', message: 'Erore la descărcare: ' + (err.message || 'Eroare rețea') });
+    }
+  };
 
   // OKX Gateway & Mode Switch State
   const [showOKXModal, setShowOKXModal] = useState<boolean>(false);
@@ -175,7 +311,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0);
   const [riskPerTrade, setRiskPerTrade] = useState(profileConfig?.riskPerTradePct ?? 10);
   const [maxPositions, setMaxPositions] = useState(profileConfig?.maxOpenPositions ?? 5);
-  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 3.5);
+  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 20.0);
   const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.1);
   const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.35);
   const [minMomentum, setMinMomentum] = useState(
@@ -197,6 +333,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 45);
+  const [stagnationTime, setStagnationTime] = useState(profileConfig?.stagnationTimeMinutes ?? 0);
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
   const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
   const [telegramTesting, setTelegramTesting] = useState(false);
@@ -450,6 +587,518 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     } finally {
       setIsSavingTelegram(false);
     }
+  };
+
+  const renderExperimentView = () => {
+    const isRunning = Boolean(experimentState?.isActive);
+    const effectiveHours = isRunning ? (experimentState?.durationHours || 8) : expDurationHours;
+    const effectiveMinMom = isRunning ? (experimentState?.minMomentumScore || 50) : expMinMomentum;
+    const remMs = experimentState?.remainingMs !== undefined ? experimentState.remainingMs : (expDurationHours * 3600 * 1000);
+    const hours = Math.floor(remMs / 3600000);
+    const minutes = Math.floor((remMs % 3600000) / 60000);
+    const seconds = Math.floor((remMs % 60000) / 1000);
+    const dateStr = new Date(experimentState?.startTime || Date.now()).toISOString().split('T')[0];
+
+    const handleResetExpDefaults = () => {
+      setExpDurationHours(8);
+      setExpMinMomentum(50);
+      setExpMaxHoldMinutes(120);
+      setExpHardStopLoss(20.0);
+      setExpBreakEven(5.0);
+      setExpTrailingAct(2.5);
+      setExpTrailingDist(0.5);
+      setExpTakeProfit(20.0);
+    };
+
+    return (
+      <div className="flex flex-col h-full bg-zinc-950 p-3 sm:p-4 border border-cyan-500/30 rounded-lg overflow-y-auto space-y-4">
+        {/* HEADER SECTION */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
+          <div className="flex items-center space-x-2.5">
+            <Activity className="w-6 h-6 text-cyan-400 animate-pulse shrink-0" />
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-cyan-300 font-mono flex flex-wrap items-center gap-2">
+                <span>🔬 EXPERIMENT {effectiveHours} ORE: SCALP &amp; MOMENTUM &gt;= {effectiveMinMom} (FOND NELIMITAT)</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
+                  isRunning
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-500 animate-pulse'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                }`}>
+                  {isRunning ? '● ACTIV (ÎN RULARE)' : '○ OPRIT / PREGĂTIT'}
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Rulează {effectiveHours} ore cu profilul SCALP pe toate perechile SWAP, execută automat orice oportunitate cu Momentum &gt;= {effectiveMinMom} cu capital simulat de $1B fără limitare de marjă, logând toate evenimentele fără limită de 1000.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {isRunning ? (
+              <button
+                onClick={handleStopExperiment}
+                disabled={isStoppingExp}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded text-xs flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 cursor-pointer disabled:opacity-50"
+              >
+                <Square className="w-4 h-4" />
+                <span>{isStoppingExp ? 'Se oprește...' : 'Oprește Experimentul'}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleStartExperiment}
+                disabled={isStartingExp}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded text-xs flex items-center space-x-1.5 shadow-lg shadow-cyan-500/30 cursor-pointer disabled:opacity-50"
+              >
+                <Play className="w-4 h-4" />
+                <span>{isStartingExp ? 'Se inițializează...' : `Pornește Experimentul (${expDurationHours}h)`}</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => handleDownloadExperiment('json')}
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded text-xs flex items-center space-x-1.5 shadow-lg shadow-amber-500/30 cursor-pointer"
+              title={`Descarcă raportul complet în format JSON (experiment_${effectiveHours}h_${dateStr}.json)`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>📥 JSON (experiment_{effectiveHours}h_{dateStr}.json)</span>
+            </button>
+
+            <button
+              onClick={() => handleDownloadExperiment('csv')}
+              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs flex items-center space-x-1.5 shadow-lg shadow-emerald-600/30 cursor-pointer"
+              title={`Descarcă raportul complet în format CSV pentru Excel / Python (experiment_${effectiveHours}h_${dateStr}.csv)`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>📊 CSV (experiment_{effectiveHours}h_{dateStr}.csv)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* METRICS & RUNTIME HUD */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div className="bg-zinc-900 border border-zinc-800 p-2.5 rounded">
+            <span className="text-[10px] text-zinc-400 font-mono uppercase block">Stare Experiment</span>
+            <span className={`text-xs sm:text-sm font-bold font-mono ${isRunning ? 'text-emerald-400 animate-pulse' : 'text-zinc-500'}`}>
+              {isRunning ? '🟢 ÎN DESFĂȘURARE' : '⚪ OPRIT'}
+            </span>
+            <span className="text-[9px] text-zinc-500 block font-mono mt-0.5">
+              {isRunning ? 'Execuție automată activă' : 'În așteptare pornire'}
+            </span>
+          </div>
+
+          <div className="bg-zinc-900 border border-cyan-500/50 p-2.5 rounded shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+            <span className="text-[10px] text-cyan-400 font-mono uppercase block">Fond / Balanță Alocată</span>
+            <div className="text-xs sm:text-sm font-bold text-cyan-300 font-mono flex items-center space-x-1">
+              <span>NELIMITAT (∞)</span>
+            </div>
+            <span className="text-[9px] text-zinc-400 block">$1,000,000,000 Simulat</span>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 p-2.5 rounded">
+            <span className="text-[10px] text-zinc-400 font-mono uppercase block">Timp Rămas (Target {effectiveHours}h)</span>
+            <span className="text-xs sm:text-sm font-bold text-cyan-300 font-mono">
+              {String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            </span>
+            <span className="text-[9px] text-zinc-500 block font-mono mt-0.5">
+              {isRunning ? `Timp scurs: ${Math.floor((experimentState?.elapsedMs || 0) / 60000)}m` : 'Target: 1 - 12 ore'}
+            </span>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 p-2.5 rounded">
+            <span className="text-[10px] text-zinc-400 font-mono uppercase block">Total Intrări / Ieșiri</span>
+            <span className="text-xs sm:text-sm font-bold text-amber-300 font-mono">
+              {experimentState?.totalEntries || 0} intrări / {experimentState?.totalExits || 0} ieșiri
+            </span>
+            <span className="text-[9px] text-zinc-500 block font-mono mt-0.5">
+              {experimentLogsCount} evenimente înregistrate
+            </span>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 p-2.5 rounded">
+            <span className="text-[10px] text-zinc-400 font-mono uppercase block">PnL Total Realizat</span>
+            <span className={`text-xs sm:text-sm font-bold font-mono ${(experimentState?.totalPnl || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {(experimentState?.totalPnl || 0) >= 0 ? '+' : ''}${(experimentState?.totalPnl || 0).toFixed(4)}
+            </span>
+            <span className="text-[9px] text-zinc-500 block font-mono mt-0.5">
+              Contabilitate fără trunchiere
+            </span>
+          </div>
+        </div>
+
+        {/* CONFIGURATION DESK (CONFIGURARE DEDICATĂ EXPERIMENTULUI) */}
+        <div className="bg-black/80 border border-cyan-500/40 rounded-lg p-3 sm:p-4 space-y-3 shadow-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-500/20 pb-2">
+            <div className="flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+              <h3 className="text-xs sm:text-sm font-bold text-cyan-300 font-mono uppercase">
+                {isRunning
+                  ? '🔒 CONFIGURAȚIE ACTIVĂ BLOCATĂ PE DURATA EXPERIMENTULUI:'
+                  : '⚙️ SETĂRI CONFIGURABILE EXCLUSIV PENTRU ACEST EXPERIMENT:'}
+              </h3>
+            </div>
+            {!isRunning && (
+              <button
+                type="button"
+                onClick={handleResetExpDefaults}
+                className="px-2.5 py-1 text-[11px] rounded border border-cyan-500/40 bg-zinc-900 text-cyan-300 hover:bg-zinc-800 cursor-pointer"
+                title="Resetează toți parametrii la valorile implicite ale experimentului cerute de utilizator"
+              >
+                ↺ Resetează la Setările Implicite
+              </button>
+            )}
+          </div>
+
+          {!isRunning ? (
+            /* INTERACTIVE CONTROLS BEFORE LAUNCH */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              {/* 1. Timp pentru experiment: 1 - 12h */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-cyan-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Timp Experiment (1-12 h)</span>
+                  <span className="font-bold text-cyan-300 font-mono">{expDurationHours} ore</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="12"
+                  step="1"
+                  value={expDurationHours}
+                  onChange={(e) => setExpDurationHours(Number(e.target.value))}
+                  className="w-full accent-cyan-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 1h</span>
+                  <span className="text-cyan-400">Target: {expDurationHours} ore</span>
+                  <span>Max: 12h</span>
+                </div>
+              </div>
+
+              {/* 2. Momentum score: 50 - 100 */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-cyan-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Prag Momentum (50-100)</span>
+                  <span className="font-bold text-amber-300 font-mono">&gt;= {expMinMomentum}</span>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="100"
+                  step="1"
+                  value={expMinMomentum}
+                  onChange={(e) => setExpMinMomentum(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 50</span>
+                  <span className="text-amber-300">Toate semnalele &gt;= {expMinMomentum}</span>
+                  <span>Max: 100</span>
+                </div>
+              </div>
+
+              {/* 3. Timp max deținere: 15 - 120 min */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-cyan-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Timp Max Deținere (15-120m)</span>
+                  <span className="font-bold text-amber-400 font-mono">{expMaxHoldMinutes} min</span>
+                </div>
+                <input
+                  type="range"
+                  min="15"
+                  max="120"
+                  step="1"
+                  value={expMaxHoldMinutes}
+                  onChange={(e) => setExpMaxHoldMinutes(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 15m</span>
+                  <span className="text-amber-300">Time-Stop la {expMaxHoldMinutes}m</span>
+                  <span>Max: 120m</span>
+                </div>
+              </div>
+
+              {/* 4. Hard Stop-Loss: default 20% */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-rose-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Hard Stop-Loss (%)</span>
+                  <span className="font-bold text-rose-400 font-mono">-{Number(expHardStopLoss).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="50"
+                  step="0.5"
+                  value={expHardStopLoss}
+                  onChange={(e) => setExpHardStopLoss(Number(e.target.value))}
+                  className="w-full accent-rose-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 0.5%</span>
+                  <span className="text-rose-400">Strict respectat la -{expHardStopLoss}%</span>
+                  <span>Max: 50%</span>
+                </div>
+              </div>
+
+              {/* 5. Break-Even Act: default +5% */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-amber-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Break-Even Act (%)</span>
+                  <span className="font-bold text-amber-300 font-mono">+{Number(expBreakEven).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="20"
+                  step="0.5"
+                  value={expBreakEven}
+                  onChange={(e) => setExpBreakEven(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 0.5%</span>
+                  <span className="text-amber-300">Mută SL la intrare la +{expBreakEven}%</span>
+                  <span>Max: 20%</span>
+                </div>
+              </div>
+
+              {/* 6. Trailing Act: default +2.5% */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-emerald-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Trailing Act (%)</span>
+                  <span className="font-bold text-emerald-400 font-mono">+{Number(expTrailingAct).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="20"
+                  step="0.1"
+                  value={expTrailingAct}
+                  onChange={(e) => setExpTrailingAct(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 0.5%</span>
+                  <span className="text-emerald-300">Armare trailing la +{expTrailingAct}%</span>
+                  <span>Max: 20%</span>
+                </div>
+              </div>
+
+              {/* 7. Trailing Dist: default -0.5% */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-purple-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Trailing Dist (%)</span>
+                  <span className="font-bold text-purple-400 font-mono">-{Number(expTrailingDist).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                  value={expTrailingDist}
+                  onChange={(e) => setExpTrailingDist(Number(e.target.value))}
+                  className="w-full accent-purple-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 0.1%</span>
+                  <span className="text-purple-300">Distanță de la vârf: -{expTrailingDist}%</span>
+                  <span>Max: 10%</span>
+                </div>
+              </div>
+
+              {/* 8. Take-Profit: default +20% */}
+              <div className="bg-zinc-900/90 p-2.5 rounded border border-emerald-500/20 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300 font-mono text-[11px]">Take-Profit (%)</span>
+                  <span className="font-bold text-emerald-400 font-mono">+{Number(expTakeProfit).toFixed(1)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="50"
+                  step="0.5"
+                  value={expTakeProfit}
+                  onChange={(e) => setExpTakeProfit(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-zinc-500 font-mono">
+                  <span>Min: 0.5%</span>
+                  <span className="text-emerald-300">Țintă profit: +{expTakeProfit}%</span>
+                  <span>Max: 50%</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ACTIVE RUNNING RULES DISPLAY */
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-[11px] font-mono">
+              <div className="bg-zinc-900/80 border border-cyan-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Durată</span>
+                <strong className="text-cyan-300 text-xs">{experimentState?.durationHours || 8}h</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-cyan-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Min Momentum</span>
+                <strong className="text-amber-300 text-xs">&gt;= {experimentState?.minMomentumScore || 50}</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-cyan-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Max Hold</span>
+                <strong className="text-amber-400 text-xs">{experimentState?.maxHoldingTimeMinutes || 120}m</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-rose-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Hard SL</span>
+                <strong className="text-rose-400 text-xs">-{experimentState?.hardStopLossPct || 20.0}%</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-amber-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Break-Even</span>
+                <strong className="text-amber-300 text-xs">+{experimentState?.breakEvenActivationPct || 5.0}%</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-emerald-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Trailing Act</span>
+                <strong className="text-emerald-400 text-xs">+{experimentState?.trailingActivationPct || 2.5}%</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-purple-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Trailing Dist</span>
+                <strong className="text-purple-400 text-xs">-{experimentState?.trailingDistancePct || 0.5}%</strong>
+              </div>
+              <div className="bg-zinc-900/80 border border-emerald-500/30 rounded p-2 text-center">
+                <span className="text-zinc-500 text-[9px] block uppercase">Take-Profit</span>
+                <strong className="text-emerald-400 text-xs">+{experimentState?.takeProfitPct || 20.0}%</strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* REAL-TIME EVENT STREAM TABLE (UNLIMITED LOGGING STREAM) */}
+        <div className="bg-black/90 border border-zinc-800 rounded-lg p-3 space-y-2.5 font-mono text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2">
+            <div className="flex items-center space-x-2 text-zinc-300 font-bold">
+              <ListFilter className="w-4 h-4 text-cyan-400" />
+              <span>JURNAL ÎN TIMP REAL AL EXPERIMENTULUI ({experimentLogsCount} EVENIMENTE MEMORATE CONTINUU)</span>
+            </div>
+            <div className="text-[10px] text-zinc-500">
+              Salvare continuă în fișier fără limita de 1000 înregistrări.
+            </div>
+          </div>
+
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-left text-[11px] font-mono">
+              <thead className="text-[10px] text-zinc-400 bg-zinc-900/80 uppercase border-b border-zinc-800 sticky top-0">
+                <tr>
+                  <th className="py-1.5 px-2">Data &amp; Ora</th>
+                  <th className="py-1.5 px-2">Tip Eveniment</th>
+                  <th className="py-1.5 px-2">Simbol</th>
+                  <th className="py-1.5 px-2">Direcție</th>
+                  <th className="py-1.5 px-2">Scor Mom</th>
+                  <th className="py-1.5 px-2">Preț Intrare</th>
+                  <th className="py-1.5 px-2">Preț Ieșire</th>
+                  <th className="py-1.5 px-2">Marjă / Size</th>
+                  <th className="py-1.5 px-2">PnL Net ($)</th>
+                  <th className="py-1.5 px-2">PnL (%)</th>
+                  <th className="py-1.5 px-2">Timp Deținere</th>
+                  <th className="py-1.5 px-2">Motiv Ieșire</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900">
+                {experimentLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="py-6 text-center text-zinc-500 italic">
+                      Niciun eveniment înregistrat încă în acest experiment. Pornește experimentul pentru a începe scanarea și tranzacționarea automată.
+                    </td>
+                  </tr>
+                ) : (
+                  experimentLogs.map((log: any) => {
+                    const isExit = log.eventType === 'TRADE_EXIT';
+                    const isEntry = log.eventType === 'TRADE_ENTRY';
+                    const pnlVal = log.pnl !== undefined ? log.pnl : null;
+                    const pnlPctVal = log.pnlPct !== undefined ? log.pnlPct : null;
+
+                    return (
+                      <tr key={log.id} className="hover:bg-zinc-900/50 transition-colors">
+                        <td className="py-1.5 px-2 text-zinc-400 text-[10px]">
+                          {log.dateStr ? log.dateStr.replace('T', ' ').substring(5, 19) : '--'}
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            isExit
+                              ? ((pnlVal || 0) >= 0 ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/40' : 'bg-rose-950 text-rose-300 border border-rose-800/40')
+                              : isEntry
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/40'
+                              : 'bg-zinc-800 text-zinc-300'
+                          }`}>
+                            {log.eventType}
+                          </span>
+                        </td>
+                        <td className="py-1.5 px-2 font-bold text-zinc-200">
+                          {log.symbol || '--'}
+                        </td>
+                        <td className="py-1.5 px-2">
+                          {log.side === 'BUY' ? (
+                            <span className="text-emerald-400 font-bold">LONG</span>
+                          ) : log.side === 'SELL' ? (
+                            <span className="text-rose-400 font-bold">SHORT</span>
+                          ) : (
+                            <span className="text-zinc-500">--</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-2 text-amber-300 font-bold">
+                          {log.score !== undefined && log.score !== 0 ? log.score.toFixed(1) : '--'}
+                        </td>
+                        <td className="py-1.5 px-2 text-zinc-300">
+                          {log.entryPrice ? `$${log.entryPrice}` : '--'}
+                        </td>
+                        <td className="py-1.5 px-2 text-zinc-300">
+                          {log.exitPrice ? `$${log.exitPrice}` : '--'}
+                        </td>
+                        <td className="py-1.5 px-2 text-zinc-400">
+                          {log.sizeUSDT ? `$${log.sizeUSDT.toFixed(0)}` : '--'}
+                        </td>
+                        <td className="py-1.5 px-2 font-bold">
+                          {pnlVal !== null ? (
+                            <span className={pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                              {pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(4)}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-500">--</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-2 font-bold">
+                          {pnlPctVal !== null ? (
+                            <span className={pnlPctVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                              {pnlPctVal >= 0 ? '+' : ''}{pnlPctVal.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span className="text-zinc-500">--</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 px-2 text-zinc-400">
+                          {log.holdingTimeMinutes !== undefined ? `${log.holdingTimeMinutes.toFixed(1)}m` : '--'}
+                        </td>
+                        <td className="py-1.5 px-2 text-zinc-400 text-[10px]">
+                          {log.exitReason || log.details?.reason || '--'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* TECHNICAL DETAILS & SPECIFICATION */}
+        <div className="bg-zinc-900/60 border border-cyan-500/20 p-3.5 rounded text-xs space-y-2 font-mono text-zinc-300">
+          <div className="font-bold text-cyan-400 flex items-center space-x-1.5">
+            <Info className="w-4 h-4" />
+            <span>Condiții &amp; Arhitectură Tehnică Experiment:</span>
+          </div>
+          <ul className="list-disc list-inside space-y-1 text-[11px] text-zinc-400">
+            <li><strong className="text-zinc-200">Profil Execuție:</strong> SCALP cu aceeași logică de selecție și aceeași logică de exit pe tick-uri de 2.5 secunde.</li>
+            <li><strong className="text-zinc-200">Capital Virtual ($1B):</strong> Sold simulat de $1,000,000,000 fără limitare de capital sau blocare de marjă între perechi.</li>
+            <li><strong className="text-zinc-200">Univers de Tranzacționare:</strong> Toate perechile SWAP active de pe OKX sunt scanate continuu.</li>
+            <li><strong className="text-zinc-200">Jurnal Complet:</strong> Fără limitare la 1000 înregistrări. Toate intrările, ieșirile și datele de execuție sunt salvate pe disc.</li>
+            <li><strong className="text-zinc-200">Export Fișiere:</strong> Fișierele conforme sunt descărcabile instant ca <code className="text-amber-300">experiment_{effectiveHours}h_{dateStr}.json</code> și <code className="text-emerald-300">experiment_{effectiveHours}h_{dateStr}.csv</code>.</li>
+          </ul>
+        </div>
+      </div>
+    );
   };
 
   const renderTelegramConfigCard = () => {
@@ -891,7 +1540,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const hasUnsavedSettings = profileConfig ? (
     riskPerTrade !== (profileConfig.riskPerTradePct ?? 50) ||
     maxPositions !== (profileConfig.maxOpenPositions ?? 2) ||
-    hardStopLoss !== (profileConfig.hardStopLossPct ?? 3.5) ||
+    hardStopLoss !== (profileConfig.hardStopLossPct ?? 20.0) ||
     trailingAct !== (profileConfig.trailingActivationPct ?? 1.1) ||
     trailingDist !== (profileConfig.trailingDistancePct ?? 0.35) ||
     minMomentum !== (profileConfig.minMomentumScore ?? 50) ||
@@ -901,6 +1550,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     takeProfit !== (profileConfig.takeProfitPct ?? 20) ||
     breakEven !== (profileConfig.breakEvenActivationPct ?? 5.0) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 45) ||
+    stagnationTime !== (profileConfig.stagnationTimeMinutes ?? 0) ||
     equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 1.9) ||
     equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0.3) ||
     cooldownMins !== (profileConfig.cooldownMinutes ?? 0) ||
@@ -914,7 +1564,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
       setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
       setMaxPositions(profileConfig.maxOpenPositions ?? 2);
-      setHardStopLoss(profileConfig.hardStopLossPct ?? 3.5);
+      setHardStopLoss(profileConfig.hardStopLossPct ?? 20.0);
       setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
       setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
       setMinMomentum(
@@ -936,6 +1586,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setTakeProfit(profileConfig.takeProfitPct ?? 20);
       setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
+      setStagnationTime(profileConfig.stagnationTimeMinutes ?? 0);
       setCooldownMins(profileConfig.cooldownMinutes ?? 0);
       setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
       setSettingsSavedMessage(null);
@@ -956,6 +1607,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       takeProfitPct: takeProfit,
       breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
+      stagnationTimeMinutes: stagnationTime,
       equityProtectionActivationPct: equityProtAct,
       equityTrailingDrawdownPct: equityTrailingDraw,
       cooldownMinutes: cooldownMins,
@@ -969,7 +1621,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     if (!profileConfig) return;
     setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
     setMaxPositions(profileConfig.maxOpenPositions ?? 2);
-    setHardStopLoss(profileConfig.hardStopLossPct ?? 3.5);
+    setHardStopLoss(profileConfig.hardStopLossPct ?? 20.0);
     setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
     setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
     setMinMomentum(
@@ -991,6 +1643,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setTakeProfit(profileConfig.takeProfitPct ?? 20);
     setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
+    setStagnationTime(profileConfig.stagnationTimeMinutes ?? 0);
     setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 1.9);
     setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
     setCooldownMins(profileConfig.cooldownMinutes ?? 0);
@@ -1290,9 +1943,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
+  const isExpOn = Boolean(status?.isExperimentActive || experimentState?.isActive);
   const positions = status?.positions || [];
-  const currentEquity = status?.equity !== undefined ? status.equity : 200.0;
-  const initialEquity = status?.initialEquity !== undefined ? status.initialEquity : 200.0;
+  const currentEquity = isExpOn
+    ? (status?.equity && status.equity > 10000 ? status.equity : (experimentState?.unlimitedCapital || 1_000_000_000))
+    : (status?.equity !== undefined ? status.equity : 200.0);
+  const initialEquity = isExpOn
+    ? (status?.initialEquity && status.initialEquity > 10000 ? status.initialEquity : (experimentState?.unlimitedCapital || 1_000_000_000))
+    : (status?.initialEquity !== undefined ? status.initialEquity : 200.0);
   const activePositions = positions.filter((p) => p.status === 'OPEN');
 
   const marginInvested = status?.marginInvested !== undefined
@@ -1305,13 +1963,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const unrealizedPnLPct = marginInvested > 0 ? (unrealizedPnL / marginInvested) * 100 : 0;
 
-  const walletBalance = status?.walletBalance !== undefined
-    ? status.walletBalance
-    : (currentEquity - unrealizedPnL);
+  const walletBalance = isExpOn
+    ? (status?.walletBalance && status.walletBalance > 10000 ? status.walletBalance : (experimentState?.unlimitedCapital || 1_000_000_000))
+    : (status?.walletBalance !== undefined ? status.walletBalance : (currentEquity - unrealizedPnL));
 
-  const freeBalance = status?.freeBalance !== undefined
-    ? status.freeBalance
-    : Math.max(0, walletBalance - marginInvested);
+  const freeBalance = isExpOn
+    ? (status?.freeBalance && status.freeBalance > 10000 ? status.freeBalance : Math.max(0, walletBalance - marginInvested))
+    : (status?.freeBalance !== undefined ? status.freeBalance : Math.max(0, walletBalance - marginInvested));
 
   const totalProfit = status?.totalProfit !== undefined
     ? status.totalProfit
@@ -1326,9 +1984,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const isKillSwitch = status?.config?.killSwitchEngaged;
 
   const profitVault = status?.profitVault !== undefined ? status.profitVault : 0;
-  const operatingEquity = status?.operatingEquity !== undefined ? status.operatingEquity : Math.max(10, currentEquity - profitVault);
-  const baseCapital = status?.baseCapital !== undefined ? status.baseCapital : (status?.config?.baseCapital || initialEquity);
-  const usableFreeBalance = status?.usableFreeBalance !== undefined ? status.usableFreeBalance : Math.max(0, freeBalance - profitVault);
+  const operatingEquity = isExpOn
+    ? currentEquity
+    : (status?.operatingEquity !== undefined ? status.operatingEquity : Math.max(10, currentEquity - profitVault));
+  const baseCapital = isExpOn
+    ? (experimentState?.unlimitedCapital || 1_000_000_000)
+    : (status?.baseCapital !== undefined ? status.baseCapital : (status?.config?.baseCapital || initialEquity));
+  const usableFreeBalance = isExpOn
+    ? freeBalance
+    : (status?.usableFreeBalance !== undefined ? status.usableFreeBalance : Math.max(0, freeBalance - profitVault));
   const isVaultActive = Boolean(status?.lockProfitVault);
 
   const handleToggleProfitVault = async () => {
@@ -1779,7 +2443,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Hard Stop Loss:</span>
                           <span className="text-rose-400 font-bold font-mono">
-                            {pos.stopLossPrice ? `${formatPrice(pos.stopLossPrice, { prefix: '$' })} (-${profileConfig?.hardStopLossPct ?? 3.5}%)` : `-${profileConfig?.hardStopLossPct ?? 3.5}%`}
+                            {pos.stopLossPrice ? `${formatPrice(pos.stopLossPrice, { prefix: '$' })} (-${profileConfig?.hardStopLossPct ?? 20.0}%)` : `-${profileConfig?.hardStopLossPct ?? 20.0}%`}
                           </span>
                         </div>
                       </div>
@@ -1892,9 +2556,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           {/* CENTER: ESSENTIAL ACCOUNT METRICS */}
           <div className="flex items-center space-x-1.5 shrink-0 bg-black/85 px-2.5 py-0.5 rounded border border-black/40 shadow-inner">
-            <span className="text-emerald-400 px-1 py-0.2 rounded text-sm font-mono balance-metric font-bold">
-              EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
-            </span>
+            {isExpOn ? (
+              <span className="text-cyan-300 px-1 py-0.2 rounded text-xs sm:text-sm font-mono balance-metric font-bold flex items-center gap-1.5">
+                <span>🔬 EQ:</span>
+                <span className="bg-cyan-950 border border-cyan-400/50 text-cyan-300 px-1.5 py-0.2 rounded text-[11px] animate-pulse">
+                  FOND NELIMITAT (∞)
+                </span>
+              </span>
+            ) : (
+              <span className="text-emerald-400 px-1 py-0.2 rounded text-sm font-mono balance-metric font-bold">
+                EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
+              </span>
+            )}
             <span className="text-zinc-600">|</span>
             <span className={`px-1 py-0.2 rounded text-sm font-mono shrink-0 pnl-metric font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
@@ -2123,9 +2796,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           {/* TIER 2: FINANCIAL HUD BAR (EQUITY, PNL, VAULT) & UTILITIES */}
           <div className="flex items-center justify-between w-full min-w-0 bg-black/90 px-2 py-0.5 rounded border border-black/50 text-[11px] font-mono">
             <div className="flex items-center space-x-1.5 min-w-0 truncate">
-              <span className="text-emerald-400 font-bold truncate">
-                EQ: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'}
-              </span>
+              {(status?.isExperimentActive || experimentState?.isActive) ? (
+                <span className="text-cyan-400 font-bold truncate flex items-center space-x-1">
+                  <span>🔬 EXP 8H:</span>
+                  <span className="bg-cyan-950 border border-cyan-400/60 text-cyan-300 px-1.5 py-0.2 rounded text-[10px] animate-pulse">
+                    FOND NELIMITAT (∞)
+                  </span>
+                </span>
+              ) : (
+                <span className="text-emerald-400 font-bold truncate">
+                  EQ: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'}
+                </span>
+              )}
               <span className="text-zinc-600">|</span>
               <span className={`font-bold truncate ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
@@ -2165,9 +2847,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </header>
 
         {/* UNIFIED ACTIVE PROTOCOLS RIBBON (STRICT SINGLE LINE ON MOBILE & DESKTOP) */}
-        {(status?.config?.invertSignals || isVaultActive || !isTelegramNotificationsEnabled || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
+        {(status?.isExperimentActive || experimentState?.isActive || status?.config?.invertSignals || isVaultActive || !isTelegramNotificationsEnabled || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
           <div className="w-full max-w-full min-w-0 bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[9px] sm:text-[11px] font-mono flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 shadow-md overflow-x-auto terminal-scrollbar-x whitespace-nowrap select-none">
             <div className="flex flex-row flex-nowrap items-center space-x-1 sm:space-x-1.5 shrink min-w-0">
+              {/* Experiment 8H Unlimited Fund Pill */}
+              {(status?.isExperimentActive || experimentState?.isActive) && (
+                <div className="flex flex-row flex-nowrap items-center space-x-1 bg-cyan-950 border border-cyan-400/80 px-2 py-0.5 rounded text-cyan-200 shrink-0 shadow-[0_0_12px_rgba(6,182,212,0.35)]">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-cyan-300">EXP 8H ACTIV:</span>
+                  <span className="font-bold text-[9px] sm:text-[10px] text-white">FOND NELIMITAT (∞)</span>
+                  <span className="text-[9px] sm:text-[10px] text-cyan-300 hidden sm:inline">| Scalp Momentum &gt; 50 | Poziții: Nelimitat</span>
+                </div>
+              )}
+
               {/* Telegram Muted Status Pill */}
               {!isTelegramNotificationsEnabled && (
                 <div className="flex flex-row flex-nowrap items-center space-x-1 bg-rose-950/80 border border-rose-500/50 px-1.5 py-0.5 rounded text-rose-200 shrink-0">
@@ -2370,6 +3062,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             >
               <span>[SYM]</span>
               <span className="hidden sm:inline">Analiză Simbol (MFE)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveScreen('EXP')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'EXP' ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/30' : 'bg-black text-cyan-400 hover:bg-zinc-800 border border-cyan-500/50'
+              }`}
+              title="Experiment 8 Ore: Scalp, Momentum > 50, Fond Nelimitat & Log Download"
+            >
+              <Activity className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>[🔬 EXP 8H]</span>
             </button>
 
             <button
@@ -2654,23 +3357,56 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
 
+              {/* EXPERIMENT 8H BANNER */}
+              {(status?.isExperimentActive || experimentState?.isActive) && (
+                <div className="bg-cyan-950/80 border border-cyan-400/80 rounded p-2.5 mb-2.5 flex items-center justify-between shadow-[0_0_15px_rgba(6,182,212,0.25)] text-xs font-mono">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                    <div>
+                      <span className="font-bold text-white tracking-wide">🔬 EXPERIMENT 8H ACTIV: FOND NELIMITAT (∞)</span>
+                      <p className="text-[11px] text-cyan-300">
+                        Rulează cu profil SCALP pe fonduri nelimitate ($1B virtual). Cumpără automat orice pereche cu scor Momentum &gt; 50.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveScreen('EXP')}
+                    className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded text-[11px] shrink-0"
+                  >
+                    Panou Experiment
+                  </button>
+                </div>
+              )}
+
               {/* TRADEBOT 4 ACCOUNTING METRICS (DYNAMIC LANG) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                 {/* 1. FREE BALANCE */}
-                <div className="bg-black border border-zinc-800 p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0">
+                <div className={`bg-black border p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0 ${
+                  (status?.isExperimentActive || experimentState?.isActive)
+                    ? 'border-cyan-400/70 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                    : 'border-zinc-800'
+                }`}>
                   <div className="flex items-center justify-between mb-0.5 sm:mb-1 gap-1">
                     <div className="text-slate-400 text-[9px] sm:text-xs font-bold tracking-wider truncate">
                       <span className="hidden sm:inline">{lang === 'EN' ? 'FREE BALANCE' : 'SOLD DISPONIBIL'}</span>
                       <span className="sm:hidden">{lang === 'EN' ? 'FREE BAL' : 'SOLD LIBER'}</span>
                     </div>
-                    {profitVault > 0 && (
+                    {(status?.isExperimentActive || experimentState?.isActive) ? (
+                      <span className="text-[8px] sm:text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-500/50 px-1 rounded font-bold uppercase shrink-0">
+                        NELIMITAT
+                      </span>
+                    ) : profitVault > 0 && (
                       <span className="text-[8px] sm:text-[9px] text-cyan-400 font-mono shrink-0" title="Profit rezervat în seif">
                         (${profitVault.toFixed(0)} seif)
                       </span>
                     )}
                   </div>
-                  <div className="text-sm sm:text-xl font-bold font-mono text-amber-400 truncate">
-                    ${(isVaultActive ? usableFreeBalance : freeBalance).toFixed(2)}
+                  <div className={`text-sm sm:text-xl font-bold font-mono truncate ${
+                    (status?.isExperimentActive || experimentState?.isActive) ? 'text-cyan-300' : 'text-amber-400'
+                  }`}>
+                    {(status?.isExperimentActive || experimentState?.isActive)
+                      ? 'NELIMITAT (∞)'
+                      : `$${(isVaultActive ? usableFreeBalance : freeBalance).toFixed(2)}`}
                   </div>
                 </div>
 
@@ -2686,13 +3422,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 {/* 3. TOTAL EQUITY */}
-                <div className="bg-black border border-emerald-500/50 p-2 sm:p-2.5 rounded flex flex-col justify-between shadow-[0_0_12px_rgba(16,185,129,0.12)] min-w-0">
+                <div className={`bg-black border p-2 sm:p-2.5 rounded flex flex-col justify-between min-w-0 ${
+                  (status?.isExperimentActive || experimentState?.isActive)
+                    ? 'border-cyan-400/70 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                    : 'border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.12)]'
+                }`}>
                   <div className="text-emerald-400 text-[9px] sm:text-xs font-bold tracking-wider mb-0.5 sm:mb-1 truncate">
                     <span className="hidden sm:inline">{lang === 'EN' ? 'TOTAL EQUITY' : 'VALOARE TOTALĂ (EQUITY)'}</span>
                     <span className="sm:hidden">{lang === 'EN' ? 'EQUITY' : 'TOTAL EQUITY'}</span>
                   </div>
-                  <div className="text-sm sm:text-xl font-bold font-mono text-emerald-400 truncate">
-                    ${currentEquity.toFixed(2)}
+                  <div className={`text-sm sm:text-xl font-bold font-mono truncate ${
+                    (status?.isExperimentActive || experimentState?.isActive) ? 'text-cyan-300' : 'text-emerald-400'
+                  }`}>
+                    {(status?.isExperimentActive || experimentState?.isActive)
+                      ? 'NELIMITAT (∞)'
+                      : `$${currentEquity.toFixed(2)}`}
                   </div>
                 </div>
 
@@ -3110,7 +3854,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Hard SL:</span>
-                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 3.5}%</span>
+                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 20.0}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Break-Even:</span>
@@ -3180,7 +3924,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <span>Toate cele 12 reguli sunt aplicate activ în timp real</span>
                   </div>
                   <span className="text-slate-400">
-                    Bază Capital: <strong className="text-amber-300">$200.00</strong>
+                    Bază Capital: <strong className={isExpOn ? 'text-cyan-300' : 'text-amber-300'}>
+                      {isExpOn ? 'NELIMITAT (∞)' : `$${baseCapital.toFixed(2)}`}
+                    </strong>
                   </span>
                 </div>
               </div>
@@ -3378,11 +4124,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
                     <div className="text-slate-400 text-[11px]">Universe Monitored</div>
-                    <div className="text-lg font-bold text-amber-400">{status?.scannerStats?.universeCount || 25} Symbols</div>
+                    <div className="text-lg font-bold text-amber-400">{status?.scannerStats?.universeCount ?? 0} Symbols</div>
                   </div>
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
                     <div className="text-slate-400 text-[11px]">Filtered Candidates</div>
-                    <div className="text-lg font-bold text-emerald-400">{status?.scannerStats?.candidatesCount || 4} Active</div>
+                    <div className="text-lg font-bold text-emerald-400">{status?.scannerStats?.candidatesCount ?? 0} Active</div>
                   </div>
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
                     <div className="text-slate-400 text-[11px]">Scan Interval</div>
@@ -3897,7 +4643,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Hard Stop-Loss</span>
-                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 3.5}%</strong>
+                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 20.0}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Break-Even Act</span>
@@ -3921,6 +4667,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Max Hold Time</span>
                     <strong className="text-amber-300 text-xs">{profileConfig?.maxHoldingTimeMinutes ?? 45} min</strong>
+                  </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
+                    <span className="text-slate-400 block text-[9px] uppercase">Stagnation Stop</span>
+                    <strong className="text-cyan-300 text-xs">
+                      {profileConfig?.stagnationTimeMinutes && profileConfig.stagnationTimeMinutes > 0 ? `${profileConfig.stagnationTimeMinutes} min` : 'OFF (0m)'}
+                    </strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Equity Prot Act</span>
@@ -4214,6 +4966,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       onChange={(e) => setMaxHoldTime(Number(e.target.value))}
                       className="w-full accent-amber-500 cursor-pointer"
                     />
+                  </div>
+
+                  {/* Stagnation Time-Stop - step 5 */}
+                  <div className="bg-zinc-900 p-3 rounded border border-cyan-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Stagnation Time-Stop (Min)</span>
+                      <span className={`font-bold ${stagnationTime === 0 ? 'text-zinc-400' : 'text-cyan-400'}`}>
+                        {stagnationTime === 0 ? 'DEZACTIVAT (0m)' : `${stagnationTime}m`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="120"
+                      step="5"
+                      value={stagnationTime}
+                      onChange={(e) => setStagnationTime(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                    <div className="text-[10px] text-zinc-500">
+                      Setează 0 pentru a dezactiva ieșirea la stagnare și a lăsa tranzacția să ruleze până la Max Hold Time ({maxHoldTime}m).
+                    </div>
                   </div>
 
                   {/* Equity Protection Activation - step 0.1 */}
@@ -4831,13 +5605,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               lang={lang}
             />
           )}
+
+          {activeScreen === 'EXP' && renderExperimentView()}
         </div>
 
-          {/* RIGHT MODULE PANEL: OPEN POSITIONS IN [1:PORT], TRADINGVIEW CHART IN ALL OTHER SCREENS (HIDDEN IN SYM) */}
+          {/* RIGHT MODULE PANEL: OPEN POSITIONS IN [1:PORT], TRADINGVIEW CHART IN ALL OTHER SCREENS (HIDDEN IN SYM/EXP) */}
           <div className={`${
             activeScreen === 'CHART'
               ? 'col-span-12 flex'
-              : activeScreen === 'SYM'
+              : activeScreen === 'SYM' || activeScreen === 'EXP'
               ? 'hidden'
               : 'hidden lg:flex lg:col-span-6'
           } flex-col min-h-0`}>
@@ -5288,7 +6064,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </span>
               </div>
               <span className="text-[11px] opacity-80">
-                Capital: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'} USDT
+                Capital: {isExpOn ? 'NELIMITAT (∞) USDT' : `$${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'} USDT`}
               </span>
             </div>
 

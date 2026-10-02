@@ -12,6 +12,7 @@ import { formatPrice } from '../../shared/formatters';
 import { OrderManager } from '../order/OrderManager';
 import { JsonStore } from '../store';
 import { formatBucharestDateTime } from '../utils/timezone';
+import { experimentManager } from '../experiment/ExperimentManager';
 
 export class PositionManager {
   private activePositions: Position[] = [];
@@ -434,6 +435,8 @@ export class PositionManager {
       openPositionsAtEntry: newPosition.openPositionsAtEntry,
     });
 
+    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore || 50, newPosition.entryPrice, newPosition.sizeUSDT);
+
     return newPosition;
   }
 
@@ -587,7 +590,13 @@ export class PositionManager {
     for (const pos of [...this.activePositions]) {
       if (pos.status !== 'OPEN') continue;
 
-      const currentPrice = currentPrices[pos.symbol];
+      const rawPrice = currentPrices[pos.symbol] || 
+                       currentPrices[pos.symbol.replace('-SWAP', '')] || 
+                       currentPrices[`${pos.symbol}-SWAP`] || 
+                       currentPrices[pos.symbol.replace('USDT', '-USDT')] ||
+                       currentPrices[pos.symbol.replace('-USDT', 'USDT')] ||
+                       pos.currentPrice;
+      const currentPrice = rawPrice && rawPrice > 0 ? rawPrice : 0;
       if (!currentPrice || currentPrice <= 0) continue;
 
       pos.currentPrice = currentPrice;
@@ -609,7 +618,7 @@ export class PositionManager {
       const exactUnrealizedPnl = isBuy
         ? (currentPrice - pos.entryPrice) * pos.qty * ctVal
         : (pos.entryPrice - currentPrice) * pos.qty * ctVal;
-      pos.pnl = parseFloat(exactUnrealizedPnl.toFixed(2));
+      pos.pnl = parseFloat(exactUnrealizedPnl.toFixed(4));
 
       // Continuous MAE (Maximum Adverse Excursion) & MFE (Maximum Favorable Excursion)
       const lowestPnlPct = isBuy
@@ -656,55 +665,97 @@ export class PositionManager {
       }
 
       // Break-Even Logic
-      if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && pos.stopLossPrice < pos.entryPrice) {
-          pos.stopLossPrice = pos.entryPrice * 1.0025; // Move SL to entry + 0.25% buffer
+      if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && (!pos.isBreakEvenTriggered || pos.stopLossPrice < pos.entryPrice)) {
+          pos.breakEvenStopPrice = pos.entryPrice * 1.0025; // Move SL to entry + 0.25% buffer
+          pos.stopLossPrice = pos.breakEvenStopPrice;
           pos.isBreakEvenTriggered = true;
-          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL mutat la intrare.`);
-      } else if (pos.side === 'SELL' && pnlPct >= config.breakEvenActivationPct && (pos.stopLossPrice === undefined || pos.stopLossPrice > pos.entryPrice)) {
-          pos.stopLossPrice = pos.entryPrice * 0.9975; // Move SL to entry - 0.25% buffer
+          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL mutat la intrare (+0.25% buffer).`);
+      } else if (pos.side === 'SELL' && pnlPct >= config.breakEvenActivationPct && (!pos.isBreakEvenTriggered || pos.stopLossPrice > pos.entryPrice)) {
+          pos.breakEvenStopPrice = pos.entryPrice * 0.9975; // Move SL to entry - 0.25% buffer
+          pos.stopLossPrice = pos.breakEvenStopPrice;
           pos.isBreakEvenTriggered = true;
-          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL mutat la intrare.`);
+          this.auditLogger('POSITION_UPDATED', `Break-Even triggered for ${pos.symbol}: SL mutat la intrare (-0.25% buffer).`);
       }
 
-      // 1. Hard Stop Loss Check (Dual validation: Price boundary crossed OR PnL% <= -hardStopLossPct with consecutive tick confirmation)
-      const rawSlHit = (pos.side === 'BUY' && currentPrice <= pos.stopLossPrice) ||
-                       (pos.side === 'SELL' && currentPrice >= pos.stopLossPrice) ||
-                       (!pos.isBreakEvenTriggered && pnlPct <= -config.hardStopLossPct);
+      // 1. Break-Even Check vs Hard Stop Loss Check (Strict separation of exit reasons)
+      if (pos.isBreakEvenTriggered) {
+        const bePrice = pos.breakEvenStopPrice || (pos.side === 'BUY' ? pos.entryPrice * 1.0025 : pos.entryPrice * 0.9975);
+        const rawBeHit = (pos.side === 'BUY' && currentPrice <= bePrice) ||
+                         (pos.side === 'SELL' && currentPrice >= bePrice);
 
-      if (rawSlHit) {
-        pos.consecutiveSlHits = (pos.consecutiveSlHits || 0) + 1;
+        if (rawBeHit) {
+          pos.consecutiveBeHits = (pos.consecutiveBeHits || 0) + 1;
+        } else {
+          pos.consecutiveBeHits = 0;
+        }
+
+        const isBeHit = rawBeHit && (pos.consecutiveBeHits >= 2);
+
+        if (isBeHit) {
+          this.auditLogger('POSITION_UPDATED', `Break-Even Stop atins pentru ${pos.symbol} la prețul $${formatPrice(currentPrice)} (SL mutat la intrare atins, PnL înregistrat: ${pnlPct.toFixed(2)}%)`, {
+            symbol: pos.symbol,
+            currentPrice,
+            pnlPct,
+            entryPrice: pos.entryPrice,
+            breakEvenStopPrice: bePrice,
+            breakEvenActivationPct: config.breakEvenActivationPct,
+          });
+
+          await orderManager.executeCloseOrder({
+            position: pos,
+            reason: 'BREAK_EVEN',
+            currentPrice,
+            exitReasonDetail: `Break-Even Stop atins la prețul $${formatPrice(currentPrice)} (SL mutat la intrare după atingerea țintei BE de +${config.breakEvenActivationPct}%, PnL înregistrat: ${pnlPct.toFixed(2)}%)`,
+            triggerStopValue: config.breakEvenActivationPct,
+            exitMarketRegime: options?.marketRegime,
+            accountEquity: currentEquity,
+            accountBalance: options?.accountBalance,
+            openPositionsCount: this.activePositions.length,
+          });
+          continue;
+        }
       } else {
-        pos.consecutiveSlHits = 0;
-      }
+        // 1b. Hard Stop Loss Check (ONLY when Break-Even has not been triggered)
+        const hardSlPrice = pos.side === 'BUY'
+          ? pos.entryPrice * (1 - config.hardStopLossPct / 100)
+          : pos.entryPrice * (1 + config.hardStopLossPct / 100);
+        pos.stopLossPrice = hardSlPrice;
 
-      // Require at least 2 consecutive checks to confirm hard SL hit and eliminate false wicks / noise
-      const isHardSlHit = rawSlHit && (pos.consecutiveSlHits >= 2);
+        const rawSlHit = (pos.side === 'BUY' && currentPrice <= hardSlPrice) ||
+                         (pos.side === 'SELL' && currentPrice >= hardSlPrice) ||
+                         (pnlPct <= -config.hardStopLossPct);
 
-      if (isHardSlHit) {
-        this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at $${formatPrice(currentPrice)} (PnL: ${pnlPct.toFixed(2)}%, Limit: -${config.hardStopLossPct}%)`, {
-          symbol: pos.symbol,
-          currentPrice,
-          pnlPct,
-          hardStopLossPct: config.hardStopLossPct,
-          stopLossPrice: pos.stopLossPrice,
-        });
+        if (rawSlHit) {
+          pos.consecutiveSlHits = (pos.consecutiveSlHits || 0) + 1;
+        } else {
+          pos.consecutiveSlHits = 0;
+        }
 
-        const exitReasonText = pos.isBreakEvenTriggered
-          ? `Break-Even Stop atins la prețul $${formatPrice(currentPrice)} (SL mutat la pragul de intrare după atingerea țintei BE, PnL înregistrat: ${pnlPct.toFixed(2)}%)`
-          : `Stop-Loss hard la -${config.hardStopLossPct}% atins la prețul $${formatPrice(currentPrice)} (PnL înregistrat: ${pnlPct.toFixed(2)}%)`;
+        // Require at least 2 consecutive checks to confirm hard SL hit and eliminate false wicks / noise
+        const isHardSlHit = rawSlHit && (pos.consecutiveSlHits >= 2);
 
-        await orderManager.executeCloseOrder({
-          position: pos,
-          reason: 'STOP_LOSS',
-          currentPrice,
-          exitReasonDetail: exitReasonText,
-          triggerStopValue: config.hardStopLossPct,
-          exitMarketRegime: options?.marketRegime,
-          accountEquity: currentEquity,
-          accountBalance: options?.accountBalance,
-          openPositionsCount: this.activePositions.length,
-        });
-        continue;
+        if (isHardSlHit) {
+          this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at $${formatPrice(currentPrice)} (PnL: ${pnlPct.toFixed(2)}%, Limit: -${config.hardStopLossPct}%)`, {
+            symbol: pos.symbol,
+            currentPrice,
+            pnlPct,
+            hardStopLossPct: config.hardStopLossPct,
+            stopLossPrice: hardSlPrice,
+          });
+
+          await orderManager.executeCloseOrder({
+            position: pos,
+            reason: 'STOP_LOSS',
+            currentPrice,
+            exitReasonDetail: `Stop-Loss hard la -${config.hardStopLossPct}% atins la prețul $${formatPrice(currentPrice)} (PnL înregistrat: ${pnlPct.toFixed(2)}%)`,
+            triggerStopValue: config.hardStopLossPct,
+            exitMarketRegime: options?.marketRegime,
+            accountEquity: currentEquity,
+            accountBalance: options?.accountBalance,
+            openPositionsCount: this.activePositions.length,
+          });
+          continue;
+        }
       }
 
       // 2. Trailing Stop Check
@@ -767,9 +818,9 @@ export class PositionManager {
         }
       }
 
-      // 3. Staged Time-Stop & Max Holding Time Check (30m Stagnation Exit + 45m Hard Max Limit)
+      // 3. Staged Time-Stop & Max Holding Time Check (Configurable Stagnation Exit + Hard Max Limit)
       const maxHoldingLimit = config.maxHoldingTimeMinutes && config.maxHoldingTimeMinutes > 0 ? config.maxHoldingTimeMinutes : 45;
-      const stagnationMinutes = config.stagnationTimeMinutes && config.stagnationTimeMinutes > 0 ? config.stagnationTimeMinutes : 30;
+      const stagnationMinutes = config.stagnationTimeMinutes && config.stagnationTimeMinutes > 0 ? config.stagnationTimeMinutes : 0;
       const stagnationMinPeak = config.stagnationMinPeakPct ?? 0.5;
 
       const heldMinutes = (Date.now() - pos.entryTime) / 60000;
@@ -779,8 +830,8 @@ export class PositionManager {
         ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
         : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
 
-      // Stage 1: Stagnation Time-Stop (minute 30 check if no meaningful peak momentum occurred)
-      if (!isTrailingActive && heldMinutes >= stagnationMinutes && peakPnlPct < stagnationMinPeak && pnlPct <= 0.2) {
+      // Stage 1: Stagnation Time-Stop (ONLY if explicitly enabled > 0 and strictly less than maxHoldingLimit)
+      if (stagnationMinutes > 0 && stagnationMinutes < maxHoldingLimit && !isTrailingActive && heldMinutes >= stagnationMinutes && peakPnlPct < stagnationMinPeak && pnlPct <= 0.2) {
         this.auditLogger('RISK_REJECTED', `Stagnation Time-Stop at ${heldMinutes.toFixed(1)}m for ${pos.symbol}: Peak +${peakPnlPct.toFixed(2)}% < +${stagnationMinPeak}%. Closing early to preserve winrate.`, {
           symbol: pos.symbol,
           heldMinutes: parseFloat(heldMinutes.toFixed(2)),
@@ -877,7 +928,7 @@ export class PositionManager {
 
     // Net PnL = grossPnl - (entryFee + exitFee)
     const netPnl = pos.grossPnl - (entryFee + resolvedExitFee);
-    pos.pnl = parseFloat((isNaN(netPnl) ? 0 : netPnl).toFixed(2));
+    pos.pnl = parseFloat((isNaN(netPnl) ? 0 : netPnl).toFixed(4));
 
     this.activePositions.splice(index, 1);
     this.closedHistory.unshift(pos);

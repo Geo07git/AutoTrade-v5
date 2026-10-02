@@ -97,13 +97,29 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     }
   }
 
+  public updatePrice(symbol: string, price: number) {
+    if (price > 0) {
+      const instId = this.normalizeSymbol(symbol);
+      this.latestPrices.set(instId, price);
+      this.latestPrices.set(symbol, price);
+    }
+  }
+
+  public updatePrices(prices: Record<string, number>) {
+    for (const [sym, px] of Object.entries(prices)) {
+      if (px > 0) {
+        this.updatePrice(sym, px);
+      }
+    }
+  }
+
   public async getEquity(): Promise<number> {
     const state = this.paperStore.get();
     let totalUnrealisedPnl = 0;
 
     for (const [symbol, pos] of Object.entries(state.positions)) {
       if (pos.size <= 0) continue;
-      const currentPrice = this.latestPrices.get(symbol) || pos.avgPrice;
+      const currentPrice = this.latestPrices.get(symbol) || this.latestPrices.get(this.normalizeSymbol(symbol)) || pos.avgPrice;
       const filter = this.instrumentFilters.get(this.normalizeSymbol(symbol));
       const ctVal = filter?.ctVal || 1;
       const isBuy = pos.side.toUpperCase() === 'BUY';
@@ -123,7 +139,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     return parseFloat((state.balanceUSDT !== undefined ? state.balanceUSDT : 200.0).toFixed(2));
   }
 
-  public async getKlines(symbol: string, interval: string, limit: number = 200): Promise<Kline[]> {
+  public async getKlines(symbol: string, interval: string, limit: number = 200, signal?: AbortSignal): Promise<Kline[]> {
     const instId = this.normalizeSymbol(symbol);
     let bar = '15m';
     const norm = interval.replace('m', '').replace('M', '');
@@ -138,7 +154,10 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     else if (norm === 'D' || norm === '1D') bar = '1D';
 
     try {
-      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`);
+      const fetchSignal = signal || AbortSignal.timeout(8000);
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`, {
+        signal: fetchSignal,
+      });
       const data: any = await res.json();
 
       if (data.code === '0' && Array.isArray(data.data)) {
@@ -159,8 +178,8 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
         return klines;
       }
       return [];
-    } catch (err) {
-      console.error(`[PaperAdapter] Failed to fetch klines for ${instId}:`, err);
+    } catch (err: any) {
+      // Quietly return empty on timeout/abort
       return [];
     }
   }
@@ -168,7 +187,9 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   public async getTickerPrice(symbol: string): Promise<number | null> {
     const instId = this.normalizeSymbol(symbol);
     try {
-      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/ticker?instId=${instId}`);
+      const res = await fetch(`${this.okxBaseUrl}/api/v5/market/ticker?instId=${instId}`, {
+        signal: AbortSignal.timeout(5000),
+      });
       const data: any = await res.json();
       if (data.code === '0' && data.data?.length > 0) {
         const price = parseFloat(data.data[0].last);
@@ -178,10 +199,10 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
           return price;
         }
       }
-    } catch (err) {
-      console.error(`[PaperAdapter] Failed to get ticker price for ${instId}:`, err);
+      return this.latestPrices.get(instId) || this.latestPrices.get(symbol) || null;
+    } catch (err: any) {
+      return this.latestPrices.get(instId) || this.latestPrices.get(symbol) || null;
     }
-    return this.latestPrices.get(instId) || this.latestPrices.get(symbol) || null;
   }
 
   public async getInstrumentFilter(symbol: string): Promise<InstrumentLotFilter> {

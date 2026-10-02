@@ -1,0 +1,26 @@
+{
+  "balanceUSDT": 199.9505,
+  "positions": {
+    "GRASS-USDT-SWAP": {
+      "symbol": "GRASS-USDT-SWAP",
+      "side": "Buy",
+      "size": 67,
+      "avgPrice": 0.7407,
+      "unrealisedPnl": 0,
+      "markPrice": 0.7407,
+      "leverage": "1",
+      "updatedTime": 1790786698772
+    },
+    "ROBO-USDT-SWAP": {
+      "symbol": "ROBO-USDT-SWAP",
+      "side": "Buy",
+      "size": 53,
+      "avgPrice": 0.009326,
+      "unrealisedPnl": 0,
+      "markPrice": 0.009326,
+      "leverage": "1",
+      "updatedTime": 1790786699617
+    }
+  },
+  "realizedPnlTotal": 0
+}

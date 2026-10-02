@@ -60,8 +60,8 @@ export function reconcileHistoricalOrderPrecision(orders: OrderRecord[]): OrderR
     const oldEntry = order.entryPrice || exactEntry;
     const priceDiff = Math.abs(oldEntry - exactEntry);
 
-    // If entryPrice was rounded or missing (discrepancy > 1e-7)
-    if (priceDiff > 1e-7 || !order.entryPrice) {
+    // If entryPrice was rounded or missing (discrepancy > 1e-7) or realizedPnl is 0 while realizedPnlPct != 0
+    if (priceDiff > 1e-7 || !order.entryPrice || (order.realizedPnl === 0 && order.realizedPnlPct !== undefined && order.realizedPnlPct !== 0)) {
       const isBuy = order.positionSide ? order.positionSide === 'BUY' : (order.side === 'SELL');
       const exitPrice = order.fillPrice || order.signalPrice;
       const ctVal = order.ctVal || 1;
@@ -108,7 +108,7 @@ export function reconcileHistoricalOrderPrecision(orders: OrderRecord[]): OrderR
         }
 
         order.entryPrice = exactEntry;
-        order.realizedPnl = parseFloat(netPnl.toFixed(2));
+        order.realizedPnl = parseFloat(netPnl.toFixed(4));
         order.realizedPnlPct = parseFloat(correctedPnlPct.toFixed(2));
         if (correctedMfePct !== undefined) order.mfePct = correctedMfePct;
         if (correctedMaePct !== undefined) order.maePct = correctedMaePct;

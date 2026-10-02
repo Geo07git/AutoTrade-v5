@@ -27,6 +27,7 @@ import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseMan
 import { MarketScanner } from '../scanner/MarketScanner';
 import { telegramService } from '../telegram/TelegramService';
 import { SymbolStatsTracker } from '../stats/SymbolStatsTracker';
+import { experimentManager, ExperimentState } from '../experiment/ExperimentManager';
 
 const DEFAULT_CONFIG: AppConfig = {
   executionMode: 'PAPER', // Default safe mode: Full simulation without OKX API keys
@@ -52,7 +53,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     trailingDistancePct: 0.35,
     breakEvenActivationPct: 5.0,
     takeProfitPct: 20.0,
-    hardStopLossPct: 3.5, // Stop-loss hard 3.5%
+    hardStopLossPct: 20.0, // Stop-loss hard 20%
     equityProtectionActivationPct: 1.9,
     equityTrailingDrawdownPct: 0.3,
     minMomentumScore: 50,
@@ -60,8 +61,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
-    stagnationTimeMinutes: 30, // Time-stop eșalonat la minutul 30 dacă nu există progres
-    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la min 30
+    stagnationTimeMinutes: 0, // Time-stop eșalonat la stagnare (0 = dezactivat, folosește strict maxHoldingTimeMinutes)
+    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 0,
     sentimentThreshold: 5.0,
   },
@@ -82,8 +83,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     min24hVolumeUSDT: 1_500_000,
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
-    stagnationTimeMinutes: 30, // Time-stop eșalonat la minutul 30 dacă nu există progres
-    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la min 30
+    stagnationTimeMinutes: 0, // Time-stop eșalonat la stagnare (0 = dezactivat)
+    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
   },
@@ -134,7 +135,24 @@ export class TradeBot {
 
   private getActiveProfileConfig(): ProfileConfig {
     const config = this.configStore.get();
-    return this.getProfiles()[config.activeProfile];
+    const baseProfile = this.getProfiles()[config.activeProfile] || DEFAULT_PROFILES.SCALP;
+    const expState = experimentManager.getState();
+    if (expState.isActive) {
+      return {
+        ...baseProfile,
+        type: 'SCALP',
+        minMomentumScore: expState.minMomentumScore,
+        maxHoldingTimeMinutes: expState.maxHoldingTimeMinutes,
+        hardStopLossPct: expState.hardStopLossPct,
+        breakEvenActivationPct: expState.breakEvenActivationPct,
+        trailingActivationPct: expState.trailingActivationPct,
+        trailingDistancePct: expState.trailingDistancePct,
+        takeProfitPct: expState.takeProfitPct,
+        stagnationTimeMinutes: 0,
+        maxOpenPositions: 999, // unlimited positions
+      };
+    }
+    return baseProfile;
   }
 
   constructor() {
@@ -523,12 +541,17 @@ export class TradeBot {
 
       await Promise.all(fetchPromises);
 
-      // Evaluate risk & price excursion on live prices
-      const unrealizedPnl = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+      // Sync latest prices with paper adapter
+      if (this.paperAdapter && (this.paperAdapter as any).updatePrices) {
+        (this.paperAdapter as any).updatePrices(this.latestPrices);
+      }
+
+      const initialUnrealizedPnl = activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
       const currentWallet = this.activeAdapter.getWalletBalance
         ? await this.activeAdapter.getWalletBalance()
-        : parseFloat((this.currentEquity - unrealizedPnl).toFixed(2));
+        : parseFloat((this.currentEquity - initialUnrealizedPnl).toFixed(2));
 
+      // Evaluate risk & price excursion on live prices
       await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
         profitVault: config.profitVault || 0,
         baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
@@ -541,10 +564,25 @@ export class TradeBot {
         },
       });
 
+      const updatedActivePositions = this.positionManager.getActivePositions();
+      const freshUnrealizedPnl = updatedActivePositions.reduce((acc, p) => acc + (p.pnl || 0), 0);
+      const isExpRunning = experimentManager.getState().isActive;
+      if (isExpRunning) {
+        const expState = experimentManager.getState();
+        if (expState.isActive && Date.now() >= expState.startTime + expState.durationMs) {
+          await this.stopExperiment('EXPERIMENT_EXPIRED');
+        } else {
+          this.currentEquity = parseFloat((expState.unlimitedCapital + (expState.totalPnl || 0) + freshUnrealizedPnl).toFixed(2));
+        }
+      } else if (config.executionMode === 'PAPER') {
+        const paperWallet = this.paperAdapter ? await this.paperAdapter.getWalletBalance() : currentWallet;
+        this.currentEquity = parseFloat((paperWallet + freshUnrealizedPnl).toFixed(2));
+      }
+
       this.positionStore.save(this.positionManager.getActivePositions());
       this.orderStore.save(this.orderManager.getOrders());
     } catch (err: any) {
-      console.warn('[TradeBot] Fast position risk evaluation warning:', err.message || err);
+      // transient price update error ignored
     }
   }
 
@@ -618,8 +656,14 @@ export class TradeBot {
         }
       }
 
+      const expState = experimentManager.getState();
+      const isExpActive = expState.isActive;
       // Filter eligible candidates meeting momentum score window [min, max] and 24h volume window [min, max], sorted by score descending
       const eligibleCandidates = scannedOpportunities.filter((opp) => {
+        if (isExpActive) {
+          const minScore = expState.minMomentumScore || 50;
+          return opp.score >= minScore && opp.score <= 100;
+        }
         if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 50) && (profile.maxMomentumScore ? opp.score <= profile.maxMomentumScore : true))) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
         if (profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
@@ -686,6 +730,30 @@ export class TradeBot {
           );
         }
 
+        // Direct signal creation for high momentum candidates in experiment or active scan
+        if (!signal && (isExpActive || candidate.score >= (profile.minMomentumScore || 50))) {
+          const atrPct = candidate.price > 0 && candidate.currentAtr ? (candidate.currentAtr / candidate.price) * 100 : 1.0;
+          signal = {
+            symbol,
+            side: candidate.side === 'SELL' ? 'SELL' : 'BUY',
+            originalSide: candidate.side === 'SELL' ? 'SELL' : 'BUY',
+            isFadeTrade: false,
+            score: candidate.score,
+            profile: config.activeProfile,
+            timestamp: Date.now(),
+            currentPrice: candidate.price,
+            currentAtr: candidate.currentAtr || (candidate.price * 0.01),
+            atrPct: parseFloat(atrPct.toFixed(2)),
+            reasons: {
+              score: candidate.score,
+              threshold: isExpActive ? (expState.minMomentumScore || 50) : (profile.minMomentumScore || 50),
+              side: candidate.side === 'SELL' ? 'SELL' : 'BUY',
+              rvol: candidate.rvol,
+              atrExpansion: candidate.atrExpansion,
+            },
+          };
+        }
+
         if (signal) {
           // Ensure real-time price & ATR are attached to signal for Volatility Risk Sizing
           signal.currentPrice = signal.currentPrice || candidate.price;
@@ -717,15 +785,15 @@ export class TradeBot {
 
           // Risk Engine: Mandatory gatekeeper validation with volatility-based sizing (ATR) & pending order check
           const hasPending = this.orderManager.hasPendingOrderForSymbol(symbol);
-          const profitVault = config.profitVault || 0;
-          const operatingEquity = Math.max(10, this.currentEquity - profitVault);
+          const profitVault = isExpActive ? 0 : (config.profitVault || 0);
+          const operatingEquity = isExpActive ? 1_000_000_000 : Math.max(10, this.currentEquity - profitVault);
 
           const riskApproval = this.riskEngine.validateSignal(
             signal,
             profile,
             this.positionManager.getActivePositions(),
-            this.currentEquity,
-            config.killSwitchEngaged,
+            isExpActive ? 1_000_000_000 : this.currentEquity,
+            isExpActive ? false : config.killSwitchEngaged,
             hasPending,
             {
               operatingEquity,
@@ -1112,6 +1180,14 @@ export class TradeBot {
     return config.killSwitchEngaged;
   }
 
+  public async setKillSwitch(engaged: boolean): Promise<boolean> {
+    const config = this.configStore.get();
+    if (config.killSwitchEngaged === engaged) {
+      return config.killSwitchEngaged;
+    }
+    return this.toggleKillSwitch();
+  }
+
   /**
    * Update OKX API credentials
    */
@@ -1259,20 +1335,51 @@ export class TradeBot {
     const unrealizedPnL = parseFloat(
       activePositions.reduce((acc, p) => acc + (p.pnl || 0), 0).toFixed(4)
     );
-    const initialEquity = config.paperEquity || 200.0;
-    const totalProfit = parseFloat((this.currentEquity - initialEquity).toFixed(2));
-    const totalProfitPct = initialEquity > 0 ? parseFloat(((totalProfit / initialEquity) * 100).toFixed(2)) : 0;
+    const expState = experimentManager.getState();
+    const isExpActive = expState.isActive;
+
+    let initialEquity = isExpActive ? expState.unlimitedCapital : (config.paperEquity || 200.0);
 
     // TradeBot 4 derivative accounting identity:
-    // Wallet Balance = Total Equity - Unrealized PnL
+    // Wallet Balance = Cash balance (total collateral deposited + realized PnL - trading fees)
     // Free Balance = Wallet Balance - Margin Invested
-    // Total Equity = Free Balance + Margin Invested + Unrealized PnL
-    const walletBalance = parseFloat((this.currentEquity - unrealizedPnL).toFixed(2));
+    // Total Equity = Wallet Balance + Unrealized PnL
+    let walletBalance: number;
+    let effectiveEquity: number;
+
+    if (isExpActive) {
+      initialEquity = expState.unlimitedCapital;
+      walletBalance = expState.unlimitedCapital + (expState.totalPnl || 0);
+      effectiveEquity = parseFloat((walletBalance + unrealizedPnL).toFixed(2));
+      this.currentEquity = effectiveEquity;
+    } else if (config.executionMode === 'PAPER') {
+      const paperRaw = (this.paperAdapter as any)?.paperStore?.get();
+      walletBalance = parseFloat((paperRaw?.balanceUSDT !== undefined ? paperRaw.balanceUSDT : (this.currentEquity - unrealizedPnL)).toFixed(2));
+      effectiveEquity = parseFloat((walletBalance + unrealizedPnL).toFixed(2));
+      this.currentEquity = effectiveEquity;
+    } else {
+      effectiveEquity = this.currentEquity;
+      walletBalance = parseFloat((effectiveEquity - unrealizedPnL).toFixed(2));
+    }
+
     const freeBalance = parseFloat((walletBalance - marginInvested).toFixed(2));
     const profitVault = parseFloat((config.profitVault || 0).toFixed(2));
-    const baseCapital = parseFloat((config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity)).toFixed(2));
-    const operatingEquity = Math.max(10, parseFloat((this.currentEquity - profitVault).toFixed(2)));
-    const usableFreeBalance = Math.max(0, parseFloat((freeBalance - profitVault).toFixed(2)));
+    const baseCapital = isExpActive
+      ? expState.unlimitedCapital
+      : parseFloat((config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity)).toFixed(2));
+    const operatingEquity = isExpActive
+      ? effectiveEquity
+      : Math.max(10, parseFloat((effectiveEquity - profitVault).toFixed(2)));
+    const usableFreeBalance = isExpActive
+      ? freeBalance
+      : Math.max(0, parseFloat((freeBalance - profitVault).toFixed(2)));
+
+    const totalProfit = isExpActive
+      ? parseFloat(((expState.totalPnl || 0) + unrealizedPnL).toFixed(2))
+      : parseFloat((this.currentEquity - initialEquity).toFixed(2));
+    const totalProfitPct = isExpActive
+      ? parseFloat((((expState.totalPnl || 0) + unrealizedPnL)).toFixed(2))
+      : (initialEquity > 0 ? parseFloat(((totalProfit / initialEquity) * 100).toFixed(2)) : 0);
 
     return {
       state: this.state,
@@ -1312,6 +1419,8 @@ export class TradeBot {
       telegramActive: telegramService.isConfigured() && telegramService.isNotificationsEnabled(),
       telegramStatus: telegramService.getCredentialsStatus(),
       equityTrailingState: this.positionManager.getEquityTrailingState(this.getActiveProfileConfig(), this.currentEquity, profitVault),
+      isExperimentActive: isExpActive,
+      experimentState: expState,
     };
   }
 
@@ -1451,6 +1560,47 @@ export class TradeBot {
     return result;
   }
 
+  public async stopExperiment(reason: string = 'MANUAL_STOP'): Promise<ExperimentState> {
+    const expState = experimentManager.getState();
+    const activePositions = [...this.positionManager.getActivePositions()];
+    const exitReasonDetail = reason === 'EXPERIMENT_EXPIRED'
+      ? `Închidere automată la expirarea duratei experimentului (${expState.durationHours}h)`
+      : `Închidere automată la oprirea manuală a experimentului (${expState.durationHours}h)`;
+
+    for (const pos of activePositions) {
+      try {
+        const currentPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
+        const activeCount = this.positionManager.getActivePositions().length;
+        const unrealizedPnlTotal = this.positionManager.getActivePositions().reduce((acc, p) => acc + (p.pnl || 0), 0);
+        const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+
+        await this.orderManager.executeCloseOrder({
+          position: pos,
+          reason: 'EXPERIMENT_END',
+          currentPrice,
+          exitReasonDetail,
+          exitMarketRegime: this.marketRegime,
+          accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+          accountBalance: currentWalletBalance,
+          openPositionsCount: activeCount,
+        });
+      } catch (err: any) {
+        console.error(`[TradeBot] Failed to close position ${pos.symbol} on experiment stop:`, err);
+      }
+    }
+
+    const state = experimentManager.stopExperiment();
+    this.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
+    this.positionStore.save(this.positionManager.getActivePositions());
+    this.orderStore.save(this.orderManager.getOrders());
+    this.logAudit(
+      'EXPERIMENT',
+      `Experimentul de ${state.durationHours}h a fost oprit (${reason}). S-au închis și contabilizat ${activePositions.length} poziții active. PnL Total: $${state.totalPnl.toFixed(4)}`,
+      { totalEntries: state.totalEntries, totalExits: state.totalExits, totalPnl: state.totalPnl }
+    );
+    return state;
+  }
+
   public updateProfileSettings(profileType: ProfileType, settings: Partial<ProfileConfig>) {
     const config = this.configStore.get();
     if (!config.profiles) {
@@ -1460,13 +1610,13 @@ export class TradeBot {
       config.profiles[profileType] = { ...DEFAULT_PROFILES[profileType] };
     }
 
-    // Sanitize minMomentumScore within configured bounds [50, 95]
+    // Sanitize minMomentumScore within configured bounds [50, 100]
     if (settings.minMomentumScore !== undefined) {
-      settings.minMomentumScore = Math.min(95, Math.max(50, settings.minMomentumScore));
+      settings.minMomentumScore = Math.min(100, Math.max(50, Number(settings.minMomentumScore) || 50));
     }
-    // Sanitize maxMomentumScore within bounds [70, 99]
+    // Sanitize maxMomentumScore within bounds [50, 100]
     if (settings.maxMomentumScore !== undefined) {
-      settings.maxMomentumScore = Math.min(99, Math.max(70, settings.maxMomentumScore));
+      settings.maxMomentumScore = Math.min(100, Math.max(50, Number(settings.maxMomentumScore) || 99));
     }
     // Sanitize 24h volume turnover limits
     if (settings.min24hVolumeUSDT !== undefined) {
@@ -1474,6 +1624,10 @@ export class TradeBot {
     }
     if (settings.max24hVolumeUSDT !== undefined) {
       settings.max24hVolumeUSDT = Math.max(0, Number(settings.max24hVolumeUSDT) || 0);
+    }
+    // Sanitize timeframes array if provided
+    if (settings.timeframes !== undefined && Array.isArray(settings.timeframes)) {
+      settings.timeframes = settings.timeframes.map((t) => String(t).trim()).filter(Boolean);
     }
 
     config.profiles[profileType] = {

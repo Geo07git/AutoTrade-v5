@@ -16,11 +16,13 @@ export class OKXAdapter implements IExecutionAdapter {
   private wsPrivate?: WebSocket;
   private pingInterval?: NodeJS.Timeout;
   private instrumentFilters: Map<string, InstrumentLotFilter> = new Map();
+  private unlistedSymbols: Set<string> = new Set();
   private configuredLeverageSymbols: Set<string> = new Set();
   private isWsConnected: boolean = false;
   private subscribedSymbols: Set<string> = new Set();
   private leverage: string = '1';
   private marginMode: 'cross' | 'isolated' = 'cross';
+  private credentialsPermanentlyFailed: boolean = false;
 
   // Callbacks for WebSocket / Live events
   public onTickerUpdate?: (symbol: string, lastPrice: number) => void;
@@ -52,6 +54,8 @@ export class OKXAdapter implements IExecutionAdapter {
     this.secretKey = secretKey.trim();
     this.passphrase = passphrase.trim();
     this.isDemo = isDemo;
+    this.credentialsPermanentlyFailed = false;
+    this.unlistedSymbols.clear();
     this.configuredLeverageSymbols.clear();
 
     if (this.wsPrivate) {
@@ -67,7 +71,12 @@ export class OKXAdapter implements IExecutionAdapter {
   }
 
   public hasCredentials(): boolean {
-    return Boolean(this.apiKey && this.secretKey && this.passphrase);
+    return Boolean(this.apiKey && this.secretKey && this.passphrase && !this.credentialsPermanentlyFailed);
+  }
+
+  public markCredentialsInvalid(): void {
+    this.credentialsPermanentlyFailed = true;
+    console.warn('[OKXAdapter] Marked OKX credentials as invalid due to 401 error. Fallback to Paper mode active.');
   }
 
   public isTestnet(): boolean {
@@ -105,7 +114,7 @@ export class OKXAdapter implements IExecutionAdapter {
   /**
    * Performs an authenticated or public request to OKX EEA REST API
    */
-  private async request(method: string, path: string, body?: any, isAuth: boolean = false): Promise<any> {
+  private async request(method: string, path: string, body?: any, isAuth: boolean = false, signal?: AbortSignal): Promise<any> {
     const timestamp = new Date().toISOString();
     const bodyStr = body ? JSON.stringify(body) : '';
     const url = `${this.restBaseUrl}${path}`;
@@ -134,6 +143,7 @@ export class OKXAdapter implements IExecutionAdapter {
       method,
       headers,
       body: body ? bodyStr : undefined,
+      signal: signal || AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {
@@ -247,7 +257,7 @@ export class OKXAdapter implements IExecutionAdapter {
   /**
    * Fetches klines for a given symbol and interval
    */
-  public async getKlines(symbol: string, interval: string, limit: number = 200): Promise<Kline[]> {
+  public async getKlines(symbol: string, interval: string, limit: number = 200, signal?: AbortSignal): Promise<Kline[]> {
     const instId = this.normalizeSymbol(symbol);
     
     // Map interval formats (e.g. '1', '15', '60', '240') to OKX bar formats ('1m', '15m', '1H', '4H')
@@ -264,7 +274,8 @@ export class OKXAdapter implements IExecutionAdapter {
     else if (norm === 'D' || norm === '1D') bar = '1D';
 
     try {
-      const res = await this.request('GET', `/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`, undefined, false);
+      const fetchSignal = signal || AbortSignal.timeout(8000);
+      const res = await this.request('GET', `/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`, undefined, false, fetchSignal);
       if (res.code === '0' && Array.isArray(res.data)) {
         // OKX returns newest candles first; reverse so oldest is index 0
         return res.data
@@ -280,7 +291,10 @@ export class OKXAdapter implements IExecutionAdapter {
       }
       return [];
     } catch (err: any) {
-      console.error(`[OKXAdapter] Failed to fetch klines for ${instId}:`, err?.message || err);
+      // Quietly return empty on timeout/abort
+      if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+        return [];
+      }
       return [];
     }
   }
@@ -342,6 +356,22 @@ export class OKXAdapter implements IExecutionAdapter {
       return this.instrumentFilters.get(instId)!;
     }
 
+    const fallback: InstrumentLotFilter = {
+      symbol: instId,
+      minOrderQty: 1,
+      maxOrderQty: 100000,
+      qtyStep: 1,
+      minNotionalValue: 5,
+      tickSize: 0.01,
+      ctVal: 1,
+      ctValCcy: 'USDT',
+    };
+
+    if (this.unlistedSymbols.has(instId)) {
+      this.instrumentFilters.set(instId, fallback);
+      return fallback;
+    }
+
     try {
       const res = await this.request('GET', `/api/v5/public/instruments?instType=SWAP&instId=${instId}`, undefined, false);
       if (res.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
@@ -364,22 +394,15 @@ export class OKXAdapter implements IExecutionAdapter {
 
         this.instrumentFilters.set(instId, filter);
         return filter;
+      } else {
+        this.unlistedSymbols.add(instId);
       }
     } catch (err: any) {
-      console.error(`[OKXAdapter] Error fetching instrument info for ${instId}:`, err?.message || err);
+      if (err?.message?.includes('51001') || err?.message?.includes("doesn't exist")) {
+        this.unlistedSymbols.add(instId);
+      }
     }
 
-    // Safe fallback defaults for OKX SWAP contracts
-    const fallback: InstrumentLotFilter = {
-      symbol: instId,
-      minOrderQty: 1,
-      maxOrderQty: 100000,
-      qtyStep: 1,
-      minNotionalValue: 5,
-      tickSize: 0.01,
-      ctVal: 1,
-      ctValCcy: 'USDT',
-    };
     this.instrumentFilters.set(instId, fallback);
     return fallback;
   }
@@ -531,6 +554,10 @@ export class OKXAdapter implements IExecutionAdapter {
 
     const instId = this.normalizeSymbol(params.symbol);
 
+    if (this.unlistedSymbols.has(instId)) {
+      throw new Error(`Symbol ${instId} is not a valid OKX SWAP contract (OKX API Error 51001).`);
+    }
+
     if (!params.reduceOnly) {
       await this.ensureLeverage(instId, this.leverage, this.marginMode);
     }
@@ -573,6 +600,12 @@ export class OKXAdapter implements IExecutionAdapter {
         orderLinkId: orderData.clOrdId || params.orderLinkId,
       };
     } catch (err: any) {
+      if (err?.message?.includes('401') || err?.message?.includes('50119') || err?.message?.includes('API key')) {
+        this.credentialsPermanentlyFailed = true;
+      }
+      if (err?.message?.includes('51001') || err?.message?.includes("doesn't exist")) {
+        this.unlistedSymbols.add(instId);
+      }
       console.error(`[OKXAdapter] Failed submitOrder for ${instId}:`, err?.message || err);
       throw err;
     }

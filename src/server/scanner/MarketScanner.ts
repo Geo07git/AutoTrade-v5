@@ -66,13 +66,13 @@ export class MarketScanner {
   }
 
   /**
-   * Safe fetch for klines with concurrency limit, timeout, and failure isolation.
+   * Safe fetch for klines with concurrency limit, timeout, AbortController, and failure isolation.
    */
   private async fetchKlinesWithTimeout(
     symbol: string,
     interval: string,
     limit: number = 30,
-    timeoutMs: number = 5000
+    timeoutMs: number = 8000
   ): Promise<Kline[]> {
     const cacheKey = `${symbol}_${interval}`;
     const cached = this.klineCache.get(cacheKey);
@@ -82,21 +82,20 @@ export class MarketScanner {
       return cached.klines;
     }
 
-    const fetchPromise = this.adapter.getKlines(symbol, interval, limit);
-    const timeoutPromise = new Promise<Kline[]>((_, reject) =>
-      setTimeout(() => reject(new Error(`Kline fetch timeout (${timeoutMs}ms) for ${symbol}`)), timeoutMs)
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const klines = await Promise.race([fetchPromise, timeoutPromise]);
+      const klines = await this.adapter.getKlines(symbol, interval, limit, controller.signal);
+      clearTimeout(timeoutId);
       if (klines && klines.length > 0) {
         this.klineCache.set(cacheKey, { klines, timestamp: now });
         return klines;
       }
       return [];
-    } catch (err: any) {
-      // Isolate error per symbol: do NOT throw, just log debug and return empty
-      console.warn(`[MarketScanner] Kline fetch failed for ${symbol}:`, err?.message || err);
+    } catch {
+      clearTimeout(timeoutId);
+      // Gracefully isolate error per symbol during rapid market scans
       return [];
     }
   }
@@ -110,7 +109,7 @@ export class MarketScanner {
     tickersMap: Record<string, any>,
     mainTf: string,
     htf: string,
-    concurrency: number = 5,
+    concurrency: number = 3,
     invertSignals: boolean = false
   ): Promise<ScannedOpportunity[]> {
     const results: ScannedOpportunity[] = [];
@@ -123,7 +122,7 @@ export class MarketScanner {
 
         try {
           const ticker = tickersMap[symbol];
-          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 6000);
+          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 8000);
 
           if (klinesLtf && klinesLtf.length >= 22) {
             const klinesMap: Record<string, Kline[]> = { [mainTf]: klinesLtf };
@@ -144,30 +143,29 @@ export class MarketScanner {
               results.push(opportunity);
             }
           }
-        } catch (err: any) {
+        } catch {
           // Failure on single symbol does NOT stop the scan
-          console.warn(`[MarketScanner] Evaluation error on ${symbol}:`, err?.message || err);
         }
 
-        // Small rate limit breather between consecutive queries
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        // Rate limit breather between consecutive queries (80ms per worker keeps total req/s ~8, within OKX 10 req/s limit)
+        await new Promise((resolve) => setTimeout(resolve, 80));
       }
     };
 
-    // Run workers up to concurrency limit
+    // Run workers up to concurrency limit (max 3 concurrent connections)
     const workers = Array.from({ length: Math.min(concurrency, symbols.length) }, () => worker());
     await Promise.all(workers);
 
-    // Multi-Timeframe Confluence (Problem #2):
+    // Multi-Timeframe Confluence:
     // For top 10 ranked candidates, fetch HTF candles to verify macro trend confluence
     results.sort((a, b) => b.score - a.score);
     const topCandidates = results.slice(0, 10);
 
     for (const cand of topCandidates) {
       try {
-        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 30, 4000);
+        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 30, 6000);
         if (htfKlines && htfKlines.length >= 20) {
-          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 35, 4000);
+          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 35, 6000);
           if (ltfKlines) {
             const reevaluated = this.engine.evaluateCandidate(
               cand.symbol,
@@ -192,7 +190,7 @@ export class MarketScanner {
             }
           }
         }
-      } catch (err) {
+      } catch {
         // HTF failure is non-blocking
       }
     }
@@ -250,13 +248,13 @@ export class MarketScanner {
         return [];
       }
 
-      // 2. Scan candidates with concurrency protection (max 5 concurrent requests)
+      // 2. Scan candidates with concurrency protection (max 3 concurrent requests)
       const scannedList = await this.scanBatchWithConcurrency(
         eligibleSymbols,
         tickersMap,
         mainTf,
         htf,
-        5,
+        3,
         invertSignals
       );
 

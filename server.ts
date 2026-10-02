@@ -1,9 +1,11 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
+import { experimentManager } from './src/server/experiment/ExperimentManager';
 
 const CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || 'tradebot5_admin_token';
 
@@ -489,6 +491,69 @@ async function startServer() {
     });
   });
 
+  // 8-Hour Scalp Experiment (Unlimited Capital, Momentum > 50)
+  app.get('/api/bot/experiment/status', (req, res) => {
+    res.json({
+      success: true,
+      state: experimentManager.getState(),
+      logsCount: experimentManager.getLogs().length,
+      logs: experimentManager.getLogs().slice(0, 100),
+    });
+  });
+
+  app.post('/api/bot/experiment/start', requireControlAuth, async (req, res) => {
+    const customConfig = req.body || {};
+    tradeBot.setProfile('SCALP');
+    await tradeBot.setKillSwitch(false);
+    const state = experimentManager.startExperiment(customConfig);
+    tradeBot.updateProfileSettings('SCALP', {
+      minMomentumScore: state.minMomentumScore,
+      maxHoldingTimeMinutes: state.maxHoldingTimeMinutes,
+      stagnationTimeMinutes: 0,
+      hardStopLossPct: state.hardStopLossPct,
+      breakEvenActivationPct: state.breakEvenActivationPct,
+      trailingActivationPct: state.trailingActivationPct,
+      trailingDistancePct: state.trailingDistancePct,
+      takeProfitPct: state.takeProfitPct,
+      maxOpenPositions: 999,
+    });
+    res.json({
+      success: true,
+      state,
+      message: `Experimentul de ${state.durationHours} ore (Scalp, Momentum >= ${state.minMomentumScore}, Fond Nelimitat, Max Hold ${state.maxHoldingTimeMinutes}m) a fost pornit!`,
+    });
+  });
+
+  app.post('/api/bot/experiment/stop', requireControlAuth, async (req, res) => {
+    try {
+      const state = await tradeBot.stopExperiment('MANUAL_STOP');
+      res.json({
+        success: true,
+        state,
+        message: 'Experimentul a fost oprit. Toate pozițiile deschise au fost închise la prețul pieței și contabilizate integral.',
+      });
+    } catch (err: any) {
+      console.error('[Server] Error stopping experiment:', err);
+      const state = experimentManager.stopExperiment();
+      tradeBot.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
+      res.json({ success: true, state, message: 'Experimentul a fost oprit.' });
+    }
+  });
+
+  app.get('/api/bot/experiment/download', (req, res) => {
+    const format = req.query.format === 'csv' ? 'csv' : 'json';
+    const filename = experimentManager.getExportFileName(format);
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(experimentManager.generateCSV());
+    } else {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(experimentManager.generateJSON());
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -498,10 +563,9 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const fs = require('fs');
-    let distPath = __dirname;
-    if (!fs.existsSync(path.join(distPath, 'index.html'))) {
-      distPath = path.join(process.cwd(), 'dist');
+    let distPath = process.cwd();
+    if (fs.existsSync(path.join(distPath, 'dist', 'index.html'))) {
+      distPath = path.join(distPath, 'dist');
     }
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -509,8 +573,23 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[Server] Port ${PORT} already in use. Retrying or waiting...`);
+    } else {
+      console.error('[Server] Fatal server error:', err);
+    }
+  });
+
+  process.on('SIGTERM', () => {
+    server.close(() => process.exit(0));
+  });
+  process.on('SIGINT', () => {
+    server.close(() => process.exit(0));
   });
 }
 

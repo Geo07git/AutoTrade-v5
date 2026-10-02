@@ -27,6 +27,7 @@ export type AuditLogType =
   | 'RISK_APPROVED'
   | 'RISK_REJECTED'
   | 'ORDER_SUBMITTED'
+  | 'ORDER_ROUTED'
   | 'ORDER_ACCEPTED'
   | 'ORDER_REJECTED'
   | 'ORDER_PARTIALLY_FILLED'
@@ -54,6 +55,7 @@ export type AuditLogType =
   | 'RECOVERY'
   | 'PROFIT_VAULT_DEPOSIT'
   | 'PROFIT_VAULT_RESET'
+  | 'EXPERIMENT'
   | 'SYSTEM'
   | 'ERROR';
 
@@ -265,7 +267,7 @@ export interface OrderRecord {
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'BREAK_EVEN' | 'EXPERIMENT_END';
   profile: ProfileType;
   executionMode: ExecutionMode;
   // Detailed exit / profit / log telemetry
@@ -321,6 +323,8 @@ export interface Position {
   isFastRunner?: boolean; // True if MFE >= 1.5% was reached in <= 5 minutes
   stopLossPrice?: number;
   isBreakEvenTriggered?: boolean;
+  breakEvenStopPrice?: number;
+  consecutiveBeHits?: number;
   currentPrice?: number;
   holdingTimeMinutes?: number;
   exitReasonDetail?: string;
@@ -465,6 +469,8 @@ export interface BotStatusResponse {
   telegramActive?: boolean;
   telegramStatus?: TelegramConfigStatus;
   equityTrailingState?: EquityTrailingState;
+  isExperimentActive?: boolean;
+  experimentState?: any;
 }
 
 export interface TelegramConfigStatus {
