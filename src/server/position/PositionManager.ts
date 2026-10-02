@@ -34,6 +34,9 @@ export class PositionManager {
   private mutationSeq: number = 0;
   private recentlyClosedAt: Map<string, number> = new Map();
   private recentlyOpenedAt: Map<string, number> = new Map();
+  // Per-symbol bookkeeping for re-entry control (closedHistory is capped at 200 so it cannot be used for this).
+  private entryTimes: Map<string, number[]> = new Map();
+  private lastLossAt: Map<string, number> = new Map();
   private static readonly RECONCILE_GRACE_MS = 30_000;
   // A 2-tick confirmation filters single-print wicks, but it must not let a real crash run unchecked:
   // when price is already this far beyond the trigger, exit immediately (observed avg SL fill was -3.18% vs -3% set).
@@ -214,6 +217,18 @@ export class PositionManager {
 
   public getActivePositions(): Position[] {
     return this.activePositions;
+  }
+
+  /** Number of entries opened on this symbol within the last `windowMs`. */
+  public getRecentEntryCount(symbol: string, windowMs: number): number {
+    const now = Date.now();
+    return (this.entryTimes.get(symbol) || []).filter((t) => now - t < windowMs).length;
+  }
+
+  /** Minutes since the last losing close (or stop-loss) on this symbol; Infinity if none. */
+  public getMinutesSinceLastLoss(symbol: string): number {
+    const t = this.lastLossAt.get(symbol);
+    return t ? (Date.now() - t) / 60000 : Infinity;
   }
 
   public getMutationSeq(): number {
@@ -429,7 +444,15 @@ export class PositionManager {
       openPositionsAtEntry: newPosition.openPositionsAtEntry,
     });
 
-    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore ?? 0, newPosition.entryPrice, newPosition.sizeUSDT);
+    const times = (this.entryTimes.get(newPosition.symbol) || []).filter((t) => Date.now() - t < 6 * 3600_000);
+    times.push(Date.now());
+    this.entryTimes.set(newPosition.symbol, times);
+
+    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore ?? 0, newPosition.entryPrice, newPosition.sizeUSDT, {
+      entryRegime: newPosition.marketRegime,
+      openPositionsAtEntry: newPosition.openPositionsAtEntry,
+      slippagePct: newPosition.estimatedSlippagePct,
+    });
 
     return newPosition;
   }
@@ -967,6 +990,9 @@ export class PositionManager {
     // Net PnL = grossPnl - (entryFee + exitFee)
     const netPnl = pos.grossPnl - (entryFee + resolvedExitFee);
     pos.pnl = parseFloat((isNaN(netPnl) ? 0 : netPnl).toFixed(4));
+    if (pos.pnl < 0 || reason === 'STOP_LOSS') {
+      this.lastLossAt.set(pos.symbol, Date.now());
+    }
 
     this.activePositions.splice(index, 1);
     this.closedHistory.unshift(pos);

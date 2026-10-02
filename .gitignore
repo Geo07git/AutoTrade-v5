@@ -13,3 +13,6 @@ coverage/
 .data/
 
 
+
+# Never ship build bundles / secrets via public/
+public/*.zip

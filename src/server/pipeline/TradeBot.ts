@@ -120,6 +120,7 @@ export class TradeBot {
   private latestPrices: Record<string, number> = {};
   private isProcessingTick: boolean = false;
   private isMonitoringRisk: boolean = false;
+  private isStoppingExperiment: boolean = false;
   private tickerCache: { at: number; prices: Record<string, number> } = { at: 0, prices: {} };
   private marketRegime: string = 'BTC: --';
   private regimeInterval?: NodeJS.Timeout;
@@ -711,6 +712,7 @@ export class TradeBot {
       });
 
       for (const candidate of eligibleCandidates) {
+        if (this.isStoppingExperiment) break; // never open positions while the experiment is being closed out
         const symbol = candidate.symbol;
 
         // STRICT CHECK 1: Pre-filter symbols that already have an in-flight pending order
@@ -721,6 +723,17 @@ export class TradeBot {
         // STRICT CHECK 2: Pre-filter symbols that already have an open position
         const existingPos = this.positionManager.getPosition(symbol);
         if (existingPos && existingPos.status === 'OPEN') {
+          continue;
+        }
+
+        // STRICT CHECK 2b: Re-entry control. In the 2h experiment the 3rd+ entry on the same symbol averaged -0.3%
+        // (vs +0.19% for the 1st/2nd) and the trade right after a stop-loss averaged -0.53%; SAND/MANA were entered 7x.
+        const maxPerHour = profile.maxEntriesPerSymbolPerHour ?? 3;
+        if (maxPerHour > 0 && this.positionManager.getRecentEntryCount(symbol, 3600_000) >= maxPerHour) {
+          continue;
+        }
+        const lossCooldown = profile.cooldownAfterLossMinutes ?? 30;
+        if (lossCooldown > 0 && this.positionManager.getMinutesSinceLastLoss(symbol) < lossCooldown) {
           continue;
         }
 
@@ -1602,31 +1615,48 @@ export class TradeBot {
 
   public async stopExperiment(reason: string = 'MANUAL_STOP'): Promise<ExperimentState> {
     const expState = experimentManager.getState();
-    const activePositions = [...this.positionManager.getActivePositions()];
     const exitReasonDetail = reason === 'EXPERIMENT_EXPIRED'
       ? `Închidere automată la expirarea duratei experimentului (${expState.durationHours}h)`
       : `Închidere automată la oprirea manuală a experimentului (${expState.durationHours}h)`;
 
-    for (const pos of activePositions) {
-      try {
-        const currentPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
-        const activeCount = this.positionManager.getActivePositions().length;
-        const unrealizedPnlTotal = this.positionManager.getActivePositions().reduce((acc, p) => acc + (p.pnl || 0), 0);
-        const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+    const openAtStop = this.positionManager.getActivePositions().length;
 
-        await this.orderManager.executeCloseOrder({
-          position: pos,
-          reason: 'EXPERIMENT_END',
-          currentPrice,
-          exitReasonDetail,
-          exitMarketRegime: this.marketRegime,
-          accountEquity: parseFloat(this.currentEquity.toFixed(2)),
-          accountBalance: currentWalletBalance,
-          openPositionsCount: activeCount,
-        });
-      } catch (err: any) {
-        console.error(`[TradeBot] Failed to close position ${pos.symbol} on experiment stop:`, err);
+    // Block new entries first: positions opened while this loop ran were never closed or booked
+    // (the experiment ledger showed 253 entries vs 249 exits).
+    this.isStoppingExperiment = true;
+    try {
+      // Close in parallel batches (each close is an independent reduce-only order), then sweep for stragglers.
+      const BATCH = 8;
+      for (let pass = 0; pass < 3; pass++) {
+        const open = this.positionManager.getActivePositions().filter((p) => p.status === 'OPEN');
+        if (open.length === 0) break;
+        for (let i = 0; i < open.length; i += BATCH) {
+          const slice = open.slice(i, i + BATCH);
+          await Promise.all(slice.map(async (pos) => {
+            try {
+              const currentPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
+              const activeCount = this.positionManager.getActivePositions().length;
+              const unrealizedPnlTotal = this.positionManager.getActivePositions().reduce((acc, p) => acc + (p.pnl || 0), 0);
+              const currentWalletBalance = parseFloat((this.currentEquity - unrealizedPnlTotal).toFixed(2));
+
+              await this.orderManager.executeCloseOrder({
+                position: pos,
+                reason: 'EXPERIMENT_END',
+                currentPrice,
+                exitReasonDetail,
+                exitMarketRegime: this.marketRegime,
+                accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+                accountBalance: currentWalletBalance,
+                openPositionsCount: activeCount,
+              });
+            } catch (err: any) {
+              console.error(`[TradeBot] Failed to close position ${pos.symbol} on experiment stop:`, err);
+            }
+          }));
+        }
       }
+    } finally {
+      this.isStoppingExperiment = false;
     }
 
     const state = experimentManager.stopExperiment();
@@ -1649,7 +1679,7 @@ export class TradeBot {
     this.orderStore.save(this.orderManager.getOrders());
     this.logAudit(
       'EXPERIMENT',
-      `Experimentul de ${state.durationHours}h a fost oprit (${reason}). S-au închis și contabilizat ${activePositions.length} poziții active. PnL Total: $${state.totalPnl.toFixed(4)}`,
+      `Experimentul de ${state.durationHours}h a fost oprit (${reason}). S-au închis și contabilizat ${openAtStop - this.positionManager.getActivePositions().length}/${openAtStop} poziții active. PnL Total: $${state.totalPnl.toFixed(4)}`,
       { totalEntries: state.totalEntries, totalExits: state.totalExits, totalPnl: state.totalPnl }
     );
     return state;

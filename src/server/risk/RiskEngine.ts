@@ -59,6 +59,19 @@ export class RiskEngine {
       }
     }
 
+    // 3b. Short regime guard (mirror of the BEAR guard above). In the 2h experiment (249 trades) SELL entries lost in
+    // BOTH halves of the run (-$14.6 then -$5.3, ~23% win rate) while BUY entries won in both, with the same exits and
+    // scores. Shorts are therefore only taken with the market (BTC 24h <= -2%). Set shortRegimeGuard: 'OFF' on the
+    // profile to collect unfiltered short data again (e.g. to re-test this on a bearish day).
+    const shortGuardMode = config.shortRegimeGuard ?? 'BEAR_ONLY';
+    if (shortGuardMode === 'BEAR_ONLY' && signal.side === 'SELL' && !isBtcBear) {
+      return {
+        approved: false,
+        sizeUSDT: 0,
+        reason: `[SHORT_REGIME_GUARD] Pozițiile SHORT sunt permise doar în regim BTC BEAR (regim curent: ${marketRegime || 'necunoscut'}).`,
+      };
+    }
+
     const expState = experimentManager.getState();
     const isExpActive = expState.isActive;
 

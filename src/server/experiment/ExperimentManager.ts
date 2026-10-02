@@ -130,7 +130,7 @@ class ExperimentManager {
     }
   }
 
-  private saveState() {
+  private writeStateNow() {
     try {
       const dir = path.dirname(EXPERIMENT_STATE_FILE);
       if (!fs.existsSync(dir)) {
@@ -144,6 +144,40 @@ class ExperimentManager {
     } catch (e) {
       console.error('[ExperimentManager] Failed to save experiment state:', e);
     }
+  }
+
+
+  // ---- Debounced persistence -------------------------------------------------------------------------------
+  // Every trade event used to rewrite ~6 files synchronously (state x2, log x2, named JSON, named CSV), each
+  // containing the whole history: O(n^2) blocking I/O on the hot path. At experiment end ~100 closes ran back to
+  // back, freezing the event loop that also runs the stop-loss monitor. Writes are now coalesced.
+  private stateTimer?: NodeJS.Timeout;
+  private logsTimer?: NodeJS.Timeout;
+
+  private saveState() {
+    if (this.stateTimer) return;
+    this.stateTimer = setTimeout(() => {
+      this.stateTimer = undefined;
+      this.writeStateNow();
+    }, 500);
+    this.stateTimer.unref?.();
+  }
+
+  private saveLogs() {
+    if (this.logsTimer) return;
+    this.logsTimer = setTimeout(() => {
+      this.logsTimer = undefined;
+      this.writeLogsNow();
+    }, 2000);
+    this.logsTimer.unref?.();
+  }
+
+  /** Write everything to disk immediately (experiment stop, shutdown, explicit export). */
+  public flush() {
+    if (this.stateTimer) { clearTimeout(this.stateTimer); this.stateTimer = undefined; }
+    if (this.logsTimer) { clearTimeout(this.logsTimer); this.logsTimer = undefined; }
+    this.writeStateNow();
+    this.writeLogsNow();
   }
 
   private loadLogs() {
@@ -166,7 +200,7 @@ class ExperimentManager {
     }
   }
 
-  private saveLogs() {
+  private writeLogsNow() {
     try {
       const dir = path.dirname(EXPERIMENT_FILE);
       if (!fs.existsSync(dir)) {
@@ -274,6 +308,7 @@ class ExperimentManager {
         unlimitedCapital: true,
       },
     });
+    this.flush();
 
     return this.getState();
   }
@@ -294,11 +329,19 @@ class ExperimentManager {
           totalPnl: parseFloat(this.state.totalPnl.toFixed(4)),
         },
       });
+      this.flush();
     }
     return this.getState();
   }
 
-  public logTradeEntry(symbol: string, side: string, score: number, entryPrice: number, sizeUSDT: number) {
+  public logTradeEntry(
+    symbol: string,
+    side: string,
+    score: number,
+    entryPrice: number,
+    sizeUSDT: number,
+    extra?: Record<string, any>
+  ) {
     if (!this.state.isActive) return;
     this.state.totalEntries++;
     this.saveState();
@@ -314,6 +357,7 @@ class ExperimentManager {
         profile: 'SCALP',
         entryTimestamp: Date.now(),
         configuredMaxHoldMin: this.state.maxHoldingTimeMinutes,
+        ...(extra || {}),
       },
     });
   }
@@ -328,7 +372,8 @@ class ExperimentManager {
     pnl: number,
     pnlPct: number,
     holdingTimeMinutes: number,
-    exitReason: string
+    exitReason: string,
+    extra?: Record<string, any>
   ) {
     if (!this.state.isActive) return;
     this.state.totalExits++;
@@ -347,7 +392,7 @@ class ExperimentManager {
       holdingTimeMinutes: parseFloat(holdingTimeMinutes.toFixed(1)),
       exitReason,
       capital: parseFloat((this.state.unlimitedCapital + this.state.totalPnl).toFixed(2)),
-      details: { totalPnl: parseFloat(this.state.totalPnl.toFixed(4)) },
+      details: { totalPnl: parseFloat(this.state.totalPnl.toFixed(4)), ...(extra || {}) },
     });
   }
 

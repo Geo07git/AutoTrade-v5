@@ -141,6 +141,12 @@ export interface ProfileConfig {
   maxHoldingTimeMinutes?: number;
   /** Positions with an active trailing stop may exceed maxHoldingTimeMinutes up to this multiple (default 2). */
   trailingMaxHoldMultiplier?: number;
+  /** 'BEAR_ONLY' (default): SELL entries only when BTC regime is BEAR (mirror of the long-side BEAR guard). 'OFF' disables. */
+  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF';
+  /** Max entries per symbol within a rolling hour (default 3). 0 = unlimited. */
+  maxEntriesPerSymbolPerHour?: number;
+  /** Minutes to wait before re-entering a symbol after a losing close / stop-loss (default 30). 0 = off. */
+  cooldownAfterLossMinutes?: number;
   stagnationTimeMinutes?: number; // Time-stop eșalonat la stagnare (ex: 30 min)
   stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;

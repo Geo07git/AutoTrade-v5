@@ -688,7 +688,17 @@ export class OrderManager {
           pnl,
           pnlPct,
           closeOrder.holdingTimeMinutes || 0,
-          reason
+          reason,
+          {
+            // Needed to tune SL / trailing / time-stop offline: how far each trade went for/against us.
+            mfePct: position.mfePct,
+            maePct: position.maePct,
+            timeToMfe15Min: position.timeToMfe15Minutes,
+            entryRegime: position.marketRegime,
+            exitRegime: exitMarketRegime,
+            slippagePct: closeOrder.estimatedSlippagePct,
+            openPositionsAtEntry: position.openPositionsAtEntry,
+          }
         );
 
         return { success: true, order: closeOrder };

@@ -7,6 +7,7 @@ import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
 import { experimentManager } from './src/server/experiment/ExperimentManager';
+import { flushAllStores } from './src/server/store';
 
 // Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
 // unconditionally by every control route (kill switch, mode switch, credential update).
@@ -571,17 +572,6 @@ async function startServer() {
     }
   });
 
-  app.get('/api/bot/download-zip', (req, res) => {
-    const zipPath = path.join(process.cwd(), 'public', 'AutoTrade-v5_latest.zip');
-    if (fs.existsSync(zipPath)) {
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename="AutoTrade-v5_latest.zip"');
-      res.sendFile(zipPath);
-    } else {
-      res.status(404).json({ error: 'Zip file not found' });
-    }
-  });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -613,12 +603,12 @@ async function startServer() {
     }
   });
 
-  process.on('SIGTERM', () => {
+  const shutdown = () => {
+    try { experimentManager.flush(); flushAllStores(); } catch { /* best effort */ }
     server.close(() => process.exit(0));
-  });
-  process.on('SIGINT', () => {
-    server.close(() => process.exit(0));
-  });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer().catch(console.error);
