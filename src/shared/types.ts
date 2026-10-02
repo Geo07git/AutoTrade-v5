@@ -139,6 +139,8 @@ export interface ProfileConfig {
   min24hVolumeUSDT?: number; // Prag inferior volum/turnover 24h în USDT (ex: 1_000_000 = 1.0M)
   max24hVolumeUSDT?: number; // Prag superior volum/turnover 24h în USDT (ex: 1_500_000 = 1.5M, 0 = nelimitat)
   maxHoldingTimeMinutes?: number;
+  /** Positions with an active trailing stop may exceed maxHoldingTimeMinutes up to this multiple (default 2). */
+  trailingMaxHoldMultiplier?: number;
   stagnationTimeMinutes?: number; // Time-stop eșalonat la stagnare (ex: 30 min)
   stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;

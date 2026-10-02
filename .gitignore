@@ -9,8 +9,7 @@ coverage/
 !.env.example
 .telegram*.json
 
-# Allow tracking runtime state data
-!.data/
-!.data/*.json
+# Runtime state (config with API keys, orders, positions, audit, experiment logs) must NEVER be committed
+.data/
 
 

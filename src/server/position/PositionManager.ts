@@ -28,6 +28,17 @@ export class PositionManager {
   );
   private equityProtEvents: EquityProtectionEvent[] = [];
   private isTriggeringEquityProtection: boolean = false;
+  // Non-reentrancy guard: updatePrices is invoked by 3 independent timers (WS ticker, 2.5s monitor, 15s tick).
+  private isUpdatingPrices: boolean = false;
+  // Monotonic counter bumped on every position mutation; lets reconcile detect that its exchange snapshot is stale.
+  private mutationSeq: number = 0;
+  private recentlyClosedAt: Map<string, number> = new Map();
+  private recentlyOpenedAt: Map<string, number> = new Map();
+  private static readonly RECONCILE_GRACE_MS = 30_000;
+  // A 2-tick confirmation filters single-print wicks, but it must not let a real crash run unchecked:
+  // when price is already this far beyond the trigger, exit immediately (observed avg SL fill was -3.18% vs -3% set).
+  private static readonly SL_IMMEDIATE_BUFFER_PCT = 0.25;
+  private static readonly BE_IMMEDIATE_BUFFER_PCT = 0.25;
 
   constructor(auditLogger: (type: AuditLogType, message: string, details?: any) => void) {
     this.auditLogger = auditLogger;
@@ -122,40 +133,10 @@ export class PositionManager {
 
       const generatedEvents: EquityProtectionEvent[] = [];
 
-      // Pre-seed Trigger 1 (first trigger that deposited the initial $3.73 vault profit)
-      const baseTime = groups.length > 0 ? groups[0][0].createdTime - 3600000 * 6 : Date.now() - 3600000 * 12;
-      generatedEvents.push({
-        id: 'ep_hist_1',
-        triggerIndex: 1,
-        timestamp: baseTime,
-        dateStr: new Date(baseTime).toLocaleString('ro-RO'),
-        profile: 'SCALP',
-        executionMode: 'PAPER',
-        peakEquity: 203.80,
-        effectiveEquity: 203.20,
-        totalEquity: 203.20,
-        drawdownFromPeakPct: 0.30,
-        configuredDrawdownLimitPct: 0.30,
-        activationPrice: 203.80,
-        activationPct: 1.90,
-        vaultBefore: 0.00,
-        profitLockedToVault: 3.73,
-        vaultAfter: 3.73,
-        baseCapital: 200.00,
-        closedPositionsCount: 1,
-        closedPositions: [{
-          symbol: 'SOL-USDT-SWAP',
-          side: 'BUY',
-          sizeUSDT: 85.00,
-          entryPrice: 194.20,
-          closePrice: 198.50,
-          pnl: 3.73,
-          holdingTimeMinutes: 45.2,
-          exitReasonDetail: 'Equity Protection declanșat: Profit transferat în Seif (+$3.73 USDT)',
-        }],
-      });
-
-      let currentVault = 3.73;
+      // NOTE: previous versions pre-seeded a fabricated "Trigger 1" (SOL, $3.73 vault, fixed 203.80 peak) and
+      // hard-coded vault amounts. Only real, order-derived events are reconstructed now; amounts that cannot be
+      // recovered from the order history are left at 0 rather than invented.
+      let currentVault = 0;
 
       groups.forEach((g) => {
         const first = g[0];
@@ -178,7 +159,7 @@ export class PositionManager {
         }));
 
         const trigIdx = generatedEvents.length + 1;
-        const profitLocked = trigIdx === 2 ? 0.90 : 3.73;
+        const profitLocked = 0;
         const vaultBefore = currentVault;
         currentVault = parseFloat((currentVault + profitLocked).toFixed(2));
 
@@ -194,12 +175,12 @@ export class PositionManager {
           totalEquity: parseFloat(((peak * (1 - dd / 100)) + vaultBefore).toFixed(2)),
           drawdownFromPeakPct: dd,
           configuredDrawdownLimitPct: limit,
-          activationPrice: 203.80,
-          activationPct: 1.90,
+          activationPrice: 0,
+          activationPct: 0,
           vaultBefore,
           profitLockedToVault: profitLocked,
           vaultAfter: currentVault,
-          baseCapital: 200.00,
+          baseCapital: this.initialEquity,
           closedPositionsCount: g.length,
           closedPositions: closedSummary,
         });
@@ -233,6 +214,15 @@ export class PositionManager {
 
   public getActivePositions(): Position[] {
     return this.activePositions;
+  }
+
+  public getMutationSeq(): number {
+    return this.mutationSeq;
+  }
+
+  /** True while any position is mid-close (CLOSING) or a price/risk pass is running. */
+  public hasInFlightOperations(): boolean {
+    return this.isUpdatingPrices || this.isTriggeringEquityProtection || this.activePositions.some((p) => p.status === 'CLOSING');
   }
 
   public getHighestEquity(): number {
@@ -309,6 +299,7 @@ export class PositionManager {
   }
 
   public setActivePositions(positions: Position[]) {
+    this.mutationSeq++;
     this.activePositions = positions
       .filter((p) => p.status === 'OPEN')
       .map((p) => {
@@ -351,6 +342,9 @@ export class PositionManager {
     if (filledQty <= 0) {
       return null;
     }
+
+    this.mutationSeq++;
+    this.recentlyOpenedAt.set(order.symbol, Date.now());
 
     const ctVal = order.ctVal || 1;
     const realSizeUSDT = filledQty * entryPrice * ctVal;
@@ -435,7 +429,7 @@ export class PositionManager {
       openPositionsAtEntry: newPosition.openPositionsAtEntry,
     });
 
-    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore || 50, newPosition.entryPrice, newPosition.sizeUSDT);
+    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore ?? 0, newPosition.entryPrice, newPosition.sizeUSDT);
 
     return newPosition;
   }
@@ -459,6 +453,33 @@ export class PositionManager {
       onVaultProfitLocked?: (lockedAmount: number, totalVault: number) => void;
     }
   ) {
+    // Single-flight: the WS ticker, the 2.5s risk monitor and the 15s tick all call this. Overlapping passes
+    // used stale price snapshots, raced reconcileWithExchange and produced duplicate close attempts.
+    // A skipped pass is harmless: the next 2.5s monitor cycle re-evaluates every position.
+    if (this.isUpdatingPrices) return;
+    this.isUpdatingPrices = true;
+    try {
+      await this.updatePricesInternal(currentPrices, config, orderManager, currentEquity, options);
+    } finally {
+      this.isUpdatingPrices = false;
+    }
+  }
+
+  private async updatePricesInternal(
+    currentPrices: Record<string, number>,
+    config: ProfileConfig,
+    orderManager: OrderManager,
+    currentEquity: number,
+    options?: {
+      profitVault?: number;
+      baseCapital?: number;
+      lockProfitVault?: boolean;
+      marketRegime?: string;
+      accountEquity?: number;
+      accountBalance?: number;
+      onVaultProfitLocked?: (lockedAmount: number, totalVault: number) => void;
+    }
+  ) {
     const profitVault = Math.max(0, options?.profitVault || 0);
     const effectiveEquity = Math.max(1, currentEquity - profitVault);
 
@@ -468,10 +489,15 @@ export class PositionManager {
     }
 
     // Equity Protection Check (Disabled if either activationPct or trailingDrawdownPct is <= 0)
-    this.updateHighestEquity(effectiveEquity);
+    if (!experimentManager.getState().isActive) {
+      this.updateHighestEquity(effectiveEquity);
+    }
     
-    const isEquityProtectionEnabled = 
-      (config.equityProtectionActivationPct ?? 0) > 0 && 
+    // Equity Protection is meaningless during an experiment (synthetic $1B fund vs. a ~$200 baseline) and
+    // would fire a 100% "drawdown" the moment the experiment ends and equity falls back to the real balance.
+    const isEquityProtectionEnabled =
+      !experimentManager.getState().isActive &&
+      (config.equityProtectionActivationPct ?? 0) > 0 &&
       (config.equityTrailingDrawdownPct ?? 0) > 0;
 
     if (isEquityProtectionEnabled) {
@@ -481,15 +507,15 @@ export class PositionManager {
       // If we ever hit activationEquity, the peakEquity will naturally be >= activationEquity
       if (peakEquity >= activationEquity) {
         const drawdownFromPeak = (peakEquity - effectiveEquity) / peakEquity * 100;
-        if (drawdownFromPeak >= config.equityTrailingDrawdownPct && this.activePositions.length > 0 && !this.isTriggeringEquityProtection) {
+        if (drawdownFromPeak >= config.equityTrailingDrawdownPct && this.activePositions.some((p) => p.status === 'OPEN') && !this.isTriggeringEquityProtection) {
           this.isTriggeringEquityProtection = true;
 
           try {
-            const positionsToClose = [...this.activePositions];
-            // Immediately lock all active positions so concurrent ticks or orders do not process them
-            for (const pos of positionsToClose) {
-              pos.status = 'CLOSING';
-            }
+            // Only OPEN positions are closable. NOTE: do NOT pre-set status='CLOSING' here:
+            // OrderManager.executeCloseOrder rejects any position whose status !== 'OPEN' and locks it itself,
+            // so the previous pre-lock made every Equity Protection close a silent no-op (positions stuck in CLOSING).
+            // Re-entrancy is already prevented by isTriggeringEquityProtection / isUpdatingPrices.
+            const positionsToClose = this.activePositions.filter((p) => p.status === 'OPEN');
 
             const closedSummary: EquityProtectionClosedPositionSummary[] = positionsToClose.map((p) => {
               const exitPrice = currentPrices[p.symbol] || p.entryPrice;
@@ -689,7 +715,7 @@ export class PositionManager {
           pos.consecutiveBeHits = 0;
         }
 
-        const isBeHit = rawBeHit && (pos.consecutiveBeHits >= 2);
+        const isBeHit = rawBeHit && (pos.consecutiveBeHits >= 2 || pnlPct <= -PositionManager.BE_IMMEDIATE_BUFFER_PCT);
 
         if (isBeHit) {
           this.auditLogger('POSITION_UPDATED', `Break-Even Stop atins pentru ${pos.symbol} la prețul $${formatPrice(currentPrice)} (SL mutat la intrare atins, PnL înregistrat: ${pnlPct.toFixed(2)}%)`, {
@@ -732,7 +758,7 @@ export class PositionManager {
         }
 
         // Require at least 2 consecutive checks to confirm hard SL hit and eliminate false wicks / noise
-        const isHardSlHit = rawSlHit && (pos.consecutiveSlHits >= 2);
+        const isHardSlHit = rawSlHit && (pos.consecutiveSlHits >= 2 || pnlPct <= -(config.hardStopLossPct + PositionManager.SL_IMMEDIATE_BUFFER_PCT));
 
         if (isHardSlHit) {
           this.auditLogger('RISK_REJECTED', `Stop-Loss triggered for ${pos.symbol} at $${formatPrice(currentPrice)} (PnL: ${pnlPct.toFixed(2)}%, Limit: -${config.hardStopLossPct}%)`, {
@@ -853,9 +879,14 @@ export class PositionManager {
         continue;
       }
 
-      // Stage 2: Hard Max Holding Time Check (Unified 45 minutes limit)
-      if (!isTrailingActive && maxHoldingLimit > 0 && heldMinutes >= maxHoldingLimit) {
-        this.auditLogger('RISK_REJECTED', `Max holding time of ${maxHoldingLimit}m exceeded for ${pos.symbol}. Closing position.`, {
+      // Stage 2: Hard Max Holding Time Check.
+      // Positions with an active trailing stop are allowed to run past maxHoldingTimeMinutes (trailing exits are the
+      // profit engine), but no longer indefinitely: they are capped at maxHoldingTimeMinutes * trailingMaxHoldMultiplier
+      // (default 2). Previously `!isTrailingActive` removed the limit entirely (observed: 86.7 min with MaxHold=60).
+      const trailingHoldMultiplier = config.trailingMaxHoldMultiplier && config.trailingMaxHoldMultiplier >= 1 ? config.trailingMaxHoldMultiplier : 2;
+      const effectiveHoldLimit = isTrailingActive ? maxHoldingLimit * trailingHoldMultiplier : maxHoldingLimit;
+      if (maxHoldingLimit > 0 && heldMinutes >= effectiveHoldLimit) {
+        this.auditLogger('RISK_REJECTED', `Max holding time of ${effectiveHoldLimit}m exceeded for ${pos.symbol}${isTrailingActive ? ' (trailing-extended cap)' : ''}. Closing position.`, {
           symbol: pos.symbol,
           heldMinutes: parseFloat(heldMinutes.toFixed(2)),
           currentPrice,
@@ -864,7 +895,7 @@ export class PositionManager {
           position: pos,
           reason: 'TIME_STOP',
           currentPrice,
-          exitReasonDetail: `Time Stop Hard expirat: poziția a atins ${heldMinutes.toFixed(1)} minute (limită maximă: ${maxHoldingLimit} min, PnL: ${pnlPct.toFixed(2)}%)`,
+          exitReasonDetail: `Time Stop Hard expirat: poziția a atins ${heldMinutes.toFixed(1)} minute (limită maximă: ${effectiveHoldLimit} min, PnL: ${pnlPct.toFixed(2)}%)`,
           exitMarketRegime: options?.marketRegime,
           accountEquity: currentEquity,
           accountBalance: options?.accountBalance,
@@ -892,9 +923,16 @@ export class PositionManager {
     }
   ): Promise<Position | null> {
     const index = this.activePositions.findIndex((p) => p.id === posId);
-    if (index === -1) return null;
+    if (index === -1) {
+      // Idempotent: if the position was already finalised (e.g. by reconciliation) return the recorded result
+      // instead of null, so the caller never books a phantom 0.00 PnL for a trade that really closed.
+      const already = this.closedHistory.find((p) => p.id === posId);
+      return already && already.pnl !== undefined ? already : null;
+    }
 
+    this.mutationSeq++;
     const pos = this.activePositions[index];
+    this.recentlyClosedAt.set(pos.symbol, Date.now());
     pos.status = 'CLOSED';
     pos.exitPrice = exitPrice;
     pos.exitTime = exitTime;
@@ -953,6 +991,7 @@ export class PositionManager {
     const pos = this.activePositions.find((p) => p.id === posId);
     if (!pos) return null;
 
+    this.mutationSeq++;
     const remainingQty = Math.max(0, parseFloat((pos.qty - filledQty).toFixed(6)));
     if (remainingQty <= 1e-6) {
       return this.markPositionClosed(posId, exitPrice, Date.now(), 'PARTIAL_CLOSE_COMPLETED');
@@ -983,35 +1022,81 @@ export class PositionManager {
    */
   public reconcileWithExchange(
     exchangePositions: OKXRawPosition[],
-    currentProfile: ProfileType
+    currentProfile: ProfileType,
+    options?: {
+      /** Return true when an order is in flight for the symbol; such symbols are never touched. */
+      isSymbolBusy?: (symbol: string) => boolean;
+    }
   ): {
     discrepanciesFound: number;
     syncedPositions: Position[];
   } {
     let discrepancies = 0;
+    const now = Date.now();
+    const grace = PositionManager.RECONCILE_GRACE_MS;
+    const isBusy = (symbol: string) => Boolean(options?.isSymbolBusy?.(symbol));
     const exchangeMap = new Map<string, OKXRawPosition>();
 
     for (const ep of exchangePositions) {
       exchangeMap.set(ep.symbol, ep);
     }
 
-    // 1. Check existing local positions against OKX
+    // 1. Check existing local positions against the exchange snapshot
     for (const localPos of [...this.activePositions]) {
       const okxPos = exchangeMap.get(localPos.symbol);
 
+      // Never touch a position that is mid-close or has an order in flight: the exchange snapshot and local
+      // state are legitimately out of sync for the duration of the order lifecycle.
+      if (localPos.status !== 'OPEN' || isBusy(localPos.symbol)) {
+        exchangeMap.delete(localPos.symbol);
+        continue;
+      }
+
       if (!okxPos || okxPos.size <= 0) {
-        // Discrepancy: Local position was closed on OKX (liquidation, manual close, or TP/SL hit)
+        // A freshly opened position may not be visible in a snapshot taken moments earlier.
+        if (now - (localPos.entryTime || 0) < 15_000) {
+          continue;
+        }
+
+        // Discrepancy: local position no longer exists on the exchange (liquidation, manual close, exchange-side TP/SL).
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Local position ${localPos.symbol} does not exist on OKX. Marking as CLOSED locally.`,
-          { symbol: localPos.symbol, localPos }
+          `Local position ${localPos.symbol} does not exist on exchange. Marking as CLOSED locally.`,
+          { symbol: localPos.symbol, positionId: localPos.id }
         );
 
+        // Book the close properly (PnL + experiment ledger) instead of silently dropping it.
+        const exitPrice = localPos.currentPrice && localPos.currentPrice > 0 ? localPos.currentPrice : localPos.entryPrice;
+        const ctValLocal = localPos.ctVal || 1;
+        const isBuyLocal = localPos.side.toUpperCase() === 'BUY';
+        const gross = isBuyLocal
+          ? (exitPrice - localPos.entryPrice) * localPos.qty * ctValLocal
+          : (localPos.entryPrice - exitPrice) * localPos.qty * ctValLocal;
+        const exitFee = parseFloat((localPos.qty * exitPrice * ctValLocal * 0.0005).toFixed(4));
         localPos.status = 'CLOSED';
-        localPos.exitTime = Date.now();
+        localPos.exitPrice = exitPrice;
+        localPos.exitTime = now;
+        localPos.grossPnl = parseFloat(gross.toFixed(4));
+        localPos.exitFee = exitFee;
+        localPos.pnl = parseFloat((gross - (localPos.entryFee || 0) - exitFee).toFixed(4));
+        localPos.pnlPct = parseFloat(((isBuyLocal ? exitPrice - localPos.entryPrice : localPos.entryPrice - exitPrice) / localPos.entryPrice * 100).toFixed(2));
+        this.mutationSeq++;
+        this.recentlyClosedAt.set(localPos.symbol, now);
         this.activePositions = this.activePositions.filter((p) => p.id !== localPos.id);
         this.closedHistory.unshift(localPos);
+        experimentManager.logTradeExit(
+          localPos.symbol,
+          localPos.side,
+          localPos.signalScore ?? 0,
+          localPos.entryPrice,
+          exitPrice,
+          localPos.sizeUSDT,
+          localPos.pnl,
+          localPos.pnlPct,
+          localPos.entryTime ? (now - localPos.entryTime) / 60000 : 0,
+          'RECONCILE_CLOSED'
+        );
         continue;
       }
 
@@ -1023,7 +1108,7 @@ export class PositionManager {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Quantity mismatch for ${localPos.symbol}: local=${localPos.qty}, OKX=${okxPos.size}. Updating to OKX size.`,
+          `Quantity mismatch for ${localPos.symbol}: local=${localPos.qty}, exchange=${okxPos.size}. Updating to exchange size.`,
           { symbol: localPos.symbol, oldQty: localPos.qty, newQty: okxPos.size }
         );
         localPos.qty = okxPos.size;
@@ -1036,32 +1121,41 @@ export class PositionManager {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Side mismatch for ${localPos.symbol}: local=${localPos.side}, OKX=${okxSide}. Updating to OKX side.`,
+          `Side mismatch for ${localPos.symbol}: local=${localPos.side}, exchange=${okxSide}. Updating to exchange side.`,
           { symbol: localPos.symbol, oldSide: localPos.side, newSide: okxSide }
         );
         localPos.side = okxSide;
       }
 
-      // Check entry price mismatch (relative check > 0.05% or absolute difference for tiny tokens)
+      // Check entry price mismatch (relative check > 0.05%)
       const relPriceDiff = okxPos.avgPrice > 0 ? Math.abs(localPos.entryPrice - okxPos.avgPrice) / okxPos.avgPrice : 0;
       if (okxPos.avgPrice > 0 && relPriceDiff > 0.0005) {
         discrepancies++;
         this.auditLogger(
           'RECONCILIATION_DISCREPANCY',
-          `Entry price mismatch for ${localPos.symbol}: local=$${formatPrice(localPos.entryPrice)}, OKX=$${formatPrice(okxPos.avgPrice)}. Updating to OKX price.`,
+          `Entry price mismatch for ${localPos.symbol}: local=$${formatPrice(localPos.entryPrice)}, exchange=$${formatPrice(okxPos.avgPrice)}. Updating to exchange price.`,
           { symbol: localPos.symbol, oldPrice: localPos.entryPrice, newPrice: okxPos.avgPrice }
         );
         localPos.entryPrice = okxPos.avgPrice;
         localPos.sizeUSDT = parseFloat((localPos.qty * okxPos.avgPrice * ctVal).toFixed(2));
       }
 
-      // Remove from map so we know it's matched
+      // Matched
       exchangeMap.delete(localPos.symbol);
     }
 
-    // 2. Any remaining positions on OKX exist on exchange but were missing locally
+    // 2. Positions that exist on the exchange but are missing locally.
     for (const [symbol, unmappedOkxPos] of exchangeMap.entries()) {
       if (unmappedOkxPos.size <= 0) continue;
+
+      // Do not "discover" a position we closed (or just opened) within the grace window, or one with an order in
+      // flight: the snapshot was taken before our own state change landed. This was the source of phantom
+      // positions re-imported ~2-3s after a close (score 50 / second EXPERIMENT_END exit on the same entry price).
+      const closedAgo = now - (this.recentlyClosedAt.get(symbol) || 0);
+      const openedAgo = now - (this.recentlyOpenedAt.get(symbol) || 0);
+      if (closedAgo < grace || openedAgo < grace || isBusy(symbol)) {
+        continue;
+      }
 
       discrepancies++;
       const side = unmappedOkxPos.side.toUpperCase() as 'BUY' | 'SELL';
@@ -1086,11 +1180,12 @@ export class PositionManager {
         executionMode: 'TESTNET',
       };
 
+      this.mutationSeq++;
       this.activePositions.push(importedPos);
 
       this.auditLogger(
         'RECONCILIATION_DISCREPANCY',
-        `Discovered unmapped position on OKX: ${symbol} (${side} ${unmappedOkxPos.size} @ $${entryPrice}). Imported into TradeBot state.`,
+        `Discovered unmapped position on exchange: ${symbol} (${side} ${unmappedOkxPos.size} @ $${entryPrice}). Imported into TradeBot state.`,
         { symbol, importedPos }
       );
     }

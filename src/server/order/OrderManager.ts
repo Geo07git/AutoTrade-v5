@@ -257,6 +257,7 @@ export class OrderManager {
         });
       } catch (submitErr: any) {
         if (
+          this.executionMode !== 'LIVE' &&
           this.paperAdapter &&
           activeAdapter !== this.paperAdapter &&
           (submitErr?.message?.includes('401') ||
@@ -518,6 +519,7 @@ export class OrderManager {
         });
       } catch (submitErr: any) {
         if (
+          this.executionMode !== 'LIVE' &&
           this.paperAdapter &&
           targetAdapter !== this.paperAdapter &&
           (submitErr?.message?.includes('401') ||
@@ -585,10 +587,23 @@ export class OrderManager {
           }
         );
 
-        const pnl = closedPos?.pnl !== undefined ? closedPos.pnl : 0;
-        const pnlPct = closedPos?.pnlPct !== undefined ? closedPos.pnlPct : 0;
-        const grossPnl = closedPos?.grossPnl !== undefined ? closedPos.grossPnl : pnl;
-        const totalFees = ((closedPos?.entryFee || 0) + (closedPos?.exitFee || 0));
+        // If PositionManager no longer tracks the position (should be rare now that reconcile skips in-flight
+        // symbols), derive PnL from the fill itself rather than booking a fake 0.00 for a trade that really closed.
+        let fallbackGross = 0;
+        let fallbackFees = 0;
+        let fallbackPct = 0;
+        if (!closedPos) {
+          const isBuyPos = position.side.toUpperCase() === 'BUY';
+          const ctValPos = position.ctVal || 1;
+          fallbackGross = (isBuyPos ? exitPrice - position.entryPrice : position.entryPrice - exitPrice) * position.qty * ctValPos;
+          fallbackFees = (position.entryFee || 0) + (closeOrder.cumFee || 0);
+          fallbackPct = position.entryPrice > 0 ? ((isBuyPos ? exitPrice - position.entryPrice : position.entryPrice - exitPrice) / position.entryPrice) * 100 : 0;
+          this.auditLogger('RECONCILIATION_DISCREPANCY', `Close of ${position.symbol} confirmed but position was no longer tracked; PnL derived from fill.`, { positionId: position.id, symbol: position.symbol });
+        }
+        const pnl = closedPos?.pnl !== undefined ? closedPos.pnl : parseFloat((fallbackGross - fallbackFees).toFixed(4));
+        const pnlPct = closedPos?.pnlPct !== undefined ? closedPos.pnlPct : parseFloat(fallbackPct.toFixed(2));
+        const grossPnl = closedPos?.grossPnl !== undefined ? closedPos.grossPnl : (closedPos ? pnl : parseFloat(fallbackGross.toFixed(4)));
+        const totalFees = closedPos ? ((closedPos.entryFee || 0) + (closedPos.exitFee || 0)) : fallbackFees;
 
         closeOrder.realizedPnl = pnl;
         closeOrder.realizedPnlPct = pnlPct;
@@ -666,7 +681,7 @@ export class OrderManager {
         experimentManager.logTradeExit(
           position.symbol,
           position.side,
-          position.signalScore || 50,
+          position.signalScore ?? 0,
           position.entryPrice,
           exitPrice,
           position.sizeUSDT,
@@ -816,7 +831,12 @@ export class OrderManager {
     delayMs: number = 800
   ): Promise<boolean> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      await new Promise((r) => setTimeout(r, delayMs));
+      // Query first, wait afterwards: market orders (and every paper fill) are already FILLED on the first query.
+      // The previous unconditional 800ms pre-sleep made each close take >=0.8s, so closing ~100 open positions
+      // sequentially (risk monitor / experiment end) took over a minute while prices kept moving.
+      if (attempt > 1) {
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
 
       const activeAdapter = this.getActiveAdapter();
       const statusRes = await activeAdapter.queryOrderStatus(order.symbol, order.id, order.exchangeOrderId);

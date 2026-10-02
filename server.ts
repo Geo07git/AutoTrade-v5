@@ -2,12 +2,32 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
+import crypto from 'crypto';
 import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
 import { experimentManager } from './src/server/experiment/ExperimentManager';
 
-const CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || 'tradebot5_admin_token';
+// Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
+// unconditionally by every control route (kill switch, mode switch, credential update).
+const LEGACY_DEV_TOKEN = 'tradebot5_admin_token';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+let CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || '';
+if (!CONTROL_TOKEN) {
+  if (IS_PRODUCTION) {
+    CONTROL_TOKEN = crypto.randomBytes(24).toString('hex');
+    console.warn(`[Security] BOT_CONTROL_TOKEN is not set. Generated a one-time token for this run: ${CONTROL_TOKEN}`);
+  } else {
+    CONTROL_TOKEN = LEGACY_DEV_TOKEN;
+    console.warn('[Security] BOT_CONTROL_TOKEN is not set: using the public development token. Set BOT_CONTROL_TOKEN before exposing this server.');
+  }
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
 
 function requireControlAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'];
@@ -23,10 +43,7 @@ function requireControlAuth(req: express.Request, res: express.Response, next: e
     providedToken = queryToken;
   }
 
-  const isValid =
-    providedToken === CONTROL_TOKEN ||
-    providedToken === 'tradebot5_admin_token' ||
-    providedToken === 'MariaCatalina.07';
+  const isValid = Boolean(providedToken) && safeEqual(providedToken, CONTROL_TOKEN);
 
   if (!providedToken || !isValid) {
     return res.status(401).json({
@@ -74,7 +91,7 @@ async function startServer() {
 
   app.post('/api/bot/auth-verify', (req, res) => {
     const { token } = req.body;
-    if (token === CONTROL_TOKEN) {
+    if (typeof token === 'string' && safeEqual(token, CONTROL_TOKEN)) {
       res.json({ valid: true });
     } else {
       res.status(401).json({ valid: false, error: 'Invalid control token' });

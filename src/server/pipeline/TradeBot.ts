@@ -119,6 +119,8 @@ export class TradeBot {
   private lastSyncTime: number = 0;
   private latestPrices: Record<string, number> = {};
   private isProcessingTick: boolean = false;
+  private isMonitoringRisk: boolean = false;
+  private tickerCache: { at: number; prices: Record<string, number> } = { at: 0, prices: {} };
   private marketRegime: string = 'BTC: --';
   private regimeInterval?: NodeJS.Timeout;
   private marketSentiment: string = 'OKX NEUTRAL (+0.00%)';
@@ -515,31 +517,27 @@ export class TradeBot {
    */
   public async evaluateActivePositionsRisk() {
     if (this.state !== 'TRADING') return;
+    // setInterval does not wait for the previous run: with 100+ positions a pass can exceed 2.5s, so overlapping
+    // runs used to stack up (duplicate fetch storms, racing close attempts, stale-price stop-losses).
+    if (this.isMonitoringRisk) return;
     const activePositions = this.positionManager.getActivePositions();
     if (activePositions.length === 0) return;
 
+    this.isMonitoringRisk = true;
     try {
       const config = this.configStore.get();
       const profile = this.getActiveProfileConfig();
 
-      // Fetch live prices for all active open positions in parallel
-      const fetchPromises = activePositions.map(async (pos) => {
-        try {
-          const instId = pos.symbol.includes('-SWAP') ? pos.symbol : `${pos.symbol}-SWAP`;
-          const res = await fetch(`https://eea.okx.com/api/v5/market/ticker?instId=${instId}`);
-          const data = await res.json();
-          if (data?.code === '0' && Array.isArray(data.data) && data.data.length > 0) {
-            const px = parseFloat(data.data[0].last || '0');
-            if (px > 0) {
-              this.latestPrices[pos.symbol] = px;
-            }
-          }
-        } catch (e) {
-          // ignore transient fetch failure, fallback to existing cached price
+      // One batched request for every SWAP ticker instead of one REST call per open position
+      // (100 positions => 100 calls / 2.5s, far above OKX public rate limits => silent stale prices => late stops).
+      const prices = await this.fetchSwapTickers();
+      for (const pos of activePositions) {
+        const instId = pos.symbol.includes('-SWAP') ? pos.symbol : `${pos.symbol}-SWAP`;
+        const px = prices[instId];
+        if (px && px > 0) {
+          this.latestPrices[pos.symbol] = px;
         }
-      });
-
-      await Promise.all(fetchPromises);
+      }
 
       // Sync latest prices with paper adapter
       if (this.paperAdapter && (this.paperAdapter as any).updatePrices) {
@@ -583,7 +581,37 @@ export class TradeBot {
       this.orderStore.save(this.orderManager.getOrders());
     } catch (err: any) {
       // transient price update error ignored
+    } finally {
+      this.isMonitoringRisk = false;
     }
+  }
+
+  /**
+   * Fetches all OKX SWAP tickers in a single request (cached for 1s) and returns instId -> last price.
+   */
+  private async fetchSwapTickers(): Promise<Record<string, number>> {
+    const now = Date.now();
+    if (now - this.tickerCache.at < 1000) {
+      return this.tickerCache.prices;
+    }
+    try {
+      const res = await fetch('https://eea.okx.com/api/v5/market/tickers?instType=SWAP', {
+        signal: AbortSignal.timeout(4000),
+      });
+      const data: any = await res.json();
+      if (data?.code === '0' && Array.isArray(data.data)) {
+        const prices: Record<string, number> = {};
+        for (const t of data.data) {
+          const px = parseFloat(t.last || '0');
+          if (t.instId && px > 0) prices[t.instId] = px;
+        }
+        this.tickerCache = { at: now, prices };
+        return prices;
+      }
+    } catch {
+      // fall through: keep the previous snapshot rather than evaluating on nothing
+    }
+    return this.tickerCache.prices;
   }
 
   /**
@@ -629,12 +657,22 @@ export class TradeBot {
       }
 
       // 2. Periodic Reconciliation
-      if (now - this.lastSyncTime > 60000) {
+      // PAPER mode: positions live in the local paper store, so reconciling it against itself adds no information
+      // and only creates a race with the risk monitor (ghost positions re-imported seconds after a close).
+      // It still runs once at startup (connectAndRecover) to rehydrate after a crash.
+      if (config.executionMode !== 'PAPER' && now - this.lastSyncTime > 60000) {
         try {
+          const seqBefore = this.positionManager.getMutationSeq();
           const exchangePositions = await this.activeAdapter.getOpenPositions();
-          this.positionManager.reconcileWithExchange(exchangePositions, config.activeProfile);
-          this.positionStore.save(this.positionManager.getActivePositions());
-          this.lastSyncTime = now;
+          // Only apply the snapshot if nothing changed locally while it was in flight and no close/pass is running;
+          // otherwise discard it and retry on the next tick instead of "correcting" state with stale data.
+          if (this.positionManager.getMutationSeq() === seqBefore && !this.positionManager.hasInFlightOperations()) {
+            this.positionManager.reconcileWithExchange(exchangePositions, config.activeProfile, {
+              isSymbolBusy: (sym) => this.orderManager.hasPendingOrderForSymbol(sym),
+            });
+            this.positionStore.save(this.positionManager.getActivePositions());
+            this.lastSyncTime = now;
+          }
         } catch (err: any) {
           // If reconciliation fails, immediately halt TRADING!
           this.state = 'WAITING_FOR_EXCHANGE';
@@ -1387,8 +1425,10 @@ export class TradeBot {
       config: {
         ...config,
         // Mask API secrets for security
+        okxApiKey: config.okxApiKey ? `${config.okxApiKey.slice(0, 4)}...${config.okxApiKey.slice(-4)}` : '',
         okxSecretKey: config.okxSecretKey ? '********' : '',
         okxPassphrase: config.okxPassphrase ? '********' : '',
+        telegramBotToken: config.telegramBotToken ? '********' : '',
       },
       profileConfig: this.getActiveProfileConfig(),
       profiles: this.getProfiles(),
@@ -1591,6 +1631,20 @@ export class TradeBot {
 
     const state = experimentManager.stopExperiment();
     this.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
+    // The equity peak was inflated by the synthetic $1B experiment fund; reset the Equity Protection baseline to the
+    // real account so the first post-experiment position is not instantly "stopped out" by a fake 100% drawdown.
+    try {
+      const cfg = this.configStore.get();
+      const realEquity = cfg.executionMode === 'PAPER'
+        ? await this.paperAdapter.getEquity()
+        : await this.activeAdapter.getEquity();
+      if (realEquity > 0) {
+        this.currentEquity = realEquity;
+        this.positionManager.resetHighestEquity(cfg.baseCapital || realEquity);
+      }
+    } catch {
+      // baseline reset is best-effort
+    }
     this.positionStore.save(this.positionManager.getActivePositions());
     this.orderStore.save(this.orderManager.getOrders());
     this.logAudit(
