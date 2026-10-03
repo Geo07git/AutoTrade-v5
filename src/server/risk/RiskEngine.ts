@@ -62,14 +62,30 @@ export class RiskEngine {
       }
     }
 
-    // 3b. Short Regime Guard for SELL/SHORT entries (SELL doar când BTC e în regim BEAR)
-    const shortGuard = config.shortRegimeGuard !== undefined ? config.shortRegimeGuard : 'BEAR_ONLY';
-    if (shortGuard === 'BEAR_ONLY' && signal.side === 'SELL') {
-      if (!isBtcBear) {
+    // 3b. Short Regime Guard for SELL/SHORT entries
+    const shortGuard = config.shortRegimeGuard !== undefined ? config.shortRegimeGuard : 'OFF';
+    if (signal.side === 'SELL') {
+      if (shortGuard === 'DISABLED') {
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[SHORT_DISABLED] Pozițiile SELL (SHORT) sunt dezactivate în profil (istoric dovedit asimetric negativ).`,
+        };
+      }
+      if (shortGuard === 'BEAR_ONLY' && !isBtcBear) {
         return {
           approved: false,
           sizeUSDT: 0,
           reason: `[SHORT_REGIME_GUARD] Pozițiile SELL (SHORT) sunt permise exclusiv când BTC se află în regim BEAR (regim actual: ${marketRegime || 'BULL/NEUTRAL'}). Setează shortRegimeGuard: 'OFF' în profil pentru dezactivare.`,
+        };
+      }
+      // Prag ridicat de activare pentru semnalele SHORT (pentru evitarea declanșării pe semnale slabe)
+      const minShortScore = config.minShortMomentumScore !== undefined ? config.minShortMomentumScore : 0;
+      if (minShortScore > 0 && signal.score < minShortScore) {
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[SHORT_SCORE_FILTER] Scorul semnalului SELL (${signal.score.toFixed(1)}) este sub pragul ridicat de protecție configurat (${minShortScore}). Pozițiile SHORT cer confirmare de impuls puternic.`,
         };
       }
     }
@@ -104,13 +120,15 @@ export class RiskEngine {
     // 4. Max Open Positions & Risk Allocation check
     const riskPct = config.riskPerTradePct > 0 ? config.riskPerTradePct : 50;
     const maxTradesByRisk = Math.max(1, Math.floor(100 / riskPct));
-    const effectiveMaxOpenPositions = isExpActive ? 999999 : Math.min(config.maxOpenPositions, maxTradesByRisk);
+    const effectiveMaxOpenPositions = isExpActive ? 50 : Math.min(config.maxOpenPositions, maxTradesByRisk);
 
-    if (!isExpActive && activePositions.length >= effectiveMaxOpenPositions) {
+    if (activePositions.length >= effectiveMaxOpenPositions) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `Max open positions reached for risk setting ${riskPct}% (${activePositions.length}/${effectiveMaxOpenPositions} allowed; max trades by risk: ${maxTradesByRisk})`,
+        reason: isExpActive
+          ? `Plafonul de 50 poziții simultane în modul Experiment a fost atins (${activePositions.length}/50).`
+          : `Max open positions reached for risk setting ${riskPct}% (${activePositions.length}/${effectiveMaxOpenPositions} allowed; max trades by risk: ${maxTradesByRisk})`,
       };
     }
 
@@ -158,7 +176,7 @@ export class RiskEngine {
       };
     }
 
-    const effectiveEquity = isExpActive ? 1_000_000_000 : currentEquity;
+    const effectiveEquity = isExpActive ? 10_000 : currentEquity;
     const profitVault = Math.max(0, options?.profitVault || 0);
     const operatingEquity = options?.operatingEquity && options.operatingEquity > 0
       ? options.operatingEquity

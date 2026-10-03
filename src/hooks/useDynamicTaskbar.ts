@@ -22,7 +22,7 @@ export function useDynamicTaskbar({ status }: UseDynamicTaskbarProps) {
   useEffect(() => {
     // 1. Calculate metrics
     const isExp = Boolean(status?.isExperimentActive);
-    const currentEquity = isExp ? 1_000_000_000 : (status?.equity !== undefined ? status.equity : 200.0);
+    const currentEquity = isExp ? 10_000 : (status?.equity !== undefined ? status.equity : 200.0);
     const positions = status?.positions || [];
     const activePositions = positions.filter((p) => p.status === 'OPEN');
     const hasActiveTrade = activePositions.length > 0;
@@ -34,7 +34,7 @@ export function useDynamicTaskbar({ status }: UseDynamicTaskbarProps) {
 
     const isProfit = unrealizedPnL >= 0;
     const formattedEq = isExp
-      ? '∞ EXP'
+      ? '$10K EXP'
       : `$${currentEquity.toLocaleString('en-US', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,

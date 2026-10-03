@@ -77,7 +77,7 @@ class ExperimentManager {
     remainingMs: 8 * 3600 * 1000,
     durationMs: 8 * 3600 * 1000,
     durationHours: 8,
-    unlimitedCapital: 1_000_000_000,
+    unlimitedCapital: 10_000,
     minMomentumScore: 50,
     maxHoldingTimeMinutes: 120,
     hardStopLossPct: 20.0,
@@ -271,7 +271,7 @@ class ExperimentManager {
       remainingMs: durationMs,
       durationMs,
       durationHours,
-      unlimitedCapital: 1_000_000_000,
+      unlimitedCapital: 10_000,
       minMomentumScore,
       maxHoldingTimeMinutes,
       hardStopLossPct,
@@ -457,7 +457,7 @@ class ExperimentManager {
   public generateJSON(): string {
     const payload = {
       experimentMetadata: {
-        title: `EXPERIMENT ${this.state.durationHours}H: SCALP & MOMENTUM >= ${this.state.minMomentumScore} (FOND NELIMITAT)`,
+        title: `EXPERIMENT ${this.state.durationHours}H: SCALP & MOMENTUM >= ${this.state.minMomentumScore} (CAPITAL $10,000 | MAX 50 POZIȚII)`,
         startDate: new Date(this.state.startTime || Date.now()).toISOString(),
         durationHours: this.state.durationHours,
         unlimitedCapitalUSDT: this.state.unlimitedCapital,
@@ -470,7 +470,7 @@ class ExperimentManager {
         ...this.state.config,
         profile: 'SCALP',
         virtualCapitalUSDT: this.state.unlimitedCapital,
-        unlimitedPositions: true,
+        maxConcurrentPositions: 50,
         allSwapPairs: true,
         executionLogic: 'Real-time momentum tick scanner + fast risk evaluator',
         exitLogic: `Hard SL (-${this.state.config.hardStopLossPct}%) | BE (+${this.state.config.breakEvenActivationPct}%) | Trailing Act (+${this.state.config.trailingActivationPct}%) | Trailing Dist (-${this.state.config.trailingDistancePct}%) | TP (+${this.state.config.takeProfitPct}%) | Max Hold (${this.state.config.maxHoldingTimeMinutes}m)`,
@@ -484,7 +484,7 @@ class ExperimentManager {
 
   public generateCSV(): string {
     const configComment = [
-      `# EXPERIMENT ${this.state.durationHours}H (SCALP, MOMENTUM >= ${this.state.minMomentumScore}, FOND NELIMITAT $1B)`,
+      `# EXPERIMENT ${this.state.durationHours}H (SCALP, MOMENTUM >= ${this.state.minMomentumScore}, CAPITAL $10,000 USDT | MAX 50 POZIȚII)`,
       `# Start Date: ${new Date(this.state.startTime || Date.now()).toISOString()}`,
       `# Effective Config: Duration=${this.state.durationHours}h | MinMomentum=${this.state.minMomentumScore} | MaxHold=${this.state.maxHoldingTimeMinutes}m | SL=-${this.state.config.hardStopLossPct}% | BE=+${this.state.config.breakEvenActivationPct}% | TrailingAct=+${this.state.config.trailingActivationPct}% | TrailingDist=-${this.state.config.trailingDistancePct}% | TP=+${this.state.config.takeProfitPct}%`,
       `# Total Entries: ${this.state.totalEntries} | Total Exits: ${this.state.totalExits} | Total PnL: $${this.state.totalPnl.toFixed(4)} USDT`,

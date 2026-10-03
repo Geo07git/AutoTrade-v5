@@ -65,7 +65,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 0,
     sentimentThreshold: 5.0,
-    shortRegimeGuard: 'BEAR_ONLY',
+    shortRegimeGuard: 'OFF',
     maxEntriesPerSymbolPerHour: 3,
     cooldownAfterLossMinutes: 30,
   },
@@ -90,7 +90,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
-    shortRegimeGuard: 'BEAR_ONLY',
+    shortRegimeGuard: 'OFF',
     maxEntriesPerSymbolPerHour: 3,
     cooldownAfterLossMinutes: 30,
   },
@@ -158,7 +158,7 @@ export class TradeBot {
         trailingDistancePct: expState.trailingDistancePct,
         takeProfitPct: expState.takeProfitPct,
         stagnationTimeMinutes: 0,
-        maxOpenPositions: 999, // unlimited positions
+        maxOpenPositions: 50, // Plafonează pozițiile simultane la 50 în experiment
       };
     }
     return baseProfile;
@@ -837,7 +837,7 @@ export class TradeBot {
           // Risk Engine: Mandatory gatekeeper validation with volatility-based sizing (ATR) & pending order check
           const hasPending = this.orderManager.hasPendingOrderForSymbol(symbol);
           const profitVault = isExpActive ? 0 : (config.profitVault || 0);
-          const operatingEquity = isExpActive ? 1_000_000_000 : Math.max(10, this.currentEquity - profitVault);
+          const operatingEquity = isExpActive ? 10_000 : Math.max(10, this.currentEquity - profitVault);
 
           const entriesLastHour = this.positionManager.getEntriesCountLastHour(symbol);
           const lastClosed = this.positionManager.getLastClosedPosition(symbol);
@@ -848,7 +848,7 @@ export class TradeBot {
             signal,
             profile,
             this.positionManager.getActivePositions(),
-            isExpActive ? 1_000_000_000 : this.currentEquity,
+            isExpActive ? 10_000 : this.currentEquity,
             isExpActive ? false : config.killSwitchEngaged,
             hasPending,
             {

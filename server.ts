@@ -533,12 +533,12 @@ async function startServer() {
       trailingActivationPct: state.trailingActivationPct,
       trailingDistancePct: state.trailingDistancePct,
       takeProfitPct: state.takeProfitPct,
-      maxOpenPositions: 999,
+      maxOpenPositions: 50,
     });
     res.json({
       success: true,
       state,
-      message: `Experimentul de ${state.durationHours} ore (Scalp, Momentum >= ${state.minMomentumScore}, Fond Nelimitat, Max Hold ${state.maxHoldingTimeMinutes}m) a fost pornit!`,
+      message: `Experimentul de ${state.durationHours} ore (Scalp, Momentum >= ${state.minMomentumScore}, Balanță $10,000, Max 50 Poziții, Max Hold ${state.maxHoldingTimeMinutes}m) a fost pornit!`,
     });
   });
 

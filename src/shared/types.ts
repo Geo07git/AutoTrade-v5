@@ -145,7 +145,8 @@ export interface ProfileConfig {
   stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
-  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF'; // SELL/SHORT doar când BTC e în regim BEAR (implicit: BEAR_ONLY)
+  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF' | 'DISABLED'; // SELL/SHORT gardă regim BTC: OFF = oricând, BEAR_ONLY = doar BTC BEAR, DISABLED = oprit complet
+  minShortMomentumScore?: number; // Prag minim ridicat scor momentum pentru poziții SELL/SHORT (ex: 75-85, 0 = dezactivat)
   maxEntriesPerSymbolPerHour?: number; // Plafon intrări/simbol/oră (implicit: 3, 0 = dezactivat)
   cooldownAfterLossMinutes?: number; // Pauză pe simbol după pierdere/SL (implicit: 30 min, 0 = dezactivat)
 }
