@@ -141,16 +141,13 @@ export interface ProfileConfig {
   maxHoldingTimeMinutes?: number;
   /** Positions with an active trailing stop may exceed maxHoldingTimeMinutes up to this multiple (default 2). */
   trailingMaxHoldMultiplier?: number;
-  /** 'BEAR_ONLY' (default): SELL entries only when BTC regime is BEAR (mirror of the long-side BEAR guard). 'OFF' disables. */
-  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF';
-  /** Max entries per symbol within a rolling hour (default 3). 0 = unlimited. */
-  maxEntriesPerSymbolPerHour?: number;
-  /** Minutes to wait before re-entering a symbol after a losing close / stop-loss (default 30). 0 = off. */
-  cooldownAfterLossMinutes?: number;
   stagnationTimeMinutes?: number; // Time-stop eșalonat la stagnare (ex: 30 min)
   stagnationMinPeakPct?: number; // Prag minim de impuls de vârf cerut la stagnare (ex: +0.5%)
   cooldownMinutes?: number;
   sentimentThreshold?: number; // Global sentiment score threshold (% benchmark change)
+  shortRegimeGuard?: 'BEAR_ONLY' | 'OFF'; // SELL/SHORT doar când BTC e în regim BEAR (implicit: BEAR_ONLY)
+  maxEntriesPerSymbolPerHour?: number; // Plafon intrări/simbol/oră (implicit: 3, 0 = dezactivat)
+  cooldownAfterLossMinutes?: number; // Pauză pe simbol după pierdere/SL (implicit: 30 min, 0 = dezactivat)
 }
 
 export interface Kline {
@@ -335,6 +332,7 @@ export interface Position {
   consecutiveBeHits?: number;
   currentPrice?: number;
   holdingTimeMinutes?: number;
+  exitReason?: string;
   exitReasonDetail?: string;
   profile: ProfileType;
   source: 'LOCAL' | 'OKX_SYNC' | 'PAPER';

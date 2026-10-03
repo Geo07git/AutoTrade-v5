@@ -65,6 +65,9 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 0,
     sentimentThreshold: 5.0,
+    shortRegimeGuard: 'BEAR_ONLY',
+    maxEntriesPerSymbolPerHour: 3,
+    cooldownAfterLossMinutes: 30,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
@@ -87,6 +90,9 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
+    shortRegimeGuard: 'BEAR_ONLY',
+    maxEntriesPerSymbolPerHour: 3,
+    cooldownAfterLossMinutes: 30,
   },
 };
 
@@ -626,6 +632,11 @@ export class TradeBot {
     try {
       const config = this.configStore.get();
 
+      // Guard: If experiment is currently stopping, do not open new entries!
+      if (this.isStoppingExperiment) {
+        return;
+      }
+
       // Guard: If Kill Switch is engaged, do not process entries
       if (config.killSwitchEngaged) {
         return;
@@ -723,17 +734,6 @@ export class TradeBot {
         // STRICT CHECK 2: Pre-filter symbols that already have an open position
         const existingPos = this.positionManager.getPosition(symbol);
         if (existingPos && existingPos.status === 'OPEN') {
-          continue;
-        }
-
-        // STRICT CHECK 2b: Re-entry control. In the 2h experiment the 3rd+ entry on the same symbol averaged -0.3%
-        // (vs +0.19% for the 1st/2nd) and the trade right after a stop-loss averaged -0.53%; SAND/MANA were entered 7x.
-        const maxPerHour = profile.maxEntriesPerSymbolPerHour ?? 3;
-        if (maxPerHour > 0 && this.positionManager.getRecentEntryCount(symbol, 3600_000) >= maxPerHour) {
-          continue;
-        }
-        const lossCooldown = profile.cooldownAfterLossMinutes ?? 30;
-        if (lossCooldown > 0 && this.positionManager.getMinutesSinceLastLoss(symbol) < lossCooldown) {
           continue;
         }
 
@@ -839,6 +839,11 @@ export class TradeBot {
           const profitVault = isExpActive ? 0 : (config.profitVault || 0);
           const operatingEquity = isExpActive ? 1_000_000_000 : Math.max(10, this.currentEquity - profitVault);
 
+          const entriesLastHour = this.positionManager.getEntriesCountLastHour(symbol);
+          const lastClosed = this.positionManager.getLastClosedPosition(symbol);
+          const lastClosedTradeWasLoss = lastClosed ? (lastClosed.pnl !== undefined && lastClosed.pnl < 0) || (lastClosed.exitReason === 'STOP_LOSS') : false;
+          const lastClosedTradeTime = lastClosed ? lastClosed.exitTime : undefined;
+
           const riskApproval = this.riskEngine.validateSignal(
             signal,
             profile,
@@ -851,6 +856,9 @@ export class TradeBot {
               profitVault,
               marketRegime: this.marketRegime,
               excludedSymbols: config.scannerFilter?.excludedSymbols || ['CAP', 'ONDO', 'NIGHT', 'ARX', 'GPS', 'ZAMA'],
+              entriesLastHour,
+              lastClosedTradeWasLoss,
+              lastClosedTradeTime,
             }
           );
 

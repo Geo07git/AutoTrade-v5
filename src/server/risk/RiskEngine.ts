@@ -18,6 +18,9 @@ export class RiskEngine {
       profitVault?: number;
       marketRegime?: string;
       excludedSymbols?: string[];
+      entriesLastHour?: number;
+      lastClosedTradeWasLoss?: boolean;
+      lastClosedTradeTime?: number;
     }
   ): RiskApproval {
     // 1. Kill Switch check
@@ -59,17 +62,40 @@ export class RiskEngine {
       }
     }
 
-    // 3b. Short regime guard (mirror of the BEAR guard above). In the 2h experiment (249 trades) SELL entries lost in
-    // BOTH halves of the run (-$14.6 then -$5.3, ~23% win rate) while BUY entries won in both, with the same exits and
-    // scores. Shorts are therefore only taken with the market (BTC 24h <= -2%). Set shortRegimeGuard: 'OFF' on the
-    // profile to collect unfiltered short data again (e.g. to re-test this on a bearish day).
-    const shortGuardMode = config.shortRegimeGuard ?? 'BEAR_ONLY';
-    if (shortGuardMode === 'BEAR_ONLY' && signal.side === 'SELL' && !isBtcBear) {
+    // 3b. Short Regime Guard for SELL/SHORT entries (SELL doar când BTC e în regim BEAR)
+    const shortGuard = config.shortRegimeGuard !== undefined ? config.shortRegimeGuard : 'BEAR_ONLY';
+    if (shortGuard === 'BEAR_ONLY' && signal.side === 'SELL') {
+      if (!isBtcBear) {
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[SHORT_REGIME_GUARD] Pozițiile SELL (SHORT) sunt permise exclusiv când BTC se află în regim BEAR (regim actual: ${marketRegime || 'BULL/NEUTRAL'}). Setează shortRegimeGuard: 'OFF' în profil pentru dezactivare.`,
+        };
+      }
+    }
+
+    // 3c. Hourly Entry Cap per Symbol
+    const maxEntriesPerHour = config.maxEntriesPerSymbolPerHour !== undefined ? config.maxEntriesPerSymbolPerHour : 3;
+    if (maxEntriesPerHour > 0 && options?.entriesLastHour !== undefined && options.entriesLastHour >= maxEntriesPerHour) {
       return {
         approved: false,
         sizeUSDT: 0,
-        reason: `[SHORT_REGIME_GUARD] Pozițiile SHORT sunt permise doar în regim BTC BEAR (regim curent: ${marketRegime || 'necunoscut'}).`,
+        reason: `[HOURLY_SYMBOL_CAP] Plafonul de ${maxEntriesPerHour} intrări/oră pe simbol a fost atins pentru ${signal.symbol} (${options.entriesLastHour} intrări în ultima oră). Setează maxEntriesPerSymbolPerHour: 0 pentru dezactivare.`,
       };
+    }
+
+    // 3d. Cooldown after Loss / Stop-Loss
+    const lossCooldown = config.cooldownAfterLossMinutes !== undefined ? config.cooldownAfterLossMinutes : 30;
+    if (lossCooldown > 0 && options?.lastClosedTradeWasLoss && options?.lastClosedTradeTime) {
+      const minutesSinceLoss = (Date.now() - options.lastClosedTradeTime) / 60000;
+      if (minutesSinceLoss < lossCooldown) {
+        const remainingMin = (lossCooldown - minutesSinceLoss).toFixed(1);
+        return {
+          approved: false,
+          sizeUSDT: 0,
+          reason: `[POST_LOSS_COOLDOWN] Simbolul ${signal.symbol} este în pauză post-pierdere/SL (${lossCooldown}m configurat; ${remainingMin}m rămase). Setează cooldownAfterLossMinutes: 0 pentru dezactivare.`,
+        };
+      }
     }
 
     const expState = experimentManager.getState();

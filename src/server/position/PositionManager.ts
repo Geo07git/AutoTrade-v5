@@ -313,6 +313,19 @@ export class PositionManager {
     return closedForSymbol[0].exitTime || 0;
   }
 
+  public getLastClosedPosition(symbol: string): Position | undefined {
+    const closedForSymbol = this.closedHistory.filter(p => p.symbol === symbol);
+    if (closedForSymbol.length === 0) return undefined;
+    closedForSymbol.sort((a, b) => (b.exitTime || 0) - (a.exitTime || 0));
+    return closedForSymbol[0];
+  }
+
+  public getEntriesCountLastHour(symbol: string): number {
+    // Uses the dedicated entry-time map: closedHistory is capped at 200 rows, so counting from it under-reports
+    // exactly when the bot is busiest.
+    return this.getRecentEntryCount(symbol, 3600_000);
+  }
+
   public setActivePositions(positions: Position[]) {
     this.mutationSeq++;
     this.activePositions = positions
@@ -448,11 +461,18 @@ export class PositionManager {
     times.push(Date.now());
     this.entryTimes.set(newPosition.symbol, times);
 
-    experimentManager.logTradeEntry(newPosition.symbol, newPosition.side, newPosition.signalScore ?? 0, newPosition.entryPrice, newPosition.sizeUSDT, {
-      entryRegime: newPosition.marketRegime,
-      openPositionsAtEntry: newPosition.openPositionsAtEntry,
-      slippagePct: newPosition.estimatedSlippagePct,
-    });
+    experimentManager.logTradeEntry(
+      newPosition.symbol,
+      newPosition.side,
+      newPosition.signalScore ?? 0,
+      newPosition.entryPrice,
+      newPosition.sizeUSDT,
+      {
+        entryRegime: newPosition.marketRegime,
+        openPositionsAtEntry: newPosition.openPositionsAtEntry,
+        slippagePct: order.estimatedSlippagePct,
+      }
+    );
 
     return newPosition;
   }
@@ -959,6 +979,7 @@ export class PositionManager {
     pos.status = 'CLOSED';
     pos.exitPrice = exitPrice;
     pos.exitTime = exitTime;
+    pos.exitReason = reason;
     if (telemetry) {
       if (telemetry.exitMarketRegime) pos.exitMarketRegime = telemetry.exitMarketRegime;
       if (telemetry.accountEquity !== undefined) pos.accountEquityAtExit = telemetry.accountEquity;
