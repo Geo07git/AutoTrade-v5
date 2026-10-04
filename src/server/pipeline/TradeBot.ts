@@ -1511,12 +1511,10 @@ export class TradeBot {
       ? freeBalance
       : Math.max(0, parseFloat((freeBalance - profitVault).toFixed(2)));
 
-    const totalProfit = isExpActive
-      ? parseFloat(((expState.totalPnl || 0) + unrealizedPnL).toFixed(2))
-      : parseFloat((this.currentEquity - initialEquity).toFixed(2));
-    const totalProfitPct = isExpActive
-      ? parseFloat((((expState.totalPnl || 0) + unrealizedPnL)).toFixed(2))
-      : (initialEquity > 0 ? parseFloat(((totalProfit / initialEquity) * 100).toFixed(2)) : 0);
+    const closedHistory = this.positionManager.getClosedHistory();
+    const totalRealizedPnL = parseFloat(closedHistory.reduce((acc, p) => acc + (p.pnl || 0), 0).toFixed(4));
+    const totalProfit = parseFloat((totalRealizedPnL + unrealizedPnL).toFixed(2));
+    const totalProfitPct = initialEquity > 0 ? parseFloat(((totalProfit / initialEquity) * 100).toFixed(2)) : 0;
 
     return {
       state: this.state,
