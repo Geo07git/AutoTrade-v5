@@ -809,7 +809,8 @@ export class TradeBot {
 
         // STRICT CHECK 4: Affordability check in LIVE mode (ensures 1 contract notional fits within available equity)
         if (config.executionMode === 'LIVE' && !isExpActive) {
-          const ctVal = this.okxAdapter.getCachedCtVal(symbol);
+          const meta = this.universeManager.getInstrumentMetadata(symbol);
+          const ctVal = meta?.ctVal || this.okxAdapter.getCachedCtVal(symbol);
           const minNotional = (candidate.price || 1) * ctVal;
           const leverage = Math.max(1, parseFloat(String(config.maxLeverage || '1').replace(/[^0-9.]/g, '')) || 1);
           const requiredMarginForOneContract = minNotional / leverage;

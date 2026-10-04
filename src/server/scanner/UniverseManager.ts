@@ -353,4 +353,8 @@ export class UniverseManager {
   public getLastRefreshTime(): number {
     return this.lastRefreshTime;
   }
+
+  public getInstrumentMetadata(symbol: string): InstrumentMetadata | undefined {
+    return this.instrumentMetaMap.get(symbol);
+  }
 }
