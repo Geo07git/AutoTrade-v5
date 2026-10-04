@@ -1,3 +1,4 @@
+// CI/CD Test - Verified flow
 export type ProfileType = 'SCALP' | 'MOMENTUM';
 export type OrderSide = 'BUY' | 'SELL';
 export type PositionStatus = 'OPEN' | 'CLOSING' | 'CLOSED';
