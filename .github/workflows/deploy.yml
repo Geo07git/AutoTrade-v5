@@ -1,0 +1,42 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Remote Deploy to OCI
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/AutoTrade-v5
+            
+            echo "Fetching latest changes from origin..."
+            git fetch origin
+            
+            echo "Pulling latest changes with fast-forward only..."
+            git pull --ff-only origin main
+            
+            echo "Installing dependencies..."
+            npm install
+            
+            echo "Building project..."
+            npm run build
+            
+            echo "Restarting systemd service..."
+            sudo systemctl restart autotrade-v5.service
+            
+            echo "Verifying service status..."
+            if systemctl is-active --quiet autotrade-v5.service; then
+              echo "Deployment successful: service is active."
+            else
+              echo "Error: service failed to start after restart."
+              exit 1
+            fi
