@@ -49,7 +49,8 @@ export interface ExperimentState {
   remainingMs: number;
   durationMs: number;
   durationHours: number;
-  unlimitedCapital: number; // 1,000,000,000 USDT
+  unlimitedCapital: number; // 10,000 USDT alocat în experiment (backward compatible)
+  initialCapital?: number; // 10,000 USDT capital alocat per experiment
   minMomentumScore: number;
   maxHoldingTimeMinutes: number;
   hardStopLossPct: number;
@@ -78,6 +79,7 @@ class ExperimentManager {
     durationMs: 8 * 3600 * 1000,
     durationHours: 8,
     unlimitedCapital: 10_000,
+    initialCapital: 10_000,
     minMomentumScore: 50,
     maxHoldingTimeMinutes: 120,
     hardStopLossPct: 20.0,
@@ -272,6 +274,7 @@ class ExperimentManager {
       durationMs,
       durationHours,
       unlimitedCapital: 10_000,
+      initialCapital: 10_000,
       minMomentumScore,
       maxHoldingTimeMinutes,
       hardStopLossPct,

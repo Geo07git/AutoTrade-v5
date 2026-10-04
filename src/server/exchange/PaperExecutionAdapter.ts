@@ -62,7 +62,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   public normalizeSymbol(symbol: string): string {
     if (!symbol) return '';
     const clean = symbol.trim().toUpperCase();
-    if (clean.endsWith('-SWAP')) return clean;
+    if (clean.endsWith('-SWAP') || clean.includes('_UM_XPERP')) return clean;
     if (clean.includes('-')) return `${clean}-SWAP`;
     if (clean.endsWith('USDT')) {
       return `${clean.replace(/USDT$/, '')}-USDT-SWAP`;

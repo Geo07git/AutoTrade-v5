@@ -30,7 +30,7 @@ export class OrderManager {
     exchange: IExecutionAdapter,
     positionManager: PositionManager,
     auditLogger: (type: AuditLogType, message: string, details?: any) => void,
-    executionMode: ExecutionMode = 'TESTNET',
+    executionMode: ExecutionMode = 'PAPER',
     symbolStatsTracker?: SymbolStatsTracker
   ) {
     this.exchange = exchange;
@@ -191,6 +191,23 @@ export class OrderManager {
     const clientOrderId = `tb5_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const actualNotional = formattedQty * ctVal * currentPrice;
     const leverage = params.leverage || '1x';
+    const numLeverage = Math.max(1, parseFloat(leverage.replace(/[^0-9.]/g, '')) || 1);
+    const requiredMargin = actualNotional / numLeverage;
+
+    // Safety gate: Check if required margin exceeds available cash balance in LIVE mode
+    if (this.executionMode === 'LIVE' && params.accountBalance && params.accountBalance > 0 && requiredMargin > params.accountBalance * 1.05) {
+      const err = `Marja necesară pentru ${formattedQty} contract(e) de ${signal.symbol} ($${requiredMargin.toFixed(2)}) depășește balanța disponibilă ($${params.accountBalance.toFixed(2)}). Tranzacție respinsă pentru prevenirea erorilor de bursă.`;
+      this.auditLogger('ORDER_REJECTED', err, {
+        symbol: signal.symbol,
+        requiredMargin,
+        accountBalance: params.accountBalance,
+        qty: formattedQty,
+        ctVal,
+        currentPrice,
+      });
+      return { success: false, error: err };
+    }
+
     const openPositionsCount = params.openPositionsCount !== undefined
       ? params.openPositionsCount
       : this.positionManager.getActivePositions().length;
@@ -266,11 +283,6 @@ export class OrderManager {
            submitErr?.message?.includes("doesn't exist") ||
            submitErr?.message?.includes('API key'))
         ) {
-          if (submitErr?.message?.includes('401') || submitErr?.message?.includes('50119') || submitErr?.message?.includes('API key')) {
-            if (this.okxAdapter && typeof (this.okxAdapter as any).markCredentialsInvalid === 'function') {
-              (this.okxAdapter as any).markCredentialsInvalid();
-            }
-          }
           this.auditLogger(
             'ORDER_ROUTED',
             `Adapter submitOrder routed to Paper adapter for ${signal.symbol} (${submitErr.message}).`,
@@ -417,7 +429,7 @@ export class OrderManager {
 
     let isExchangePosition =
       this.executionMode !== 'PAPER' &&
-      (position.source === 'OKX_SYNC' || position.executionMode === 'TESTNET' || position.executionMode === 'LIVE') &&
+      (position.source === 'OKX_SYNC' || position.executionMode === 'LIVE') &&
       Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
     let targetAdapter = this.executionMode === 'PAPER' && this.paperAdapter
       ? this.paperAdapter

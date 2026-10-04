@@ -429,7 +429,7 @@ export class PositionManager {
       isFadeTrade: order.isFadeTrade,
       profile: order.profile,
       source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
-      executionMode: order.executionMode || 'TESTNET',
+      executionMode: order.executionMode || 'LIVE',
       marketRegime: order.marketRegime,
       entryOrderId: order.id,
       signalScore: order.signalScore,
@@ -536,7 +536,7 @@ export class PositionManager {
       this.updateHighestEquity(effectiveEquity);
     }
     
-    // Equity Protection is meaningless during an experiment (synthetic $1B fund vs. a ~$200 baseline) and
+    // Equity Protection is meaningless during an experiment (synthetic $10,000 experiment fund vs. a ~$200 baseline) and
     // would fire a 100% "drawdown" the moment the experiment ends and equity falls back to the real balance.
     const isEquityProtectionEnabled =
       !experimentManager.getState().isActive &&
@@ -1224,7 +1224,7 @@ export class PositionManager {
         lowestPrice: entryPrice,
         profile: currentProfile,
         source: 'OKX_SYNC',
-        executionMode: 'TESTNET',
+        executionMode: 'LIVE',
       };
 
       this.mutationSeq++;

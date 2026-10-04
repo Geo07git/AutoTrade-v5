@@ -297,12 +297,12 @@ export function initCapacitorMockBackend() {
           if (expState?.isActive) {
             status.isExperimentActive = true;
             status.experimentState = expState;
-            status.equity = 1000000000 + (status.unrealizedPnL || 0);
-            status.walletBalance = 1000000000;
-            status.freeBalance = 1000000000 - (status.marginInvested || 0);
+            status.equity = 10000 + (status.unrealizedPnL || 0);
+            status.walletBalance = 10000;
+            status.freeBalance = 10000 - (status.marginInvested || 0);
             status.usableFreeBalance = status.freeBalance;
-            status.baseCapital = 1000000000;
-            status.initialEquity = 1000000000;
+            status.baseCapital = 10000;
+            status.initialEquity = 10000;
             status.operatingEquity = status.equity;
           } else {
             status.isExperimentActive = false;
@@ -503,7 +503,7 @@ export function initCapacitorMockBackend() {
           const hours = expState.durationHours || 8;
           if (isCsv) {
             const csvContent = 'Event ID,Timestamp,Date (ISO),Event Type,Symbol,Side,Score,Entry Price,Exit Price,Size (USDT),PnL (USDT),PnL (%),Holding Time (min),Exit Reason,Account Capital (USDT)\n' +
-              `exp_mock_1,${Date.now()},${new Date().toISOString()},EXPERIMENT_STARTED,ALL,NONE,${expState.minMomentumScore || 50},0,0,0,0,0,0,INIT,1000000000`;
+              `exp_mock_1,${Date.now()},${new Date().toISOString()},EXPERIMENT_STARTED,ALL,NONE,${expState.minMomentumScore || 50},0,0,0,0,0,0,INIT,10000`;
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
             return new Response(blob, {
               status: 200,

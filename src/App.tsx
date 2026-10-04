@@ -171,7 +171,8 @@ export default function App() {
     apiKey: string,
     secretKey: string,
     passphrase: string,
-    testnet: boolean
+    testnet: boolean,
+    region: 'EEA' | 'GLOBAL' | 'AUTO' = 'EEA'
   ): Promise<{ success: boolean; error?: string }> => {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -179,7 +180,7 @@ export default function App() {
       const res = await fetch('/api/bot/credentials', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ apiKey, secretKey, passphrase, testnet }),
+        body: JSON.stringify({ apiKey, secretKey, passphrase, testnet, region }),
       });
       const data = await res.json();
       if (!res.ok) {

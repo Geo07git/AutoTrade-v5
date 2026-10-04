@@ -121,8 +121,11 @@ export class MarketScanner {
         if (!symbol) break;
 
         try {
+          console.log(`[MarketScanner] Worker processing symbol: ${symbol}`);
           const ticker = tickersMap[symbol];
           const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 8000);
+          
+          console.log(`[MarketScanner] Fetched klines for ${symbol}: ${klinesLtf?.length || 0} items`);
 
           if (klinesLtf && klinesLtf.length >= 22) {
             const klinesMap: Record<string, Kline[]> = { [mainTf]: klinesLtf };
@@ -222,16 +225,19 @@ export class MarketScanner {
     );
 
     try {
-      // 1. Get filtered eligible symbols from OKX EEA USDT SWAP universe (merging active profile volume limits)
+      // 1. Get filtered eligible symbols from OKX EEA universe (filterConfig from SCANNER PARAMETERS & LIQUIDITY FILTERS is the sovereign source)
       const scanFilter: UniverseFilterConfig = {
         ...this.filterConfig,
-        ...(profile.min24hVolumeUSDT !== undefined && profile.min24hVolumeUSDT > 0
-          ? { min24hVolumeUSDT: profile.min24hVolumeUSDT }
-          : {}),
-        ...(profile.max24hVolumeUSDT !== undefined
-          ? { max24hVolumeUSDT: profile.max24hVolumeUSDT }
-          : {}),
       };
+
+      // Only fall back to profile volume limits if not configured in filterConfig
+      if ((scanFilter.min24hVolumeUSDT === undefined || scanFilter.min24hVolumeUSDT === 0) && profile.min24hVolumeUSDT && profile.min24hVolumeUSDT > 0) {
+        scanFilter.min24hVolumeUSDT = profile.min24hVolumeUSDT;
+      }
+      if ((scanFilter.max24hVolumeUSDT === undefined || scanFilter.max24hVolumeUSDT === 0) && profile.max24hVolumeUSDT && profile.max24hVolumeUSDT > 0) {
+        scanFilter.max24hVolumeUSDT = profile.max24hVolumeUSDT;
+      }
+
       const { allSymbolsCount, eligibleSymbols, tickersMap } =
         await this.universeManager.getFilteredUniverse(scanFilter);
 

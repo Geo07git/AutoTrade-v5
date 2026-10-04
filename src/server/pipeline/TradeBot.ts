@@ -197,11 +197,13 @@ export class TradeBot {
 
     // Instantiate both adapters
     const isDemo = appConfig.executionMode !== 'LIVE' && (appConfig.testnet !== false);
+    const region = appConfig.okxRegion || 'AUTO';
     this.okxAdapter = new OKXAdapter(
-      appConfig.okxApiKey || '',
-      appConfig.okxSecretKey || '',
-      appConfig.okxPassphrase || '',
-      isDemo
+      appConfig.okxApiKey || process.env.OKX_API_KEY || '',
+      appConfig.okxSecretKey || process.env.OKX_SECRET_KEY || '',
+      appConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '',
+      isDemo,
+      region
     );
     if (appConfig.maxLeverage) {
       this.okxAdapter.setLeverageConfig(appConfig.maxLeverage, 'cross');
@@ -210,7 +212,7 @@ export class TradeBot {
 
     // Select active adapter based on executionMode (TESTNET or LIVE uses OKXAdapter only if credentials exist)
     const hasCreds = this.okxAdapter.hasCredentials() || this.hasOKXCredentials();
-    this.activeAdapter = (appConfig.executionMode === 'TESTNET' || appConfig.executionMode === 'LIVE') && hasCreds
+    this.activeAdapter = appConfig.executionMode === 'LIVE' && hasCreds
       ? this.okxAdapter
       : this.paperAdapter;
 
@@ -328,10 +330,15 @@ export class TradeBot {
     };
   }
 
+  private isStarted = false;
+
   /**
    * Safe startup sequence
    */
   public async start() {
+    if (this.isStarted) return;
+    this.isStarted = true;
+
     const config = this.configStore.get();
     this.logAudit('SYSTEM', `TradeBot 5 starting sequence initiated in [${config.executionMode}] mode...`);
     this.state = 'INITIALIZING';
@@ -341,6 +348,8 @@ export class TradeBot {
     // Start tick loop (runs every 15 seconds for market scanning & new entries)
     if (this.loopInterval) clearInterval(this.loopInterval);
     this.loopInterval = setInterval(() => this.tick(), 15000);
+    // Execute first scan immediately after start
+    setTimeout(() => this.tick(), 1500);
 
     // Dedicated high-frequency live price & risk monitor for active positions (evaluates Hard SL / TP / Trailing / EquityProt every 2.5s)
     if (this.positionMonitorInterval) clearInterval(this.positionMonitorInterval);
@@ -435,6 +444,19 @@ export class TradeBot {
 
   public async connectAndRecover() {
     const config = this.configStore.get();
+
+    // Ensure okxAdapter credentials are fresh from config Store
+    if (config.executionMode === 'LIVE' && this.activeAdapter === this.okxAdapter) {
+      const key = config.okxApiKey || process.env.OKX_API_KEY || '';
+      const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
+      const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
+      const isDemo = config.executionMode !== 'LIVE';
+      const reg = config.okxRegion || 'AUTO';
+      if (key && secret) {
+        this.okxAdapter.updateCredentials(key, secret, pass, isDemo, reg);
+      }
+    }
+
     const connTest = await this.activeAdapter.testConnection();
 
     if (!connTest.reachable || !connTest.authenticated) {
@@ -455,8 +477,18 @@ export class TradeBot {
       const realEquity = await this.activeAdapter.getEquity();
       if (realEquity > 0) {
         this.currentEquity = realEquity;
+        if (config.executionMode === 'LIVE' && (!config.baseCapital || config.baseCapital === 200.0)) {
+          config.baseCapital = parseFloat(realEquity.toFixed(2));
+          this.positionManager.resetHighestEquity(config.baseCapital);
+          this.configStore.save(config);
+        }
       } else if (connTest.equity && connTest.equity > 0) {
         this.currentEquity = connTest.equity;
+        if (config.executionMode === 'LIVE' && (!config.baseCapital || config.baseCapital === 200.0)) {
+          config.baseCapital = parseFloat(connTest.equity.toFixed(2));
+          this.positionManager.resetHighestEquity(config.baseCapital);
+          this.configStore.save(config);
+        }
       }
     } catch (err: any) {
       console.warn('[TradeBot] Equity fetch warning:', err.message || err);
@@ -632,21 +664,6 @@ export class TradeBot {
     try {
       const config = this.configStore.get();
 
-      // Guard: If experiment is currently stopping, do not open new entries!
-      if (this.isStoppingExperiment) {
-        return;
-      }
-
-      // Guard: If Kill Switch is engaged, do not process entries
-      if (config.killSwitchEngaged) {
-        return;
-      }
-
-      // Guard: Must be in TRADING state (if reconciliation failed or waiting for exchange, strictly halt)
-      if (this.state !== 'TRADING') {
-        return;
-      }
-
       // 1. Sync Equity
       try {
         const liveEquity = await this.activeAdapter.getEquity();
@@ -672,7 +689,7 @@ export class TradeBot {
       // PAPER mode: positions live in the local paper store, so reconciling it against itself adds no information
       // and only creates a race with the risk monitor (ghost positions re-imported seconds after a close).
       // It still runs once at startup (connectAndRecover) to rehydrate after a crash.
-      if (config.executionMode !== 'PAPER' && now - this.lastSyncTime > 60000) {
+      if (config.executionMode !== 'PAPER' && now - this.lastSyncTime > 60000 && this.state !== 'WAITING_FOR_EXCHANGE') {
         try {
           const seqBefore = this.positionManager.getMutationSeq();
           const exchangePositions = await this.activeAdapter.getOpenPositions();
@@ -686,17 +703,18 @@ export class TradeBot {
             this.lastSyncTime = now;
           }
         } catch (err: any) {
-          // If reconciliation fails, immediately halt TRADING!
-          this.state = 'WAITING_FOR_EXCHANGE';
-          this.logAudit('ERROR', `Periodic reconciliation failed with ${config.executionMode}: ${err.message || err}. Trading halted immediately for safety.`);
-          return; // Stop current tick immediately! No new orders!
+          // Log warning but do NOT halt trading or enter WAITING_FOR_EXCHANGE
+          console.warn('[TradeBot] Periodic reconciliation warning (non-fatal):', err?.message || err);
+          this.logAudit('SYSTEM', `Periodic reconciliation notice: ${err.message || err}. Continuing normal scan & execution loop.`);
         }
       }
 
       const profile = this.getActiveProfileConfig();
       this.engine.setConfig(profile); // Force update engine config
 
-      // 3. Dynamic Universe & Market Scanning
+      // 3. Dynamic Universe & Market Scanning (ALWAYS RUNS AUTOMATICALLY)
+      // This guarantees the market scanner continuously runs every 15s to update opportunities,
+      // candidate momentum scores, RVOL, and real-time feeds even if entries are paused.
       const scannedOpportunities = await this.marketScanner.scan(profile, Boolean(config.invertSignals));
 
       // Update latest prices for all scanned pairs
@@ -704,6 +722,41 @@ export class TradeBot {
         if (opp.price > 0) {
           this.latestPrices[opp.symbol] = opp.price;
         }
+      }
+
+      // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss / Time-stop) for existing open positions
+      const activePositionsBeforeExits = this.positionManager.getActivePositions();
+      const currentUnrealizedPnl = activePositionsBeforeExits.reduce((acc, p) => acc + (p.pnl || 0), 0);
+      const currentWallet = this.activeAdapter.getWalletBalance
+        ? await this.activeAdapter.getWalletBalance()
+        : parseFloat((this.currentEquity - currentUnrealizedPnl).toFixed(2));
+
+      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
+        profitVault: config.profitVault || 0,
+        baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
+        lockProfitVault: Boolean(config.lockProfitVault),
+        marketRegime: this.marketRegime,
+        accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+        accountBalance: currentWallet,
+        onVaultProfitLocked: (lockedAmount, totalVault) => {
+          this.handleVaultProfitLocked(lockedAmount, totalVault);
+        },
+      });
+
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.orderStore.save(this.orderManager.getOrders());
+
+      // 5. STRICT ENTRY GUARDS: If experiment is stopping, Kill Switch is engaged, or state is not TRADING, halt before new entries
+      if (this.isStoppingExperiment) {
+        return;
+      }
+
+      if (config.killSwitchEngaged) {
+        return;
+      }
+
+      if (this.state !== 'TRADING') {
+        return;
       }
 
       const expState = experimentManager.getState();
@@ -717,8 +770,14 @@ export class TradeBot {
         if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 50) && (profile.maxMomentumScore ? opp.score <= profile.maxMomentumScore : true))) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
         if (profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
-        if (profile.min24hVolumeUSDT && profile.min24hVolumeUSDT > 0 && opp.volume24hUSDT < profile.min24hVolumeUSDT) return false;
-        if (profile.max24hVolumeUSDT && profile.max24hVolumeUSDT > 0 && opp.volume24hUSDT > profile.max24hVolumeUSDT) return false;
+        const effMinVol = (config.scannerFilter?.min24hVolumeUSDT && config.scannerFilter.min24hVolumeUSDT > 0)
+          ? config.scannerFilter.min24hVolumeUSDT
+          : (profile.min24hVolumeUSDT || 0);
+        const effMaxVol = (config.scannerFilter?.max24hVolumeUSDT && config.scannerFilter.max24hVolumeUSDT > 0)
+          ? config.scannerFilter.max24hVolumeUSDT
+          : (profile.max24hVolumeUSDT || 0);
+        if (effMinVol > 0 && opp.volume24hUSDT < effMinVol) return false;
+        if (effMaxVol > 0 && opp.volume24hUSDT > effMaxVol) return false;
         return true;
       });
 
@@ -745,6 +804,28 @@ export class TradeBot {
             if (minutesSinceClose < profile.cooldownMinutes) {
               continue;
             }
+          }
+        }
+
+        // STRICT CHECK 4: Affordability check in LIVE mode (ensures 1 contract notional fits within available equity)
+        if (config.executionMode === 'LIVE' && !isExpActive) {
+          const ctVal = this.okxAdapter.getCachedCtVal(symbol);
+          const minNotional = (candidate.price || 1) * ctVal;
+          const leverage = Math.max(1, parseFloat(String(config.maxLeverage || '1').replace(/[^0-9.]/g, '')) || 1);
+          const requiredMarginForOneContract = minNotional / leverage;
+          if (this.currentEquity > 0 && requiredMarginForOneContract > this.currentEquity * 1.05) {
+            this.logAudit(
+              'CANDIDATE_REJECTED',
+              `Candidatul #${candidate.rank} (${symbol}) omis: 1 contract necesită o marjă minimă de $${requiredMarginForOneContract.toFixed(2)} (ctVal: ${ctVal}), depășind capitalul disponibil ($${this.currentEquity.toFixed(2)}). Se evaluează automat următorul candidat.`,
+              {
+                symbol,
+                requiredMargin: requiredMarginForOneContract,
+                currentEquity: this.currentEquity,
+                ctVal,
+                price: candidate.price,
+              }
+            );
+            continue;
           }
         }
 
@@ -915,29 +996,6 @@ export class TradeBot {
           }
         }
       }
-
-      const activePositionsBeforeExits = this.positionManager.getActivePositions();
-      const currentUnrealizedPnl = activePositionsBeforeExits.reduce((acc, p) => acc + (p.pnl || 0), 0);
-      const currentWallet = this.activeAdapter.getWalletBalance
-        ? await this.activeAdapter.getWalletBalance()
-        : parseFloat((this.currentEquity - currentUnrealizedPnl).toFixed(2));
-
-      // 4. Update prices and evaluate exit conditions (Trailing / Stop-loss / Time-stop)
-      await this.positionManager.updatePrices(this.latestPrices, profile, this.orderManager, this.currentEquity, {
-        profitVault: config.profitVault || 0,
-        baseCapital: config.baseCapital || (config.executionMode === 'PAPER' ? (config.paperEquity || 200.0) : this.currentEquity),
-        lockProfitVault: Boolean(config.lockProfitVault),
-        marketRegime: this.marketRegime,
-        accountEquity: parseFloat(this.currentEquity.toFixed(2)),
-        accountBalance: currentWallet,
-        onVaultProfitLocked: (lockedAmount, totalVault) => {
-          this.handleVaultProfitLocked(lockedAmount, totalVault);
-        },
-      });
-
-      // Persist state
-      this.positionStore.save(this.positionManager.getActivePositions());
-      this.orderStore.save(this.orderManager.getOrders());
     } catch (err: any) {
       console.error('[TradeBot] Tick execution error:', err);
       this.logAudit('ERROR', `Error in trading cycle: ${err.message || err}`);
@@ -947,7 +1005,7 @@ export class TradeBot {
   }
 
   /**
-   * Set execution mode: PAPER | TESTNET | LIVE
+   * Set execution mode: PAPER | LIVE
    */
   public async setExecutionMode(mode: ExecutionMode): Promise<{ success: boolean; error?: string }> {
     const activePositions = this.positionManager.getActivePositions();
@@ -959,8 +1017,8 @@ export class TradeBot {
 
     const config = this.configStore.get();
 
-    // Verify credentials if switching to TESTNET or LIVE
-    if (mode === 'TESTNET' || mode === 'LIVE') {
+    // Verify credentials if switching to LIVE
+    if (mode === 'LIVE') {
       const hasCreds = this.hasOKXCredentials();
       if (!hasCreds) {
         const err = `Cheile API OKX (API Key, Secret Key, Passphrase) lipsesc. Configurează-le mai întâi în panoul de Conexiune OKX sau în variabilele de mediu.`;
@@ -969,7 +1027,7 @@ export class TradeBot {
       }
     }
 
-    if (config.executionMode === mode && ((mode === 'TESTNET' && config.testnet) || (mode === 'LIVE' && !config.testnet))) {
+    if (config.executionMode === mode && (mode === 'LIVE' || mode === 'PAPER')) {
       return { success: true };
     }
 
@@ -979,15 +1037,16 @@ export class TradeBot {
     }
 
     config.executionMode = mode;
-    config.testnet = mode !== 'LIVE';
+    config.testnet = false;
+    config.killSwitchEngaged = false;
     this.configStore.save(config);
 
     // Switch active execution adapter
-    if (mode === 'TESTNET' || mode === 'LIVE') {
+    if (mode === 'LIVE') {
       const key = config.okxApiKey || process.env.OKX_API_KEY || '';
       const secret = config.okxSecretKey || process.env.OKX_SECRET_KEY || '';
       const pass = config.okxPassphrase || process.env.OKX_PASSPHRASE || '';
-      this.okxAdapter.updateCredentials(key, secret, pass, mode !== 'LIVE');
+      this.okxAdapter.updateCredentials(key, secret, pass, false);
       if (this.okxAdapter.hasCredentials()) {
         this.activeAdapter = this.okxAdapter;
       } else {
@@ -1013,7 +1072,7 @@ export class TradeBot {
     this.setupAdapterListeners(this.activeAdapter);
     this.logAudit(
       'MODE_CHANGED',
-      `Modul de execuție a fost comutat la [${mode}] (${mode === 'TESTNET' ? 'OKX Demo Simulated Trading' : mode === 'LIVE' ? 'OKX Real Trading' : 'Simulare Locală Paper'}). Reconectare motor...`
+      `Modul de execuție a fost comutat la [${mode}] (${mode === 'LIVE' ? 'OKX Real Trading' : 'Simulare Locală Paper'}). Reconectare motor...`
     );
 
     await this.connectAndRecover();
@@ -1250,18 +1309,20 @@ export class TradeBot {
   /**
    * Update OKX API credentials
    */
-  public async updateCredentials(apiKey: string, secretKey: string, passphrase: string, testnet: boolean = true) {
+  public async updateCredentials(apiKey: string, secretKey: string, passphrase: string, testnet: boolean = true, region: 'EEA' | 'GLOBAL' | 'AUTO' = 'AUTO') {
     const config = this.configStore.get();
     config.okxApiKey = apiKey.trim();
     config.okxSecretKey = secretKey.trim();
     config.okxPassphrase = passphrase.trim();
     config.testnet = testnet;
+    config.okxRegion = region;
     this.configStore.save();
 
-    this.okxAdapter.updateCredentials(apiKey, secretKey, passphrase, testnet);
-    this.logAudit('SYSTEM', `Chei API OKX actualizate cu succes (Mod rețea: ${testnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`);
+    const isDemo = config.executionMode === 'LIVE' ? false : testnet;
+    this.okxAdapter.updateCredentials(apiKey, secretKey, passphrase, isDemo, region);
+    this.logAudit('SYSTEM', `Chei API OKX actualizate cu succes (Regiune: ${region}, Mod rețea: ${testnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`);
 
-    if (config.executionMode === 'TESTNET' || config.executionMode === 'LIVE') {
+    if (config.executionMode === 'LIVE') {
       await this.connectAndRecover();
     }
   }
@@ -1273,16 +1334,23 @@ export class TradeBot {
     return hasInConfig || hasInEnv;
   }
 
-  public async testOKXConnection(creds?: { apiKey?: string; secretKey?: string; passphrase?: string; isDemo?: boolean }) {
-    if (creds && creds.apiKey && creds.secretKey) {
+  public async testOKXConnection(creds?: { apiKey?: string; secretKey?: string; passphrase?: string; isDemo?: boolean; region?: 'EEA' | 'GLOBAL' | 'AUTO' }) {
+    const config = this.configStore.get();
+    const isMaskedKey = creds?.apiKey && (creds.apiKey.includes('...') || creds.apiKey.includes('***'));
+    const isMaskedSecret = creds?.secretKey && creds.secretKey.includes('***');
+
+    if (creds && creds.apiKey && creds.secretKey && !isMaskedKey && !isMaskedSecret) {
       const tempAdapter = new OKXAdapter(
-        creds.apiKey,
-        creds.secretKey,
-        creds.passphrase || '',
-        creds.isDemo ?? true
+        creds.apiKey.trim(),
+        creds.secretKey.trim(),
+        creds.passphrase?.trim() || '',
+        creds.isDemo !== undefined ? creds.isDemo : (config.executionMode !== 'LIVE' && config.testnet !== false),
+        creds.region || config.okxRegion || 'AUTO'
       );
       return await tempAdapter.testConnection();
     }
+
+    // Otherwise test using currently saved adapter credentials
     return await this.okxAdapter.testConnection();
   }
 
@@ -1397,7 +1465,11 @@ export class TradeBot {
     const expState = experimentManager.getState();
     const isExpActive = expState.isActive;
 
-    let initialEquity = isExpActive ? expState.unlimitedCapital : (config.paperEquity || 200.0);
+    let initialEquity = isExpActive
+      ? expState.unlimitedCapital
+      : (config.executionMode === 'PAPER'
+          ? (config.paperEquity || 200.0)
+          : (config.baseCapital || this.currentEquity || 200.0));
 
     // TradeBot 4 derivative accounting identity:
     // Wallet Balance = Cash balance (total collateral deposited + realized PnL - trading fees)
@@ -1417,8 +1489,13 @@ export class TradeBot {
       effectiveEquity = parseFloat((walletBalance + unrealizedPnL).toFixed(2));
       this.currentEquity = effectiveEquity;
     } else {
+      // LIVE or TESTNET
       effectiveEquity = this.currentEquity;
       walletBalance = parseFloat((effectiveEquity - unrealizedPnL).toFixed(2));
+      if (!config.baseCapital && this.currentEquity > 0) {
+        config.baseCapital = parseFloat(this.currentEquity.toFixed(2));
+      }
+      initialEquity = config.baseCapital || this.currentEquity;
     }
 
     const freeBalance = parseFloat((walletBalance - marginInvested).toFixed(2));
@@ -1669,7 +1746,7 @@ export class TradeBot {
 
     const state = experimentManager.stopExperiment();
     this.updateProfileSettings('SCALP', { maxOpenPositions: 5 });
-    // The equity peak was inflated by the synthetic $1B experiment fund; reset the Equity Protection baseline to the
+    // The equity peak was inflated by the synthetic $10,000 experiment fund; reset the Equity Protection baseline to the
     // real account so the first post-experiment position is not instantly "stopped out" by a fake 100% drawdown.
     try {
       const cfg = this.configStore.get();

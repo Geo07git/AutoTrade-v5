@@ -17,6 +17,10 @@ export interface ConnectionTestResult {
   accountType?: string;
   equity?: number;
   error?: string;
+  region?: string;
+  endpoint?: string;
+  diagnostic?: string;
+  serverIp?: string;
 }
 
 export interface IExecutionAdapter {

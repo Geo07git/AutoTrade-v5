@@ -76,7 +76,7 @@ interface BloombergTerminalProps {
   onTriggerScan: () => void;
   onClearLogs?: () => void;
   onClearOrders?: () => void;
-  onUpdateCredentials?: (apiKey: string, secretKey: string, passphrase: string, testnet: boolean) => Promise<{ success: boolean; error?: string }>;
+  onUpdateCredentials?: (apiKey: string, secretKey: string, passphrase: string, testnet: boolean, region?: 'EEA' | 'GLOBAL' | 'AUTO') => Promise<{ success: boolean; error?: string }>;
   onTestOKXConnection?: (creds?: any) => Promise<any>;
   onSaveTelegramConfig?: (token: string, chatId: string, botUsername?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   onTestTelegramConnection?: (token?: string, chatId?: string) => Promise<{ success: boolean; reachable: boolean; validToken: boolean; botUsername?: string; botName?: string; chatDelivered?: boolean; error?: string }>;
@@ -268,6 +268,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [okxSecretInput, setOkxSecretInput] = useState<string>('');
   const [okxPassphraseInput, setOkxPassphraseInput] = useState<string>('');
   const [okxTestnetInput, setOkxTestnetInput] = useState<boolean>(true);
+  const [okxRegionInput, setOkxRegionInput] = useState<'EEA' | 'GLOBAL' | 'AUTO'>('EEA');
+  const [detectedServerIp, setDetectedServerIp] = useState<string>('');
+  const [copiedIp, setCopiedIp] = useState<boolean>(false);
   const [isTestingOKX, setIsTestingOKX] = useState<boolean>(false);
   const [okxTestFeedback, setOkxTestFeedback] = useState<{
     tested: boolean;
@@ -275,6 +278,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     authenticated?: boolean;
     equity?: number;
     error?: string;
+    region?: string;
+    endpoint?: string;
+    serverIp?: string;
   } | null>(null);
   const [isSavingOKX, setIsSavingOKX] = useState<boolean>(false);
   const [okxSaveMessage, setOkxSaveMessage] = useState<string | null>(null);
@@ -434,6 +440,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   }, [status?.config]);
 
+  // Auto-fetch server public IP for diagnostic display
+  useEffect(() => {
+    if (showOKXModal && !detectedServerIp) {
+      fetch('/api/bot/server-ip')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.serverIp && d.serverIp !== 'Nedetectat') {
+            setDetectedServerIp(d.serverIp);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [showOKXModal, detectedServerIp]);
+
+  const handleCopyServerIp = () => {
+    if (detectedServerIp) {
+      navigator.clipboard.writeText(detectedServerIp);
+      setCopiedIp(true);
+      setTimeout(() => setCopiedIp(false), 3000);
+    }
+  };
+
   const handleSwitchExecutionModeWithCheck = (mode: ExecutionMode) => {
     if (status?.positions && status.positions.length > 0) {
       alert(`Nu poți comuta modul în timp ce există ${status.positions.length} poziție(i) deschise. Închide mai întâi toate pozițiile active!`);
@@ -448,6 +476,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const handleConfirmLiveMode = () => {
     setShowLiveConfirm(false);
+    setOkxTestnetInput(false);
     onSwitchMode('LIVE');
   };
 
@@ -461,7 +490,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           secretKey: okxSecretInput,
           passphrase: okxPassphraseInput,
           isDemo: okxTestnetInput,
-        } : undefined);
+          region: okxRegionInput,
+        } : {
+          isDemo: okxTestnetInput,
+          region: okxRegionInput,
+        });
         const result = await onTestOKXConnection(credsToSend);
         setOkxTestFeedback({
           tested: true,
@@ -469,7 +502,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           authenticated: result.authenticated,
           equity: result.equity,
           error: result.error,
+          region: result.region,
+          endpoint: result.endpoint,
+          serverIp: result.serverIp,
         });
+        if (result.serverIp && result.serverIp !== 'Nedetectat') {
+          setDetectedServerIp(result.serverIp);
+        }
       }
     } catch (err: any) {
       setOkxTestFeedback({
@@ -496,7 +535,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           okxKeyInput.trim(),
           okxSecretInput.trim(),
           okxPassphraseInput.trim(),
-          okxTestnetInput
+          okxTestnetInput,
+          okxRegionInput
         );
         if (res.success) {
           setOkxSaveMessage('✅ Cheile API OKX au fost salvate și verificate cu succes!');
@@ -982,7 +1022,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+          <div className="overflow-x-auto min-h-[380px] max-h-[600px] overflow-y-auto">
             <table className="w-full text-left text-[11px] font-mono">
               <thead className="text-[10px] text-zinc-400 bg-zinc-900/80 uppercase border-b border-zinc-800 sticky top-0">
                 <tr>
@@ -1087,19 +1127,46 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* TECHNICAL DETAILS & SPECIFICATION */}
-        <div className="bg-zinc-900/60 border border-cyan-500/20 p-3.5 rounded text-xs space-y-2 font-mono text-zinc-300">
-          <div className="font-bold text-cyan-400 flex items-center space-x-1.5">
+        {/* TECHNICAL DETAILS & SPECIFICATION - EXPANDED TO FULL SCREEN WIDTH */}
+        <div className="bg-zinc-900/60 border border-cyan-500/20 p-4 rounded text-xs space-y-3 font-mono text-zinc-300">
+          <div className="font-bold text-cyan-400 flex items-center space-x-1.5 border-b border-cyan-500/20 pb-2">
             <Info className="w-4 h-4" />
-            <span>Condiții &amp; Arhitectură Tehnică Experiment:</span>
+            <span className="uppercase tracking-wider">Condiții &amp; Arhitectură Tehnică Experiment ({effectiveHours}h):</span>
           </div>
-          <ul className="list-disc list-inside space-y-1 text-[11px] text-zinc-400">
-            <li><strong className="text-zinc-200">Profil Execuție:</strong> SCALP cu aceeași logică de selecție și aceeași logică de exit pe tick-uri de 2.5 secunde.</li>
-            <li><strong className="text-zinc-200">Capital Virtual ($10,000):</strong> Balanță simulată de $10,000.00 USDT, plafonată la maximum 50 poziții simultane ($50/trade).</li>
-            <li><strong className="text-zinc-200">Univers de Tranzacționare:</strong> Toate perechile SWAP active de pe OKX sunt scanate continuu.</li>
-            <li><strong className="text-zinc-200">Jurnal Complet:</strong> Fără limitare la 1000 înregistrări. Toate intrările, ieșirile și datele de execuție sunt salvate pe disc.</li>
-            <li><strong className="text-zinc-200">Export Fișiere:</strong> Fișierele conforme sunt descărcabile instant ca <code className="text-amber-300">experiment_{effectiveHours}h_{dateStr}.json</code> și <code className="text-emerald-300">experiment_{effectiveHours}h_{dateStr}.csv</code>.</li>
-          </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
+            <div className="p-3 bg-black/60 rounded border border-zinc-800 space-y-1.5">
+              <span className="text-cyan-300 font-bold block flex items-center space-x-1">
+                <span>⚡ MOTOR EXECUȚIE</span>
+              </span>
+              <p className="text-zinc-400 text-[10px] leading-relaxed">
+                Profil SCALP optimizat. Scanare continuă a tuturor perechilor SWAP active OKX, decizii la tick-uri de 2.5 secunde, intrare doar la Momentum &gt;= {effectiveMinMom}.
+              </p>
+            </div>
+            <div className="p-3 bg-black/60 rounded border border-zinc-800 space-y-1.5">
+              <span className="text-emerald-400 font-bold block flex items-center space-x-1">
+                <span>💰 CAPITAL &amp; LIMITĂ POZIȚII</span>
+              </span>
+              <p className="text-zinc-400 text-[10px] leading-relaxed">
+                Balanță simulată alocată de $10,000.00 USDT, strict plafonată la maximum 50 poziții simultane ($50 per tranzacție, utilizare optimă de 25% marjă).
+              </p>
+            </div>
+            <div className="p-3 bg-black/60 rounded border border-zinc-800 space-y-1.5">
+              <span className="text-amber-400 font-bold block flex items-center space-x-1">
+                <span>🛡️ REGULI PROTECȚIE &amp; EXIT</span>
+              </span>
+              <p className="text-zinc-400 text-[10px] leading-relaxed">
+                Hard Stop-Loss strict la -{experimentState?.hardStopLossPct || expHardStopLoss}%, Break-Even la +{experimentState?.breakEvenActivationPct || expBreakEven}%, Trailing Stop dinamic și Time-Stop la {experimentState?.maxHoldingTimeMinutes || expMaxHoldMinutes}m.
+              </p>
+            </div>
+            <div className="p-3 bg-black/60 rounded border border-zinc-800 space-y-1.5">
+              <span className="text-purple-400 font-bold block flex items-center space-x-1">
+                <span>📊 JURNALIZARE &amp; EXPORT</span>
+              </span>
+              <p className="text-zinc-400 text-[10px] leading-relaxed">
+                Memorare automată fără trunchiere la 1000 înregistrări. Export instant prin butoanele de sus în fișiere conform formatului JSON și CSV pentru analiză Excel / Python.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -4139,24 +4206,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               )}
 
               <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
                     <div className="text-slate-400 text-[11px]">Universe Monitored</div>
                     <div className="text-lg font-bold text-amber-400">{status?.scannerStats?.universeCount ?? 0} Symbols</div>
                   </div>
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
-                    <div className="text-slate-400 text-[11px]">Filtered Candidates</div>
-                    <div className="text-lg font-bold text-emerald-400">{status?.scannerStats?.candidatesCount ?? 0} Active</div>
+                    <div className="text-slate-400 text-[11px]">Scanned Universe (Liquid)</div>
+                    <div className="text-lg font-bold text-cyan-400">{status?.scannerStats?.topOpportunities?.length ?? 0} Pairs</div>
+                  </div>
+                  <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
+                    <div className="text-slate-400 text-[11px]">Filtered Candidates (Signals)</div>
+                    <div className="text-lg font-bold text-emerald-400">{status?.scannerStats?.candidatesCount ?? 0} Eligible</div>
                   </div>
                   <div className="bg-zinc-900 p-3 rounded border border-amber-500/20">
                     <div className="text-slate-400 text-[11px]">Scan Interval</div>
-                    <div className="text-lg font-bold text-cyan-400">10,000 ms</div>
+                    <div className="text-lg font-bold text-zinc-300">15s Auto</div>
                   </div>
                 </div>
 
                 <div className="bg-zinc-900/80 rounded border border-amber-500/20 overflow-hidden flex flex-col flex-1 min-h-0">
                   <div className="text-xs font-bold text-amber-400 p-2 sm:p-2.5 border-b border-amber-500/30 flex items-center justify-between bg-zinc-950">
-                    <span className="tracking-wide text-[11px] sm:text-xs">TOP SCANNED OPPORTUNITIES ({status?.scannerStats?.topOpportunities?.length || 0})</span>
+                    <span className="tracking-wide text-[11px] sm:text-xs">TOP SCANNED OPPORTUNITIES / SCANNED UNIVERSE ({status?.scannerStats?.topOpportunities?.length || 0})</span>
                     <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">OKX Real-time</span>
                   </div>
                   <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0 relative">
@@ -5301,48 +5372,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </button>
                   </div>
 
-                  {/* OPTION 2: OKX TESTNET (DEMO) */}
-                  <div
-                    onClick={() => handleSwitchExecutionModeWithCheck('TESTNET')}
-                    className={`cursor-pointer p-3 rounded border transition-all flex flex-col justify-between ${
-                      status?.executionMode === 'TESTNET'
-                        ? 'bg-amber-950/40 border-amber-500 shadow-md shadow-amber-950/50 ring-1 ring-amber-500'
-                        : 'bg-zinc-900/60 border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900'
-                    }`}
-                  >
-                    <div className="space-y-1.5 mb-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-amber-400 flex items-center space-x-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                          <span>2. OKX TESTNET (DEMO)</span>
-                        </span>
-                        {status?.executionMode === 'TESTNET' && (
-                          <span className="text-[10px] bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded border border-amber-600/60 font-bold">
-                            ACTIV
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-zinc-300 leading-relaxed">
-                        Conexiune via API la <strong>Simulated Trading OKX</strong> (header <code>x-simulated-trading: 1</code>). Testează ordinele și WebSocket-urile reale pe OKX fără risc financiar.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSwitchExecutionModeWithCheck('TESTNET');
-                      }}
-                      className={`w-full py-1 rounded text-xs font-bold transition-all ${
-                        status?.executionMode === 'TESTNET'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 cursor-default'
-                          : 'bg-zinc-800 hover:bg-amber-500 hover:text-black text-zinc-300'
-                      }`}
-                    >
-                      {status?.executionMode === 'TESTNET' ? '✓ MOD CURENT ACTIV' : 'COMUTĂ LA OKX DEMO'}
-                    </button>
-                  </div>
-
-                  {/* OPTION 3: OKX LIVE (REAL) */}
+                  {/* OPTION 2: OKX LIVE (REAL) */}
                   <div
                     onClick={() => handleSwitchExecutionModeWithCheck('LIVE')}
                     className={`cursor-pointer p-3 rounded border transition-all flex flex-col justify-between ${
@@ -5355,7 +5385,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-rose-400 flex items-center space-x-1.5">
                           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block animate-ping"></span>
-                          <span>3. OKX LIVE (CONT REAL)</span>
+                          <span>2. OKX LIVE (CONT REAL)</span>
                         </span>
                         {status?.executionMode === 'LIVE' && (
                           <span className="text-[10px] bg-rose-950 text-rose-300 px-1.5 py-0.2 rounded border border-rose-600/60 font-bold animate-pulse">
@@ -5364,7 +5394,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         )}
                       </div>
                       <p className="text-[11px] text-zinc-300 leading-relaxed">
-                        Execuție de ordine reale pe bursa <strong>OKX USDT SWAP Perpetuals</strong> cu fonduri reale din cont. Necesită chei API cu permisiuni de tranzacționare.
+                        Execuție de ordine reale pe bursa <strong>OKX X-Perps / Perpetuals</strong> cu fonduri reale din cont. Necesită chei API cu permisiuni de tranzacționare.
                       </p>
                     </div>
                     <button
@@ -5774,8 +5804,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (ADAPTIVE HEIGHT, FULL SCREEN FIT WITH ZERO PAGE SCROLL) */}
-        <div className="h-36 sm:h-44 lg:h-52 shrink-0 flex flex-col min-h-0">
+        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (ADAPTIVE HEIGHT, FULL SCREEN FIT WITH ZERO PAGE SCROLL, HIDDEN IN EXP TO EXPAND EXPERIMENT TO 100% FULL SCREEN) */}
+        <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-36 sm:h-44 lg:h-52 shrink-0 flex flex-col min-h-0'}`}>
           <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col h-full min-h-0 shadow-lg">
             <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-1.5 mb-1.5 shrink-0">
               <div className="flex items-center space-x-2">
@@ -6245,36 +6275,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </button>
               </div>
 
-              {/* Testnet */}
-              <div
-                onClick={() => handleSwitchExecutionModeWithCheck('TESTNET')}
-                className={`p-3 rounded border cursor-pointer transition-all flex flex-col justify-between ${
-                  status?.executionMode === 'TESTNET'
-                    ? 'bg-amber-950/50 border-amber-500 ring-1 ring-amber-500'
-                    : 'bg-zinc-900 border-zinc-800 hover:border-amber-500/40'
-                }`}
-              >
-                <div className="space-y-1 mb-2">
-                  <span className="text-xs font-bold text-amber-400 block">🟡 OKX TESTNET (DEMO)</span>
-                  <p className="text-[11px] text-zinc-300 leading-tight">
-                    Simulated Trading API OKX. Fără bani reali. Header simulated activ.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSwitchExecutionModeWithCheck('TESTNET');
-                  }}
-                  className={`w-full py-1 rounded text-xs font-bold ${
-                    status?.executionMode === 'TESTNET'
-                      ? 'bg-amber-500 text-black cursor-default'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-amber-500 hover:text-black'
-                  }`}
-                >
-                  {status?.executionMode === 'TESTNET' ? '✓ ACTIV' : 'COMUTĂ'}
-                </button>
-              </div>
 
               {/* Live */}
               <div
@@ -6310,10 +6310,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
             {/* OKX API Key Form */}
             <div className="bg-black/90 p-3.5 rounded border border-amber-500/30 space-y-3">
-              <span className="text-amber-400 font-bold text-xs flex items-center space-x-1.5">
-                <Key className="w-3.5 h-3.5" />
-                <span>CREDENTIALE OKX (API KEY, SECRET, PASSPHRASE)</span>
-              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-2">
+                <span className="text-amber-400 font-bold text-xs flex items-center space-x-1.5">
+                  <Key className="w-3.5 h-3.5" />
+                  <span>CREDENTIALE OKX (API KEY, SECRET, PASSPHRASE)</span>
+                </span>
+
+                {/* Server OCI IP Whitelist helper */}
+                {detectedServerIp && (
+                  <div className="flex items-center space-x-1.5 text-[11px] font-mono bg-zinc-900 px-2 py-0.5 rounded border border-zinc-700">
+                    <span className="text-zinc-400">IP Server OCI:</span>
+                    <strong className="text-cyan-300">{detectedServerIp}</strong>
+                    <button
+                      type="button"
+                      onClick={handleCopyServerIp}
+                      className="px-1.5 py-0.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded cursor-pointer"
+                      title="Copiază IP-ul serverului pentru Whitelist-ul OKX"
+                    >
+                      {copiedIp ? '✓ Copiat' : 'Copiază'}
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <div>
@@ -6348,22 +6366,81 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
 
+              {/* Region and Target Mode Configuration */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                <div className="bg-zinc-950 p-2 rounded border border-zinc-850 flex items-center justify-between">
+                  <span className="text-[11px] text-zinc-400">Regiune / Domeniu API:</span>
+                  <select
+                    value={okxRegionInput}
+                    onChange={(e) => setOkxRegionInput(e.target.value as any)}
+                    className="bg-zinc-900 text-amber-300 border border-zinc-700 rounded px-2 py-1 text-xs font-mono focus:outline-none"
+                  >
+                    <option value="EEA">EEA (România/Europa - eea.okx.com)</option>
+                    <option value="GLOBAL">Global (Internațional - okx.com)</option>
+                    <option value="AUTO">AUTO (Detectare Automată)</option>
+                  </select>
+                </div>
+
+                <div className="bg-zinc-950 p-2 rounded border border-zinc-850 flex items-center justify-between">
+                  <span className="text-[11px] text-zinc-400">Mod Rețea pentru Chei:</span>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setOkxTestnetInput(false)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                        !okxTestnetInput
+                          ? 'bg-rose-950 text-rose-300 border border-rose-500'
+                          : 'bg-zinc-900 text-zinc-400 border border-zinc-700'
+                      }`}
+                    >
+                      🔴 REAL (LIVE)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOkxTestnetInput(true)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
+                        okxTestnetInput
+                          ? 'bg-amber-950 text-amber-300 border border-amber-500'
+                          : 'bg-zinc-900 text-zinc-400 border border-zinc-700'
+                      }`}
+                    >
+                      🟡 DEMO (TESTNET)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Important permissions tip */}
+              <div className="bg-zinc-900/90 border border-amber-500/30 rounded p-2 text-[11px] font-mono space-y-1">
+                <div className="text-amber-400 font-bold flex items-center space-x-1">
+                  <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>CERINȚE CHEIE API OKX (Evitare Eroare 50124):</span>
+                </div>
+                <ul className="text-zinc-300 list-disc list-inside space-y-0.5 text-[10px] leading-relaxed">
+                  <li>
+                    <strong className="text-amber-300">Permisiune &quot;Trade&quot; (Tranzacționare):</strong> În contul OKX (Profile &rarr; API &rarr; Editează cheia), bifează obligatoriu <span className="text-emerald-400 font-bold">Trade</span> (nu doar Read)! Fără Trade, OKX respinge orice ordin cu eroarea 50124.
+                  </li>
+                  <li>
+                    <strong className="text-amber-300">Mod Cont (Account Mode):</strong> În OKX (Trade &rarr; Settings / Roată dințată &rarr; Account mode), selectează <span className="text-cyan-300 font-bold">Single-currency margin</span> sau <span className="text-cyan-300 font-bold">Multi-currency margin</span> pentru a permite contracte USDT SWAP.
+                  </li>
+                  <li>
+                    <strong className="text-rose-400">Securitate:</strong> Lasă opțiunea <em>Withdraw</em> (Retrageri) <span className="text-rose-400 font-bold">DEBIFATĂ</span>.
+                  </li>
+                </ul>
+              </div>
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t border-zinc-900">
-                <label className="flex items-center space-x-2 text-xs text-zinc-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={okxTestnetInput}
-                    onChange={(e) => setOkxTestnetInput(e.target.checked)}
-                    className="accent-amber-500 cursor-pointer"
-                  />
-                  <span>Mod Testnet Demo (<code>x-simulated-trading: 1</code>)</span>
-                </label>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  {okxTestnetInput
+                    ? '🟡 Header simulated activ (x-simulated-trading: 1). Necesită chei Demo create pe OKX.'
+                    : '🔴 Fără header simulated. Tranzacționare cu cont Real USDT SWAP.'}
+                </span>
 
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   <button
                     onClick={() => handleRunOKXTest()}
                     disabled={isTestingOKX}
-                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
                   >
                     <Wifi className="w-3.5 h-3.5 text-amber-400" />
                     <span>{isTestingOKX ? 'TESTARE...' : 'TESTEAZĂ CHEI'}</span>
@@ -6372,7 +6449,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <button
                     onClick={handleSaveOKXCredentials}
                     disabled={isSavingOKX || !okxKeyInput || !okxSecretInput}
-                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold flex items-center space-x-1.5 disabled:opacity-40 cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{isSavingOKX ? 'SALVARE...' : 'SALVEAZĂ CHEI'}</span>
@@ -6388,20 +6465,27 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
               {/* Feedback Display */}
               {okxTestFeedback && okxTestFeedback.tested && (
-                <div className={`p-2.5 rounded border text-xs font-mono space-y-1 ${
+                <div className={`p-2.5 rounded border text-xs font-mono space-y-1.5 ${
                   okxTestFeedback.authenticated
                     ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300'
                     : okxTestFeedback.reachable
                     ? 'bg-amber-950/60 border-amber-500 text-amber-300'
                     : 'bg-rose-950/60 border-rose-500 text-rose-300'
                 }`}>
-                  <div className="font-bold flex items-center space-x-1.5">
-                    {okxTestFeedback.authenticated ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <div className="font-bold flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {okxTestFeedback.authenticated ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      )}
+                      <span>REZULTAT TEST CONEXIUNE OKX:</span>
+                    </div>
+                    {okxTestFeedback.region && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-cyan-300">
+                        {okxTestFeedback.region}
+                      </span>
                     )}
-                    <span>REZULTAT TEST CONEXIUNE OKX:</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
                     <div>• Ping API: <strong>{okxTestFeedback.reachable ? '✅ OK' : '❌ FAIL'}</strong></div>
@@ -6409,8 +6493,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <div>• Sold USDT: <strong>{okxTestFeedback.equity !== undefined ? `$${okxTestFeedback.equity.toFixed(2)}` : '--'}</strong></div>
                   </div>
                   {okxTestFeedback.error && (
-                    <div className="text-[11px] text-rose-300 pt-1">
-                      ⚠️ Eroare: {okxTestFeedback.error}
+                    <div className="text-[11px] text-rose-300 pt-1 whitespace-pre-line bg-black/50 p-2 rounded border border-rose-800/40">
+                      {okxTestFeedback.error}
                     </div>
                   )}
                 </div>

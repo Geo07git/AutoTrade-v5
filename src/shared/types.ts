@@ -1,7 +1,7 @@
 export type ProfileType = 'SCALP' | 'MOMENTUM';
 export type OrderSide = 'BUY' | 'SELL';
 export type PositionStatus = 'OPEN' | 'CLOSING' | 'CLOSED';
-export type ExecutionMode = 'PAPER' | 'TESTNET' | 'LIVE';
+export type ExecutionMode = 'PAPER' | 'LIVE';
 
 export type OrderStatus =
   | 'CREATED'
@@ -109,6 +109,7 @@ export interface AppConfig {
   okxApiKey?: string;
   okxSecretKey?: string;
   okxPassphrase?: string;
+  okxRegion?: 'EEA' | 'GLOBAL' | 'AUTO'; // EEA (Europa/România: eea.okx.com) sau Global (www.okx.com)
   paperEquity?: number;
   maxLeverage?: number;
   watchlist?: string[];

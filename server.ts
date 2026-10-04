@@ -112,13 +112,13 @@ async function startServer() {
     });
   });
 
-  // Switch execution mode: PAPER | TESTNET | LIVE
+  // Switch execution mode: PAPER | LIVE
   app.post('/api/bot/mode', requireControlAuth, async (req, res) => {
     const { mode } = req.body;
 
-    if (mode !== 'PAPER' && mode !== 'TESTNET' && mode !== 'LIVE') {
+    if (mode !== 'PAPER' && mode !== 'LIVE') {
       return res.status(400).json({
-        error: 'Mod de execuție invalid. Moduri permise: PAPER, TESTNET, LIVE.',
+        error: 'Mod de execuție invalid. Moduri permise: PAPER, LIVE.',
       });
     }
 
@@ -139,6 +139,52 @@ async function startServer() {
       res.json({ success: true, status: tradeBot.getStatus() });
     } else {
       res.status(400).json({ error: result.error });
+    }
+  });
+
+  // Diagnostic endpoint for scanner symbols & fetch status
+  app.get('/api/bot/scanner/debug-symbols', async (req, res) => {
+    try {
+      const universeManager = (tradeBot as any).universeManager;
+      const activeAdapter = (tradeBot as any).activeAdapter;
+      
+      const symbols = await universeManager.refreshUniverse();
+      const testSymbols = symbols.slice(0, 3);
+      
+      const diagnostics = [];
+      for (const sym of testSymbols) {
+        let fetchResult: any = null;
+        let errorMsg: string | null = null;
+        try {
+          const url = `https://eea.okx.com/api/v5/market/candles?instId=${sym}&bar=15m&limit=10`;
+          const fetchRes = await fetch(url);
+          const json = await fetchRes.json();
+          fetchResult = {
+            status: fetchRes.status,
+            ok: fetchRes.ok,
+            code: json.code,
+            dataLength: Array.isArray(json.data) ? json.data.length : 'not-array',
+            sample: Array.isArray(json.data) ? json.data[0] : json
+          };
+        } catch (err: any) {
+          errorMsg = err.message;
+        }
+        
+        diagnostics.push({
+          symbol: sym,
+          normalized: activeAdapter.normalizeSymbol ? activeAdapter.normalizeSymbol(sym) : sym,
+          fetchResult,
+          errorMsg
+        });
+      }
+      
+      res.json({
+        totalUniverseCount: symbols.length,
+        universeSample: symbols.slice(0, 10),
+        diagnostics
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message, stack: err.stack });
     }
   });
 
@@ -266,20 +312,42 @@ async function startServer() {
     }
   });
 
+  // Get server public IP for OKX API Whitelist configuration
+  app.get('/api/bot/server-ip', async (_req, res) => {
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2500) });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        return res.json({ serverIp: data.ip || 'Nedetectat' });
+      }
+    } catch {}
+    res.json({ serverIp: 'Nedetectat' });
+  });
+
   // Update OKX API credentials
   app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
-    const { apiKey, apiSecret, secretKey, passphrase, testnet } = req.body;
-    const finalSecret = secretKey || apiSecret;
-    const finalPassphrase = passphrase || '';
-    if (!apiKey || !finalSecret) {
+    const { apiKey, apiSecret, secretKey, passphrase, testnet, region } = req.body;
+    const currentConfig = tradeBot.getStatus().config;
+
+    const isMaskedKey = apiKey && (apiKey.includes('...') || apiKey.includes('***'));
+    const isMaskedSecret = (secretKey || apiSecret) && (secretKey || apiSecret).includes('***');
+    const isMaskedPass = passphrase && passphrase.includes('***');
+
+    const finalKey = (isMaskedKey || !apiKey) ? (currentConfig.okxApiKey || process.env.OKX_API_KEY || '') : apiKey.trim();
+    const rawSecret = secretKey || apiSecret;
+    const finalSecret = (isMaskedSecret || !rawSecret) ? (currentConfig.okxSecretKey || process.env.OKX_SECRET_KEY || '') : rawSecret.trim();
+    const finalPassphrase = (isMaskedPass || !passphrase) ? (currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '') : passphrase.trim();
+
+    if (!finalKey || !finalSecret) {
       return res.status(400).json({ error: 'apiKey și secretKey sunt obligatorii.' });
     }
     try {
       const isTestnet = testnet !== false;
-      await tradeBot.updateCredentials(apiKey, finalSecret, finalPassphrase, isTestnet);
+      const finalRegion = region || currentConfig.okxRegion || 'EEA';
+      await tradeBot.updateCredentials(finalKey, finalSecret, finalPassphrase, isTestnet, finalRegion);
       res.json({
         success: true,
-        message: `Cheile API OKX au fost salvate și conectate (Mod rețea: ${isTestnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`,
+        message: `Cheile API OKX au fost salvate și conectate (Regiune: ${finalRegion}, Mod: ${isTestnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`,
         status: tradeBot.getStatus(),
       });
     } catch (err: any) {
@@ -290,18 +358,45 @@ async function startServer() {
   // Test OKX connection with current or provided credentials
   app.post('/api/bot/okx/test-connection', requireControlAuth, async (req, res) => {
     try {
-      const { apiKey, secretKey, passphrase, isDemo } = req.body || {};
-      const result = await tradeBot.testOKXConnection(
-        apiKey && secretKey ? { apiKey, secretKey, passphrase, isDemo } : undefined
-      );
+      const { apiKey, secretKey, passphrase, isDemo, region } = req.body || {};
+      const currentConfig = tradeBot.getStatus().config;
+
+      const isMaskedKey = !apiKey || apiKey.includes('...') || apiKey.includes('***');
+      const isMaskedSecret = !secretKey || secretKey.includes('***');
+      const isMaskedPass = !passphrase || passphrase.includes('***');
+
+      let credsToTest: any = undefined;
+      if (!isMaskedKey && !isMaskedSecret && apiKey && secretKey) {
+        credsToTest = {
+          apiKey: apiKey.trim(),
+          secretKey: secretKey.trim(),
+          passphrase: isMaskedPass ? (currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '') : passphrase.trim(),
+          isDemo: isDemo !== undefined ? isDemo : (currentConfig.executionMode !== 'LIVE' && currentConfig.testnet !== false),
+          region: region || currentConfig.okxRegion || 'AUTO',
+        };
+      } else {
+        credsToTest = {
+          apiKey: currentConfig.okxApiKey || process.env.OKX_API_KEY || '',
+          secretKey: currentConfig.okxSecretKey || process.env.OKX_SECRET_KEY || '',
+          passphrase: currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '',
+          isDemo: isDemo !== undefined ? isDemo : (currentConfig.executionMode !== 'LIVE' && currentConfig.testnet !== false),
+          region: region || currentConfig.okxRegion || 'AUTO',
+        };
+      }
+
+      const result = await tradeBot.testOKXConnection(credsToTest);
       res.json(result);
     } catch (err: any) {
-      res.status(500).json({ error: err.message || 'Eroare la testarea conexiunii OKX' });
+      res.json({
+        reachable: false,
+        authenticated: false,
+        error: err.message || 'Eroare la testarea conexiunii OKX',
+      });
     }
   });
 
   // OKX credentials status
-  app.get('/api/bot/okx/status', (req, res) => {
+  app.get('/api/bot/okx/status', async (req, res) => {
     const status = tradeBot.getStatus();
     const config = status.config;
     const hasCreds = tradeBot.hasOKXCredentials();
@@ -309,12 +404,23 @@ async function startServer() {
       ? `${config.okxApiKey.slice(0, 4)}...${config.okxApiKey.slice(-4)}`
       : (process.env.OKX_API_KEY ? 'CONFIGURAT_IN_ENV' : '');
 
+    let serverIp = 'Nedetectat';
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
+      if (resp.ok) {
+        const d: any = await resp.json();
+        serverIp = d.ip || 'Nedetectat';
+      }
+    } catch {}
+
     res.json({
       hasCredentials: hasCreds,
       apiKeyMasked: maskedKey,
       hasPassphrase: Boolean(config.okxPassphrase || process.env.OKX_PASSPHRASE),
       executionMode: status.executionMode,
       isTestnet: config.testnet,
+      okxRegion: config.okxRegion || 'EEA',
+      serverIp,
     });
   });
 
@@ -593,6 +699,7 @@ async function startServer() {
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    tradeBot.start().catch((err) => console.error('[TradeBot] Failed to start TradeBot background loop:', err));
   });
 
   server.on('error', (err: any) => {

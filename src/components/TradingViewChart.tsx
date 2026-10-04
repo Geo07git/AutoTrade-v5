@@ -21,10 +21,17 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const [hasError, setHasError] = useState(false);
 
   // Normalize symbol for TradingView
-  const cleanBase = currentSymbol
-    .replace(/-SWAP$/i, '')
-    .replace(/-/g, '')
-    .toUpperCase();
+  const cleanBase = useMemo(() => {
+    const raw = currentSymbol || 'BTC-USDT-SWAP';
+    if (raw.includes('_UM_XPERP')) {
+      const match = raw.match(/^([A-Z0-9]+)-/);
+      return match ? match[1] : 'BTC';
+    }
+    return raw
+      .replace(/-SWAP$/i, '')
+      .replace(/-/g, '')
+      .toUpperCase();
+  }, [currentSymbol]);
 
   // Popular quick-switch symbols
   const quickSymbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'SUIUSDT', 'RENDERUSDT', 'DOGEUSDT'];
