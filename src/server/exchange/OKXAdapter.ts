@@ -204,6 +204,9 @@ export class OKXAdapter implements IExecutionAdapter {
         if (parsed.msg) parsedMsg = parsed.msg;
       } catch {}
 
+      if (parsedCode === '50110' || text.includes('50110') || text.includes('whitelist') || text.includes('IP')) {
+        throw new Error(`OKX IP Whitelist Error [50110]: IP-ul serverului nu este inclus în Whitelist-ul cheii API pe OKX. Adaugă IP-ul curent în setările API pe OKX.`);
+      }
       if (parsedCode === '50124' || text.includes('50124') || text.includes('trading permission')) {
         throw new Error(`OKX HTTP Error [401] (Cod 50124): Cheia ta API nu are permisiunea 'Trade' (Tranzacționare) activată pe această piață! Mergi în OKX -> Profil -> API Keys -> Editează cheia și bifează 'Trade' (Tranzacționare), și verifică activarea modului de contracte SWAP în OKX Settings.`);
       }
@@ -215,6 +218,9 @@ export class OKXAdapter implements IExecutionAdapter {
     console.log(`[OKXAdapter] DEBUG request success: ${url} | Code: ${data.code} | Data length: ${Array.isArray(data.data) ? data.data.length : 'N/A'}`);
     
     if (data.code !== '0') {
+      if (data.code === '50110' || data.msg?.includes('whitelist') || data.msg?.includes('IP')) {
+        throw new Error(`OKX IP Whitelist Error [50110]: IP-ul serverului nu este inclus în Whitelist-ul cheii API pe OKX. Adaugă IP-ul curent în setările API pe OKX.`);
+      }
       if (data.code === '50124' || data.msg?.includes('trading permission')) {
         throw new Error(`OKX API Error [50124]: Cheia ta API nu are permisiunea 'Trade' (Tranzacționare) activată pe această piață! Mergi în OKX -> Profil -> API Keys -> Editează cheia și bifează 'Trade' (Tranzacționare), și verifică activarea modului de contracte SWAP în OKX Settings.`);
       }
@@ -457,7 +463,12 @@ export class OKXAdapter implements IExecutionAdapter {
         if (!isNaN(eq)) return eq;
       }
     } catch (err: any) {
-      console.error('[OKXAdapter] Failed to fetch wallet balance:', err?.message || err);
+      const msg = err?.message || String(err);
+      if (msg.includes('50110') || msg.includes('whitelist') || msg.includes('IP')) {
+        console.warn('[OKXAdapter] Balance check skipped: IP not in OKX API key whitelist (Error 50110).');
+      } else {
+        console.error('[OKXAdapter] Failed to fetch wallet balance:', msg);
+      }
     }
     return 0;
   }
@@ -486,7 +497,12 @@ export class OKXAdapter implements IExecutionAdapter {
         if (!isNaN(totalEq) && totalEq > 0) return parseFloat(totalEq.toFixed(2));
       }
     } catch (err: any) {
-      console.error('[OKXAdapter] Failed to fetch cash balance:', err?.message || err);
+      const msg = err?.message || String(err);
+      if (msg.includes('50110') || msg.includes('whitelist') || msg.includes('IP')) {
+        console.warn('[OKXAdapter] Balance check skipped: IP not in OKX API key whitelist (Error 50110).');
+      } else {
+        console.error('[OKXAdapter] Failed to fetch cash balance:', msg);
+      }
     }
     return 0;
   }

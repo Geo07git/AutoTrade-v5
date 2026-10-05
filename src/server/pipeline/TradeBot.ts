@@ -248,6 +248,10 @@ export class TradeBot {
     const savedOrders = this.orderStore.get() || [];
     this.orderManager.setOrders(savedOrders);
 
+    if (appConfig.executionMode === 'LIVE' && appConfig.baseCapital && appConfig.baseCapital > 0) {
+      this.positionManager.resetHighestEquity(appConfig.baseCapital);
+    }
+
     // Instantiate and link SymbolStatsTracker (Rolling 30 trades per symbol)
     this.symbolStatsTracker = new SymbolStatsTracker();
     this.orderManager.setSymbolStatsTracker(this.symbolStatsTracker);
@@ -477,17 +481,21 @@ export class TradeBot {
       const realEquity = await this.activeAdapter.getEquity();
       if (realEquity > 0) {
         this.currentEquity = realEquity;
-        if (config.executionMode === 'LIVE' && (!config.baseCapital || config.baseCapital === 200.0)) {
-          config.baseCapital = parseFloat(realEquity.toFixed(2));
-          this.positionManager.resetHighestEquity(config.baseCapital);
-          this.configStore.save(config);
+        if (config.executionMode === 'LIVE') {
+          if (!config.baseCapital || config.baseCapital === 200.0) {
+            config.baseCapital = parseFloat(realEquity.toFixed(2));
+            this.configStore.save(config);
+          }
+          this.positionManager.resetHighestEquity(config.baseCapital || realEquity);
         }
       } else if (connTest.equity && connTest.equity > 0) {
         this.currentEquity = connTest.equity;
-        if (config.executionMode === 'LIVE' && (!config.baseCapital || config.baseCapital === 200.0)) {
-          config.baseCapital = parseFloat(connTest.equity.toFixed(2));
-          this.positionManager.resetHighestEquity(config.baseCapital);
-          this.configStore.save(config);
+        if (config.executionMode === 'LIVE') {
+          if (!config.baseCapital || config.baseCapital === 200.0) {
+            config.baseCapital = parseFloat(connTest.equity.toFixed(2));
+            this.configStore.save(config);
+          }
+          this.positionManager.resetHighestEquity(config.baseCapital || connTest.equity);
         }
       }
     } catch (err: any) {
@@ -1097,6 +1105,7 @@ export class TradeBot {
     this.positionManager.setActivePositions([]);
     this.positionManager.clearHistory();
     this.positionManager.resetHighestEquity(200.0);
+    this.positionManager.clearEquityProtectionEvents(200.0);
     this.positionStore.save([]);
     this.orderManager.clearOrders();
     this.orderStore.save([]);
@@ -1585,7 +1594,15 @@ export class TradeBot {
   }
 
   public clearEquityProtectionEvents() {
-    this.positionManager.clearEquityProtectionEvents();
+    const config = this.configStore.get();
+    const effectiveBase = config.executionMode === 'LIVE'
+      ? (config.baseCapital || this.currentEquity)
+      : (config.paperEquity || 200.0);
+    this.positionManager.clearEquityProtectionEvents(effectiveBase);
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `[EQUITY PROTECTION RESET] Jurnalul și contorul de declanșări ale protecției au fost resetate la 0. Baza aliniată la $${effectiveBase.toFixed(2)}.`
+    );
   }
 
   public async executeManualOrder(

@@ -410,6 +410,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [newBaseInput, setNewBaseInput] = useState<string>('200.00');
   const [showResetVaultConfirmModal, setShowResetVaultConfirmModal] = useState<boolean>(false);
   const [showEquityProtectionModal, setShowEquityProtectionModal] = useState<boolean>(false);
+  const [isClearingEquityProtection, setIsClearingEquityProtection] = useState<boolean>(false);
   const [selectedProtectionEvent, setSelectedProtectionEvent] = useState<EquityProtectionEvent | null>(null);
   const [localAlert, setLocalAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
@@ -1606,6 +1607,41 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       type: 'success',
       message: `✅ Jurnalul declanșărilor (${events.length} înregistrări) a fost exportat cu succes în format CSV!`,
     });
+  };
+
+  const handleClearEquityProtection = async () => {
+    const triggerCount = status?.equityTrailingState?.triggerCount || (status?.equityTrailingState?.history || []).length || 0;
+    if (!window.confirm(`Ești sigur că vrei să resetezi contorul și să golești jurnalul declanșărilor protecției de capital?\n\nToate cele ${triggerCount} cicluri înregistrate vor fi șterse, iar baza de urmărire va fi realiniată la capitalul curent.`)) {
+      return;
+    }
+    setIsClearingEquityProtection(true);
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/equity-protection/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onRefresh();
+        setLocalAlert({
+          type: 'success',
+          message: '✅ Jurnalul și contorul protecției de capital au fost resetate la 0 cu succes!',
+        });
+      } else {
+        setLocalAlert({
+          type: 'error',
+          message: data.error || 'Eroare la resetarea jurnalului protecției.',
+        });
+      }
+    } catch (err: any) {
+      setLocalAlert({
+        type: 'error',
+        message: 'Eroare la resetarea jurnalului: ' + (err.message || 'Server indisponibil'),
+      });
+    } finally {
+      setIsClearingEquityProtection(false);
+    }
   };
 
   const hasUnsavedSettings = profileConfig ? (
@@ -3772,7 +3808,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </h3>
                     </div>
 
-                    {/* Action buttons: Jurnal & Export CSV */}
+                    {/* Action buttons: Jurnal & Export CSV & Reset */}
                     <div className="flex items-center space-x-1.5">
                       <button
                         type="button"
@@ -3791,6 +3827,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       >
                         <Download className="w-3 h-3 text-amber-400" />
                         <span>EXPORT CSV</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isClearingEquityProtection}
+                        onClick={handleClearEquityProtection}
+                        className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 hover:text-rose-100 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                        title="Resetează contorul și golește istoricul declanșărilor protecției de capital"
+                      >
+                        <Trash2 className="w-3 h-3 text-rose-400" />
+                        <span>RESET</span>
                       </button>
                     </div>
                   </div>
@@ -3866,6 +3912,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           title="Deschide jurnalul de audit"
                         >
                           [LOG]
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearEquityProtection}
+                          className="text-[10px] text-rose-400 hover:text-rose-200 underline cursor-pointer ml-1 font-bold"
+                          title="Resetează contorul de declanșări la 0"
+                        >
+                          [RESET]
                         </button>
                       </div>
                     </div>
@@ -6016,6 +6070,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  disabled={isClearingEquityProtection}
+                  onClick={handleClearEquityProtection}
+                  className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/60 text-rose-200 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                  title="Resetează contorul și golește întreg jurnalul de declanșări"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>RESET JURNAL</span>
+                </button>
                 <button
                   type="button"
                   onClick={handleExportEquityProtectionCSV}

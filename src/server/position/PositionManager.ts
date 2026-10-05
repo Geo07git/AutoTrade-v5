@@ -205,10 +205,13 @@ export class PositionManager {
     return this.equityProtEvents;
   }
 
-  public clearEquityProtectionEvents(): void {
+  public clearEquityProtectionEvents(baseEquity?: number): void {
     this.equityProtEvents = [];
     this.equityProtCount = 0;
     this.eventStore.save([]);
+    if (baseEquity !== undefined && baseEquity > 0) {
+      this.resetHighestEquity(baseEquity);
+    }
   }
 
   public setCtValResolver(resolver: (symbol: string) => number): void {
