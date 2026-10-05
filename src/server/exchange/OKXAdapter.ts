@@ -316,7 +316,7 @@ export class OKXAdapter implements IExecutionAdapter {
     // 2. Multi-matrix Private Endpoint Auth Test
     const testOnce = async (baseUrl: string, useDemoHeader: boolean) => {
       const timestamp = new Date().toISOString();
-      const path = '/api/v5/account/balance?ccy=USDT';
+      const path = '/api/v5/account/balance';
       const sign = this.generateSignature(timestamp, 'GET', path, '');
       const headers: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -458,9 +458,9 @@ export class OKXAdapter implements IExecutionAdapter {
         if (!isNaN(totalEq) && totalEq > 0) {
           return totalEq;
         }
-        const usdtDetail = res.data[0].details?.find((d: any) => d.ccy === 'USDT');
-        const eq = parseFloat(usdtDetail?.eq || usdtDetail?.cashBal || '0');
-        if (!isNaN(eq)) return eq;
+        const mainDetail = res.data[0].details?.find((d: any) => ['USDC', 'EUR', 'USDT'].includes(d.ccy));
+        const eq = parseFloat(mainDetail?.eq || mainDetail?.cashBal || '0');
+        if (!isNaN(eq) && eq > 0) return eq;
       }
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -808,6 +808,7 @@ export class OKXAdapter implements IExecutionAdapter {
     price?: number;
     orderLinkId: string;
     reduceOnly?: boolean;
+    posSide?: 'long' | 'short' | 'net';
   }): Promise<{ orderId: string; orderLinkId: string }> {
     if (!this.hasCredentials()) {
       throw new Error('Cannot submit order: OKX API credentials not configured.');
@@ -827,29 +828,38 @@ export class OKXAdapter implements IExecutionAdapter {
       // clOrdId in OKX must be max 32 characters alphanumeric
       const clOrdId = params.orderLinkId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
 
-      const submitBody: any = {
+      // Determine accurate position side:
+      // When opening: BUY -> 'long', SELL -> 'short'
+      // When closing (reduceOnly): closing with SELL -> 'long' position; closing with BUY -> 'short' position
+      let targetPosSide: 'long' | 'short' | 'net' = params.posSide || (params.reduceOnly
+        ? (params.side.toLowerCase() === 'sell' ? 'long' : 'short')
+        : (params.side.toLowerCase() === 'buy' ? 'long' : 'short'));
+
+      const baseBody: any = {
         instId,
         tdMode: this.marginMode,
         side: params.side.toLowerCase(), // 'buy' or 'sell'
         ordType: params.orderType.toLowerCase(), // 'market' or 'limit'
         sz: params.qty.toString(),
         clOrdId,
-        ccy: 'USDC',
       };
 
       if (params.price && params.orderType === 'Limit') {
-        submitBody.px = params.price.toString();
+        baseBody.px = params.price.toString();
       }
 
       if (params.reduceOnly) {
-        submitBody.reduceOnly = true;
+        baseBody.reduceOnly = true;
       }
 
+      // Try permutations:
+      // 1. Long/Short (hedge) mode with accurate target posSide (default and standard for OKX SWAP)
+      // 2. Net mode (no posSide attribute)
+      // 3. posSide: 'net'
       const bodiesToTry = [
-        { ...submitBody, ccy: 'USDC' },
-        { ...submitBody },
-        { ...submitBody, posSide: params.side.toLowerCase() === 'buy' ? 'long' : 'short', ccy: 'USDC' },
-        { ...submitBody, posSide: params.side.toLowerCase() === 'buy' ? 'long' : 'short' },
+        { ...baseBody, posSide: targetPosSide },
+        { ...baseBody },
+        { ...baseBody, posSide: 'net' },
       ];
 
       let lastError: any = null;
@@ -872,12 +882,35 @@ export class OKXAdapter implements IExecutionAdapter {
               throw new Error(`OKX sCode [${orderData.sCode}]: ${orderData.sMsg || 'Execution failed'}`);
             }
           } else {
-            const detailMsg = res.data?.[0]?.sMsg ? ` - ${res.data[0].sMsg} (sCode: ${res.data[0].sCode})` : '';
-            throw new Error(`OKX API Error [${res.code}]: ${res.msg || 'Request failed'}${detailMsg}`);
+            const subCode = res.data?.[0]?.sCode;
+            const subMsg = res.data?.[0]?.sMsg;
+            const detailMsg = subMsg ? ` - ${subMsg} (sCode: ${subCode})` : (res.msg ? `: ${res.msg}` : '');
+            throw new Error(`OKX API Error [${res.code}]${detailMsg}`);
           }
         } catch (err: any) {
           lastError = err;
           console.warn(`[OKXAdapter] submitOrder attempt ${i + 1} failed:`, err?.message || err);
+        }
+      }
+
+      // If regular order placement fails on a close order, attempt the dedicated OKX position close endpoint
+      if (!successfulRes && params.reduceOnly) {
+        try {
+          console.log(`[OKXAdapter] Attempting direct /api/v5/trade/close-position for ${instId}...`);
+          const closeRes = await this.request('POST', '/api/v5/trade/close-position', {
+            instId,
+            mgnMode: this.marginMode,
+            posSide: targetPosSide,
+          }, true);
+          if (closeRes.code === '0') {
+            const ordId = closeRes.data?.[0]?.ordId || `close_${Date.now()}`;
+            return {
+              orderId: ordId,
+              orderLinkId: params.orderLinkId,
+            };
+          }
+        } catch (closeErr: any) {
+          console.warn(`[OKXAdapter] Dedicated close-position endpoint failed:`, closeErr?.message || closeErr);
         }
       }
 

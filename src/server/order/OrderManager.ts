@@ -271,6 +271,7 @@ export class OrderManager {
           qty: formattedQty,
           price: currentPrice,
           orderLinkId: clientOrderId,
+          posSide: signal.side === 'BUY' ? 'long' : 'short',
         });
       } catch (submitErr: any) {
         if (
@@ -519,6 +520,7 @@ export class OrderManager {
 
     try {
       let submitRes;
+      const posSide = position.side === 'BUY' ? 'long' : 'short';
       try {
         submitRes = await targetAdapter.submitOrder({
           symbol: position.symbol,
@@ -528,6 +530,7 @@ export class OrderManager {
           price: estPrice,
           orderLinkId: clientOrderId,
           reduceOnly: true,
+          posSide,
         });
       } catch (submitErr: any) {
         if (
@@ -550,6 +553,7 @@ export class OrderManager {
             price: estPrice,
             orderLinkId: clientOrderId,
             reduceOnly: true,
+            posSide,
           });
         } else {
           throw submitErr;
@@ -741,6 +745,46 @@ export class OrderManager {
         return { success: false, order: closeOrder, error: errorMsg };
       }
     } catch (err: any) {
+      position.lastCloseAttempt = Date.now();
+      const errMsg = err?.message || String(err);
+
+      // Reconcile with exchange: If OKX reported position does not exist or all operations failed,
+      // verify if the position is already closed on the exchange.
+      if (
+        this.executionMode === 'LIVE' &&
+        targetAdapter &&
+        (errMsg.includes('51006') ||
+         errMsg.includes('51000') ||
+         errMsg.includes('does not exist') ||
+         errMsg.includes('All operations failed') ||
+         errMsg.includes('sCode [1]'))
+      ) {
+        try {
+          const openPositions = await targetAdapter.getOpenPositions();
+          const stillOpen = openPositions.find((p) => p.symbol === position.symbol && p.size > 0);
+          if (!stillOpen) {
+            this.auditLogger('POSITION_CLOSED', `Reconciliation: Position ${position.symbol} is already closed on OKX. Marking as closed locally.`, {
+              positionId: position.id,
+              symbol: position.symbol,
+              reason: 'CLOSED_EXTERNALLY',
+            });
+            await this.positionManager.markPositionClosed(
+              position.id,
+              estPrice,
+              Date.now(),
+              'MANUAL_CLOSE',
+              0,
+              { exitMarketRegime, accountEquity, openPositionsCount: resolvedOpenCount, closeOrderId: closeOrder.id }
+            );
+            closeOrder.status = 'FILLED';
+            closeOrder.fillPrice = estPrice;
+            return { success: true, order: closeOrder };
+          }
+        } catch (recErr) {
+          // Ignore reconciliation error and proceed with standard failure logging
+        }
+      }
+
       position.status = 'OPEN'; // Reset position status to OPEN on exception
       closeOrder.status = 'FAILED';
       closeOrder.rejectionReason = err.message || 'Close order failed';

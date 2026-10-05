@@ -718,6 +718,11 @@ export class PositionManager {
         pos.stopLossPrice = hardSlPrice;
       }
 
+      // Close attempt cooldown: avoid hammering exchange on every tick if previous close failed (15s backoff)
+      if (pos.lastCloseAttempt && Date.now() - pos.lastCloseAttempt < 15000) {
+        continue;
+      }
+
       // Take-Profit Logic
       if (config.takeProfitPct > 0) {
           if ((pos.side === 'BUY' && pnlPct >= config.takeProfitPct) || (pos.side === 'SELL' && pnlPct >= config.takeProfitPct)) {

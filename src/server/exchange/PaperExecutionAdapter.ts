@@ -326,6 +326,7 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     price?: number;
     orderLinkId: string;
     reduceOnly?: boolean;
+    posSide?: 'long' | 'short' | 'net';
   }): Promise<{ orderId: string; orderLinkId: string }> {
     return new Promise<{ orderId: string; orderLinkId: string }>((resolve, reject) => {
       this.executionQueue = this.executionQueue

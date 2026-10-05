@@ -353,6 +353,7 @@ export interface Position {
   accountEquityAtEntry?: number;
   accountEquityAtExit?: number;
   consecutiveSlHits?: number;
+  lastCloseAttempt?: number;
 }
 
 export interface OKXRawPosition {

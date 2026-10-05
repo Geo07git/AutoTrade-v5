@@ -41,6 +41,7 @@ export interface IExecutionAdapter {
     price?: number;
     orderLinkId: string;
     reduceOnly?: boolean;
+    posSide?: 'long' | 'short' | 'net';
   }): Promise<{ orderId: string; orderLinkId: string }>;
   queryOrderStatus(
     symbol: string,
