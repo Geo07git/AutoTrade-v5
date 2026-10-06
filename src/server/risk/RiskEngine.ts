@@ -211,11 +211,11 @@ export class RiskEngine {
     }
 
     // Volatility (ATR) Normalized Position Sizing & Fixed Dollar Risk:
-    // Extracts current price and ATR from signal/metrics to normalize risk across symbols.
+    // Extracts current price and atr14 (14-period closed candle ATR) from signal/metrics to normalize risk across symbols.
     const currentPrice = signal.currentPrice || signal.reasons?.lastPrice || 0;
-    const currentAtr = signal.currentAtr || signal.reasons?.currentAtr || 0;
-    const rawAtrPct = currentPrice > 0 && currentAtr > 0
-      ? (currentAtr / currentPrice) * 100
+    const effectiveAtr = signal.atr14 || signal.reasons?.atr14 || signal.currentAtr || signal.reasons?.currentAtr || 0;
+    const rawAtrPct = currentPrice > 0 && effectiveAtr > 0
+      ? (effectiveAtr / currentPrice) * 100
       : (signal.atrPct || 0);
     const atrPct = Math.max(0, rawAtrPct);
 

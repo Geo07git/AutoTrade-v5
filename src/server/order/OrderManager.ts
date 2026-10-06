@@ -143,8 +143,26 @@ export class OrderManager {
     accountBalance?: number;
     openPositionsCount?: number;
     leverage?: string;
+    rank?: number;
+    spreadPct?: number;
+    candleElapsedSeconds?: number;
+    htfTrend?: string;
+    entryFactors?: any;
   }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
-    const { signal, riskApproval, currentPrice, profile, marketRegime, accountEquity, accountBalance } = params;
+    const {
+      signal,
+      riskApproval,
+      currentPrice,
+      profile,
+      marketRegime,
+      accountEquity,
+      accountBalance,
+      rank,
+      spreadPct,
+      candleElapsedSeconds,
+      htfTrend,
+      entryFactors,
+    } = params;
 
     // 1. Check for in-flight pending order for this symbol to prevent duplicate entries
     if (this.hasPendingOrderForSymbol(signal.symbol)) {
@@ -234,6 +252,11 @@ export class OrderManager {
       marketRegime,
       signalScore: signal.score,
       signalPrice: currentPrice,
+      rankAtEntry: rank,
+      spreadPctAtEntry: spreadPct !== undefined ? spreadPct : signal.spreadPct,
+      candleElapsedSecondsAtEntry: candleElapsedSeconds !== undefined ? candleElapsedSeconds : signal.candleElapsedSeconds,
+      htfTrendAtEntry: htfTrend || signal.reasons?.htfTrend,
+      entryFactors: entryFactors || signal.reasons,
       leverage,
       openPositionsCount,
       accountEquity,

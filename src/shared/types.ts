@@ -79,6 +79,9 @@ export interface ScannedOpportunity {
   rvol: number;
   atrExpansion: number;
   currentAtr?: number;
+  atr14?: number;
+  spreadPct?: number;
+  candleElapsedSeconds?: number;
   atrPct?: number;
   score: number;
   side: OrderSide;
@@ -239,6 +242,9 @@ export interface TradeSignal {
   reasons: any;
   currentPrice?: number;
   currentAtr?: number;
+  atr14?: number;
+  spreadPct?: number;
+  candleElapsedSeconds?: number;
   atrPct?: number;
   stopLossPrice?: number;
 }
@@ -295,6 +301,11 @@ export interface OrderRecord {
   signalScore?: number; // Model score / probability (metaScore) at entry
   signalPrice?: number; // Price at signal generation
   estimatedSlippagePct?: number; // Slippage (fill price vs signal price) %
+  rankAtEntry?: number;
+  spreadPctAtEntry?: number;
+  candleElapsedSecondsAtEntry?: number;
+  htfTrendAtEntry?: string;
+  entryFactors?: any;
   leverage?: string; // Leverage used (e.g. '1x')
   openPositionsCount?: number; // Number of open positions at entry/exit moment
   maePct?: number; // Maximum Adverse Excursion % (worst unrealized PnL% during position life)
@@ -355,6 +366,11 @@ export interface Position {
   accountEquityAtExit?: number;
   consecutiveSlHits?: number;
   lastCloseAttempt?: number;
+  rankAtEntry?: number;
+  spreadPctAtEntry?: number;
+  candleElapsedSecondsAtEntry?: number;
+  htfTrendAtEntry?: string;
+  entryFactors?: any;
 }
 
 export interface OKXRawPosition {

@@ -7,6 +7,8 @@ export interface MomentumMetrics {
   rvol: number;
   atrExpansion: number;
   currentAtr: number;
+  atr14: number; // 14-period closed candle ATR for sizing
+  candleElapsedSeconds: number;
   lastPrice: number;
   threshold: number;
   htfTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
@@ -72,6 +74,8 @@ export class MomentumEngine {
         timestamp: Date.now(),
         currentPrice: metrics.lastPrice,
         currentAtr: metrics.currentAtr,
+        atr14: metrics.atr14,
+        candleElapsedSeconds: metrics.candleElapsedSeconds,
         atrPct: parseFloat(atrPct.toFixed(2)),
         reasons: {
           score: metrics.score,
@@ -84,6 +88,8 @@ export class MomentumEngine {
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
           currentAtr: metrics.currentAtr,
+          atr14: metrics.atr14,
+          candleElapsedSeconds: metrics.candleElapsedSeconds,
           lastPrice: metrics.lastPrice,
           atrPct: parseFloat(atrPct.toFixed(2)),
           htfTrend: metrics.htfTrend,
@@ -109,6 +115,8 @@ export class MomentumEngine {
         timestamp: Date.now(),
         currentPrice: metrics.lastPrice,
         currentAtr: metrics.currentAtr,
+        atr14: metrics.atr14,
+        candleElapsedSeconds: metrics.candleElapsedSeconds,
         atrPct: parseFloat(atrPct.toFixed(2)),
         reasons: {
           score: metrics.score,
@@ -122,6 +130,8 @@ export class MomentumEngine {
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
           currentAtr: metrics.currentAtr,
+          atr14: metrics.atr14,
+          candleElapsedSeconds: metrics.candleElapsedSeconds,
           lastPrice: metrics.lastPrice,
           atrPct: parseFloat(atrPct.toFixed(2)),
           htfTrend: metrics.htfTrend,
@@ -142,7 +152,7 @@ export class MomentumEngine {
   public evaluateCandidate(
     symbol: string,
     klines: Record<string, Kline[]>,
-    tickerData?: { volume24hUSDT: number; priceChange24hPct: number },
+    tickerData?: { volume24hUSDT: number; priceChange24hPct: number; spreadPct?: number },
     options?: { invertExtremeSignals?: boolean }
   ): ScannedOpportunity | null {
     if (!klines || Object.keys(klines).length === 0) return null;
@@ -183,9 +193,12 @@ export class MomentumEngine {
       price: metrics.lastPrice,
       volume24hUSDT: tickerData?.volume24hUSDT || 0,
       priceChange24hPct: tickerData?.priceChange24hPct !== undefined ? tickerData.priceChange24hPct : metrics.mom,
+      spreadPct: tickerData?.spreadPct,
       rvol: metrics.rvol,
       atrExpansion: metrics.atrExpansion,
       currentAtr: metrics.currentAtr,
+      atr14: metrics.atr14,
+      candleElapsedSeconds: metrics.candleElapsedSeconds,
       atrPct: parseFloat(atrPct.toFixed(2)),
       score: metrics.score,
       side: finalSide,
@@ -226,6 +239,8 @@ export class MomentumEngine {
         rvol: 1.0,
         atrExpansion: 1.0,
         currentAtr: 0,
+        atr14: 0,
+        candleElapsedSeconds: 0,
         lastPrice: 0,
         threshold,
         htfTrend: 'NEUTRAL',
@@ -238,7 +253,7 @@ export class MomentumEngine {
     const prev = ltfKlines[ltfKlines.length - 2];
     const lastClose = last.close;
 
-    // 1. LTF Momentum & Direction
+    // 1. LTF Momentum & Direction (mom remains on live price)
     const mom = ((lastClose / (prev.close || lastClose)) - 1) * 100;
     
     // EMA 20 on LTF
@@ -292,24 +307,35 @@ export class MomentumEngine {
     // Directional Magnitude of Momentum (|mom|)
     const absMom = Math.abs(mom);
 
-    // 2. RVOL (Relative Volume across last 20 candles)
+    // Time-elapsed fraction of currently forming candle (Item 2)
+    const mainTfMinutes = parseInt(mainTf) || 15;
+    const intervalMs = mainTfMinutes * 60 * 1000;
+    const now = Date.now();
+    const candleElapsedMs = Math.max(0, now - last.timestamp);
+    const f = Math.max(0.05, Math.min(1.0, candleElapsedMs / intervalMs));
+    const candleElapsedSeconds = Math.floor(candleElapsedMs / 1000);
+
+    // 2. RVOL (Relative Volume across last 20 candles with time normalization)
     // 20-period baseline on completed candles
     const volAvg = ltfKlines.slice(-21, -1).reduce((a, b) => a + b.volume, 0) / 20;
-    // For unconfirmed/forming candle, take max of current pace or previous completed candle to prevent candle-phase distortion
-    const candidateVol = (last.isConfirmed ?? true) ? last.volume : Math.max(last.volume, prev.volume);
-    const rvol = Math.min(10, candidateVol / (volAvg + EPSILON));
+    const isUnconfirmed = last.isConfirmed === false || (!last.isConfirmed && f < 0.99);
+    const rvol = isUnconfirmed
+      ? Math.min(10, (last.volume / f) / (volAvg + EPSILON))
+      : Math.min(10, last.volume / (volAvg + EPSILON));
 
-    // 3. ATR Expansion & Volatility Baseline
-    const currentAtr = Math.max(EPSILON, last.high - last.low);
+    // 3. ATR Expansion & Volatility Baseline (Item 2 & 3)
+    const candleRange = Math.max(EPSILON, last.high - last.low);
     const avgAtr = ltfKlines.slice(-15, -1).reduce((a, b) => a + (b.high - b.low), 0) / 14;
-    const effectiveAtr = (last.isConfirmed ?? true) ? currentAtr : Math.max(currentAtr, prev.high - prev.low);
-    const atrExpansion = Math.max(0.1, Math.min(5.0, effectiveAtr / (avgAtr + EPSILON)));
+    const atrExp = isUnconfirmed
+      ? Math.max(0.1, Math.min(5.0, candleRange / ((avgAtr + EPSILON) * Math.sqrt(f))))
+      : Math.max(0.1, Math.min(5.0, candleRange / (avgAtr + EPSILON)));
+    const atrExpansion = atrExp;
     const atrPct = (avgAtr / (lastClose + EPSILON)) * 100;
 
     // Candle body quality ratio & persistence check
-    const candleRange = Math.max(EPSILON, last.high - last.low);
+    const bodyRange = Math.max(EPSILON, last.high - last.low);
     const candleBody = Math.abs(last.close - last.open);
-    const bodyRatio = candleBody / candleRange;
+    const bodyRatio = candleBody / bodyRange;
     const qualityMultiplier = bodyRatio >= 0.20 ? 1.0 : 0.85;
 
     const prevMom = ltfKlines.length >= 3 ? ((prev.close / ltfKlines[ltfKlines.length - 3].close) - 1) * 100 : 0;
@@ -332,15 +358,15 @@ export class MomentumEngine {
 
     const impulseScore = Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
 
-    // Pillar B: Relative Volume (0 to 25 points) - ZERO points for rvol <= 1.0
+    // Pillar B: Relative Volume (0 to 25 points) - ZERO points if f < 0.25 or rvol <= 1.0
     let rvolScore = 0;
-    if (rvol > 1.0) {
+    if (f >= 0.25 && rvol > 1.0) {
       rvolScore = Math.min(25, 25 * (1 - Math.exp(-(rvol - 1.0) / 1.1)));
     }
 
-    // Pillar C: ATR / Volatility Expansion (0 to 20 points) - ZERO points for atrExpansion <= 1.0
+    // Pillar C: ATR / Volatility Expansion (0 to 20 points) - ZERO points if f < 0.25 or atrExpansion <= 1.0
     let atrScore = 0;
-    if (atrExpansion > 1.0) {
+    if (f >= 0.25 && atrExpansion > 1.0) {
       atrScore = Math.min(20, (atrExpansion - 1.0) * 16);
     }
 
@@ -365,7 +391,9 @@ export class MomentumEngine {
       mom: parseFloat(mom.toFixed(2)),
       rvol: parseFloat(rvol.toFixed(2)),
       atrExpansion: parseFloat(atrExpansion.toFixed(2)),
-      currentAtr: currentAtr, // Exact precision, prevents zeroing out for micro-price tokens
+      currentAtr: candleRange, // Exact candle range
+      atr14: avgAtr, // 14-period closed candle ATR for sizing (Item 3)
+      candleElapsedSeconds,
       lastPrice: lastClose,
       threshold,
       htfTrend,

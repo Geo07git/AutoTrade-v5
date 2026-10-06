@@ -1009,7 +1009,7 @@ export class TradeBot {
             }
           }
 
-          // Order Manager: Execute via active Execution Adapter (PAPER or TESTNET)
+          // Order Manager: Execute via active Execution Adapter (PAPER or LIVE)
           const executionResult = await this.orderManager.executeSignalOrder({
             signal,
             riskApproval,
@@ -1020,6 +1020,11 @@ export class TradeBot {
             accountBalance: currentWalletBalance,
             openPositionsCount: currentPositions.length,
             leverage: (config.maxLeverage || 1).toString() + 'x',
+            rank: candidate.rank,
+            spreadPct: candidate.spreadPct ?? signal.spreadPct,
+            candleElapsedSeconds: candidate.candleElapsedSeconds ?? signal.candleElapsedSeconds,
+            htfTrend: signal.reasons?.htfTrend,
+            entryFactors: signal.reasons,
           });
 
           if (executionResult.success) {

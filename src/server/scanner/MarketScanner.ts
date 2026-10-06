@@ -24,7 +24,8 @@ export class MarketScanner {
 
   // In-memory cache for klines to avoid spamming the exchange on rapid scans
   private klineCache: Map<string, { klines: Kline[]; timestamp: number }> = new Map();
-  private readonly KLINE_CACHE_TTL_MS = 20_000; // 20s TTL
+  private readonly LTF_CACHE_TTL_MS = 10_000;  // 10s TTL for LTF
+  private readonly HTF_CACHE_TTL_MS = 300_000; // 5 min TTL for HTF (Item 4)
 
   constructor(
     adapter: IExecutionAdapter,
@@ -67,18 +68,21 @@ export class MarketScanner {
 
   /**
    * Safe fetch for klines with concurrency limit, timeout, AbortController, and failure isolation.
+   * Uses separate TTL for HTF (5 min) and LTF (10s).
    */
   private async fetchKlinesWithTimeout(
     symbol: string,
     interval: string,
-    limit: number = 30,
+    limit: number = 60,
     timeoutMs: number = 8000
   ): Promise<Kline[]> {
     const cacheKey = `${symbol}_${interval}`;
     const cached = this.klineCache.get(cacheKey);
     const now = Date.now();
+    const intervalMinutes = parseInt(interval) || 15;
+    const ttl = intervalMinutes >= 60 ? this.HTF_CACHE_TTL_MS : this.LTF_CACHE_TTL_MS;
 
-    if (cached && now - cached.timestamp < this.KLINE_CACHE_TTL_MS) {
+    if (cached && now - cached.timestamp < ttl) {
       return cached.klines;
     }
 
@@ -102,7 +106,7 @@ export class MarketScanner {
 
   /**
    * Concurrency-controlled worker pool to scan symbols without overwhelming API rate limits.
-   * Supports Multi-Timeframe (LTF + HTF confirmation for top candidates).
+   * Supports Multi-Timeframe (LTF + HTF confirmation for top 35 candidates via worker pool).
    */
   private async scanBatchWithConcurrency(
     symbols: string[],
@@ -134,6 +138,7 @@ export class MarketScanner {
                 ? {
                     volume24hUSDT: ticker.turnover24hUSDT,
                     priceChange24hPct: ticker.priceChange24hPct,
+                    spreadPct: ticker.spreadPct,
                   }
                 : undefined,
               { invertExtremeSignals: invertSignals }
@@ -156,44 +161,66 @@ export class MarketScanner {
     const workers = Array.from({ length: Math.min(concurrency, symbols.length) }, () => worker());
     await Promise.all(workers);
 
-    // Multi-Timeframe Confluence:
-    // For top 10 ranked candidates, fetch HTF candles to verify macro trend confluence
-    results.sort((a, b) => b.score - a.score);
-    const topCandidates = results.slice(0, 10);
+    // Multi-Timeframe Confluence (Item 4: Real HTF for top 30-40 candidates via worker pool)
+    // Sort initial results with tie-break (Item 6)
+    results.sort((a, b) => {
+      if (Math.abs(b.score - a.score) > 0.05) return b.score - a.score;
+      const sA = a.spreadPct ?? 999;
+      const sB = b.spreadPct ?? 999;
+      if (Math.abs(sA - sB) > 0.0001) return sA - sB;
+      return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);
+    });
 
-    for (const cand of topCandidates) {
-      try {
-        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 60, 6000);
-        if (htfKlines && htfKlines.length >= 20) {
-          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 60, 6000);
-          if (ltfKlines) {
-            const reevaluated = this.engine.evaluateCandidate(
-              cand.symbol,
-              { [mainTf]: ltfKlines, [htf]: htfKlines },
-              tickersMap[cand.symbol]
-                ? {
-                    volume24hUSDT: tickersMap[cand.symbol].turnover24hUSDT,
-                    priceChange24hPct: tickersMap[cand.symbol].priceChange24hPct,
-                  }
-                : undefined,
-              { invertExtremeSignals: invertSignals }
-            );
-            if (reevaluated) {
-              cand.score = reevaluated.score;
-              cand.currentAtr = reevaluated.currentAtr;
-              cand.atrPct = reevaluated.atrPct;
-              cand.side = reevaluated.side;
-              cand.originalSide = reevaluated.originalSide;
-              cand.isFadeTrade = reevaluated.isFadeTrade;
-              cand.signal = reevaluated.signal;
-              cand.isEligible = reevaluated.isEligible;
+    const topCandidates = results.slice(0, 35);
+    const htfQueue = [...topCandidates];
+
+    const htfWorker = async () => {
+      while (htfQueue.length > 0) {
+        const cand = htfQueue.shift();
+        if (!cand) break;
+
+        try {
+          const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 60, 6000);
+          if (htfKlines && htfKlines.length >= 20) {
+            const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 60, 6000);
+            if (ltfKlines) {
+              const reevaluated = this.engine.evaluateCandidate(
+                cand.symbol,
+                { [mainTf]: ltfKlines, [htf]: htfKlines },
+                tickersMap[cand.symbol]
+                  ? {
+                      volume24hUSDT: tickersMap[cand.symbol].turnover24hUSDT,
+                      priceChange24hPct: tickersMap[cand.symbol].priceChange24hPct,
+                      spreadPct: tickersMap[cand.symbol].spreadPct,
+                    }
+                  : undefined,
+                { invertExtremeSignals: invertSignals }
+              );
+              if (reevaluated) {
+                cand.score = reevaluated.score;
+                cand.currentAtr = reevaluated.currentAtr;
+                cand.atr14 = reevaluated.atr14;
+                cand.candleElapsedSeconds = reevaluated.candleElapsedSeconds;
+                cand.spreadPct = reevaluated.spreadPct;
+                cand.atrPct = reevaluated.atrPct;
+                cand.side = reevaluated.side;
+                cand.originalSide = reevaluated.originalSide;
+                cand.isFadeTrade = reevaluated.isFadeTrade;
+                cand.signal = reevaluated.signal;
+                cand.isEligible = reevaluated.isEligible;
+              }
             }
           }
+        } catch {
+          // HTF failure is non-blocking
         }
-      } catch {
-        // HTF failure is non-blocking
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
       }
-    }
+    };
+
+    const htfWorkers = Array.from({ length: Math.min(3, topCandidates.length) }, () => htfWorker());
+    await Promise.all(htfWorkers);
 
     return results;
   }
@@ -261,8 +288,18 @@ export class MarketScanner {
         invertSignals
       );
 
-      // 3. Rank opportunities descending by Momentum score
-      scannedList.sort((a, b) => b.score - a.score);
+      // 3. Rank opportunities descending by Momentum score with tie-break (Item 6)
+      scannedList.sort((a, b) => {
+        if (Math.abs(b.score - a.score) > 0.05) {
+          return b.score - a.score;
+        }
+        const spreadA = a.spreadPct !== undefined ? a.spreadPct : 999;
+        const spreadB = b.spreadPct !== undefined ? b.spreadPct : 999;
+        if (Math.abs(spreadA - spreadB) > 0.0001) {
+          return spreadA - spreadB;
+        }
+        return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);
+      });
 
       // Assign ranks (#1, #2, ...)
       scannedList.forEach((opp, index) => {

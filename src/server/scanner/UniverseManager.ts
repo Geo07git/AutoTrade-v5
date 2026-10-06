@@ -36,7 +36,7 @@ export const DEFAULT_UNIVERSE_FILTER: UniverseFilterConfig = {
   maxSymbols: 500,           // Permitem până la 500 de simboluri (acoperă întregul univers lichid)
   settleCoin: 'USDT',
   refreshIntervalMs: 15 * 60 * 1000, // 15 minutes
-  maxSpreadPct: 0,           // 0 = dezactivat la nivel de univers (nu reduce artificial universul lichid)
+  maxSpreadPct: 0.10,        // 0.10% spread maxim (Item 5: maxSpreadPct = 0.10%)
   excludedSymbols: [],       // Universul reflectă lichiditatea; excluderile sunt gestionate de RiskEngine
 };
 

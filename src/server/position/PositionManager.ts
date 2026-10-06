@@ -441,6 +441,11 @@ export class PositionManager {
       leverage: order.leverage || '1x',
       openPositionsAtEntry: order.openPositionsCount || (this.activePositions.length + 1),
       accountEquityAtEntry: order.accountEquity,
+      rankAtEntry: order.rankAtEntry,
+      spreadPctAtEntry: order.spreadPctAtEntry,
+      candleElapsedSecondsAtEntry: order.candleElapsedSecondsAtEntry,
+      htfTrendAtEntry: order.htfTrendAtEntry,
+      entryFactors: order.entryFactors,
     };
 
     order.positionId = newPosition.id;
