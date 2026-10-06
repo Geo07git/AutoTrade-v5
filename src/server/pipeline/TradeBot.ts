@@ -133,6 +133,7 @@ export class TradeBot {
   private marketSentiment: string = 'OKX NEUTRAL (+0.00%)';
   private marketSentimentScore: number = 0;
   private sentimentInterval?: NodeJS.Timeout;
+  private statusHeartbeatInterval?: NodeJS.Timeout;
 
   private getProfiles(): Record<ProfileType, ProfileConfig> {
     const config = this.configStore.get();
@@ -377,6 +378,11 @@ export class TradeBot {
     this.sentimentInterval = setInterval(() => this.updateMarketSentiment(), 30000);
     setTimeout(() => this.updateMarketSentiment(), 1500);
 
+    // Dedicated 1-minute system status heartbeat in audit feed (Kill Switch, Mod Live/Paper, Trading State, Capital, Poziții)
+    if (this.statusHeartbeatInterval) clearInterval(this.statusHeartbeatInterval);
+    this.statusHeartbeatInterval = setInterval(() => this.logPeriodicSystemHeartbeat(), 60000);
+    setTimeout(() => this.logPeriodicSystemHeartbeat(), 3000);
+
     // Start background Telegram services (hourly alerts, commands)
     telegramService.start();
   }
@@ -444,6 +450,33 @@ export class TradeBot {
 
   public async refreshMarketSentiment() {
     await this.updateMarketSentiment();
+  }
+
+  public logPeriodicSystemHeartbeat(): void {
+    const config = this.configStore.get();
+    const activePositions = this.positionManager.getActivePositions();
+    const mode = config.executionMode || 'PAPER';
+    const killSwitch = config.killSwitchEngaged ? 'ENGAGED ⚠️' : 'DISENGAGED (NORMAL)';
+    const botState = this.state || 'UNKNOWN';
+    const profile = config.activeProfile || 'MOMENTUM';
+    const equityStr = `$${this.currentEquity.toFixed(2)}`;
+    const maxPos = config.profiles?.[profile]?.maxOpenPositions || 5;
+    const posCount = `${activePositions.length}/${maxPos}`;
+    const btcRegime = this.marketRegime || 'BTC: --';
+
+    const heartbeatMessage = `STARE SISTEM [1m]: Bot: ${botState} | Mod: ${mode} | KillSwitch: ${killSwitch} | Profil: ${profile} | Capital: ${equityStr} | Poziții: ${posCount} | ${btcRegime}`;
+
+    this.logAudit('SYSTEM', heartbeatMessage, {
+      heartbeat: true,
+      botState,
+      mode,
+      killSwitchEngaged: config.killSwitchEngaged,
+      profile,
+      equity: this.currentEquity,
+      activePositions: activePositions.length,
+      maxPositions: maxPos,
+      regime: this.marketRegime,
+    });
   }
 
   public async connectAndRecover() {
@@ -553,6 +586,7 @@ export class TradeBot {
     if (this.positionMonitorInterval) clearInterval(this.positionMonitorInterval);
     if (this.reconnectInterval) clearInterval(this.reconnectInterval);
     if (this.regimeInterval) clearInterval(this.regimeInterval);
+    if (this.statusHeartbeatInterval) clearInterval(this.statusHeartbeatInterval);
     this.logAudit('SYSTEM', 'TradeBot 5 stopped by operator');
   }
 

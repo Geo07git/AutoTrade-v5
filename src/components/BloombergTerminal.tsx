@@ -97,7 +97,17 @@ interface TapeItem {
   type: 'TRADE' | 'SIGNAL' | 'FILL' | 'STOP';
 }
 
-const getAuditCardTheme = (type: AuditLogType | string) => {
+const getAuditCardTheme = (type: AuditLogType | string, message?: string) => {
+  const isHeartbeat = message && (message.includes('STARE SISTEM') || message.includes('HEARTBEAT'));
+  if (isHeartbeat) {
+    return {
+      badge: 'bg-indigo-950 text-indigo-300 border-indigo-500/60 font-black',
+      card: 'bg-indigo-950/30 border-indigo-500/40 hover:border-indigo-400',
+      dot: 'bg-indigo-400 animate-pulse shadow-[0_0_8px_rgba(129,140,248,0.9)]',
+      badgeLabel: 'STARE [1m]',
+    };
+  }
+
   switch (type) {
     // 1. Profit & Execution Success (Emerald Green)
     case 'POSITION_CLOSED':
@@ -107,6 +117,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-emerald-950 text-emerald-300 border-emerald-500/60',
         card: 'bg-emerald-950/25 border-emerald-500/40 hover:border-emerald-400',
         dot: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]',
+        badgeLabel: type,
       };
 
     // 2. Orders Placed & Position Entry (Cyan Blue)
@@ -119,6 +130,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-cyan-950 text-cyan-300 border-cyan-500/60',
         card: 'bg-cyan-950/25 border-cyan-500/40 hover:border-cyan-400',
         dot: 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]',
+        badgeLabel: type,
       };
 
     // 3. Candidate Selection & Momentum Signals (Amber / Gold)
@@ -129,6 +141,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-amber-950 text-amber-300 border-amber-500/60',
         card: 'bg-amber-950/25 border-amber-500/40 hover:border-amber-400',
         dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]',
+        badgeLabel: type,
       };
 
     // 4. Market Scanner & Universe Discovery (Purple / Violet)
@@ -140,6 +153,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-purple-950 text-purple-300 border-purple-500/60',
         card: 'bg-purple-950/25 border-purple-500/40 hover:border-purple-400',
         dot: 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.8)]',
+        badgeLabel: type,
       };
 
     // 5. Rejections & Skips (Orange / Coral)
@@ -152,6 +166,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-orange-950 text-orange-300 border-orange-500/60',
         card: 'bg-orange-950/25 border-orange-500/40 hover:border-orange-400',
         dot: 'bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.8)]',
+        badgeLabel: type,
       };
 
     // 6. Errors, Discrepancies & Kill Switch (Rose / Red)
@@ -164,6 +179,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-rose-950 text-rose-300 border-rose-500/60',
         card: 'bg-rose-950/25 border-rose-500/40 hover:border-rose-400',
         dot: 'bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.9)]',
+        badgeLabel: type,
       };
 
     // 7. System, Config & Disengage (Sky / Teal)
@@ -183,6 +199,7 @@ const getAuditCardTheme = (type: AuditLogType | string) => {
         badge: 'bg-sky-950 text-sky-300 border-sky-500/60',
         card: 'bg-sky-950/25 border-sky-500/40 hover:border-sky-400',
         dot: 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]',
+        badgeLabel: type,
       };
   }
 };
@@ -1919,13 +1936,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     };
   }, [tapeItems, TAPE_SCROLL_SPEED]);
 
-  // Derulare fluidă 60FPS a benzii de audit în sens INVERS (de la stânga spre dreapta, opus față de AUTO-TAPE)
+  // Derulare fluidă 60FPS a benzii de audit (în aceeași direcție ca AUTO-TAPE, derulare continuă spre stânga)
   // Viteza este identică cu cea de la AUTO-TAPE (TAPE_SCROLL_SPEED = 1.2), iar trecerea cursorului o pune pe pauză
   useEffect(() => {
     const el = auditTapeRef.current;
     if (!el || displayLogs.length === 0) return;
 
     let animId: number;
+    let pos = el.scrollLeft;
     let isHovered = false;
 
     const onEnter = () => { isHovered = true; };
@@ -1933,20 +1951,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     el.addEventListener('mouseenter', onEnter);
     el.addEventListener('mouseleave', onLeave);
 
-    const halfWidth = el.scrollWidth / 2;
-    let pos = el.scrollLeft > 0 ? el.scrollLeft : (halfWidth > 0 ? halfWidth : 0);
-    if (el.scrollLeft <= 0 && halfWidth > 0) {
-      el.scrollLeft = halfWidth;
-      pos = halfWidth;
-    }
-
     const step = () => {
       if (el && !isHovered) {
-        // Sens invers: scade poziția scrollLeft pentru deplasare spre dreapta (invers AUTO-TAPE)
-        pos -= TAPE_SCROLL_SPEED;
+        // Derulare continuă spre stânga
+        pos += TAPE_SCROLL_SPEED;
         const currentHalf = el.scrollWidth / 2;
-        if (currentHalf > 0 && pos <= 0) {
-          pos += currentHalf;
+        if (currentHalf > 0 && pos >= currentHalf) {
+          pos -= currentHalf;
         }
         el.scrollLeft = pos;
       }
@@ -6004,7 +6015,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (DOUBLE-HEIGHT REVERSE AUTO-TAPE TICKER) */}
+        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (DOUBLE-HEIGHT AUTO-TAPE TICKER WITH FULL INFO & 1M STATUS) */}
         <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-24 sm:h-28 shrink-0 flex flex-col min-h-0'}`}>
           <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 flex flex-col h-full min-h-0 shadow-lg justify-between">
             {/* ANTET */}
@@ -6016,7 +6027,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   ({Math.min(displayLogs.length, 100)} pe bandă / {logs.length} total)
                 </span>
                 <span className="text-[10px] text-zinc-500 hidden sm:inline">
-                  — Bandă derulantă live &lt;&lt; sens invers (pauză la cursor)
+                  — Bandă derulantă live &gt;&gt; (pauză la cursor, puls sistem 1m)
                 </span>
               </div>
 
@@ -6068,7 +6079,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
             </div>
 
-            {/* BANDĂ DERULANTĂ CU ÎNĂLȚIME DUBLĂ FAȚĂ DE AUTO-TAPE (SENS INVERS) */}
+            {/* BANDĂ DERULANTĂ CU ÎNĂLȚIME DUBLĂ FAȚĂ DE AUTO-TAPE (INFORMAȚIE COMPLETĂ NE-TRUNCHIATĂ) */}
             <div className="flex-1 min-h-0 flex items-center overflow-hidden relative w-full max-w-full">
               <div
                 ref={auditTapeRef}
@@ -6082,11 +6093,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 ) : (
                   <div className="inline-flex items-center space-x-3 py-0.5">
                     {repeatedLogs.map((log, idx) => {
-                      const theme = getAuditCardTheme(log.type);
+                      const theme = getAuditCardTheme(log.type, log.message);
                       return (
                         <div
                           key={`${log.id}_${idx}`}
-                          className={`h-[52px] sm:h-[56px] min-w-[280px] max-w-[460px] flex flex-col justify-center px-3 py-1 rounded border shrink-0 transition-all ${theme.card}`}
+                          className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
                           title={log.message}
                         >
                           {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
@@ -6096,11 +6107,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               [{new Date(log.timestamp).toLocaleTimeString()}]
                             </span>
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
-                              {log.type}
+                              {theme.badgeLabel}
                             </span>
                           </div>
-                          {/* Rândul 2: Mesaj curat fără JSON brut */}
-                          <div className="text-zinc-200 text-[11px] truncate font-mono">
+                          {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
+                          <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
                             {log.message}
                           </div>
                         </div>
