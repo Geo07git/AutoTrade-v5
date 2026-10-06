@@ -529,7 +529,6 @@ export class OKXAdapter implements IExecutionAdapter {
     try {
       const fetchSignal = signal || AbortSignal.timeout(8000);
       const res = await this.request('GET', `/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`, undefined, false, fetchSignal);
-      console.log(`[OKXAdapter] DEBUG getKlines instId=${instId} response:`, JSON.stringify(res).substring(0, 500));
       if (res.code === '0' && Array.isArray(res.data)) {
         // OKX returns newest candles first; reverse so oldest is index 0
         return res.data
@@ -541,6 +540,7 @@ export class OKXAdapter implements IExecutionAdapter {
             close: parseFloat(k[4]),
             // Use k[5] or k[6], but ensure we at least return a valid candle even if volume is 0
             volume: parseFloat(k[5]) || parseFloat(k[6]) || 0,
+            isConfirmed: k[8] === '1',
           }))
           .reverse();
       }
@@ -750,7 +750,7 @@ export class OKXAdapter implements IExecutionAdapter {
             unrealisedPnl: parseFloat(p.upl || '0'),
             markPrice: parseFloat(p.markPx || '0'),
             leverage: p.lever || '1',
-            updatedTime: parseInt(p.uTime || Date.now().toString()),
+            updatedTime: parseInt(p.cTime || p.uTime || Date.now().toString()),
           };
         });
     } catch (err: any) {

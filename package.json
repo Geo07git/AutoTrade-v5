@@ -20,8 +20,8 @@
     "cap:build:release": "vite build && npx cap sync android && cd android && gradlew.bat assembleRelease"
   },
   "build": {
-    "appId": "com.bloomberg.tradebot5",
-    "productName": "Bloomberg TradeBot Pro",
+    "appId": "com.tradebot.pro",
+    "productName": "TradeBot Pro Terminal",
     "directories": {
       "output": "release"
     },

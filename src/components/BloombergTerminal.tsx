@@ -7,6 +7,7 @@ import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis, CartesianG
 import {
   BotStatusResponse,
   AuditLog,
+  AuditLogType,
   OrderRecord,
   Position,
   ExecutionMode,
@@ -55,12 +56,13 @@ import {
   BellOff,
   BookOpen,
   ListFilter,
+  MoreHorizontal,
 } from 'lucide-react';
 import { TradingViewChart } from './TradingViewChart';
 import { SymbolStatsView } from './SymbolStatsView';
 import { UserManualModal } from './UserManualModal';
 import { downloadUserManualPdf } from '../utils/generateManualPdf';
-import { formatPrice, formatExactPriceForExport } from '../shared/formatters';
+import { formatPrice, formatExactPriceForExport, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -371,6 +373,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   // OKX Gateway & Mode Switch State
   const [showOKXModal, setShowOKXModal] = useState<boolean>(false);
+  const [showToolsMenu, setShowToolsMenu] = useState<boolean>(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
   const [okxKeyInput, setOkxKeyInput] = useState<string>('');
   const [okxSecretInput, setOkxSecretInput] = useState<string>('');
   const [okxPassphraseInput, setOkxPassphraseInput] = useState<string>('');
@@ -589,6 +593,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         .catch(() => {});
     }
   }, [showOKXModal, detectedServerIp]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
+        setShowToolsMenu(false);
+      }
+    };
+    if (showToolsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showToolsMenu]);
 
   const handleCopyServerIp = () => {
     if (detectedServerIp) {
@@ -2047,33 +2065,33 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     isDraggingShortcuts.current = false;
   };
 
-  // Generate real-time tape stream items sorted descending by 24h price increase percentage
+  // Generate real-time tape stream items from scanner and activity
   useEffect(() => {
     const items: TapeItem[] = [];
 
-    // Add scanner topOpportunities sorted descending by 24h price change percentage
+    // Add scanner top opportunities with genuine momentum metrics & local time
     if (status?.scannerStats?.topOpportunities && status.scannerStats.topOpportunities.length > 0) {
-      const sortedOpps = [...status.scannerStats.topOpportunities].sort(
-        (a, b) => (b.priceChange24hPct || 0) - (a.priceChange24hPct || 0)
-      );
-      sortedOpps.forEach((opp, idx) => {
+      const topOpps = status.scannerStats.topOpportunities.slice(0, 20);
+      topOpps.forEach((opp, idx) => {
+        const timeStr = formatTimeLocal(opp.lastScannedTime || status?.scannerStats?.lastScanTimestamp || Date.now());
+        const pctStr = (opp.priceChange24hPct || 0) >= 0 ? `+${(opp.priceChange24hPct || 0).toFixed(2)}%` : `${(opp.priceChange24hPct || 0).toFixed(2)}%`;
         items.push({
           id: `opp_${opp.symbol}_${idx}`,
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: timeStr,
           symbol: opp.symbol,
-          side: (opp.priceChange24hPct || 0) >= 0 ? 'BUY' : 'SELL',
+          side: opp.side, // Genuine evaluated direction (BUY / SELL)
           price: opp.price,
-          size: `${(opp.priceChange24hPct || 0) >= 0 ? '+' : ''}${(opp.priceChange24hPct || 0).toFixed(2)}% (Vol $${((opp.volume24hUSDT || 0) / 1e6).toFixed(1)}M)`,
+          size: `Scor ${opp.score.toFixed(1)} | RVOL ${opp.rvol.toFixed(1)}x | ${pctStr}`,
           type: 'SIGNAL',
         });
       });
     }
     
-    // Add orders to tape
+    // Add real orders to tape
     orders.forEach((ord) => {
       items.push({
         id: `ord_${ord.id}`,
-        timestamp: new Date(ord.createdTime).toLocaleTimeString(),
+        timestamp: formatTimeLocal(ord.createdTime),
         symbol: ord.symbol,
         side: ord.side,
         price: ord.fillPrice || 0,
@@ -2082,11 +2100,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       });
     });
 
-    // Add positions
+    // Add real open positions to tape
     status?.positions?.forEach((pos) => {
       items.push({
         id: `pos_${pos.id}`,
-        timestamp: new Date(pos.entryTime).toLocaleTimeString(),
+        timestamp: formatTimeLocal(pos.entryTime),
         symbol: pos.symbol,
         side: pos.side,
         price: pos.entryPrice,
@@ -2094,32 +2112,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         type: 'TRADE',
       });
     });
-
-    if (items.length === 0) {
-      const defaultCrypto = [
-        { symbol: 'RENDERUSDT', price: 7.84, change: 18.4, side: 'BUY' as const },
-        { symbol: 'SOLUSDT', price: 198.50, change: 14.2, side: 'BUY' as const },
-        { symbol: 'SUIUSDT', price: 3.42, change: 11.9, side: 'BUY' as const },
-        { symbol: 'FETUSDT', price: 1.65, change: 9.8, side: 'BUY' as const },
-        { symbol: 'INJUSDT', price: 24.10, change: 7.5, side: 'BUY' as const },
-        { symbol: 'ETHUSDT', price: 3450.00, change: 4.8, side: 'BUY' as const },
-        { symbol: 'BTCUSDT', price: 92800.00, change: 3.2, side: 'BUY' as const },
-        { symbol: 'AVAXUSDT', price: 31.20, change: 1.1, side: 'BUY' as const },
-        { symbol: 'XRPUSDT', price: 2.15, change: -0.5, side: 'SELL' as const },
-      ].sort((a, b) => b.change - a.change);
-
-      defaultCrypto.forEach((c, i) => {
-        items.push({
-          id: `def_${i}`,
-          timestamp: new Date(Date.now() - i * 3000).toLocaleTimeString(),
-          symbol: c.symbol,
-          side: c.side,
-          price: c.price,
-          size: `+${c.change.toFixed(2)}%`,
-          type: 'SIGNAL',
-        });
-      });
-    }
 
     setTapeItems(items.slice(0, 50));
   }, [orders, status]);
@@ -2807,24 +2799,23 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     <div className={`h-screen h-[100dvh] max-h-[100dvh] w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] ${isMonochrome ? 'monochrome' : ''}`}>
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
-        {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
-        {/* DESKTOP HEADER (SM+) */}
-        <header className="hidden sm:flex bg-amber-600 text-black px-3 py-1 items-center justify-between text-xs font-bold tracking-wider shrink-0 shadow-md gap-2 w-full max-w-full min-w-0">
-          {/* LEFT: BRAND & REGIME */}
-          <div className="flex items-center space-x-2 shrink-0">
-            <span className="bg-black text-amber-500 px-2 py-0.5 rounded text-xs sm:text-sm tracking-widest font-black border border-amber-500/50 shrink-0">
-              BLOOMBERG // TB5
+        {/* 1. UNIFIED TERMINAL HEADER (~40px, NEUTRAL ZINC-950 WITH AMBER ACCENTS) */}
+        <header className="bg-zinc-950 text-zinc-100 border-b border-amber-500/30 px-2 sm:px-3 py-1.5 flex items-center justify-between text-xs font-mono shrink-0 shadow-lg gap-2 w-full max-w-full min-w-0 select-none">
+          {/* LEFT: BRAND & MODE */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+            <span className="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded text-xs tracking-wider font-black border border-amber-500/40 shrink-0">
+              TB5
             </span>
 
             {/* INTERACTIVE MODE SWITCHER BADGE */}
             <button
               onClick={() => setShowOKXModal(true)}
-              className={`px-2 py-0.5 rounded text-xs font-bold border flex items-center space-x-1 transition-all shadow-sm shrink-0 cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] sm:text-xs font-bold border flex items-center space-x-1 transition-all shadow-sm shrink-0 cursor-pointer ${
                 status?.executionMode === 'LIVE'
-                  ? 'bg-rose-950 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
                   : status?.executionMode === 'TESTNET'
-                  ? 'bg-amber-950 text-amber-300 border-amber-500 hover:bg-amber-900'
-                  : 'bg-emerald-950 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-500 hover:bg-amber-900'
+                  : 'bg-emerald-950/80 text-emerald-300 border-emerald-500 hover:bg-emerald-900'
               }`}
               title="Comută modul de execuție (PAPER / TESTNET / LIVE) sau configurează cheile OKX"
             >
@@ -2848,28 +2839,32 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
           </div>
 
-          {/* CENTER: ESSENTIAL ACCOUNT METRICS */}
-          <div className="flex items-center space-x-1.5 shrink-0 bg-black/85 px-2.5 py-0.5 rounded border border-black/40 shadow-inner">
+          {/* CENTER: ESSENTIAL ACCOUNT METRICS (EQ, PNL, POS) */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0 bg-black/60 px-2 sm:px-3 py-0.5 rounded border border-zinc-800">
             {isExpOn ? (
-              <span className="text-cyan-300 px-1 py-0.2 rounded text-xs sm:text-sm font-mono balance-metric font-bold flex items-center gap-1.5">
+              <span className="text-cyan-300 text-xs sm:text-sm font-bold flex items-center gap-1">
                 <span>🔬 EQ:</span>
-                <span className="bg-cyan-950 border border-cyan-400/50 text-cyan-300 px-1.5 py-0.2 rounded text-[11px] animate-pulse">
+                <span className="text-cyan-300">
                   ${currentEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </span>
             ) : (
-              <span className="text-emerald-400 px-1 py-0.2 rounded text-sm font-mono balance-metric font-bold">
+              <span className="text-emerald-400 text-xs sm:text-sm font-bold">
                 EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
               </span>
             )}
             <span className="text-zinc-600">|</span>
-            <span className={`px-1 py-0.2 rounded text-sm font-mono shrink-0 pnl-metric font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`text-xs sm:text-sm font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+            </span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-zinc-300 text-xs font-medium">
+              POS: <strong className="text-amber-400">{positions.length}</strong>
             </span>
             {isVaultActive && (
               <>
-                <span className="text-zinc-600">|</span>
-                <span className="text-cyan-400 px-1 py-0.2 rounded text-xs font-mono font-bold flex items-center gap-1" title="Profit acumulat în seif">
+                <span className="text-zinc-600 hidden sm:inline">|</span>
+                <span className="text-cyan-400 text-xs font-bold hidden sm:flex items-center gap-1" title="Profit acumulat în seif">
                   <span>🏦</span>
                   <span>${profitVault.toFixed(2)}</span>
                 </span>
@@ -2877,265 +2872,206 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             )}
           </div>
 
-          {/* RIGHT: GROUPED HIGH-DENSITY ACTION PILLS */}
-          <div className="flex items-center space-x-1.5 shrink-0">
-            {/* Strategy Toggles Capsule */}
-            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
+          {/* RIGHT: PROFILE, ALWAYS-VISIBLE KILL SWITCH & COMPACT TOOLS MENU */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 relative">
+            {/* Profile Switcher */}
+            <div className="flex bg-black/80 rounded border border-zinc-800 p-0.5 shrink-0">
               <button
-                onClick={handleToggleInvertSignals}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all shrink-0 cursor-pointer flex items-center space-x-1 ${
-                  status?.config?.invertSignals
-                    ? 'bg-purple-950 text-purple-200 border border-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)] animate-pulse'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-purple-300 border border-zinc-800'
+                onClick={() => onSwitchProfile('SCALP')}
+                className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-colors ${
+                  activeProfile === 'SCALP' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-amber-400'
                 }`}
-                title="Sub-strategie Fade Climax: Semnalele normale rămân neschimbate, iar cele de climax extrem sunt inversate (Mean-Reversion Fade)."
               >
-                <span>🧪</span>
-                <span>{status?.config?.invertSignals ? 'FADE: ON' : 'FADE'}</span>
+                SCALP
               </button>
-
               <button
-                onClick={handleToggleProfitVault}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all shrink-0 cursor-pointer flex items-center space-x-1 ${
-                  isVaultActive
-                    ? 'bg-cyan-950 text-cyan-200 border border-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)] animate-pulse'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-cyan-300 border border-zinc-800'
+                onClick={() => onSwitchProfile('MOMENTUM')}
+                className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-colors ${
+                  activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-amber-400'
                 }`}
-                title="Profit Vault: Profiturile peste baza fixă sunt izolate în seif și nu sunt reinvestite în noul ciclu."
               >
-                <span>🏦</span>
-                <span>{isVaultActive ? 'VAULT: ON' : 'VAULT'}</span>
+                MOMENTUM
               </button>
             </div>
 
-            {/* Integrations Capsule (OKX & TG) */}
-            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
-              <button
-                onClick={() => setShowOKXModal(true)}
-                className="bg-zinc-900 hover:bg-black text-amber-400 px-2 py-0.5 rounded border border-zinc-800 flex items-center space-x-1 text-[11px] font-bold transition-colors cursor-pointer"
-                title="Setări Conexiune API OKX"
-              >
-                <Key className="w-3 h-3 text-amber-400" />
-                <span>OKX</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-              </button>
+            {/* KILL SWITCH - ALWAYS VISIBLE, NEVER HIDDEN IN SCROLL */}
+            <button
+              onClick={onToggleKillSwitch}
+              className={`px-2 sm:px-3 py-1 rounded font-bold text-[11px] sm:text-xs border transition-all flex items-center space-x-1 shrink-0 cursor-pointer shadow-sm ${
+                isKillSwitch
+                  ? 'bg-rose-600 text-white border-rose-400 animate-pulse shadow-[0_0_12px_rgba(225,29,72,0.6)]'
+                  : 'bg-zinc-900/90 text-rose-400 border-rose-500/50 hover:bg-rose-950/80 hover:text-rose-300'
+              }`}
+              title={isKillSwitch ? 'Dezactivează Kill Switch' : 'Oprește imediat tranzacționarea și noile ordine'}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{isKillSwitch ? 'KILL ENGAGED' : 'KILL SWITCH'}</span>
+            </button>
 
+            {/* COMPACT TOOLS DROPDOWN MENU */}
+            <div className="relative" ref={toolsMenuRef}>
               <button
-                onClick={handleToggleTelegramNotifications}
-                className={`px-2 py-0.5 rounded border flex items-center space-x-1 text-[11px] font-bold transition-all cursor-pointer ${
-                  !isTelegramNotificationsEnabled
-                    ? 'bg-zinc-900 text-rose-300 border-rose-600/60 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
-                    : status?.telegramActive
-                    ? 'bg-sky-950 text-sky-300 border-sky-500/60'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-sky-300'
+                onClick={() => setShowToolsMenu(!showToolsMenu)}
+                className={`px-2 py-1 rounded text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer ${
+                  showToolsMenu
+                    ? 'bg-amber-500 text-black border-amber-400'
+                    : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:text-amber-400 hover:border-amber-500/50'
                 }`}
-                title={
-                  !status?.telegramActive
-                    ? 'Telegram neconfigurat (apasă pentru comutare/configurare)'
-                    : isTelegramNotificationsEnabled
-                    ? 'Notificări Telegram ACTIVE (apasă pentru Mod Noapte / Mute)'
-                    : 'Notificări Telegram OPRITE / NOAPTE (apasă pentru Activare)'
-                }
+                title="Meniu Utilități & Integrări (OKX, TG, FADE, VAULT, AUTH, MONO, SYNC, LIMBĂ)"
               >
-                {isTelegramNotificationsEnabled ? (
-                  <Bell className="w-3 h-3 text-sky-400" />
-                ) : (
-                  <BellOff className="w-3 h-3 text-rose-400" />
-                )}
-                <span>TG: {isTelegramNotificationsEnabled ? 'ON' : 'MUTE'}</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${!isTelegramNotificationsEnabled ? 'bg-rose-500 animate-pulse' : status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
-              </button>
-            </div>
-
-            {/* Utilities Capsule */}
-            <div className="flex items-center bg-black/70 p-0.5 rounded border border-black/40 space-x-1">
-              <button
-                onClick={() => setShowTokenModal(true)}
-                className="bg-zinc-900 text-zinc-400 hover:text-amber-400 px-1.5 py-0.5 rounded border border-zinc-800 text-[11px] font-bold transition-colors cursor-pointer"
-                title="Set Bot Control Token"
-              >
-                AUTH
+                <MoreHorizontal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">UTIL</span>
               </button>
 
-              <button
-                onClick={() => setIsMonochrome(!isMonochrome)}
-                className={`px-1.5 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
-                  isMonochrome
-                    ? 'bg-white text-black border-white'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-amber-400 border-zinc-800'
-                }`}
-                title="Comută Mod Monocrom"
-              >
-                MONO
-              </button>
+              {/* DROPDOWN POPOVER */}
+              {showToolsMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-64 bg-zinc-950 border border-amber-500/50 rounded shadow-2xl py-2 px-2 z-50 text-xs flex flex-col space-y-1.5 backdrop-blur-md">
+                  <div className="text-[10px] uppercase font-bold text-zinc-500 px-2 pb-1 border-b border-zinc-800 flex justify-between">
+                    <span>PANOU INSTRUMENTE</span>
+                    <span className="text-amber-400">TB5</span>
+                  </div>
 
-              <button
-                onClick={onRefresh}
-                className="bg-zinc-900 hover:bg-black text-amber-500 px-1.5 py-0.5 rounded border border-zinc-800 flex items-center transition-colors cursor-pointer"
-                title="Sincronizare Forțată (SYNC)"
-              >
-                <RefreshCw className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        </header>
+                  {/* Integrations */}
+                  <button
+                    onClick={() => {
+                      setShowOKXModal(true);
+                      setShowToolsMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Conexiune OKX</span>
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                  </button>
 
-        {/* MOBILE HEADER (< SM): 2 HIGH-DENSITY ROWS WITH 100% VISIBLE CONTROLS */}
-        <header className="flex sm:hidden bg-amber-600 text-black px-2 py-1 flex-col gap-1 text-xs font-bold tracking-wider shrink-0 shadow-md w-full max-w-full min-w-0">
-          {/* TIER 1: BRAND, MODE, REGIME & ACTION SHORTCUTS */}
-          <div className="flex items-center justify-between w-full min-w-0 gap-1">
-            <div className="flex items-center space-x-1 shrink-0">
-              <span className="bg-black text-amber-500 px-1.5 py-0.5 rounded text-xs font-black border border-amber-500/50">
-                TB5
-              </span>
+                  <button
+                    onClick={async () => {
+                      if (!isTelegramConfigured) {
+                        setActiveScreen('SET');
+                        setShowToolsMenu(false);
+                        return;
+                      }
+                      await handleToggleTelegramNotifications();
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      {isTelegramNotificationsEnabled ? <Bell className="w-3.5 h-3.5 text-sky-400" /> : <BellOff className="w-3.5 h-3.5 text-rose-400" />}
+                      <span>Telegram Alerte</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${!isTelegramNotificationsEnabled ? 'bg-rose-950 text-rose-300' : 'bg-sky-950 text-sky-300'}`}>
+                      {isTelegramNotificationsEnabled ? 'ACTIV' : 'MUTE'}
+                    </span>
+                  </button>
 
-              <button
-                onClick={() => setShowOKXModal(true)}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold border flex items-center space-x-1 cursor-pointer ${
-                  status?.executionMode === 'LIVE'
-                    ? 'bg-rose-950 text-rose-300 border-rose-500 animate-pulse'
-                    : status?.executionMode === 'TESTNET'
-                    ? 'bg-amber-950 text-amber-300 border-amber-500'
-                    : 'bg-emerald-950 text-emerald-300 border-emerald-500'
-                }`}
-                title="Comută Modul de Execuție"
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    status?.executionMode === 'LIVE'
-                      ? 'bg-rose-400 animate-ping'
-                      : status?.executionMode === 'TESTNET'
-                      ? 'bg-amber-400'
-                      : 'bg-emerald-400'
-                  }`}
-                />
-                <span>
-                  {status?.executionMode === 'LIVE'
-                    ? 'LIVE'
-                    : status?.executionMode === 'TESTNET'
-                    ? 'DEMO'
-                    : 'PAPER'}
-                </span>
-                <span className="text-[8px] opacity-70">▾</span>
-              </button>
-            </div>
+                  {/* Fade & Vault */}
+                  <button
+                    onClick={() => {
+                      handleToggleInvertSignals();
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>🧪</span>
+                      <span>Fade Climax</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${status?.config?.invertSignals ? 'bg-purple-950 text-purple-300' : 'bg-zinc-800 text-zinc-400'}`}>
+                      {status?.config?.invertSignals ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-            {/* Quick Action Capsules for Mobile */}
-            <div className="flex items-center space-x-1 shrink-0">
-              {/* Fade & Vault Buttons */}
-              <button
-                onClick={handleToggleInvertSignals}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
-                  status?.config?.invertSignals
-                    ? 'bg-purple-950 text-purple-200 border-purple-400 animate-pulse'
-                    : 'bg-black text-zinc-400 border-black/40'
-                }`}
-                title="Fade Climax Extrem"
-              >
-                🧪 {status?.config?.invertSignals ? 'FADE:ON' : 'FADE'}
-              </button>
+                  <button
+                    onClick={() => {
+                      handleToggleProfitVault();
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>🏦</span>
+                      <span>Profit Vault</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${isVaultActive ? 'bg-cyan-950 text-cyan-300' : 'bg-zinc-800 text-zinc-400'}`}>
+                      {isVaultActive ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-              <button
-                onClick={handleToggleProfitVault}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
-                  isVaultActive
-                    ? 'bg-cyan-950 text-cyan-200 border-cyan-400 animate-pulse'
-                    : 'bg-black text-zinc-400 border-black/40'
-                }`}
-                title="Profit Vault"
-              >
-                🏦 {isVaultActive ? 'VAULT:ON' : 'VAULT'}
-              </button>
+                  <div className="border-t border-zinc-800 my-1" />
 
-              {/* OKX & TG */}
-              <button
-                onClick={() => setShowOKXModal(true)}
-                className="bg-black text-amber-400 px-1.5 py-0.5 rounded border border-black/40 flex items-center space-x-0.5 text-[9px] font-bold cursor-pointer"
-                title="Setări OKX"
-              >
-                <span>OKX</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-              </button>
+                  {/* Utilities */}
+                  <button
+                    onClick={() => {
+                      setShowTokenModal(true);
+                      setShowToolsMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Bot Control Token (AUTH)</span>
+                    </span>
+                  </button>
 
-              <button
-                onClick={handleToggleTelegramNotifications}
-                className={`px-1.5 py-0.5 rounded border flex items-center space-x-0.5 text-[9px] font-bold cursor-pointer ${
-                  !isTelegramNotificationsEnabled
-                    ? 'bg-rose-950 text-rose-300 border-rose-500'
-                    : status?.telegramActive
-                    ? 'bg-sky-950 text-sky-300 border-sky-500'
-                    : 'bg-black text-zinc-400 border-black/40'
-                }`}
-                title={
-                  !isTelegramNotificationsEnabled
-                    ? 'Notificări Telegram OPRITE (apasă pentru Activare)'
-                    : 'Notificări Telegram ACTIVE (apasă pentru Mod Noapte / Mute)'
-                }
-              >
-                <span>{isTelegramNotificationsEnabled ? 'TG:ON' : 'TG:MUTE'}</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${!isTelegramNotificationsEnabled ? 'bg-rose-500' : status?.telegramActive ? 'bg-sky-400' : 'bg-zinc-600'}`} />
-              </button>
+                  <button
+                    onClick={() => {
+                      setIsMonochrome(!isMonochrome);
+                      setShowToolsMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>🎨</span>
+                      <span>Mod Monocrom</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-400">{isMonochrome ? 'ACTIV' : 'INACTIV'}</span>
+                  </button>
 
-              {/* Refresh Button */}
-              <button
-                onClick={onRefresh}
-                className="bg-black text-amber-500 p-1 rounded border border-black/40 flex items-center cursor-pointer"
-                title="Refresh"
-              >
-                <RefreshCw className="w-2.5 h-2.5" />
-              </button>
-            </div>
-          </div>
+                  <button
+                    onClick={() => {
+                      onRefresh();
+                      setShowToolsMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Sincronizare Forțată (SYNC)</span>
+                    </span>
+                  </button>
 
-          {/* TIER 2: FINANCIAL HUD BAR (EQUITY, PNL, VAULT) & UTILITIES */}
-          <div className="flex items-center justify-between w-full min-w-0 bg-black/90 px-2 py-0.5 rounded border border-black/50 text-[11px] font-mono">
-            <div className="flex items-center space-x-1.5 min-w-0 truncate">
-              {(status?.isExperimentActive || experimentState?.isActive) ? (
-                <span className="text-cyan-400 font-bold truncate flex items-center space-x-1">
-                  <span>🔬 EXP ({effectiveExpHours}H):</span>
-                  <span className="bg-cyan-950 border border-cyan-400/60 text-cyan-300 px-1.5 py-0.2 rounded text-[10px] animate-pulse">
-                    ${currentEquity.toFixed(2)}
-                  </span>
-                </span>
-              ) : (
-                <span className="text-emerald-400 font-bold truncate">
-                  EQ: ${status?.equity !== undefined ? status.equity.toFixed(2) : '200.00'}
-                </span>
+                  <button
+                    onClick={() => {
+                      setShowManualModal(true);
+                      setShowToolsMenu(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-amber-300 cursor-pointer"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Manual Utilizare (PDF)</span>
+                    </span>
+                  </button>
+
+                  <div className="border-t border-zinc-800 pt-1 flex items-center justify-between px-2">
+                    <span className="text-zinc-500 text-[10px]">LIMBĂ INTERFAȚĂ:</span>
+                    <div className="flex bg-zinc-900 rounded border border-zinc-800 p-0.5">
+                      <button
+                        onClick={() => setLang('EN')}
+                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${lang === 'EN' ? 'bg-amber-500 text-black' : 'text-zinc-400'}`}
+                      >
+                        EN
+                      </button>
+                      <button
+                        onClick={() => setLang('RO')}
+                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${lang === 'RO' ? 'bg-amber-500 text-black' : 'text-zinc-400'}`}
+                      >
+                        RO
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
-              <span className="text-zinc-600">|</span>
-              <span className={`font-bold truncate ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
-              </span>
-              {isVaultActive && (
-                <>
-                  <span className="text-zinc-600">|</span>
-                  <span className="text-cyan-400 font-bold flex items-center space-x-0.5 truncate" title="În seif">
-                    <span>🏦</span>
-                    <span>${profitVault.toFixed(2)}</span>
-                  </span>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-1 shrink-0 pl-1">
-              <button
-                onClick={() => setShowTokenModal(true)}
-                className="bg-zinc-900 text-zinc-400 hover:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-zinc-800 cursor-pointer"
-                title="Token"
-              >
-                AUTH
-              </button>
-              <button
-                onClick={() => setIsMonochrome(!isMonochrome)}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border cursor-pointer ${
-                  isMonochrome
-                    ? 'bg-white text-black border-white'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800'
-                }`}
-                title="Mono"
-              >
-                MONO
-              </button>
             </div>
           </div>
         </header>
@@ -3440,145 +3376,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             >
               <span>[7:CHART]</span>
               <span className="hidden sm:inline">TradingView</span>
-            </button>
-
-            {/* Language Switcher Switch (EN / RO) */}
-            <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0 ml-1 sm:ml-2">
-              <button
-                onClick={() => setLang('EN')}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  lang === 'EN' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => setLang('RO')}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  lang === 'RO' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-                }`}
-              >
-                RO
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2 shrink-0">
-            {/* Profile Switcher */}
-            <div className="flex bg-black rounded border border-amber-500/40 p-0.5 shrink-0">
-              <button
-                onClick={() => onSwitchProfile('SCALP')}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  activeProfile === 'SCALP' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-                }`}
-              >
-                SCALP
-              </button>
-              <button
-                onClick={() => onSwitchProfile('MOMENTUM')}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                  activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black' : 'text-amber-500 hover:text-amber-300'
-                }`}
-              >
-                MOMENTUM
-              </button>
-            </div>
-
-            {/* Telegram Status & Quick Action (Lângă Kill Switch) */}
-            <button
-              type="button"
-              onClick={async () => {
-                if (!isTelegramConfigured) {
-                  setActiveScreen('SET');
-                  setLocalAlert({
-                    type: 'info',
-                    title: 'Configurare Telegram',
-                    message: 'Introduceți Bot Token și Chat ID în secțiunea de mai jos.',
-                  });
-                  return;
-                }
-
-                if (!isTelegramNotificationsEnabled) {
-                  await handleToggleTelegramNotifications();
-                  return;
-                }
-
-                // If active and configured, send hourly test report
-                setTelegramTesting(true);
-                try {
-                  const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
-                  const res = await fetch('/api/bot/telegram/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-bot-token': token },
-                    body: JSON.stringify({ type: 'hourly' }),
-                  });
-                  const data = await res.json();
-                  if (data.success) {
-                    setTelegramStatusMsg('Raport orar expediat cu succes pe Telegram!');
-                  } else {
-                    setTelegramStatusMsg('Eroare Telegram: ' + (data.error || 'Verificați cheile BOT_TOKEN/CHAT_ID'));
-                  }
-                } catch (e: any) {
-                  setTelegramStatusMsg('Eroare conexiune server API');
-                } finally {
-                  setTelegramTesting(false);
-                  setTimeout(() => setTelegramStatusMsg(null), 4000);
-                }
-              }}
-              disabled={telegramTesting}
-              className={`px-2 py-1 rounded text-[11px] font-bold border transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer ${
-                !isTelegramConfigured
-                  ? 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:bg-zinc-900'
-                  : !isTelegramNotificationsEnabled
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/70 hover:bg-rose-900 shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse'
-                  : 'bg-sky-950/80 text-sky-300 border-sky-500/60 hover:bg-sky-900/60 shadow-sm'
-              }`}
-              title={
-                !isTelegramConfigured
-                  ? 'Telegram este în așteptare / neconfigurat. Apasă pentru a merge la setări.'
-                  : !isTelegramNotificationsEnabled
-                  ? 'Alerte Telegram OPRITE (MUTE / Mod Noapte). Apasă pentru a le PORNI (ACTIV).'
-                  : 'Telegram este ACTIV. Apasă pentru a trimite un raport orar de test.'
-              }
-            >
-              {telegramTesting ? (
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
-              ) : !isTelegramConfigured ? (
-                <Send className="w-3.5 h-3.5 text-zinc-500" />
-              ) : !isTelegramNotificationsEnabled ? (
-                <BellOff className="w-3.5 h-3.5 text-rose-400" />
-              ) : (
-                <Send className="w-3.5 h-3.5 text-sky-400" />
-              )}
-              <span>
-                {telegramTesting
-                  ? 'TRIMIT...'
-                  : !isTelegramConfigured
-                  ? 'TG: STANDBY'
-                  : !isTelegramNotificationsEnabled
-                  ? 'TG: MUTE'
-                  : 'TG: ACTIV'}
-              </span>
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  !isTelegramConfigured
-                    ? 'bg-zinc-600'
-                    : !isTelegramNotificationsEnabled
-                    ? 'bg-rose-500'
-                    : 'bg-sky-400 animate-pulse'
-                }`}
-              />
-            </button>
-
-            {/* Kill Switch */}
-            <button
-              onClick={onToggleKillSwitch}
-              className={`px-3 py-1 rounded font-bold text-xs border transition-colors flex items-center space-x-1 shrink-0 ${
-                isKillSwitch ? 'bg-rose-600 text-white border-rose-400 animate-pulse' : 'bg-zinc-950 text-rose-500 border-rose-500/50 hover:bg-rose-950/40'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>{isKillSwitch ? 'KILL SWITCH ENGAGED' : 'KILL SWITCH'}</span>
             </button>
           </div>
         </div>

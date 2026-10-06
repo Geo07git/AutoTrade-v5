@@ -121,11 +121,8 @@ export class MarketScanner {
         if (!symbol) break;
 
         try {
-          console.log(`[MarketScanner] Worker processing symbol: ${symbol}`);
           const ticker = tickersMap[symbol];
-          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 35, 8000);
-          
-          console.log(`[MarketScanner] Fetched klines for ${symbol}: ${klinesLtf?.length || 0} items`);
+          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 60, 8000);
 
           if (klinesLtf && klinesLtf.length >= 22) {
             const klinesMap: Record<string, Kline[]> = { [mainTf]: klinesLtf };
@@ -166,9 +163,9 @@ export class MarketScanner {
 
     for (const cand of topCandidates) {
       try {
-        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 30, 6000);
+        const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 60, 6000);
         if (htfKlines && htfKlines.length >= 20) {
-          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 35, 6000);
+          const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 60, 6000);
           if (ltfKlines) {
             const reevaluated = this.engine.evaluateCandidate(
               cand.symbol,

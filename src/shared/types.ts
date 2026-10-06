@@ -160,6 +160,7 @@ export interface Kline {
   low: number;
   close: number;
   volume: number;
+  isConfirmed?: boolean;
 }
 
 export type SymbolConfidenceStatus = 'LOW_SAMPLE' | 'DEVELOPING' | 'HIGH_CONFIDENCE';

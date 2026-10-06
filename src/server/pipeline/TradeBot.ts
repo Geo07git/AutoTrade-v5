@@ -809,7 +809,7 @@ export class TradeBot {
           const minScore = expState.minMomentumScore || 50;
           return opp.score >= minScore && opp.score <= 100;
         }
-        if (!opp.isEligible && !(opp.score >= (profile.minMomentumScore || 50) && (profile.maxMomentumScore ? opp.score <= profile.maxMomentumScore : true))) return false;
+        if (!opp.isEligible) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
         if (profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
         const effMinVol = (config.scannerFilter?.min24hVolumeUSDT && config.scannerFilter.min24hVolumeUSDT > 0)
@@ -889,9 +889,9 @@ export class TradeBot {
         // Evaluate signal through Momentum Engine with MTF (LTF + HTF confirmation)
         let signal = candidate.signal;
         if (!signal) {
-          const ltfKlines = await this.activeAdapter.getKlines(symbol, profile.timeframes[0], 35);
+          const ltfKlines = await this.activeAdapter.getKlines(symbol, profile.timeframes[0], 60);
           const htfKlines = profile.timeframes[1]
-            ? await this.activeAdapter.getKlines(symbol, profile.timeframes[1], 30)
+            ? await this.activeAdapter.getKlines(symbol, profile.timeframes[1], 60)
             : [];
           
           signal = this.engine.evaluate(
@@ -905,28 +905,18 @@ export class TradeBot {
           );
         }
 
-        // Direct signal creation for high momentum candidates in experiment or active scan
-        if (!signal && (isExpActive || candidate.score >= (profile.minMomentumScore || 50))) {
-          const atrPct = candidate.price > 0 && candidate.currentAtr ? (candidate.currentAtr / candidate.price) * 100 : 1.0;
-          signal = {
-            symbol,
-            side: candidate.side === 'SELL' ? 'SELL' : 'BUY',
-            originalSide: candidate.side === 'SELL' ? 'SELL' : 'BUY',
-            isFadeTrade: false,
-            score: candidate.score,
-            profile: config.activeProfile,
-            timestamp: Date.now(),
-            currentPrice: candidate.price,
-            currentAtr: candidate.currentAtr || (candidate.price * 0.01),
-            atrPct: parseFloat(atrPct.toFixed(2)),
-            reasons: {
+        // Strictly enforce signal validity: do NOT bypass when HTF rejected the signal
+        if (!signal) {
+          this.logAudit(
+            'SIGNAL_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) respins: nu a trecut confirmarea strictă MTF/HTF.`,
+            {
+              symbol,
+              rank: candidate.rank,
               score: candidate.score,
-              threshold: isExpActive ? (expState.minMomentumScore || 50) : (profile.minMomentumScore || 50),
-              side: candidate.side === 'SELL' ? 'SELL' : 'BUY',
-              rvol: candidate.rvol,
-              atrExpansion: candidate.atrExpansion,
-            },
-          };
+            }
+          );
+          continue;
         }
 
         if (signal) {

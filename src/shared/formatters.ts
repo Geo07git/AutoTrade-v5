@@ -75,3 +75,23 @@ export function formatExactPriceForExport(price: number | undefined | null): str
   return price.toFixed(10);
 }
 
+/**
+ * Standard Romanian Local Time (Europe/Bucharest, 24h format HH:MM:SS)
+ */
+export function formatTimeLocal(dateVal: number | string | Date, timeZone: string = 'Europe/Bucharest'): string {
+  if (!dateVal) return '--:--:--';
+  const d = typeof dateVal === 'number' || typeof dateVal === 'string' ? new Date(dateVal) : dateVal;
+  if (isNaN(d.getTime())) return '--:--:--';
+  return d.toLocaleTimeString('ro-RO', { timeZone, hour12: false });
+}
+
+/**
+ * Standard Romanian Local Date & Time (Europe/Bucharest, 24h format DD.MM.YYYY, HH:MM:SS)
+ */
+export function formatDateTimeLocal(dateVal: number | string | Date, timeZone: string = 'Europe/Bucharest'): string {
+  if (!dateVal) return '--/--/---- --:--';
+  const d = typeof dateVal === 'number' || typeof dateVal === 'string' ? new Date(dateVal) : dateVal;
+  if (isNaN(d.getTime())) return '--/--/---- --:--';
+  return d.toLocaleString('ro-RO', { timeZone, hour12: false });
+}
+

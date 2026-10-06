@@ -291,16 +291,20 @@ export class MomentumEngine {
 
     // Directional Magnitude of Momentum (|mom|)
     const absMom = Math.abs(mom);
-    const clampedMom = Math.min(15, absMom);
 
     // 2. RVOL (Relative Volume across last 20 candles)
+    // 20-period baseline on completed candles
     const volAvg = ltfKlines.slice(-21, -1).reduce((a, b) => a + b.volume, 0) / 20;
-    const rvol = Math.min(10, last.volume / (volAvg + EPSILON));
+    // For unconfirmed/forming candle, take max of current pace or previous completed candle to prevent candle-phase distortion
+    const candidateVol = (last.isConfirmed ?? true) ? last.volume : Math.max(last.volume, prev.volume);
+    const rvol = Math.min(10, candidateVol / (volAvg + EPSILON));
 
-    // 3. ATR Expansion
-    const currentAtr = last.high - last.low;
+    // 3. ATR Expansion & Volatility Baseline
+    const currentAtr = Math.max(EPSILON, last.high - last.low);
     const avgAtr = ltfKlines.slice(-15, -1).reduce((a, b) => a + (b.high - b.low), 0) / 14;
-    const atrExpansion = Math.max(0.1, Math.min(5.0, currentAtr / (avgAtr + EPSILON)));
+    const effectiveAtr = (last.isConfirmed ?? true) ? currentAtr : Math.max(currentAtr, prev.high - prev.low);
+    const atrExpansion = Math.max(0.1, Math.min(5.0, effectiveAtr / (avgAtr + EPSILON)));
+    const atrPct = (avgAtr / (lastClose + EPSILON)) * 100;
 
     // Candle body quality ratio & persistence check
     const candleRange = Math.max(EPSILON, last.high - last.low);
@@ -310,37 +314,50 @@ export class MomentumEngine {
 
     const prevMom = ltfKlines.length >= 3 ? ((prev.close / ltfKlines[ltfKlines.length - 3].close) - 1) * 100 : 0;
     const persistenceBonus = (side === 'BUY' && prev.close > prev.open && mom > 0 && prevMom > 0) || 
-                             (side === 'SELL' && prev.close < prev.open && mom < 0 && prevMom < 0) ? 8 : 0;
+                             (side === 'SELL' && prev.close < prev.open && mom < 0 && prevMom < 0) ? 4 : 0;
 
-    // 4. Calibrated Multi-Factor Score Model
-    // Pillar A: Impulse Strength (0 to 35 points)
-    const emaBonus = Math.min(8, Math.max(0, (Math.abs(distFromEmaPct) / 1.5) * 8));
-    const impulseBase = (Math.sqrt(clampedMom) / Math.sqrt(5.0)) * 30;
+    // 4. Calibrated Multi-Factor Score Model (Zero Gratuitous Baseline)
+    // Pillar A: Volatility-Normalized Impulse Strength (0 to 35 points)
+    // Measure impulse in units of coin's own volatility (|mom| / ATR%)
+    const momInAtrUnits = absMom / Math.max(0.15, atrPct);
+    let impulseBase = 0;
+    if (momInAtrUnits >= 0.25) {
+      // Moves above 0.25x ATR scale progressively up to 25 points at 2.5x ATR
+      impulseBase = Math.min(25, (momInAtrUnits - 0.25) * 11.5);
+    }
+
+    const emaBonus = ((side === 'BUY' && distFromEmaPct > 0) || (side === 'SELL' && distFromEmaPct < 0))
+      ? Math.min(6, (Math.abs(distFromEmaPct) / Math.max(0.2, atrPct)) * 3)
+      : 0;
+
     const impulseScore = Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
 
-    // Pillar B: Relative Volume (0 to 25 points)
+    // Pillar B: Relative Volume (0 to 25 points) - ZERO points for rvol <= 1.0
     let rvolScore = 0;
-    if (rvol <= 1.0) {
-      rvolScore = Math.max(0, rvol * 12);
-    } else {
-      rvolScore = 12 + 13 * (1 - Math.exp(-(rvol - 1.0) / 0.9));
+    if (rvol > 1.0) {
+      rvolScore = Math.min(25, 25 * (1 - Math.exp(-(rvol - 1.0) / 1.1)));
     }
-    rvolScore = Math.min(25, Math.max(0, rvolScore));
 
-    // Pillar C: ATR / Volatility Expansion (0 to 20 points)
+    // Pillar C: ATR / Volatility Expansion (0 to 20 points) - ZERO points for atrExpansion <= 1.0
     let atrScore = 0;
-    if (atrExpansion <= 1.0) {
-      atrScore = Math.max(0, atrExpansion * 12);
-    } else {
-      atrScore = 12 + 8 * Math.min(1.0, (atrExpansion - 1.0) / 0.7);
+    if (atrExpansion > 1.0) {
+      atrScore = Math.min(20, (atrExpansion - 1.0) * 16);
     }
-    atrScore = Math.min(20, Math.max(0, atrScore));
 
     // Pillar D: Higher Timeframe Confluence (0 to 20 points)
-    const htfScore = htfAligned ? 20 : (htfTrend === 'NEUTRAL' ? 12 : 8);
+    // Confluence bonus is only earned when there is actual market activity
+    let htfScore = 0;
+    if (htfAligned) {
+      const activityRatio = Math.min(1.0, (impulseScore + rvolScore + atrScore) / 25);
+      htfScore = htfTrend === 'NEUTRAL' ? (8 * activityRatio) : (20 * activityRatio);
+    }
 
     // Total Normalized Score (0 to 100)
-    const totalScore = Math.max(0, Math.min(100, impulseScore + rvolScore + atrScore + htfScore));
+    let rawScore = impulseScore + rvolScore + atrScore + htfScore;
+    if (!htfAligned) {
+      rawScore = Math.max(0, rawScore - 20); // Severe penalty for counter-HTF trades
+    }
+    const totalScore = Math.max(0, Math.min(100, rawScore));
 
     return {
       score: parseFloat(totalScore.toFixed(1)),
