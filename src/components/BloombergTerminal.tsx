@@ -2688,11 +2688,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-zinc-400">Deschis la:</span>
-                          <span className="text-zinc-300">{new Date(pos.entryTime).toLocaleTimeString()}</span>
+                          <span className="text-zinc-300 font-mono font-medium">
+                            {new Date(pos.entryTime).toLocaleTimeString('ro-RO', { timeZone: 'Europe/Bucharest', hour12: false })}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-zinc-400">Dată intrare:</span>
-                          <span className="text-zinc-400">{new Date(pos.entryTime).toLocaleDateString()}</span>
+                          <span className="text-zinc-400 font-mono">
+                            {new Date(pos.entryTime).toLocaleDateString('ro-RO', { timeZone: 'Europe/Bucharest' })}
+                          </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Limită Max Hold:</span>

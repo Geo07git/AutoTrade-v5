@@ -66,7 +66,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       autosize: true,
       symbol: tvSymbol,
       interval: interval,
-      timezone: 'Etc/UTC',
+      timezone: 'Europe/Bucharest',
       theme: 'dark',
       style: '1',
       locale: 'en',
