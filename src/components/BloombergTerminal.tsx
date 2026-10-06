@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip, XAxis, CartesianGrid } from 'recharts';
 import {
   BotStatusResponse,
@@ -96,6 +96,96 @@ interface TapeItem {
   size: string;
   type: 'TRADE' | 'SIGNAL' | 'FILL' | 'STOP';
 }
+
+const getAuditCardTheme = (type: AuditLogType | string) => {
+  switch (type) {
+    // 1. Profit & Execution Success (Emerald Green)
+    case 'POSITION_CLOSED':
+    case 'ORDER_FILLED':
+    case 'PROFIT_VAULT_DEPOSIT':
+      return {
+        badge: 'bg-emerald-950 text-emerald-300 border-emerald-500/60',
+        card: 'bg-emerald-950/25 border-emerald-500/40 hover:border-emerald-400',
+        dot: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]',
+      };
+
+    // 2. Orders Placed & Position Entry (Cyan Blue)
+    case 'POSITION_OPENED':
+    case 'ORDER_SUBMITTED':
+    case 'ORDER_ACCEPTED':
+    case 'ORDER_ROUTED':
+    case 'ORDER_PARTIALLY_FILLED':
+      return {
+        badge: 'bg-cyan-950 text-cyan-300 border-cyan-500/60',
+        card: 'bg-cyan-950/25 border-cyan-500/40 hover:border-cyan-400',
+        dot: 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]',
+      };
+
+    // 3. Candidate Selection & Momentum Signals (Amber / Gold)
+    case 'CANDIDATE_SELECTED':
+    case 'SIGNAL_GENERATED':
+    case 'RISK_APPROVED':
+      return {
+        badge: 'bg-amber-950 text-amber-300 border-amber-500/60',
+        card: 'bg-amber-950/25 border-amber-500/40 hover:border-amber-400',
+        dot: 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]',
+      };
+
+    // 4. Market Scanner & Universe Discovery (Purple / Violet)
+    case 'SCAN_STARTED':
+    case 'SCAN_COMPLETED':
+    case 'UNIVERSE_REFRESH':
+    case 'UNIVERSE_FILTERED':
+      return {
+        badge: 'bg-purple-950 text-purple-300 border-purple-500/60',
+        card: 'bg-purple-950/25 border-purple-500/40 hover:border-purple-400',
+        dot: 'bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.8)]',
+      };
+
+    // 5. Rejections & Skips (Orange / Coral)
+    case 'CANDIDATE_REJECTED':
+    case 'SIGNAL_REJECTED':
+    case 'RISK_REJECTED':
+    case 'ORDER_REJECTED':
+    case 'ORDER_CANCELLED':
+      return {
+        badge: 'bg-orange-950 text-orange-300 border-orange-500/60',
+        card: 'bg-orange-950/25 border-orange-500/40 hover:border-orange-400',
+        dot: 'bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.8)]',
+      };
+
+    // 6. Errors, Discrepancies & Kill Switch (Rose / Red)
+    case 'ERROR':
+    case 'SCAN_ERROR':
+    case 'ORDER_FAILED':
+    case 'KILL_SWITCH_ENGAGED':
+    case 'RECONCILIATION_DISCREPANCY':
+      return {
+        badge: 'bg-rose-950 text-rose-300 border-rose-500/60',
+        card: 'bg-rose-950/25 border-rose-500/40 hover:border-rose-400',
+        dot: 'bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.9)]',
+      };
+
+    // 7. System, Config & Disengage (Sky / Teal)
+    case 'KILL_SWITCH_DISENGAGED':
+    case 'EXCHANGE_CONNECTED':
+    case 'EXCHANGE_DISCONNECTED':
+    case 'MODE_CHANGED':
+    case 'PAPER_RESET':
+    case 'CONFIG_UPDATED':
+    case 'PROFIT_VAULT_RESET':
+    case 'RECOVERY':
+    case 'EXPERIMENT':
+    case 'POSITION_UPDATED':
+    case 'SYSTEM':
+    default:
+      return {
+        badge: 'bg-sky-950 text-sky-300 border-sky-500/60',
+        card: 'bg-sky-950/25 border-sky-500/40 hover:border-sky-400',
+        dot: 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]',
+      };
+  }
+};
 
 export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   status,
@@ -307,6 +397,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [scannerSaving, setScannerSaving] = useState(false);
   const [showScannerConfig, setShowScannerConfig] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const auditTapeRef = useRef<HTMLDivElement>(null);
+
+  // Ultimele 100 de evenimente pentru banda derulantă DESK AUDIT FEED
+  const displayLogs = useMemo(() => logs.slice(0, 100), [logs]);
+  const repeatedLogs = useMemo(() => {
+    if (displayLogs.length === 0) return [];
+    if (displayLogs.length < 10) {
+      const repeatCount = Math.max(2, Math.ceil(16 / displayLogs.length));
+      return Array(repeatCount).fill(displayLogs).flat();
+    }
+    return [...displayLogs, ...displayLogs];
+  }, [displayLogs]);
   const shortcutsRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -1542,7 +1644,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const headers = ['Log ID', 'Timestamp', 'Type', 'Message', 'Details'];
 
-    const rows = logs.map((l) => [
+    // Exportă ultimele până la 500 de evenimente de audit
+    const exportLogs = logs.slice(0, 500);
+    const rows = exportLogs.map((l) => [
       l.id,
       new Date(l.timestamp).toLocaleString(),
       l.type,
@@ -1550,7 +1654,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       l.details ? JSON.stringify(l.details) : '',
     ]);
 
-    exportToCSV(`TradeBot_DeskLogs_${timestamp}.csv`, headers, rows);
+    exportToCSV(`TradeBot_DeskLogs_Last${exportLogs.length}_${timestamp}.csv`, headers, rows);
   };
 
   const handleExportEquityProtectionCSV = () => {
@@ -1814,6 +1918,48 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       el.removeEventListener('mouseleave', onLeave);
     };
   }, [tapeItems, TAPE_SCROLL_SPEED]);
+
+  // Derulare fluidă 60FPS a benzii de audit în sens INVERS (de la stânga spre dreapta, opus față de AUTO-TAPE)
+  // Viteza este identică cu cea de la AUTO-TAPE (TAPE_SCROLL_SPEED = 1.2), iar trecerea cursorului o pune pe pauză
+  useEffect(() => {
+    const el = auditTapeRef.current;
+    if (!el || displayLogs.length === 0) return;
+
+    let animId: number;
+    let isHovered = false;
+
+    const onEnter = () => { isHovered = true; };
+    const onLeave = () => { isHovered = false; };
+    el.addEventListener('mouseenter', onEnter);
+    el.addEventListener('mouseleave', onLeave);
+
+    const halfWidth = el.scrollWidth / 2;
+    let pos = el.scrollLeft > 0 ? el.scrollLeft : (halfWidth > 0 ? halfWidth : 0);
+    if (el.scrollLeft <= 0 && halfWidth > 0) {
+      el.scrollLeft = halfWidth;
+      pos = halfWidth;
+    }
+
+    const step = () => {
+      if (el && !isHovered) {
+        // Sens invers: scade poziția scrollLeft pentru deplasare spre dreapta (invers AUTO-TAPE)
+        pos -= TAPE_SCROLL_SPEED;
+        const currentHalf = el.scrollWidth / 2;
+        if (currentHalf > 0 && pos <= 0) {
+          pos += currentHalf;
+        }
+        el.scrollLeft = pos;
+      }
+      animId = requestAnimationFrame(step);
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(animId);
+      el.removeEventListener('mouseenter', onEnter);
+      el.removeEventListener('mouseleave', onLeave);
+    };
+  }, [displayLogs, TAPE_SCROLL_SPEED]);
 
   // Check whether the shortcuts bar has overflow to the left or right
   const checkShortcutsScroll = () => {
@@ -5858,15 +6004,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (ADAPTIVE HEIGHT, FULL SCREEN FIT WITH ZERO PAGE SCROLL, HIDDEN IN EXP TO EXPAND EXPERIMENT TO 100% FULL SCREEN) */}
-        <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-36 sm:h-44 lg:h-52 shrink-0 flex flex-col min-h-0'}`}>
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-2.5 flex flex-col h-full min-h-0 shadow-lg">
-            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-1.5 mb-1.5 shrink-0">
+        {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (DOUBLE-HEIGHT REVERSE AUTO-TAPE TICKER) */}
+        <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-24 sm:h-28 shrink-0 flex flex-col min-h-0'}`}>
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 flex flex-col h-full min-h-0 shadow-lg justify-between">
+            {/* ANTET */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-1 mb-1 shrink-0">
               <div className="flex items-center space-x-2">
                 <Terminal className="w-4 h-4 text-amber-500" />
                 <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
-                <span className="text-[10px] text-slate-400 font-mono">({logs.length} evenimente)</span>
-                <span className="text-[10px] text-zinc-500 hidden sm:inline">— Feed de audit în timp real</span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  ({Math.min(displayLogs.length, 100)} pe bandă / {logs.length} total)
+                </span>
+                <span className="text-[10px] text-zinc-500 hidden sm:inline">
+                  — Bandă derulantă live &lt;&lt; sens invers (pauză la cursor)
+                </span>
               </div>
 
               <div className="flex items-center space-x-1.5">
@@ -5874,11 +6025,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   type="button"
                   onClick={handleExportLogs}
                   disabled={logs.length === 0}
-                  className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  title="Exportă feed-ul de audit în format CSV / Excel"
+                  className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  title="Exportă ultimele până la 500 de evenimente de audit în format CSV / Excel"
                 >
                   <Download className="w-3 h-3" />
-                  <span>SAVE LOG</span>
+                  <span>SAVE LOG ({Math.min(logs.length, 500)})</span>
                 </button>
 
                 {!showClearLogsConfirm ? (
@@ -5886,7 +6037,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     type="button"
                     onClick={() => setShowClearLogsConfirm(true)}
                     disabled={logs.length === 0}
-                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     title="Șterge feed-ul de evenimente"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -5901,14 +6052,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         setShowClearLogsConfirm(false);
                         if (onClearLogs) onClearLogs();
                       }}
-                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold"
+                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold cursor-pointer"
                     >
                       DA
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowClearLogsConfirm(false)}
-                      className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded"
+                      className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded cursor-pointer"
                     >
                       NU
                     </button>
@@ -5917,50 +6068,47 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </div>
             </div>
 
-            {/* Scrollable event list adapted to fill available height cleanly */}
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 font-mono text-[11px] pr-1">
-              {logs.length === 0 ? (
-                <div className="p-4 text-center text-zinc-600 text-xs">
-                  Niciun eveniment de audit înregistrat încă.
-                </div>
-              ) : (
-                logs.map((log) => {
-                  let badgeColor = 'bg-zinc-800 text-zinc-300 border-zinc-700';
-                  if (log.type === 'ORDER_FILLED' || log.type === 'POSITION_CLOSED') {
-                    badgeColor = 'bg-emerald-950 text-emerald-300 border-emerald-600/50';
-                  } else if (log.type === 'RISK_REJECTED' || log.type === 'SYSTEM_ERROR') {
-                    badgeColor = 'bg-rose-950 text-rose-300 border-rose-600/50';
-                  } else if (log.type === 'POSITION_OPENED' || log.type === 'ORDER_SUBMITTED') {
-                    badgeColor = 'bg-amber-950 text-amber-300 border-amber-600/50';
-                  } else if (log.type === 'SCANNER_RUN' || log.type === 'POSITION_UPDATED') {
-                    badgeColor = 'bg-blue-950 text-blue-300 border-blue-600/50';
-                  }
-
-                  return (
-                    <div
-                      key={log.id}
-                      className="bg-black/90 p-1.5 px-2.5 rounded border border-zinc-900 hover:border-amber-500/30 flex flex-wrap items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center space-x-2.5 flex-1 min-w-0">
-                        <span className="text-[10px] text-slate-500 shrink-0">
-                          {new Date(log.timestamp).toLocaleTimeString()}
-                        </span>
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${badgeColor}`}>
-                          {log.type}
-                        </span>
-                        <span className="text-zinc-200 truncate text-[11px]">
-                          {log.message}
-                        </span>
-                      </div>
-                      {log.details && (
-                        <span className="text-[9px] text-zinc-500 shrink-0 hidden md:inline">
-                          {typeof log.details === 'string' ? log.details : JSON.stringify(log.details).slice(0, 50)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+            {/* BANDĂ DERULANTĂ CU ÎNĂLȚIME DUBLĂ FAȚĂ DE AUTO-TAPE (SENS INVERS) */}
+            <div className="flex-1 min-h-0 flex items-center overflow-hidden relative w-full max-w-full">
+              <div
+                ref={auditTapeRef}
+                className="flex-1 overflow-x-hidden whitespace-nowrap pl-1 select-none scrollbar-none flex items-center h-full"
+                title="Trecerea cursorului peste bandă o pune pe pauză temporar"
+              >
+                {displayLogs.length === 0 ? (
+                  <div className="w-full text-center text-zinc-600 text-xs py-2 font-mono">
+                    Niciun eveniment de audit înregistrat încă.
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center space-x-3 py-0.5">
+                    {repeatedLogs.map((log, idx) => {
+                      const theme = getAuditCardTheme(log.type);
+                      return (
+                        <div
+                          key={`${log.id}_${idx}`}
+                          className={`h-[52px] sm:h-[56px] min-w-[280px] max-w-[460px] flex flex-col justify-center px-3 py-1 rounded border shrink-0 transition-all ${theme.card}`}
+                          title={log.message}
+                        >
+                          {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
+                          <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
+                            <span className="text-slate-400 font-mono shrink-0">
+                              [{new Date(log.timestamp).toLocaleTimeString()}]
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
+                              {log.type}
+                            </span>
+                          </div>
+                          {/* Rândul 2: Mesaj curat fără JSON brut */}
+                          <div className="text-zinc-200 text-[11px] truncate font-mono">
+                            {log.message}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

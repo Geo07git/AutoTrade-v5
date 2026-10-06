@@ -1375,8 +1375,8 @@ export class TradeBot {
     };
 
     logs.unshift(entry);
-    if (logs.length > 200) {
-      logs.length = 200;
+    if (logs.length > 500) {
+      logs.length = 500;
     }
     this.auditStore.save();
     console.log(`[TradeBot][${type}] ${message}`);
