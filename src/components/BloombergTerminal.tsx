@@ -2800,7 +2800,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   );
 
   return (
-    <div className={`h-screen w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden ${isMonochrome ? 'monochrome' : ''}`}>
+    <div className={`h-screen h-[100dvh] max-h-[100dvh] w-full bg-black text-amber-500 font-mono flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] ${isMonochrome ? 'monochrome' : ''}`}>
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
         {/* 1. BLOOMBERG TERMINAL TOP BANNER */}
@@ -3638,7 +3638,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       </div>
 
       {/* 4. MAIN TERMINAL WORKSPACE (100% NO SCROLL IN FULLSCREEN) */}
-      <main className="flex-1 min-h-0 p-2 bg-black flex flex-col gap-2 overflow-hidden">
+      <main className="flex-1 min-h-0 p-1 sm:p-2 bg-black flex flex-col gap-1 sm:gap-2 overflow-hidden">
         {/* UPPER ROW: LEFT ACTIVE SCREEN + RIGHT TRADINGVIEW CHART */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2">
           {/* LEFT / CENTER MODULE CONTENT (12 Cols on Mobile, 6 Cols on LG, or 12 Cols if SYM / EXP) */}
@@ -6045,31 +6045,35 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
 
         {/* BOTTOM WIDE MODULE: DESK AUDIT FEED (DOUBLE-HEIGHT AUTO-TAPE TICKER WITH FULL INFO & 1M STATUS) */}
-        <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-24 sm:h-28 shrink-0 flex flex-col min-h-0'}`}>
-          <div className="bg-zinc-950 border border-amber-500/30 rounded p-2 flex flex-col h-full min-h-0 shadow-lg justify-between">
-            {/* ANTET */}
-            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/30 pb-1 mb-1 shrink-0">
-              <div className="flex items-center space-x-2">
-                <Terminal className="w-4 h-4 text-amber-500" />
-                <span className="font-bold text-xs tracking-wider text-amber-400">DESK AUDIT FEED</span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  ({Math.min(displayLogs.length, 100)} pe bandă / {logs.length} total)
+        <div className={`${activeScreen === 'EXP' ? 'hidden' : 'h-[84px] sm:h-24 lg:h-28 shrink-0 flex flex-col min-h-[84px] z-10'}`}>
+          <div className="bg-zinc-950 border border-amber-500/30 rounded p-1.5 sm:p-2 flex flex-col h-full min-h-0 shadow-lg justify-between">
+            {/* ANTET (STRICT SINGLE LINE ON MOBILE & DESKTOP) */}
+            <div className="flex flex-nowrap items-center justify-between gap-1 border-b border-amber-500/30 pb-0.5 sm:pb-1 mb-0.5 sm:mb-1 shrink-0 overflow-hidden">
+              <div className="flex items-center space-x-1.5 min-w-0 truncate">
+                <Terminal className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="font-bold text-[11px] sm:text-xs tracking-wider text-amber-400 shrink-0">
+                  <span className="sm:hidden">AUDIT FEED</span>
+                  <span className="hidden sm:inline">DESK AUDIT FEED</span>
                 </span>
-                <span className="text-[10px] text-zinc-500 hidden sm:inline">
-                  — Bandă derulantă live &gt;&gt; (pauză la cursor, puls sistem 1m)
+                <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                  ({Math.min(displayLogs.length, 100)})
+                </span>
+                <span className="text-[10px] text-zinc-500 hidden md:inline truncate">
+                  — Bandă derulantă live &gt;&gt; (puls sistem 1m)
                 </span>
               </div>
 
-              <div className="flex items-center space-x-1.5">
+              <div className="flex items-center space-x-1 shrink-0">
                 <button
                   type="button"
                   onClick={handleExportLogs}
                   disabled={logs.length === 0}
-                  className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="inline-flex items-center space-x-1 px-1.5 sm:px-2.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
                   title="Exportă ultimele până la 500 de evenimente de audit în format CSV / Excel"
                 >
-                  <Download className="w-3 h-3" />
-                  <span>SAVE LOG ({Math.min(logs.length, 500)})</span>
+                  <Download className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                  <span className="hidden sm:inline">SAVE LOG ({Math.min(logs.length, 500)})</span>
+                  <span className="sm:hidden">SAVE</span>
                 </button>
 
                 {!showClearLogsConfirm ? (
@@ -6077,29 +6081,30 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     type="button"
                     onClick={() => setShowClearLogsConfirm(true)}
                     disabled={logs.length === 0}
-                    className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="inline-flex items-center space-x-1 px-1.5 sm:px-2.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900/80 border border-rose-600/40 text-rose-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
                     title="Șterge feed-ul de evenimente"
                   >
-                    <Trash2 className="w-3 h-3" />
-                    <span>CLEAR LOG</span>
+                    <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    <span className="hidden sm:inline">CLEAR LOG</span>
+                    <span className="sm:hidden">CLR</span>
                   </button>
                 ) : (
-                  <div className="flex items-center space-x-1 bg-rose-950 border border-rose-500 px-2 py-0.5 rounded text-[10px] font-mono">
-                    <span className="text-rose-200 font-bold">Ștergi istoricul?</span>
+                  <div className="flex items-center space-x-1 bg-rose-950 border border-rose-500 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-mono shrink-0">
+                    <span className="text-rose-200 font-bold hidden sm:inline">Ștergi?</span>
                     <button
                       type="button"
                       onClick={() => {
                         setShowClearLogsConfirm(false);
                         if (onClearLogs) onClearLogs();
                       }}
-                      className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold cursor-pointer"
+                      className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold cursor-pointer"
                     >
                       DA
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowClearLogsConfirm(false)}
-                      className="px-2 py-0.5 bg-zinc-800 text-zinc-300 rounded cursor-pointer"
+                      className="px-1.5 py-0.5 bg-zinc-800 text-zinc-300 rounded cursor-pointer"
                     >
                       NU
                     </button>
@@ -6128,21 +6133,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         return (
                           <div
                             key={`audit_1_${log.id}_${idx}`}
-                            className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
+                            className={`h-[48px] sm:h-[54px] w-max max-w-none flex flex-col justify-center px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
                             title={log.message}
                           >
                             {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
-                            <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
+                            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[9px] sm:text-[10px] shrink-0 mb-0.5">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
                               <span className="text-slate-400 font-mono shrink-0">
                                 [{new Date(log.timestamp).toLocaleTimeString()}]
                               </span>
-                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
+                              <span className={`px-1 sm:px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold border shrink-0 ${theme.badge}`}>
                                 {theme.badgeLabel}
                               </span>
                             </div>
                             {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
-                            <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
+                            <div className="text-zinc-100 text-[10px] sm:text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
                               {log.message}
                             </div>
                           </div>
@@ -6156,21 +6161,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         return (
                           <div
                             key={`audit_2_${log.id}_${idx}`}
-                            className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
+                            className={`h-[48px] sm:h-[54px] w-max max-w-none flex flex-col justify-center px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
                             title={log.message}
                           >
                             {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
-                            <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
+                            <div className="flex items-center space-x-1.5 sm:space-x-2 text-[9px] sm:text-[10px] shrink-0 mb-0.5">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
                               <span className="text-slate-400 font-mono shrink-0">
                                 [{new Date(log.timestamp).toLocaleTimeString()}]
                               </span>
-                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
+                              <span className={`px-1 sm:px-1.5 py-0.2 rounded text-[8px] sm:text-[9px] font-bold border shrink-0 ${theme.badge}`}>
                                 {theme.badgeLabel}
                               </span>
                             </div>
                             {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
-                            <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
+                            <div className="text-zinc-100 text-[10px] sm:text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
                               {log.message}
                             </div>
                           </div>
