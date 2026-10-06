@@ -308,7 +308,7 @@ export class MomentumEngine {
     const absMom = Math.abs(mom);
 
     // Time-elapsed fraction of currently forming candle (Item 2)
-    const mainTfMinutes = parseInt(mainTf) || 15;
+    const mainTfMinutes = parseInt(ltfKey) || 15;
     const intervalMs = mainTfMinutes * 60 * 1000;
     const now = Date.now();
     const candleElapsedMs = Math.max(0, now - last.timestamp);
