@@ -414,17 +414,33 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [scannerSaving, setScannerSaving] = useState(false);
   const [showScannerConfig, setShowScannerConfig] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
+  const autoTapeTrackRef = useRef<HTMLDivElement>(null);
+  const tickerPos = useRef<number>(0);
+
   const auditTapeRef = useRef<HTMLDivElement>(null);
+  const auditTrackRef = useRef<HTMLDivElement>(null);
+  const auditPos = useRef<number>(0);
 
   // Ultimele 100 de evenimente pentru banda derulantă DESK AUDIT FEED
   const displayLogs = useMemo(() => logs.slice(0, 100), [logs]);
-  const repeatedLogs = useMemo(() => {
+
+  // Asigură că track-ul primar depășește întotdeauna lățimea ecranului pentru derulare fluidă fără cusur
+  const extendedTapeItems = useMemo(() => {
+    if (tapeItems.length === 0) return [];
+    if (tapeItems.length < 15) {
+      const repeats = Math.max(2, Math.ceil(24 / tapeItems.length));
+      return Array(repeats).fill(tapeItems).flat();
+    }
+    return tapeItems;
+  }, [tapeItems]);
+
+  const extendedAuditLogs = useMemo(() => {
     if (displayLogs.length === 0) return [];
     if (displayLogs.length < 10) {
-      const repeatCount = Math.max(2, Math.ceil(16 / displayLogs.length));
-      return Array(repeatCount).fill(displayLogs).flat();
+      const repeats = Math.max(2, Math.ceil(16 / displayLogs.length));
+      return Array(repeats).fill(displayLogs).flat();
     }
-    return [...displayLogs, ...displayLogs];
+    return displayLogs;
   }, [displayLogs]);
   const shortcutsRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -1896,81 +1912,73 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   };
 
   // =========================================================================
-  // VITEZA REAL-TIME TAPE (SETEAZĂ DIRECT AICI ÎN COD):
-  // 0.8 = lent/calm | 1.2 = normal/recomandat | 2.0 = rapid | 3.5 = ultra
+  // VITEZA REAL-TIME TAPE: 72 px/sec (~1.2 px per frame la 60fps)
+  // Derulare 100% fluidă și continuă fără salturi, întreruperi sau tremur
+  // Folosește delta-time și lățimea exactă a Track 1 pentru tranziție matematic fără cusur (0px salt)
   // =========================================================================
-  const TAPE_SCROLL_SPEED = 1.2;
-
-  // Derulare fluidă 60FPS fără blocaje sau tremur (folosind requestAnimationFrame și buclă infinită)
   useEffect(() => {
-    const el = tickerRef.current;
-    if (!el || tapeItems.length === 0) return;
-
     let animId: number;
-    let pos = el.scrollLeft;
-    let isHovered = false;
+    let lastTime = performance.now();
+    const SPEED_PX_PER_SEC = 72;
 
-    const onEnter = () => { isHovered = true; };
-    const onLeave = () => { isHovered = false; };
-    el.addEventListener('mouseenter', onEnter);
-    el.addEventListener('mouseleave', onLeave);
+    let isTickerHovered = false;
+    let isAuditHovered = false;
 
-    const step = () => {
-      if (el && !isHovered) {
-        pos += TAPE_SCROLL_SPEED;
-        const halfWidth = el.scrollWidth / 2;
-        // Când ajunge la jumătate (sfârșitul primului set duplicat), resetăm lin fără niciun salt vizibil
-        if (halfWidth > 0 && pos >= halfWidth) {
-          pos -= halfWidth;
+    const tickerEl = tickerRef.current;
+    const auditEl = auditTapeRef.current;
+
+    const onTickerEnter = () => { isTickerHovered = true; };
+    const onTickerLeave = () => { isTickerHovered = false; };
+    const onAuditEnter = () => { isAuditHovered = true; };
+    const onAuditLeave = () => { isAuditHovered = false; };
+
+    tickerEl?.addEventListener('mouseenter', onTickerEnter);
+    tickerEl?.addEventListener('mouseleave', onTickerLeave);
+    auditEl?.addEventListener('mouseenter', onAuditEnter);
+    auditEl?.addEventListener('mouseleave', onAuditLeave);
+
+    const step = (now: number) => {
+      const delta = Math.min(40, now - lastTime); // cap la 40ms pentru stabilitate la revenirea din background
+      lastTime = now;
+      const move = (SPEED_PX_PER_SEC * delta) / 1000;
+
+      // 1. AUTO-TAPE (derulare continuă spre stânga fără restart sau salturi)
+      if (tickerEl && !isTickerHovered && autoTapeTrackRef.current) {
+        const trackW = autoTapeTrackRef.current.offsetWidth;
+        if (trackW > 0) {
+          tickerPos.current += move;
+          if (tickerPos.current >= trackW) {
+            tickerPos.current -= trackW;
+          }
+          tickerEl.scrollLeft = tickerPos.current;
         }
-        el.scrollLeft = pos;
       }
+
+      // 2. DESK AUDIT FEED TAPE (derulare continuă spre stânga fără restart sau salturi)
+      if (auditEl && !isAuditHovered && auditTrackRef.current) {
+        const auditTrackW = auditTrackRef.current.offsetWidth;
+        if (auditTrackW > 0) {
+          auditPos.current += move;
+          if (auditPos.current >= auditTrackW) {
+            auditPos.current -= auditTrackW;
+          }
+          auditEl.scrollLeft = auditPos.current;
+        }
+      }
+
       animId = requestAnimationFrame(step);
     };
 
     animId = requestAnimationFrame(step);
+
     return () => {
       cancelAnimationFrame(animId);
-      el.removeEventListener('mouseenter', onEnter);
-      el.removeEventListener('mouseleave', onLeave);
+      tickerEl?.removeEventListener('mouseenter', onTickerEnter);
+      tickerEl?.removeEventListener('mouseleave', onTickerLeave);
+      auditEl?.removeEventListener('mouseenter', onAuditEnter);
+      auditEl?.removeEventListener('mouseleave', onAuditLeave);
     };
-  }, [tapeItems, TAPE_SCROLL_SPEED]);
-
-  // Derulare fluidă 60FPS a benzii de audit (în aceeași direcție ca AUTO-TAPE, derulare continuă spre stânga)
-  // Viteza este identică cu cea de la AUTO-TAPE (TAPE_SCROLL_SPEED = 1.2), iar trecerea cursorului o pune pe pauză
-  useEffect(() => {
-    const el = auditTapeRef.current;
-    if (!el || displayLogs.length === 0) return;
-
-    let animId: number;
-    let pos = el.scrollLeft;
-    let isHovered = false;
-
-    const onEnter = () => { isHovered = true; };
-    const onLeave = () => { isHovered = false; };
-    el.addEventListener('mouseenter', onEnter);
-    el.addEventListener('mouseleave', onLeave);
-
-    const step = () => {
-      if (el && !isHovered) {
-        // Derulare continuă spre stânga
-        pos += TAPE_SCROLL_SPEED;
-        const currentHalf = el.scrollWidth / 2;
-        if (currentHalf > 0 && pos >= currentHalf) {
-          pos -= currentHalf;
-        }
-        el.scrollLeft = pos;
-      }
-      animId = requestAnimationFrame(step);
-    };
-
-    animId = requestAnimationFrame(step);
-    return () => {
-      cancelAnimationFrame(animId);
-      el.removeEventListener('mouseenter', onEnter);
-      el.removeEventListener('mouseleave', onLeave);
-    };
-  }, [displayLogs, TAPE_SCROLL_SPEED]);
+  }, []);
 
   // Check whether the shortcuts bar has overflow to the left or right
   const checkShortcutsScroll = () => {
@@ -3249,33 +3257,54 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         )}
 
-      {/* 2. REAL-TIME TICKER TAPE (AUTO-SCROLLING 24H % DESC) */}
+      {/* 2. REAL-TIME TICKER TAPE */}
       <div className="bg-zinc-950 border-b border-amber-500/30 px-3 py-1 text-[11px] flex items-center shrink-0 overflow-hidden relative w-full max-w-full min-w-0">
         {/* Antet fix pe stânga */}
         <div className="flex items-center space-x-1.5 text-amber-400 font-bold shrink-0 z-20 bg-zinc-950 pr-3 border-r border-amber-500/30 shadow-[4px_0_10px_rgba(0,0,0,0.9)]">
           <Activity className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-          <span className="tracking-wider">AUTO-TAPE (24H % DESC) &gt;&gt;</span>
+          <span className="tracking-wider">AUTO-TAPE &gt;&gt;</span>
         </div>
 
         {/* Bandă date derulată fluid fără blocaje */}
         <div
           ref={tickerRef}
-          className="flex-1 overflow-x-hidden whitespace-nowrap pl-3 select-none scrollbar-none"
+          className="flex-1 overflow-x-hidden whitespace-nowrap pl-3 select-none scrollbar-none flex items-center"
           title="Trecerea cursorului peste bandă o pune pe pauză temporar"
         >
-          <div className="inline-flex items-center space-x-6">
-            {[...tapeItems, ...tapeItems].map((item, idx) => (
-              <div key={`${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-                <span className="text-slate-400">[{item.timestamp}]</span>
-                <span className="font-bold text-amber-300">{item.symbol}</span>
-                <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                  {item.side === 'BUY' ? 'LONG' : 'SHORT'}
-                </span>
-                <span className="text-zinc-200">${item.price.toLocaleString()}</span>
-                <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
+          {extendedTapeItems.length === 0 ? (
+            <div className="text-zinc-600 text-xs py-1">Se așteaptă date din piață...</div>
+          ) : (
+            <div className="flex items-center shrink-0">
+              {/* Track 1 */}
+              <div ref={autoTapeTrackRef} className="inline-flex items-center space-x-6 pr-6 shrink-0">
+                {extendedTapeItems.map((item, idx) => (
+                  <div key={`auto_1_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                    <span className="text-slate-400">[{item.timestamp}]</span>
+                    <span className="font-bold text-amber-300">{item.symbol}</span>
+                    <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      {item.side === 'BUY' ? 'LONG' : 'SHORT'}
+                    </span>
+                    <span className="text-zinc-200">${item.price.toLocaleString()}</span>
+                    <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+              {/* Track 2 - Clonă exactă identică pentru buclă infinită perfectă fără salt */}
+              <div className="inline-flex items-center space-x-6 pr-6 shrink-0">
+                {extendedTapeItems.map((item, idx) => (
+                  <div key={`auto_2_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                    <span className="text-slate-400">[{item.timestamp}]</span>
+                    <span className="font-bold text-amber-300">{item.symbol}</span>
+                    <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                      {item.side === 'BUY' ? 'LONG' : 'SHORT'}
+                    </span>
+                    <span className="text-zinc-200">${item.price.toLocaleString()}</span>
+                    <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -6086,37 +6115,68 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 className="flex-1 overflow-x-hidden whitespace-nowrap pl-1 select-none scrollbar-none flex items-center h-full"
                 title="Trecerea cursorului peste bandă o pune pe pauză temporar"
               >
-                {displayLogs.length === 0 ? (
+                {extendedAuditLogs.length === 0 ? (
                   <div className="w-full text-center text-zinc-600 text-xs py-2 font-mono">
                     Niciun eveniment de audit înregistrat încă.
                   </div>
                 ) : (
-                  <div className="inline-flex items-center space-x-3 py-0.5">
-                    {repeatedLogs.map((log, idx) => {
-                      const theme = getAuditCardTheme(log.type, log.message);
-                      return (
-                        <div
-                          key={`${log.id}_${idx}`}
-                          className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
-                          title={log.message}
-                        >
-                          {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
-                          <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
-                            <span className="text-slate-400 font-mono shrink-0">
-                              [{new Date(log.timestamp).toLocaleTimeString()}]
-                            </span>
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
-                              {theme.badgeLabel}
-                            </span>
+                  <div className="flex items-center shrink-0 h-full">
+                    {/* Track 1 */}
+                    <div ref={auditTrackRef} className="inline-flex items-center space-x-3 pr-3 shrink-0 py-0.5">
+                      {extendedAuditLogs.map((log, idx) => {
+                        const theme = getAuditCardTheme(log.type, log.message);
+                        return (
+                          <div
+                            key={`audit_1_${log.id}_${idx}`}
+                            className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
+                            title={log.message}
+                          >
+                            {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
+                            <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
+                              <span className="text-slate-400 font-mono shrink-0">
+                                [{new Date(log.timestamp).toLocaleTimeString()}]
+                              </span>
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
+                                {theme.badgeLabel}
+                              </span>
+                            </div>
+                            {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
+                            <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
+                              {log.message}
+                            </div>
                           </div>
-                          {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
-                          <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
-                            {log.message}
+                        );
+                      })}
+                    </div>
+                    {/* Track 2 - Clonă exactă identică pentru buclă infinită perfectă fără salt */}
+                    <div className="inline-flex items-center space-x-3 pr-3 shrink-0 py-0.5">
+                      {extendedAuditLogs.map((log, idx) => {
+                        const theme = getAuditCardTheme(log.type, log.message);
+                        return (
+                          <div
+                            key={`audit_2_${log.id}_${idx}`}
+                            className={`h-[52px] sm:h-[56px] w-max max-w-none flex flex-col justify-center px-3.5 py-1 rounded border shrink-0 transition-all select-text shadow-sm ${theme.card}`}
+                            title={log.message}
+                          >
+                            {/* Rândul 1: Punct pulsant/glowing + Timestamp + Badge Tip Eveniment */}
+                            <div className="flex items-center space-x-2 text-[10px] shrink-0 mb-0.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${theme.dot}`} />
+                              <span className="text-slate-400 font-mono shrink-0">
+                                [{new Date(log.timestamp).toLocaleTimeString()}]
+                              </span>
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border shrink-0 ${theme.badge}`}>
+                                {theme.badgeLabel}
+                              </span>
+                            </div>
+                            {/* Rândul 2: Mesaj complet fără nicio trunchiere sau tăiere */}
+                            <div className="text-zinc-100 text-[11px] whitespace-nowrap font-mono font-medium tracking-tight">
+                              {log.message}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
