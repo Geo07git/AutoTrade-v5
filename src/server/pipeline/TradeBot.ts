@@ -239,6 +239,10 @@ export class TradeBot {
       auditLogger
     );
     if (appConfig.scannerFilter) {
+      if (appConfig.scannerFilter.maxSpreadPct === undefined || appConfig.scannerFilter.maxSpreadPct <= 0) {
+        appConfig.scannerFilter.maxSpreadPct = 0.10;
+        this.configStore.save(appConfig);
+      }
       this.marketScanner.updateFilterConfig(appConfig.scannerFilter);
     }
 
@@ -1104,6 +1108,10 @@ export class TradeBot {
       (type, msg, det) => this.logAudit(type, msg, det)
     );
     if (config.scannerFilter) {
+      if (config.scannerFilter.maxSpreadPct === undefined || config.scannerFilter.maxSpreadPct <= 0) {
+        config.scannerFilter.maxSpreadPct = 0.10;
+        this.configStore.save(config);
+      }
       this.marketScanner.updateFilterConfig(config.scannerFilter);
     }
 

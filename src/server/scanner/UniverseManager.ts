@@ -188,7 +188,7 @@ export class UniverseManager {
             const askPx = parseFloat(item.askPx || '0');
             const spreadPct = (bidPx > 0 && askPx > 0 && lastPrice > 0)
               ? parseFloat((((askPx - bidPx) / lastPrice) * 100).toFixed(4))
-              : 0;
+              : undefined;
 
             // Correct turnover calculation based on instType, ctType, and contract multiplier ctVal
             const meta = this.instrumentMetaMap.get(symbol);

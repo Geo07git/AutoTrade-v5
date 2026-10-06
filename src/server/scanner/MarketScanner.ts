@@ -68,19 +68,19 @@ export class MarketScanner {
 
   /**
    * Safe fetch for klines with concurrency limit, timeout, AbortController, and failure isolation.
-   * Uses separate TTL for HTF (5 min) and LTF (10s).
+   * Uses separate TTL for HTF (5 min) and LTF (10s), explicit via isHtf parameter.
    */
   private async fetchKlinesWithTimeout(
     symbol: string,
     interval: string,
     limit: number = 60,
-    timeoutMs: number = 8000
+    timeoutMs: number = 8000,
+    isHtf: boolean = false
   ): Promise<Kline[]> {
     const cacheKey = `${symbol}_${interval}`;
     const cached = this.klineCache.get(cacheKey);
     const now = Date.now();
-    const intervalMinutes = parseInt(interval) || 15;
-    const ttl = intervalMinutes >= 60 ? this.HTF_CACHE_TTL_MS : this.LTF_CACHE_TTL_MS;
+    const ttl = isHtf ? this.HTF_CACHE_TTL_MS : this.LTF_CACHE_TTL_MS;
 
     if (cached && now - cached.timestamp < ttl) {
       return cached.klines;
@@ -126,7 +126,7 @@ export class MarketScanner {
 
         try {
           const ticker = tickersMap[symbol];
-          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 60, 8000);
+          const klinesLtf = await this.fetchKlinesWithTimeout(symbol, mainTf, 60, 8000, false);
 
           if (klinesLtf && klinesLtf.length >= 22) {
             const klinesMap: Record<string, Kline[]> = { [mainTf]: klinesLtf };
@@ -162,12 +162,12 @@ export class MarketScanner {
     await Promise.all(workers);
 
     // Multi-Timeframe Confluence (Item 4: Real HTF for top 30-40 candidates via worker pool)
-    // Sort initial results with tie-break (Item 6)
+    // Sort initial results with strict tie-break (Item 6)
     results.sort((a, b) => {
-      if (Math.abs(b.score - a.score) > 0.05) return b.score - a.score;
+      if (b.score !== a.score) return b.score - a.score;
       const sA = a.spreadPct ?? 999;
       const sB = b.spreadPct ?? 999;
-      if (Math.abs(sA - sB) > 0.0001) return sA - sB;
+      if (sA !== sB) return sA - sB;
       return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);
     });
 
@@ -180,9 +180,9 @@ export class MarketScanner {
         if (!cand) break;
 
         try {
-          const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 60, 6000);
+          const htfKlines = await this.fetchKlinesWithTimeout(cand.symbol, htf, 60, 6000, true);
           if (htfKlines && htfKlines.length >= 20) {
-            const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 60, 6000);
+            const ltfKlines = await this.fetchKlinesWithTimeout(cand.symbol, mainTf, 60, 6000, false);
             if (ltfKlines) {
               const reevaluated = this.engine.evaluateCandidate(
                 cand.symbol,
@@ -288,14 +288,14 @@ export class MarketScanner {
         invertSignals
       );
 
-      // 3. Rank opportunities descending by Momentum score with tie-break (Item 6)
+      // 3. Rank opportunities descending by Momentum score with strict tie-break (Item 6)
       scannedList.sort((a, b) => {
-        if (Math.abs(b.score - a.score) > 0.05) {
+        if (b.score !== a.score) {
           return b.score - a.score;
         }
         const spreadA = a.spreadPct !== undefined ? a.spreadPct : 999;
         const spreadB = b.spreadPct !== undefined ? b.spreadPct : 999;
-        if (Math.abs(spreadA - spreadB) > 0.0001) {
+        if (spreadA !== spreadB) {
           return spreadA - spreadB;
         }
         return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);

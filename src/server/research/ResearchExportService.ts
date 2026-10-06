@@ -33,6 +33,11 @@ export interface ResearchRecord {
   estimatedSlippagePct: number;
   evaluationStatus: string; // EXECUTED | REJECTED_RISK | REJECTED_BALANCE | REJECTED_MAX_POSITIONS | REJECTED_OTHER | EXPIRED
   rejectionReason: string | null;
+  rankAtEntry: number | null;
+  spreadPctAtEntry: number | null;
+  candleElapsedSecondsAtEntry: number | null;
+  htfTrendAtEntry: string | null;
+  entryFactors: string | null;
   realizedPnlPct: number | null;
   realizedPnlUsdt: number | null;
   fee: number | null;
@@ -136,6 +141,11 @@ export class ResearchExportService {
           estimatedSlippagePct: details.estimatedSlippagePct || 0,
           evaluationStatus: status,
           rejectionReason: rejReason,
+          rankAtEntry: details.rank ?? null,
+          spreadPctAtEntry: details.spreadPct ?? null,
+          candleElapsedSecondsAtEntry: details.candleElapsedSeconds ?? null,
+          htfTrendAtEntry: details.htfTrend ?? null,
+          entryFactors: details.entryFactors ? JSON.stringify(details.entryFactors) : null,
           realizedPnlPct: null,
           realizedPnlUsdt: null,
           fee: null,
@@ -160,6 +170,11 @@ export class ResearchExportService {
         const r = recordsMap.get(matchedKey)!;
         r.fillPrice = ord.fillPrice || r.fillPrice;
         r.entryTimestamp = r.entryTimestamp || ord.createdTime;
+        r.rankAtEntry = ord.rankAtEntry ?? r.rankAtEntry;
+        r.spreadPctAtEntry = ord.spreadPctAtEntry ?? r.spreadPctAtEntry;
+        r.candleElapsedSecondsAtEntry = ord.candleElapsedSecondsAtEntry ?? r.candleElapsedSecondsAtEntry;
+        r.htfTrendAtEntry = ord.htfTrendAtEntry || r.htfTrendAtEntry;
+        r.entryFactors = ord.entryFactors ? JSON.stringify(ord.entryFactors) : r.entryFactors;
         if (ord.status === 'FILLED') {
           r.evaluationStatus = 'EXECUTED';
         } else if (ord.status === 'REJECTED' || ord.status === 'FAILED' || ord.status === 'CANCELLED') {
@@ -187,7 +202,7 @@ export class ResearchExportService {
           priceChange24hPct: 0,
           openInterest: 0,
           fundingRate: 0,
-          spreadPct: 0,
+          spreadPct: ord.spreadPctAtEntry ?? 0,
           momentumScore: ord.signalScore || 0,
           btcRegimePct: 0,
           btcRegimeLabel: 'NEUTRAL',
@@ -201,6 +216,11 @@ export class ResearchExportService {
           estimatedSlippagePct: ord.estimatedSlippagePct || 0,
           evaluationStatus: ord.status === 'FILLED' ? 'EXECUTED' : `ORDER_${ord.status}`,
           rejectionReason: ord.rejectionReason || null,
+          rankAtEntry: ord.rankAtEntry ?? null,
+          spreadPctAtEntry: ord.spreadPctAtEntry ?? null,
+          candleElapsedSecondsAtEntry: ord.candleElapsedSecondsAtEntry ?? null,
+          htfTrendAtEntry: ord.htfTrendAtEntry || null,
+          entryFactors: ord.entryFactors ? JSON.stringify(ord.entryFactors) : null,
           realizedPnlPct: ord.realizedPnlPct ?? null,
           realizedPnlUsdt: ord.realizedPnl ?? null,
           fee: ord.cumFee ?? null,
@@ -230,6 +250,11 @@ export class ResearchExportService {
         r.exitTimestamp = exitTime;
         r.entryPrice = pos.entryPrice;
         r.exitPrice = pos.exitPrice || pos.currentPrice || null;
+        r.rankAtEntry = pos.rankAtEntry ?? r.rankAtEntry;
+        r.spreadPctAtEntry = pos.spreadPctAtEntry ?? r.spreadPctAtEntry;
+        r.candleElapsedSecondsAtEntry = pos.candleElapsedSecondsAtEntry ?? r.candleElapsedSecondsAtEntry;
+        r.htfTrendAtEntry = pos.htfTrendAtEntry || r.htfTrendAtEntry;
+        r.entryFactors = pos.entryFactors ? JSON.stringify(pos.entryFactors) : r.entryFactors;
         r.realizedPnlPct = pos.pnlPct ?? null;
         r.realizedPnlUsdt = pos.pnl ?? null;
         r.fee = ((pos.entryFee || 0) + (pos.exitFee || 0)) || null;
@@ -258,7 +283,7 @@ export class ResearchExportService {
           priceChange24hPct: 0,
           openInterest: 0,
           fundingRate: 0,
-          spreadPct: 0,
+          spreadPct: pos.spreadPctAtEntry ?? 0,
           momentumScore: pos.signalScore || 0,
           btcRegimePct: 0,
           btcRegimeLabel: 'NEUTRAL',
@@ -272,6 +297,11 @@ export class ResearchExportService {
           estimatedSlippagePct: pos.estimatedSlippagePct || 0,
           evaluationStatus: 'EXECUTED',
           rejectionReason: null,
+          rankAtEntry: pos.rankAtEntry ?? null,
+          spreadPctAtEntry: pos.spreadPctAtEntry ?? null,
+          candleElapsedSecondsAtEntry: pos.candleElapsedSecondsAtEntry ?? null,
+          htfTrendAtEntry: pos.htfTrendAtEntry || null,
+          entryFactors: pos.entryFactors ? JSON.stringify(pos.entryFactors) : null,
           realizedPnlPct: pos.pnlPct ?? null,
           realizedPnlUsdt: pos.pnl ?? null,
           fee: ((pos.entryFee || 0) + (pos.exitFee || 0)) || null,

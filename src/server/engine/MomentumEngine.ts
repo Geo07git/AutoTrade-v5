@@ -358,16 +358,21 @@ export class MomentumEngine {
 
     const impulseScore = Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
 
-    // Pillar B: Relative Volume (0 to 25 points) - ZERO points if f < 0.25 or rvol <= 1.0
+    // Smooth linear weight ramp (0 -> 1 between f = 0.25 and f = 0.50) to eliminate score jump
+    const rampWeight = isUnconfirmed ? Math.max(0, Math.min(1.0, (f - 0.25) / 0.25)) : 1.0;
+
+    // Pillar B: Relative Volume (0 to 25 points) - Smooth linear ramp between f = 0.25 and 0.50
     let rvolScore = 0;
-    if (f >= 0.25 && rvol > 1.0) {
-      rvolScore = Math.min(25, 25 * (1 - Math.exp(-(rvol - 1.0) / 1.1)));
+    if (rampWeight > 0 && rvol > 1.0) {
+      const rawRvol = Math.min(25, 25 * (1 - Math.exp(-(rvol - 1.0) / 1.1)));
+      rvolScore = rawRvol * rampWeight;
     }
 
-    // Pillar C: ATR / Volatility Expansion (0 to 20 points) - ZERO points if f < 0.25 or atrExpansion <= 1.0
+    // Pillar C: ATR / Volatility Expansion (0 to 20 points) - Smooth linear ramp between f = 0.25 and 0.50
     let atrScore = 0;
-    if (f >= 0.25 && atrExpansion > 1.0) {
-      atrScore = Math.min(20, (atrExpansion - 1.0) * 16);
+    if (rampWeight > 0 && atrExpansion > 1.0) {
+      const rawAtr = Math.min(20, (atrExpansion - 1.0) * 16);
+      atrScore = rawAtr * rampWeight;
     }
 
     // Pillar D: Higher Timeframe Confluence (0 to 20 points)
