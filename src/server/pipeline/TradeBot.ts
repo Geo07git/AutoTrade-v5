@@ -235,6 +235,7 @@ export class TradeBot {
 
     // Dynamic Universe & Market Scanner initialization
     this.universeManager = new UniverseManager(auditLogger);
+    this.paperAdapter.setMetadataResolver((sym) => this.universeManager.getInstrumentLotFilter(sym));
     this.marketScanner = new MarketScanner(
       this.activeAdapter,
       this.engine,
@@ -886,23 +887,25 @@ export class TradeBot {
           }
         }
 
-        // STRICT CHECK 4: Affordability check (ensures 1 contract notional fits within available equity)
+        // STRICT CHECK 4: Affordability check (ensures min contract notional fits within available equity)
         if (!isExpActive) {
           const meta = this.universeManager.getInstrumentMetadata(symbol);
-          const ctVal = meta?.ctVal || this.okxAdapter.getCachedCtVal(symbol);
-          const minNotional = (candidate.price || 1) * ctVal;
+          const ctVal = meta?.ctVal || this.activeAdapter.getCachedCtVal?.(symbol) || 1;
+          const minSz = meta?.minSz || 1;
+          const minNotional = (candidate.price || 1) * ctVal * minSz;
           const leverage = Math.max(1, parseFloat(String(config.maxLeverage || '1').replace(/[^0-9.]/g, '')) || 1);
           const requiredMarginForOneContract = minNotional / leverage;
           if (this.currentEquity > 0 && (requiredMarginForOneContract > this.currentEquity * 1.05 || (leverage === 1 && minNotional > this.currentEquity * 1.05))) {
             this.logAudit(
               'CANDIDATE_REJECTED',
-              `Candidatul #${candidate.rank} (${symbol}) omis: 1 contract necesită o marjă minimă de $${requiredMarginForOneContract.toFixed(2)} (notional: $${minNotional.toFixed(2)}, ctVal: ${ctVal}), depășind capitalul disponibil ($${this.currentEquity.toFixed(2)}). Se evaluează automat următorul candidat.`,
+              `Candidatul #${candidate.rank} (${symbol}) omis: ${minSz} contract(e) necesită o marjă minimă de $${requiredMarginForOneContract.toFixed(2)} (notional: $${minNotional.toFixed(2)}, ctVal: ${ctVal}), depășind capitalul disponibil ($${this.currentEquity.toFixed(2)}). Se evaluează automat următorul candidat.`,
               {
                 symbol,
                 requiredMargin: requiredMarginForOneContract,
                 minNotional,
                 currentEquity: this.currentEquity,
                 ctVal,
+                minSz,
                 price: candidate.price,
               }
             );

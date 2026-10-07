@@ -1,4 +1,5 @@
 import { UniverseFilterConfig, AuditLogType } from '../../shared/types';
+import { InstrumentLotFilter } from '../exchange/IExecutionAdapter';
 
 export interface InstrumentMetadata {
   instId: string;
@@ -8,6 +9,10 @@ export interface InstrumentMetadata {
   settleCcy: string;
   instType: string;
   instFamily: string;
+  minSz?: number;
+  lotSz?: number;
+  tickSz?: number;
+  maxMktSz?: number;
 }
 
 export interface MarketTickerInfo {
@@ -94,6 +99,10 @@ export class UniverseManager {
                 settleCcy: inst.settleCcy || 'USD',
                 instType: inst.instType || 'FUTURES',
                 instFamily: inst.instFamily || '',
+                minSz: parseFloat(inst.minSz || '1') || 1,
+                lotSz: parseFloat(inst.lotSz || '1') || 1,
+                tickSz: parseFloat(inst.tickSz || '0.01') || 0.01,
+                maxMktSz: parseFloat(inst.maxMktSz || '1000000') || 1000000,
               });
             }
           }
@@ -119,6 +128,10 @@ export class UniverseManager {
                   settleCcy: inst.settleCcy || 'USDT',
                   instType: inst.instType || 'SWAP',
                   instFamily: inst.instFamily || '',
+                  minSz: parseFloat(inst.minSz || '1') || 1,
+                  lotSz: parseFloat(inst.lotSz || '1') || 1,
+                  tickSz: parseFloat(inst.tickSz || '0.01') || 0.01,
+                  maxMktSz: parseFloat(inst.maxMktSz || '1000000') || 1000000,
                 });
               }
             }
@@ -356,5 +369,20 @@ export class UniverseManager {
 
   public getInstrumentMetadata(symbol: string): InstrumentMetadata | undefined {
     return this.instrumentMetaMap.get(symbol);
+  }
+
+  public getInstrumentLotFilter(symbol: string): InstrumentLotFilter | undefined {
+    const meta = this.instrumentMetaMap.get(symbol);
+    if (!meta) return undefined;
+    return {
+      symbol: meta.instId,
+      minOrderQty: meta.minSz || 1,
+      maxOrderQty: meta.maxMktSz || 1000000,
+      qtyStep: meta.lotSz || 1,
+      minNotionalValue: 5,
+      tickSize: meta.tickSz || 0.01,
+      ctVal: meta.ctVal || 1,
+      ctValCcy: meta.ctValCcy || meta.settleCcy || 'USDT',
+    };
   }
 }

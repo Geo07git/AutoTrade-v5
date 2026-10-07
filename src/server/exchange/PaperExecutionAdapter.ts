@@ -39,6 +39,11 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
   private okxBaseUrl = 'https://eea.okx.com';
   private wsBaseUrl = 'wss://wseea.okx.com:8443/ws/v5/public';
   private executionQueue: Promise<any> = Promise.resolve();
+  private metadataResolver?: (symbol: string) => InstrumentLotFilter | undefined;
+
+  public setMetadataResolver(resolver: (symbol: string) => InstrumentLotFilter | undefined) {
+    this.metadataResolver = resolver;
+  }
 
   public onTickerUpdate?: (symbol: string, lastPrice: number) => void;
   public onOrderUpdate?: (order: any) => void;
@@ -210,21 +215,43 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     if (this.instrumentFilters.has(instId)) {
       return this.instrumentFilters.get(instId)!;
     }
+    if (this.instrumentFilters.has(symbol)) {
+      return this.instrumentFilters.get(symbol)!;
+    }
+
+    // Check metadata resolver first (instant cache populated by UniverseManager)
+    if (this.metadataResolver) {
+      const resolved = this.metadataResolver(instId) || this.metadataResolver(symbol);
+      if (resolved && resolved.ctVal && resolved.ctVal > 0) {
+        this.instrumentFilters.set(instId, resolved);
+        this.instrumentFilters.set(symbol, resolved);
+        return resolved;
+      }
+    }
 
     try {
-      const res = await fetch(`${this.okxBaseUrl}/api/v5/public/instruments?instType=SWAP&instId=${instId}`);
-      const data: any = await res.json();
-      if (data.code === '0' && data.data?.length > 0) {
+      const isFutures = instId.includes('_UM_XPERP') || instId.includes('-FUTURES');
+      let res = await fetch(`${this.okxBaseUrl}/api/v5/public/instruments?instType=${isFutures ? 'FUTURES' : 'SWAP'}&instId=${instId}`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      let data: any = await res.json();
+      if (!(data.code === '0' && Array.isArray(data.data) && data.data.length > 0) && !isFutures) {
+        res = await fetch(`${this.okxBaseUrl}/api/v5/public/instruments?instType=FUTURES&instId=${instId}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        data = await res.json();
+      }
+      if (data.code === '0' && Array.isArray(data.data) && data.data.length > 0) {
         const info = data.data[0];
         const filter: InstrumentLotFilter = {
           symbol: instId,
-          minOrderQty: parseFloat(info.minSz || '1'),
-          maxOrderQty: parseFloat(info.maxMktSz || '1000000'),
-          qtyStep: parseFloat(info.lotSz || '1'),
+          minOrderQty: parseFloat(info.minSz || '1') || 1,
+          maxOrderQty: parseFloat(info.maxMktSz || '1000000') || 1000000,
+          qtyStep: parseFloat(info.lotSz || '1') || 1,
           minNotionalValue: 5,
-          tickSize: parseFloat(info.tickSz || '0.01'),
-          ctVal: parseFloat(info.ctVal || '1'),
-          ctValCcy: info.ctValCcy || 'USDT',
+          tickSize: parseFloat(info.tickSz || '0.01') || 0.01,
+          ctVal: parseFloat(info.ctVal || '1') || 1,
+          ctValCcy: info.ctValCcy || info.settleCcy || 'USDT',
         };
         this.instrumentFilters.set(instId, filter);
         this.instrumentFilters.set(symbol, filter);

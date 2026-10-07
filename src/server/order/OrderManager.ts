@@ -201,8 +201,15 @@ export class OrderManager {
     const formattedQty = await activeAdapter.formatQuantity(signal.symbol, targetQty, currentPrice, false);
 
     if (formattedQty <= 0) {
-      const err = `Formatted quantity for ${signal.symbol} is 0 (below minOrderQty)`;
-      this.auditLogger('ORDER_FAILED', err, { symbol: signal.symbol, targetQty });
+      const minNotional = filter.minOrderQty * ctVal * currentPrice;
+      const err = `Mărimea minimă pentru ${signal.symbol} (min ${filter.minOrderQty} contract(e) = $${minNotional.toFixed(2)}) depășește marja de risc alocată ($${riskApproval.sizeUSDT.toFixed(2)}). Tranzacție omisă.`;
+      this.auditLogger('ORDER_REJECTED', err, {
+        symbol: signal.symbol,
+        targetQty,
+        minOrderQty: filter.minOrderQty,
+        ctVal,
+        approvedRiskUSDT: riskApproval.sizeUSDT,
+      });
       return { success: false, error: err };
     }
 
