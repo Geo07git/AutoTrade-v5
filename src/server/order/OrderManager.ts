@@ -258,6 +258,7 @@ export class OrderManager {
       status: 'CREATED',
       stopLossPrice: riskApproval.stopLossPrice,
       isFadeTrade: signal.isFadeTrade,
+      climax: Boolean(signal.climax || entryFactors?.climax),
       cumFilledQty: 0,
       processedFilledQty: 0,
       createdTime: Date.now(),

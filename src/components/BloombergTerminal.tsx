@@ -2090,13 +2090,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       topOpps.forEach((opp, idx) => {
         const timeStr = formatTimeLocal(opp.lastScannedTime || status?.scannerStats?.lastScanTimestamp || Date.now());
         const pctStr = (opp.priceChange24hPct || 0) >= 0 ? `+${(opp.priceChange24hPct || 0).toFixed(2)}%` : `${(opp.priceChange24hPct || 0).toFixed(2)}%`;
+        const genuineSide = opp.signal?.side || opp.side;
+        const climaxTag = opp.climax || opp.signal?.climax ? ' | ⚡CLIMAX' : '';
         items.push({
           id: `opp_${opp.symbol}_${idx}`,
           timestamp: timeStr,
           symbol: opp.symbol,
-          side: opp.side, // Genuine evaluated direction (BUY / SELL)
+          side: genuineSide, // Genuine evaluated direction (BUY / SELL), not 24h change
           price: opp.price,
-          size: `Scor ${opp.score.toFixed(1)} | RVOL ${opp.rvol.toFixed(1)}x | ${pctStr}`,
+          size: `Scor ${opp.score.toFixed(1)} | RVOL ${opp.rvol.toFixed(1)}x | ${pctStr}${climaxTag}`,
           type: 'SIGNAL',
         });
       });
@@ -3091,8 +3093,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </header>
 
-        {/* UNIFIED ACTIVE PROTOCOLS RIBBON (STRICT SINGLE LINE ON MOBILE & DESKTOP) */}
-        {(status?.isExperimentActive || experimentState?.isActive || status?.config?.invertSignals || isVaultActive || !isTelegramNotificationsEnabled || (status?.equityTrailingState?.triggerCount ?? 0) > 0 || status?.equityTrailingState?.isEnabled) && (
+        {/* UNIFIED ACTIVE PROTOCOLS RIBBON (STRICT SINGLE LINE ON MOBILE & DESKTOP - ONLY SHOWN CONDITIONALLY WHEN PROTOCOLS ARE ACTIVE) */}
+        {(status?.isExperimentActive || experimentState?.isActive || status?.config?.invertSignals || isVaultActive || !isTelegramNotificationsEnabled || (status?.equityTrailingState?.triggerCount ?? 0) > 0) && (
           <div className="w-full max-w-full min-w-0 bg-zinc-950/95 border-b border-amber-500/30 px-2 sm:px-3 py-1 text-[9px] sm:text-[11px] font-mono flex flex-row flex-nowrap items-center justify-between gap-1.5 sm:gap-2 shrink-0 z-20 shadow-md overflow-x-auto terminal-scrollbar-x whitespace-nowrap select-none">
             <div className="flex flex-row flex-nowrap items-center space-x-1 sm:space-x-1.5 shrink min-w-0">
               {/* Experiment Active Pill */}
@@ -3152,62 +3154,24 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               )}
 
-              {/* Equity Trailing Protection Triggers Badge */}
-              <div className="flex flex-row flex-nowrap items-center space-x-1 bg-amber-950/70 border border-amber-500/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
-                <ShieldAlert className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="font-bold text-[9px] sm:text-[10px] text-amber-300">EQ PROT:</span>
-                <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300">
-                  {status?.equityTrailingState?.triggerCount || 0} {(status?.equityTrailingState?.triggerCount === 1) ? 'declanșare' : 'declanșări'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowEquityProtectionModal(true)}
-                  className="ml-0.5 text-[9px] sm:text-[10px] text-amber-300 hover:text-white underline cursor-pointer font-bold shrink-0"
-                  title="Deschide jurnalul detaliat cu toate declanșările protecției"
-                >
-                  [LOG]
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Actions for Vault & Equity Prot */}
-            <div className="flex flex-row flex-nowrap items-center space-x-1 text-[9px] sm:text-[10px] shrink-0">
-              {isVaultActive && (
-                <>
+              {/* Equity Trailing Protection Triggers Badge - Only shown when triggerCount > 0 */}
+              {(status?.equityTrailingState?.triggerCount ?? 0) > 0 && (
+                <div className="flex flex-row flex-nowrap items-center space-x-1 bg-amber-950/70 border border-amber-500/50 px-1.5 py-0.5 rounded text-amber-200 shrink-0">
+                  <ShieldAlert className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span className="font-bold text-[9px] sm:text-[10px] text-amber-300">EQ PROT:</span>
+                  <span className="text-[9px] sm:text-[10px] font-mono font-bold text-cyan-300">
+                    {status?.equityTrailingState?.triggerCount} {(status?.equityTrailingState?.triggerCount === 1) ? 'declanșare' : 'declanșări'}
+                  </span>
                   <button
-                    onClick={handleLockProfitNow}
-                    className="bg-cyan-900/80 hover:bg-cyan-800 text-cyan-100 font-bold px-1.5 py-0.5 rounded border border-cyan-500/50 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                    title="Depune manual profitul suplimentar curent realizat peste baza de lucru în seif"
+                    type="button"
+                    onClick={() => setShowEquityProtectionModal(true)}
+                    className="ml-0.5 text-[9px] sm:text-[10px] text-amber-300 hover:text-white underline cursor-pointer font-bold shrink-0"
+                    title="Deschide jurnalul detaliat cu toate declanșările protecției"
                   >
-                    + Depune
+                    [LOG]
                   </button>
-                  <button
-                    onClick={() => {
-                      setNewBaseInput(baseCapital.toString());
-                      setShowSetBaseModal(true);
-                    }}
-                    className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded border border-zinc-700 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                    title="Modifică suma de bază fixă de la care botul începe ciclul"
-                  >
-                    Bază
-                  </button>
-                  <button
-                    onClick={() => setShowResetVaultConfirmModal(true)}
-                    className="bg-rose-950/70 hover:bg-rose-900 text-rose-300 px-1.5 py-0.5 rounded border border-rose-600/50 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                    title="Resetează seiful la $0 și transferă banii înapoi în balanța activă"
-                  >
-                    Reset
-                  </button>
-                </>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={handleExportEquityProtectionCSV}
-                className="bg-amber-950/70 hover:bg-amber-900 text-amber-200 px-1.5 py-0.5 rounded border border-amber-500/40 cursor-pointer transition-colors whitespace-nowrap shrink-0 font-bold"
-                title="Descarcă jurnalul declanșărilor protecției în format CSV (Excel) similar cu BLOT"
-              >
-                CSV EQ
-              </button>
             </div>
           </div>
         )}
@@ -3263,21 +3227,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       </div>
 
-      {/* 3. FUNCTION KEY SHORTCUTS BAR (SCROLLABLE & DRAGGABLE IN COMPACT/MOBILE VIEW) */}
+      {/* 3. FUNCTION KEY SHORTCUTS BAR (SCROLLABLE & DRAGGABLE IN COMPACT/MOBILE VIEW, CLEAN SINGLE BAR ON DESKTOP) */}
       <div className="relative w-full max-w-full min-w-0 bg-zinc-900 border-b border-amber-500/30 flex items-center group select-none">
-        {/* Left Scroll Chevron (shows when scrolled right) */}
+        {/* Left Scroll Chevron (shows when scrolled right - mobile only) */}
         {canScrollLeft && (
           <button
             type="button"
             onClick={() => scrollShortcuts('left')}
-            className="absolute left-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-r border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            className="lg:hidden absolute left-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-r border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
             title="Derulează spre stânga"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
         )}
 
-        {/* Scrollable Container with MouseWheel, Touch, Mouse Drag, and Styled Scrollbar */}
+        {/* Scrollable Container with MouseWheel, Touch, Mouse Drag on Mobile; Clean & Fit on Desktop */}
         <div
           ref={shortcutsRef}
           onWheel={handleShortcutsWheel}
@@ -3285,7 +3249,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           onMouseMove={handleShortcutsMouseMove}
           onMouseUp={handleShortcutsMouseUp}
           onMouseLeave={handleShortcutsMouseUp}
-          className="w-full max-w-full min-w-0 overflow-x-auto terminal-scrollbar-x py-1 px-2 sm:px-3 flex items-center justify-between text-xs whitespace-nowrap gap-2 sm:gap-4 cursor-grab active:cursor-grabbing"
+          className="w-full max-w-full min-w-0 overflow-x-auto lg:overflow-x-visible terminal-scrollbar-x py-1 px-2 sm:px-3 flex items-center justify-between text-xs whitespace-nowrap gap-1 lg:gap-2 cursor-grab active:cursor-grabbing lg:cursor-default"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
@@ -3395,12 +3359,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* Right Scroll Chevron (shows when more content to the right) */}
+        {/* Right Scroll Chevron (shows when more content to the right - mobile only) */}
         {canScrollRight && (
           <button
             type="button"
             onClick={() => scrollShortcuts('right')}
-            className="absolute right-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-l border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            className="lg:hidden absolute right-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-l border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
             title="Derulează spre dreapta"
           >
             <ChevronRight className="w-4 h-4" />

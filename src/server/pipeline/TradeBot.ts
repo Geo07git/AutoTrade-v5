@@ -136,6 +136,7 @@ export class TradeBot {
   private marketSentimentScore: number = 0;
   private sentimentInterval?: NodeJS.Timeout;
   private statusHeartbeatInterval?: NodeJS.Timeout;
+  private lastEntryTimeBySide: Record<OrderSide, number> = { BUY: 0, SELL: 0 };
 
   private getProfiles(): Record<ProfileType, ProfileConfig> {
     const config = this.configStore.get();
@@ -763,7 +764,8 @@ export class TradeBot {
       // 3. Dynamic Universe & Market Scanning (ALWAYS RUNS AUTOMATICALLY)
       // This guarantees the market scanner continuously runs every 15s to update opportunities,
       // candidate momentum scores, RVOL, and real-time feeds even if entries are paused.
-      const scannedOpportunities = await this.marketScanner.scan(profile, Boolean(config.invertSignals));
+      const activeSymbols = this.positionManager.getActivePositions().map((p) => p.symbol);
+      const scannedOpportunities = await this.marketScanner.scan(profile, Boolean(config.invertSignals), activeSymbols);
 
       // Update latest prices for all scanned pairs
       for (const opp of scannedOpportunities) {
@@ -829,6 +831,8 @@ export class TradeBot {
         return true;
       });
 
+      const entriesThisScanBySide: Record<OrderSide, number> = { BUY: 0, SELL: 0 };
+
       for (const candidate of eligibleCandidates) {
         if (this.isStoppingExperiment) break; // never open positions while the experiment is being closed out
         const symbol = candidate.symbol;
@@ -852,6 +856,33 @@ export class TradeBot {
             if (minutesSinceClose < profile.cooldownMinutes) {
               continue;
             }
+          }
+        }
+
+        // STRICT CHECK 3.5: Limita de expunere corelată (Item 3)
+        // Maximum 1 poziție pe aceeași direcție per scan; cooldown 60s pe direcție.
+        // Previne concentrarea pe aceeași direcție (ex: 5 SHORT-uri simultane pe dump de piață)
+        const candidateSide: OrderSide = candidate.side;
+        if (!isExpActive) {
+          if ((entriesThisScanBySide[candidateSide] || 0) >= 1) {
+            this.logAudit(
+              'CANDIDATE_REJECTED',
+              `Candidatul #${candidate.rank} (${symbol}) omis: Limita de expunere corelată atinsă (max 1 intrare ${candidateSide} per scan). Se evită supra-expunerea pe aceeași direcție.`,
+              { symbol, side: candidateSide, entriesThisScan: entriesThisScanBySide[candidateSide] }
+            );
+            continue;
+          }
+
+          const lastEntryForSide = this.lastEntryTimeBySide[candidateSide] || 0;
+          const msSinceLastEntry = Date.now() - lastEntryForSide;
+          if (lastEntryForSide > 0 && msSinceLastEntry < 60_000) {
+            const remainingSec = Math.ceil((60_000 - msSinceLastEntry) / 1000);
+            this.logAudit(
+              'CANDIDATE_REJECTED',
+              `Candidatul #${candidate.rank} (${symbol}) omis: Cooldown de corelație pe direcția ${candidateSide} activ (${remainingSec}s rămase din 60s). Se evită clusterul de poziții pe aceeași mișcare.`,
+              { symbol, side: candidateSide, remainingSec }
+            );
+            continue;
           }
         }
 
@@ -1035,6 +1066,8 @@ export class TradeBot {
           });
 
           if (executionResult.success) {
+            entriesThisScanBySide[candidateSide] = (entriesThisScanBySide[candidateSide] || 0) + 1;
+            this.lastEntryTimeBySide[candidateSide] = Date.now();
             // Persist order & position state
             this.orderStore.save(this.orderManager.getOrders());
             this.positionStore.save(this.positionManager.getActivePositions());

@@ -87,6 +87,7 @@ export interface ScannedOpportunity {
   side: OrderSide;
   isEligible: boolean;
   isFadeTrade?: boolean;
+  climax?: boolean;
   originalSide?: OrderSide;
   signal?: TradeSignal;
   rank: number;
@@ -237,6 +238,7 @@ export interface TradeSignal {
   side: OrderSide;
   originalSide?: OrderSide;
   isFadeTrade?: boolean;
+  climax?: boolean;
   score: number;
   profile: ProfileType;
   timestamp: number;
@@ -274,6 +276,7 @@ export interface OrderRecord {
   status: OrderStatus;
   stopLossPrice?: number;
   isFadeTrade?: boolean;
+  climax?: boolean;
   fillPrice?: number;
   filledQty?: number;
   cumFilledQty?: number;
@@ -323,6 +326,7 @@ export interface Position {
   side: OrderSide;
   originalSide?: OrderSide;
   isFadeTrade?: boolean;
+  climax?: boolean;
   qty: number;
   entryPrice: number;
   ctVal?: number;

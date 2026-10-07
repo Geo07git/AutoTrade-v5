@@ -57,6 +57,14 @@ export class MomentumEngine {
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
     const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
 
+    // Poarta de impuls minim (Item 1) & Fallback de directie (Item 2):
+    // Daca mom == 0, impulseScore == 0, impulseScore < 10 sau |mom|/atrPct < 0.5: respinge candidatul (fara semnal / nu BUY implicit)
+    const momInAtrUnits = Math.abs(metrics.mom) / Math.max(0.15, atrPct);
+    const impulseScore = metrics.factors?.impulseScore ?? 0;
+    if (metrics.mom === 0 || impulseScore < 10 || momInAtrUnits < 0.5) {
+      return null;
+    }
+
     // CASE 1: Standard Momentum Continuation (threshold <= score <= maxScore)
     if (metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore)) {
       // STRICT HTF CONFLUENCE FILTER for continuation:
@@ -69,6 +77,7 @@ export class MomentumEngine {
         side: metrics.side,
         originalSide: metrics.side,
         isFadeTrade: false,
+        climax: Boolean(metrics.climax || metrics.factors?.climax),
         score: metrics.score,
         profile: this.config.type,
         timestamp: Date.now(),
@@ -84,6 +93,7 @@ export class MomentumEngine {
           side: metrics.side,
           originalSide: metrics.side,
           isFadeTrade: false,
+          climax: Boolean(metrics.climax || metrics.factors?.climax),
           mom: metrics.mom,
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
@@ -110,6 +120,7 @@ export class MomentumEngine {
         side: invertedSide,
         originalSide: metrics.side,
         isFadeTrade: true,
+        climax: Boolean(metrics.climax || metrics.factors?.climax),
         score: metrics.score,
         profile: this.config.type,
         timestamp: Date.now(),
@@ -126,6 +137,7 @@ export class MomentumEngine {
           originalSide: metrics.side,
           isFadeTrade: true,
           fadeClimax: true,
+          climax: Boolean(metrics.climax || metrics.factors?.climax),
           mom: metrics.mom,
           rvol: metrics.rvol,
           atrExpansion: metrics.atrExpansion,
@@ -169,6 +181,9 @@ export class MomentumEngine {
 
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
     const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
+    const momInAtrUnits = Math.abs(metrics.mom) / Math.max(0.15, atrPct);
+    const impulseScore = metrics.factors?.impulseScore ?? 0;
+    const passesImpulseGate = metrics.mom !== 0 && impulseScore >= 10 && momInAtrUnits >= 0.5;
 
     const isExtreme = maxScore < 100 && metrics.score > maxScore;
     const isStandard = metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore);
@@ -177,11 +192,11 @@ export class MomentumEngine {
     let finalSide: OrderSide = metrics.side;
     let isFadeTrade = false;
 
-    if (isStandard) {
+    if (isStandard && passesImpulseGate) {
       isEligible = metrics.htfAligned;
       finalSide = metrics.side;
       isFadeTrade = false;
-    } else if (isExtreme && options?.invertExtremeSignals) {
+    } else if (isExtreme && options?.invertExtremeSignals && passesImpulseGate) {
       // Invert signals above maxScore as a fade strategy
       isEligible = true;
       finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
@@ -204,6 +219,7 @@ export class MomentumEngine {
       side: finalSide,
       originalSide: metrics.side,
       isFadeTrade,
+      climax: Boolean(metrics.climax || metrics.factors?.climax),
       isEligible,
       signal: signal || undefined,
       rank: 0,
@@ -291,13 +307,17 @@ export class MomentumEngine {
     }
 
     // Determine Direction: BUY (Long) vs SELL (Short)
+    // Fallback de directie (Item 2): Daca mom == 0, nu BUY implicit
+    const hasDirectionalMom = Math.abs(mom) > 0.0001;
     let side: OrderSide = 'BUY';
-    if (mom < 0 && (distFromEmaPct < 0 || htfTrend === 'BEARISH')) {
+    if (!hasDirectionalMom) {
+      side = 'BUY'; // placeholder de tip, dar mom == 0 e respins in evaluate/evaluateCandidate
+    } else if (mom < 0 && (distFromEmaPct < 0 || htfTrend === 'BEARISH')) {
       side = 'SELL';
     } else if (mom > 0 && (distFromEmaPct > 0 || htfTrend === 'BULLISH')) {
       side = 'BUY';
     } else {
-      side = mom >= 0 ? 'BUY' : 'SELL';
+      side = mom > 0 ? 'BUY' : 'SELL';
     }
 
     // HTF Alignment: Valid as long as HTF is not in strict opposite direction
@@ -331,6 +351,9 @@ export class MomentumEngine {
       : Math.max(0.1, Math.min(5.0, candleRange / (avgAtr + EPSILON)));
     const atrExpansion = atrExp;
     const atrPct = (avgAtr / (lastClose + EPSILON)) * 100;
+
+    // Marcaj "climax" (Item 4): Cand ambele plafoane (rvol 10, atrExp 5) sunt atinse
+    const isClimax = rvol >= 9.95 && atrExp >= 4.95;
 
     // Candle body quality ratio & persistence check
     const bodyRange = Math.max(EPSILON, last.high - last.low);
@@ -403,11 +426,13 @@ export class MomentumEngine {
       threshold,
       htfTrend,
       htfAligned,
+      climax: isClimax,
       factors: {
         impulseScore: parseFloat(impulseScore.toFixed(1)),
         rvolScore: parseFloat(rvolScore.toFixed(1)),
         atrScore: parseFloat(atrScore.toFixed(1)),
         htfScore: parseFloat(htfScore.toFixed(1)),
+        climax: isClimax,
       },
     };
   }

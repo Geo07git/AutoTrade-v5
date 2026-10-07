@@ -19,6 +19,7 @@ export class MarketScanner {
   private isScanning: boolean = false;
   private lastScanTimestamp: number = 0;
   private lastScanDurationMs: number = 0;
+  private scanCycleCount: number = 0;
   private cachedOpportunities: ScannedOpportunity[] = [];
   private filterConfig: UniverseFilterConfig = { ...DEFAULT_UNIVERSE_FILTER };
 
@@ -207,6 +208,7 @@ export class MarketScanner {
                 cand.originalSide = reevaluated.originalSide;
                 cand.isFadeTrade = reevaluated.isFadeTrade;
                 cand.signal = reevaluated.signal;
+                cand.climax = reevaluated.climax;
                 cand.isEligible = reevaluated.isEligible;
               }
             }
@@ -233,7 +235,11 @@ export class MarketScanner {
    * 4. Rank candidates by momentum score descending
    * 5. Return ranked opportunities
    */
-  public async scan(profile: ProfileConfig, invertSignals: boolean = false): Promise<ScannedOpportunity[]> {
+  public async scan(
+    profile: ProfileConfig,
+    invertSignals: boolean = false,
+    activePositionsSymbols?: string[]
+  ): Promise<ScannedOpportunity[]> {
     if (this.isScanning) {
       return this.cachedOpportunities;
     }
@@ -278,9 +284,20 @@ export class MarketScanner {
         return [];
       }
 
+      // Latenta scan (Item 5: Hot list doar daca SCAN_COMPLETED > 10s)
+      this.scanCycleCount++;
+      let symbolsToScan = eligibleSymbols;
+      const isHighLatency = this.lastScanDurationMs > 10_000;
+      if (isHighLatency && this.cachedOpportunities.length > 30 && (this.scanCycleCount % 4 !== 0)) {
+        const top30 = this.cachedOpportunities.slice(0, 30).map((s) => s.symbol);
+        const openPos = activePositionsSymbols || [];
+        const hotSet = new Set([...top30, ...openPos]);
+        symbolsToScan = eligibleSymbols.filter((s) => hotSet.has(s));
+      }
+
       // 2. Scan candidates with concurrency protection (max 3 concurrent requests)
       const scannedList = await this.scanBatchWithConcurrency(
-        eligibleSymbols,
+        symbolsToScan,
         tickersMap,
         mainTf,
         htf,

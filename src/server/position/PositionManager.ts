@@ -430,6 +430,7 @@ export class PositionManager {
       mfePct: 0,
       stopLossPrice: order.stopLossPrice,
       isFadeTrade: order.isFadeTrade,
+      climax: order.climax,
       profile: order.profile,
       source: order.executionMode === 'PAPER' ? 'PAPER' : 'LOCAL',
       executionMode: order.executionMode || 'LIVE',
