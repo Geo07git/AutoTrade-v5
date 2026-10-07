@@ -5199,7 +5199,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <div className="grid grid-cols-3 gap-1.5 pt-1">
                       <button
                         type="button"
-                        onClick={() => setShortRegimeGuard('OFF')}
+                        onClick={() => {
+                          setShortRegimeGuard('OFF');
+                          onUpdateProfileSettings(activeProfile, { shortRegimeGuard: 'OFF' });
+                        }}
                         className={`py-1.5 px-2 rounded text-[11px] font-bold border transition-all ${
                           shortRegimeGuard === 'OFF'
                             ? 'bg-amber-600/30 border-amber-500 text-amber-200 shadow'
@@ -5210,7 +5213,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShortRegimeGuard('BEAR_ONLY')}
+                        onClick={() => {
+                          setShortRegimeGuard('BEAR_ONLY');
+                          onUpdateProfileSettings(activeProfile, { shortRegimeGuard: 'BEAR_ONLY' });
+                        }}
                         className={`py-1.5 px-2 rounded text-[11px] font-bold border transition-all ${
                           shortRegimeGuard === 'BEAR_ONLY'
                             ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200 shadow'
@@ -5221,7 +5227,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShortRegimeGuard('DISABLED')}
+                        onClick={() => {
+                          setShortRegimeGuard('DISABLED');
+                          onUpdateProfileSettings(activeProfile, { shortRegimeGuard: 'DISABLED' });
+                        }}
                         className={`py-1.5 px-2 rounded text-[11px] font-bold border transition-all ${
                           shortRegimeGuard === 'DISABLED'
                             ? 'bg-rose-600/30 border-rose-500 text-rose-200 shadow'
@@ -5267,7 +5276,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         <span className="text-slate-200 font-bold text-xs">Garda LONG în BTC BEAR (btcBearGuard)</span>
                         <button
                           type="button"
-                          onClick={() => setBtcBearGuard(!btcBearGuard)}
+                          onClick={() => {
+                            const nextVal = !btcBearGuard;
+                            setBtcBearGuard(nextVal);
+                            onUpdateProfileSettings(activeProfile, { btcBearGuard: nextVal });
+                          }}
                           className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
                             btcBearGuard
                               ? 'bg-amber-950 text-amber-300 border-amber-600/50 shadow'
