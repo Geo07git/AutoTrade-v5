@@ -482,6 +482,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
   const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
   const [shortRegimeGuard, setShortRegimeGuard] = useState<'BEAR_ONLY' | 'OFF' | 'DISABLED'>(profileConfig?.shortRegimeGuard ?? 'OFF');
+  const [btcBearGuard, setBtcBearGuard] = useState<boolean>(profileConfig?.btcBearGuard ?? false);
   const [minShortScore, setMinShortScore] = useState<number>(profileConfig?.minShortMomentumScore ?? 0);
   const [maxEntriesPerHour, setMaxEntriesPerHour] = useState<number>(profileConfig?.maxEntriesPerSymbolPerHour ?? 3);
   const [cooldownAfterLoss, setCooldownAfterLoss] = useState<number>(profileConfig?.cooldownAfterLossMinutes ?? 30);
@@ -1828,6 +1829,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     cooldownMins !== (profileConfig.cooldownMinutes ?? 0) ||
     sentimentThreshold !== (profileConfig.sentimentThreshold ?? 5.0) ||
     shortRegimeGuard !== (profileConfig.shortRegimeGuard ?? 'OFF') ||
+    btcBearGuard !== (profileConfig.btcBearGuard ?? false) ||
     minShortScore !== (profileConfig.minShortMomentumScore ?? 0) ||
     maxEntriesPerHour !== (profileConfig.maxEntriesPerSymbolPerHour ?? 3) ||
     cooldownAfterLoss !== (profileConfig.cooldownAfterLossMinutes ?? 30)
@@ -1866,6 +1868,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setCooldownMins(profileConfig.cooldownMinutes ?? 0);
       setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
       setShortRegimeGuard(profileConfig.shortRegimeGuard ?? 'OFF');
+      setBtcBearGuard(profileConfig.btcBearGuard ?? false);
       setMinShortScore(profileConfig.minShortMomentumScore ?? 0);
       setMaxEntriesPerHour(profileConfig.maxEntriesPerSymbolPerHour ?? 3);
       setCooldownAfterLoss(profileConfig.cooldownAfterLossMinutes ?? 30);
@@ -1893,6 +1896,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       cooldownMinutes: cooldownMins,
       sentimentThreshold,
       shortRegimeGuard,
+      btcBearGuard,
       minShortMomentumScore: minShortScore,
       maxEntriesPerSymbolPerHour: maxEntriesPerHour,
       cooldownAfterLossMinutes: cooldownAfterLoss,
@@ -1933,6 +1937,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setCooldownMins(profileConfig.cooldownMinutes ?? 0);
     setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
     setShortRegimeGuard(profileConfig.shortRegimeGuard ?? 'OFF');
+    setBtcBearGuard(profileConfig.btcBearGuard ?? false);
     setMinShortScore(profileConfig.minShortMomentumScore ?? 0);
     setMaxEntriesPerHour(profileConfig.maxEntriesPerSymbolPerHour ?? 3);
     setCooldownAfterLoss(profileConfig.cooldownAfterLossMinutes ?? 30);
@@ -5289,6 +5294,29 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       />
                       <div className="text-[9px] text-zinc-500">
                         Setează un prag ridicat (ex: 80-85) pentru a evita declanșarea pozițiilor SHORT pe semnale slabe/zgomot.
+                      </div>
+                    </div>
+
+                    {/* 🛡️ Regim BTC Guard pentru LONG (btcBearGuard) */}
+                    <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-200 font-bold text-xs">Garda LONG în BTC BEAR (btcBearGuard)</span>
+                        <button
+                          type="button"
+                          onClick={() => setBtcBearGuard(!btcBearGuard)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
+                            btcBearGuard
+                              ? 'bg-amber-950 text-amber-300 border-amber-600/50 shadow'
+                              : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-zinc-200'
+                          }`}
+                        >
+                          {btcBearGuard ? '🛡️ ACTIVAT (Blochează LONG scor < 68)' : '⚡ OFF (Permite LONG Oricând)'}
+                        </button>
+                      </div>
+                      <div className="text-[10px] text-zinc-400 leading-tight">
+                        {btcBearGuard
+                          ? 'Când Bitcoin este în regim BEAR, pozițiile LONG sunt blocate dacă scorul este sub 68.'
+                          : 'Garda este DEZACTIVATĂ. Semnalele LONG sunt permise oricând conform scorului standard (fără blocare BTC BEAR).'}
                       </div>
                     </div>
                   </div>

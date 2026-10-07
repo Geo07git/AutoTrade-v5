@@ -47,17 +47,17 @@ export class RiskEngine {
       };
     }
 
-    // 3. BTC BEAR Regime Filter for LONG entries
+    // 3. BTC BEAR Regime Filter for LONG entries (respects user setting: only active if config.btcBearGuard is true)
     const marketRegime = options?.marketRegime || '';
     const isBtcBear = marketRegime.includes('BEAR') || (marketRegime.includes('-%') && !marketRegime.includes('BTC: --'));
 
-    if (isBtcBear && signal.side === 'BUY') {
-      // If momentum score is below high threshold in BTC BEAR, block LONG entries entirely
+    if (config.btcBearGuard && isBtcBear && signal.side === 'BUY') {
+      // If momentum score is below high threshold in BTC BEAR and guard is enabled, block LONG entries
       if (signal.score < 68) {
         return {
           approved: false,
           sizeUSDT: 0,
-          reason: `[BTC_BEAR_GUARD] Pozițiile LONG sunt temporar dezactivate în regim BTC BEAR (${marketRegime}) pentru scoruri sub 68 (scor semnal: ${signal.score.toFixed(1)}). Risk/reward asimetric negativ pe date.`,
+          reason: `[BTC_BEAR_GUARD] Pozițiile LONG sunt temporar dezactivate în regim BTC BEAR (${marketRegime}) pentru scoruri sub 68 (scor semnal: ${signal.score.toFixed(1)}). Dezactivează btcBearGuard în setări pentru permisiune oricând.`,
         };
       }
     }
@@ -230,8 +230,8 @@ export class RiskEngine {
     // In unlimited experiment mode, use fixed 50 USDT per trade for clean execution across unlimited pairs
     let desiredSizeUSDT = isExpActive ? 50 : netCapital * (riskPct / 100);
 
-    // If LONG in BTC BEAR regime: reduce size by 50% for conservative exposure
-    if (isBtcBear && signal.side === 'BUY') {
+    // If LONG in BTC BEAR regime and guard enabled: reduce size by 50% for conservative exposure
+    if (config.btcBearGuard && isBtcBear && signal.side === 'BUY') {
       desiredSizeUSDT = desiredSizeUSDT * 0.50;
     }
 
@@ -272,7 +272,7 @@ export class RiskEngine {
       effectiveStopDistancePct: parseFloat(effectiveStopDistancePct.toFixed(2)),
       dollarRiskAtStop: parseFloat((targetSizeUSDT * stopDistanceRatio).toFixed(2)),
       atrPct: parseFloat(atrPct.toFixed(2)),
-      reason: isBtcBear && signal.side === 'BUY'
+      reason: config.btcBearGuard && isBtcBear && signal.side === 'BUY'
         ? `[BTC_BEAR_GUARD] Aprobat cu mărime redusă (-50%) în regim BTC BEAR (${marketRegime}).`
         : undefined,
     };

@@ -212,16 +212,32 @@ export class OrderManager {
     const numLeverage = Math.max(1, parseFloat(leverage.replace(/[^0-9.]/g, '')) || 1);
     const requiredMargin = actualNotional / numLeverage;
 
-    // Safety gate: Check if required margin exceeds available cash balance in LIVE mode
-    if (this.executionMode === 'LIVE' && params.accountBalance && params.accountBalance > 0 && requiredMargin > params.accountBalance * 1.05) {
-      const err = `Marja necesară pentru ${formattedQty} contract(e) de ${signal.symbol} ($${requiredMargin.toFixed(2)}) depășește balanța disponibilă ($${params.accountBalance.toFixed(2)}). Tranzacție respinsă pentru prevenirea erorilor de bursă.`;
+    // Safety gate: Check if required margin exceeds available cash balance or account equity in both LIVE and PAPER modes
+    const availableBalance = (params.accountBalance && params.accountBalance > 0)
+      ? params.accountBalance
+      : (params.accountEquity && params.accountEquity > 0 ? params.accountEquity : 0);
+
+    if (availableBalance > 0 && requiredMargin > availableBalance * 1.05) {
+      const err = `Marja necesară pentru ${formattedQty} contract(e) de ${signal.symbol} ($${requiredMargin.toFixed(2)}) depășește capitalul/balanța disponibilă ($${availableBalance.toFixed(2)}). Tranzacție respinsă pentru prevenirea riscului excesiv.`;
       this.auditLogger('ORDER_REJECTED', err, {
         symbol: signal.symbol,
         requiredMargin,
-        accountBalance: params.accountBalance,
+        accountBalance: availableBalance,
         qty: formattedQty,
         ctVal,
         currentPrice,
+      });
+      return { success: false, error: err };
+    }
+
+    // Safety gate: actual notional must not drastically overshoot approved risk size (prevents $4,075 notional on $18 approved risk)
+    if (riskApproval.sizeUSDT > 0 && actualNotional > Math.max(riskApproval.sizeUSDT * 2.5, availableBalance * 1.05)) {
+      const err = `Valoarea poziției pentru ${formattedQty} contract(e) de ${signal.symbol} ($${actualNotional.toFixed(2)}) depășește mărimea aprobată de risc ($${riskApproval.sizeUSDT.toFixed(2)}) și capitalul disponibil ($${availableBalance.toFixed(2)}). Tranzacție respinsă.`;
+      this.auditLogger('ORDER_REJECTED', err, {
+        symbol: signal.symbol,
+        actualNotional,
+        approvedSize: riskApproval.sizeUSDT,
+        availableBalance,
       });
       return { success: false, error: err };
     }

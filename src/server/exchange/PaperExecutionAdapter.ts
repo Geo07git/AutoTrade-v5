@@ -277,6 +277,13 @@ export class PaperExecutionAdapter implements IExecutionAdapter {
     qty = parseFloat(qty.toFixed(decimals));
 
     if (qty < filter.minOrderQty) {
+      if (!isAlreadyContracts && currentPrice > 0) {
+        const minContractNotional = filter.minOrderQty * ctVal * currentPrice;
+        const requestedNotional = desiredQty * currentPrice;
+        if (minContractNotional > Math.max(50, requestedNotional * 1.5)) {
+          return 0; // Return 0 so OrderManager rejects instead of opening a multi-thousand dollar position
+        }
+      }
       qty = filter.minOrderQty;
     }
 
