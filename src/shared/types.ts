@@ -126,6 +126,7 @@ export interface AppConfig {
   lockProfitVault?: boolean; // Profit Vault Mode: Locks profits into an untouchable vault
   baseCapital?: number; // Fixed base operating capital (e.g. 1000 USDT or 200 USDT)
   profitVault?: number; // Total protected profit stored in vault
+  paperFullCollection?: boolean; // Colectare PAPER fără filtrare corelată / poartă strictă de impuls (populație completă)
 }
 
 export interface ProfileConfig {

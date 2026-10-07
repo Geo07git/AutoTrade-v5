@@ -3229,19 +3229,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
       {/* 3. FUNCTION KEY SHORTCUTS BAR (SCROLLABLE & DRAGGABLE IN COMPACT/MOBILE VIEW, CLEAN SINGLE BAR ON DESKTOP) */}
       <div className="relative w-full max-w-full min-w-0 bg-zinc-900 border-b border-amber-500/30 flex items-center group select-none">
-        {/* Left Scroll Chevron (shows when scrolled right - mobile only) */}
+        {/* Left Scroll Chevron (shows when scrolled right) */}
         {canScrollLeft && (
           <button
             type="button"
             onClick={() => scrollShortcuts('left')}
-            className="lg:hidden absolute left-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-r border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            className="absolute left-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-r border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
             title="Derulează spre stânga"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
         )}
 
-        {/* Scrollable Container with MouseWheel, Touch, Mouse Drag on Mobile; Clean & Fit on Desktop */}
+        {/* Scrollable Container with MouseWheel, Touch, Mouse Drag */}
         <div
           ref={shortcutsRef}
           onWheel={handleShortcutsWheel}
@@ -3249,7 +3249,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           onMouseMove={handleShortcutsMouseMove}
           onMouseUp={handleShortcutsMouseUp}
           onMouseLeave={handleShortcutsMouseUp}
-          className="w-full max-w-full min-w-0 overflow-x-auto lg:overflow-x-visible terminal-scrollbar-x py-1 px-2 sm:px-3 flex items-center justify-between text-xs whitespace-nowrap gap-1 lg:gap-2 cursor-grab active:cursor-grabbing lg:cursor-default"
+          className="w-full max-w-full min-w-0 overflow-x-auto terminal-scrollbar-x py-1 px-2 sm:px-3 flex items-center justify-between text-xs whitespace-nowrap gap-1 lg:gap-2 cursor-grab active:cursor-grabbing lg:cursor-default"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
@@ -3359,12 +3359,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
         </div>
 
-        {/* Right Scroll Chevron (shows when more content to the right - mobile only) */}
+        {/* Right Scroll Chevron (shows when more content to the right) */}
         {canScrollRight && (
           <button
             type="button"
             onClick={() => scrollShortcuts('right')}
-            className="lg:hidden absolute right-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-l border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
+            className="absolute right-0 z-30 h-full px-1.5 bg-zinc-950/95 hover:bg-black text-amber-400 border-l border-amber-500/50 flex items-center justify-center shadow-lg transition-all"
             title="Derulează spre dreapta"
           >
             <ChevronRight className="w-4 h-4" />

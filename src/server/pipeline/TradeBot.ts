@@ -7,6 +7,7 @@ import {
   BotState,
   AuditLogType,
   ProfileType,
+  OrderSide,
   ExecutionMode,
   BotStatusResponse,
   UniverseFilterConfig,
@@ -243,7 +244,7 @@ export class TradeBot {
       auditLogger
     );
     if (appConfig.scannerFilter) {
-      if (appConfig.scannerFilter.maxSpreadPct === undefined || appConfig.scannerFilter.maxSpreadPct <= 0) {
+      if (appConfig.scannerFilter.maxSpreadPct === undefined) {
         appConfig.scannerFilter.maxSpreadPct = 0.10;
         this.configStore.save(appConfig);
       }
@@ -766,7 +767,13 @@ export class TradeBot {
       // This guarantees the market scanner continuously runs every 15s to update opportunities,
       // candidate momentum scores, RVOL, and real-time feeds even if entries are paused.
       const activeSymbols = this.positionManager.getActivePositions().map((p) => p.symbol);
-      const scannedOpportunities = await this.marketScanner.scan(profile, Boolean(config.invertSignals), activeSymbols);
+      const isPaperCollection = config.executionMode === 'PAPER' && Boolean(config.paperFullCollection);
+      const scannedOpportunities = await this.marketScanner.scan(
+        profile,
+        Boolean(config.invertSignals),
+        activeSymbols,
+        isPaperCollection
+      );
 
       // Update latest prices for all scanned pairs
       for (const opp of scannedOpportunities) {
@@ -860,11 +867,31 @@ export class TradeBot {
           }
         }
 
-        // STRICT CHECK 3.5: Limita de expunere corelată (Item 3)
-        // Maximum 1 poziție pe aceeași direcție per scan; cooldown 60s pe direcție.
+        // STRICT CHECK 3.5: Limita de expunere corelată (Item 4 & 5)
+        // 1. Limita max 3 poziții deschise pe aceeași direcție
+        // 2. Maximum 1 poziție pe aceeași direcție per scan; cooldown 60s pe direcție.
         // Previne concentrarea pe aceeași direcție (ex: 5 SHORT-uri simultane pe dump de piață)
+        // Comutator PAPER (Item 5): paperFullCollection dezactivează această filtrare pentru colectare completă
         const candidateSide: OrderSide = candidate.side;
-        if (!isExpActive) {
+        const isPaperCollection = config.executionMode === 'PAPER' && Boolean(config.paperFullCollection);
+        if (!isExpActive && !isPaperCollection) {
+          const activePositions = this.positionManager.getActivePositions();
+          const openCountForSide = activePositions.filter((p) => {
+            if (p.status !== 'OPEN') return false;
+            const pSide = String(p.side).toUpperCase();
+            return candidateSide === 'BUY' ? pSide === 'BUY' || pSide === 'LONG' : pSide === 'SELL' || pSide === 'SHORT';
+          }).length;
+
+          const maxPerDirection = 3;
+          if (openCountForSide >= maxPerDirection) {
+            this.logAudit(
+              'CANDIDATE_REJECTED',
+              `Candidatul #${candidate.rank} (${symbol}) omis: Limita de expunere pe direcția ${candidateSide} atinsă (${openCountForSide}/${maxPerDirection} poziții deschise). Se evită supra-expunerea corelată.`,
+              { symbol, side: candidateSide, openPositionsOnSide: openCountForSide, maxPerDirection }
+            );
+            continue;
+          }
+
           if ((entriesThisScanBySide[candidateSide] || 0) >= 1) {
             this.logAudit(
               'CANDIDATE_REJECTED',
@@ -890,7 +917,15 @@ export class TradeBot {
         // STRICT CHECK 4: Affordability check (ensures min contract notional fits within available equity)
         if (!isExpActive) {
           const meta = this.universeManager.getInstrumentMetadata(symbol);
-          const ctVal = meta?.ctVal || this.activeAdapter.getCachedCtVal?.(symbol) || 1;
+          const ctVal = meta?.ctVal || this.activeAdapter.getCachedCtVal?.(symbol);
+          if (!ctVal || ctVal <= 0) {
+            this.logAudit(
+              'CANDIDATE_REJECTED',
+              `Candidatul #${candidate.rank} (${symbol}) omis: Valoarea contractului (ctVal) nu a putut fi determinată din metadata exchange-ului. Se evită deschiderea cu date fictive.`,
+              { symbol, meta }
+            );
+            continue;
+          }
           const minSz = meta?.minSz || 1;
           const minNotional = (candidate.price || 1) * ctVal * minSz;
           const leverage = Math.max(1, parseFloat(String(config.maxLeverage || '1').replace(/[^0-9.]/g, '')) || 1);
@@ -1147,7 +1182,7 @@ export class TradeBot {
       (type, msg, det) => this.logAudit(type, msg, det)
     );
     if (config.scannerFilter) {
-      if (config.scannerFilter.maxSpreadPct === undefined || config.scannerFilter.maxSpreadPct <= 0) {
+      if (config.scannerFilter.maxSpreadPct === undefined) {
         config.scannerFilter.maxSpreadPct = 0.10;
         this.configStore.save(config);
       }

@@ -115,7 +115,8 @@ export class MarketScanner {
     mainTf: string,
     htf: string,
     concurrency: number = 3,
-    invertSignals: boolean = false
+    invertSignals: boolean = false,
+    bypassImpulseGate: boolean = false
   ): Promise<ScannedOpportunity[]> {
     const results: ScannedOpportunity[] = [];
     const queue = [...symbols];
@@ -142,7 +143,7 @@ export class MarketScanner {
                     spreadPct: ticker.spreadPct,
                   }
                 : undefined,
-              { invertExtremeSignals: invertSignals }
+              { invertExtremeSignals: invertSignals, bypassImpulseGate }
             );
 
             if (opportunity) {
@@ -195,7 +196,7 @@ export class MarketScanner {
                       spreadPct: tickersMap[cand.symbol].spreadPct,
                     }
                   : undefined,
-                { invertExtremeSignals: invertSignals }
+                { invertExtremeSignals: invertSignals, bypassImpulseGate }
               );
               if (reevaluated) {
                 cand.score = reevaluated.score;
@@ -238,7 +239,8 @@ export class MarketScanner {
   public async scan(
     profile: ProfileConfig,
     invertSignals: boolean = false,
-    activePositionsSymbols?: string[]
+    activePositionsSymbols?: string[],
+    bypassImpulseGate: boolean = false
   ): Promise<ScannedOpportunity[]> {
     if (this.isScanning) {
       return this.cachedOpportunities;
@@ -302,7 +304,8 @@ export class MarketScanner {
         mainTf,
         htf,
         3,
-        invertSignals
+        invertSignals,
+        bypassImpulseGate
       );
 
       // 3. Rank opportunities descending by Momentum score with strict tie-break (Item 6)

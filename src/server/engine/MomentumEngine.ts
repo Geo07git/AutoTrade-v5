@@ -13,11 +13,13 @@ export interface MomentumMetrics {
   threshold: number;
   htfTrend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   htfAligned: boolean;
+  climax?: boolean;
   factors: {
     impulseScore: number;     // 0 - 35 pts
     rvolScore: number;        // 0 - 25 pts
     atrScore: number;         // 0 - 20 pts
     htfScore: number;         // 0 - 20 pts
+    climax?: boolean;
   };
 }
 
@@ -44,7 +46,7 @@ export class MomentumEngine {
     symbol: string,
     klines: Record<string, Kline[]>,
     precomputedMetrics?: MomentumMetrics,
-    options?: { invertExtremeSignals?: boolean }
+    options?: { invertExtremeSignals?: boolean; bypassImpulseGate?: boolean }
   ): TradeSignal | null {
     if (!klines || Object.keys(klines).length === 0) return null;
 
@@ -55,13 +57,16 @@ export class MomentumEngine {
 
     const metrics = precomputedMetrics || this.calculateMetrics(klines);
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
-    const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
+    const effAtr = metrics.atr14 > 0 ? metrics.atr14 : metrics.currentAtr;
+    const atrPct = metrics.lastPrice > 0 ? (effAtr / metrics.lastPrice) * 100 : 0;
 
     // Poarta de impuls minim (Item 1) & Fallback de directie (Item 2):
     // Daca mom == 0, impulseScore == 0, impulseScore < 10 sau |mom|/atrPct < 0.5: respinge candidatul (fara semnal / nu BUY implicit)
+    // Colectare PAPER (Item 5): bypassImpulseGate permite trecerea intregii populatii de date
     const momInAtrUnits = Math.abs(metrics.mom) / Math.max(0.15, atrPct);
     const impulseScore = metrics.factors?.impulseScore ?? 0;
-    if (metrics.mom === 0 || impulseScore < 10 || momInAtrUnits < 0.5) {
+    const bypassImpulse = options?.bypassImpulseGate ?? false;
+    if (!bypassImpulse && (metrics.mom === 0 || impulseScore < 10 || momInAtrUnits < 0.5)) {
       return null;
     }
 
@@ -165,7 +170,7 @@ export class MomentumEngine {
     symbol: string,
     klines: Record<string, Kline[]>,
     tickerData?: { volume24hUSDT: number; priceChange24hPct: number; spreadPct?: number },
-    options?: { invertExtremeSignals?: boolean }
+    options?: { invertExtremeSignals?: boolean; bypassImpulseGate?: boolean }
   ): ScannedOpportunity | null {
     if (!klines || Object.keys(klines).length === 0) return null;
 
@@ -180,10 +185,12 @@ export class MomentumEngine {
     const signal = this.evaluate(symbol, klines, metrics, options);
 
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
-    const atrPct = metrics.lastPrice > 0 ? (metrics.currentAtr / metrics.lastPrice) * 100 : 0;
+    const effAtr = metrics.atr14 > 0 ? metrics.atr14 : metrics.currentAtr;
+    const atrPct = metrics.lastPrice > 0 ? (effAtr / metrics.lastPrice) * 100 : 0;
     const momInAtrUnits = Math.abs(metrics.mom) / Math.max(0.15, atrPct);
     const impulseScore = metrics.factors?.impulseScore ?? 0;
-    const passesImpulseGate = metrics.mom !== 0 && impulseScore >= 10 && momInAtrUnits >= 0.5;
+    const bypassImpulse = options?.bypassImpulseGate ?? false;
+    const passesImpulseGate = bypassImpulse || (metrics.mom !== 0 && impulseScore >= 10 && momInAtrUnits >= 0.5);
 
     const isExtreme = maxScore < 100 && metrics.score > maxScore;
     const isStandard = metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore);
