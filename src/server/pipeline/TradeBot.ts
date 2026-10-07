@@ -36,6 +36,7 @@ const DEFAULT_CONFIG: AppConfig = {
   testnet: true,
   killSwitchEngaged: false,
   invertSignals: false, // Default: FALSE. Signals strictly follow calculated momentum and HTF macro confluence
+  paperFullCollection: true, // Colectare PAPER fără filtrare corelată / poartă strictă de impuls (populație completă de date)
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
@@ -49,7 +50,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     type: 'SCALP',
     timeframes: ['15', '60'],
     riskPerTradePct: 50,
-    maxOpenPositions: 2,
+    maxOpenPositions: 10,
     trailingActivationPct: 1.1,
     trailingDistancePct: 0.35,
     breakEvenActivationPct: 5.0,
@@ -75,7 +76,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     type: 'MOMENTUM',
     timeframes: ['60', '240'],
     riskPerTradePct: 10,
-    maxOpenPositions: 10,
+    maxOpenPositions: 20,
     trailingActivationPct: 1.8,
     trailingDistancePct: 0.5,
     breakEvenActivationPct: 1.0,
