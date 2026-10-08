@@ -397,6 +397,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [okxSaveMessage, setOkxSaveMessage] = useState<string | null>(null);
   const [showLiveConfirm, setShowLiveConfirm] = useState<boolean>(false);
   const [liveDisclaimerChecked, setLiveDisclaimerChecked] = useState<boolean>(false);
+  const [showKillSwitchConfirmModal, setShowKillSwitchConfirmModal] = useState<boolean>(false);
   const [showManualModal, setShowManualModal] = useState<boolean>(false);
 
   const toggleExpandPosition = (id: string) => {
@@ -426,7 +427,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const auditPos = useRef<number>(0);
 
   // Ultimele 100 de evenimente pentru banda derulantă DESK AUDIT FEED
-  const displayLogs = useMemo(() => logs.slice(0, 100), [logs]);
+  const displayLogs = useMemo(() => {
+    // Luăm ultimele 100 de loguri și le ordonăm cronologic (de la cel mai vechi la cel mai recent)
+    // pentru o derulare naturală și stabilă a benzii fără salturi la fiecare poll
+    const slice = logs.slice(0, 100);
+    return [...slice].reverse();
+  }, [logs]);
 
   // Asigură că track-ul primar depășește întotdeauna lățimea ecranului pentru derulare fluidă fără cusur
   const extendedTapeItems = useMemo(() => {
@@ -440,8 +446,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const extendedAuditLogs = useMemo(() => {
     if (displayLogs.length === 0) return [];
-    if (displayLogs.length < 10) {
-      const repeats = Math.max(2, Math.ceil(16 / displayLogs.length));
+    if (displayLogs.length < 15) {
+      const repeats = Math.max(2, Math.ceil(24 / displayLogs.length));
       return Array(repeats).fill(displayLogs).flat();
     }
     return displayLogs;
@@ -2165,8 +2171,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       if (onClearLogs) onClearLogs();
       response = 'ORDERS BLOTTER & AUDIT LOGS CLEARED.';
     } else if (action === 'KILL') {
-      onToggleKillSwitch();
-      response = 'EMERGENCY KILL SWITCH TOGGLED.';
+      setShowKillSwitchConfirmModal(true);
+      response = 'DESCHIS DIALOG CONFIRMARE KILL SWITCH.';
     } else if (action === 'RESET') {
       onResetPaper();
       response = 'PAPER TRADING ACCOUNT RESET TO $200.00';
@@ -2819,17 +2825,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* 0. FROZEN TOP DOCK: HEADER + AUTO-TAPE + SHORTCUTS BAR + BANNERS (STICKY TOP DOCK) */}
       <div className="sticky top-0 z-40 bg-black shadow-2xl border-b border-amber-500/40 flex flex-col shrink-0 w-full max-w-full min-w-0">
         {/* 1. UNIFIED TERMINAL HEADER (~40px, NEUTRAL ZINC-950 WITH AMBER ACCENTS) */}
-        <header className="bg-zinc-950 text-zinc-100 border-b border-amber-500/30 px-2 sm:px-3 py-1.5 flex items-center justify-between text-xs font-mono shrink-0 shadow-lg gap-2 w-full max-w-full min-w-0 select-none">
+        <header className="bg-zinc-950 text-zinc-100 border-b border-amber-500/30 px-1.5 sm:px-3 py-1.5 flex items-center justify-between text-xs font-mono shrink-0 shadow-lg gap-1 sm:gap-2 w-full max-w-full min-w-0 select-none overflow-x-auto sm:overflow-visible terminal-scrollbar-x">
           {/* LEFT: BRAND & MODE */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-            <span className="bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded text-xs tracking-wider font-black border border-amber-500/40 shrink-0">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
+            <span className="bg-amber-500/10 text-amber-400 px-1 sm:px-1.5 py-0.5 rounded text-[11px] sm:text-xs tracking-wider font-black border border-amber-500/40 shrink-0">
               TB5
             </span>
 
             {/* INTERACTIVE MODE SWITCHER BADGE */}
             <button
               onClick={() => setShowOKXModal(true)}
-              className={`px-2 py-0.5 rounded text-[11px] sm:text-xs font-bold border flex items-center space-x-1 transition-all shadow-sm shrink-0 cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-bold border flex items-center space-x-1 transition-all shadow-sm shrink-0 cursor-pointer ${
                 status?.executionMode === 'LIVE'
                   ? 'bg-rose-950/80 text-rose-300 border-rose-500 hover:bg-rose-900 animate-pulse'
                   : status?.executionMode === 'TESTNET'
@@ -2859,25 +2865,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
 
           {/* CENTER: ESSENTIAL ACCOUNT METRICS (EQ, PNL, POS) */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0 bg-black/60 px-2 sm:px-3 py-0.5 rounded border border-zinc-800">
+          <div className="flex items-center space-x-1 sm:space-x-2.5 shrink-0 bg-black/60 px-1.5 sm:px-3 py-0.5 rounded border border-zinc-800 text-[11px] sm:text-xs">
             {isExpOn ? (
-              <span className="text-cyan-300 text-xs sm:text-sm font-bold flex items-center gap-1">
-                <span>🔬 EQ:</span>
+              <span className="text-cyan-300 text-[11px] sm:text-sm font-bold flex items-center gap-1">
+                <span className="hidden xs:inline">🔬 EQ:</span>
                 <span className="text-cyan-300">
                   ${currentEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </span>
             ) : (
-              <span className="text-emerald-400 text-xs sm:text-sm font-bold">
+              <span className="text-emerald-400 text-[11px] sm:text-sm font-bold">
                 EQ: ${status?.equity !== undefined ? status.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '200.00'}
               </span>
             )}
             <span className="text-zinc-600">|</span>
-            <span className={`text-xs sm:text-sm font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`text-[11px] sm:text-sm font-bold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
               PNL: {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
             </span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-zinc-300 text-xs font-medium">
+            <span className="text-zinc-600 hidden xs:inline">|</span>
+            <span className="text-zinc-300 text-[11px] sm:text-xs font-medium hidden xs:inline">
               POS: <strong className="text-amber-400">{positions.length}</strong>
             </span>
             {isVaultActive && (
@@ -2892,9 +2898,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           </div>
 
           {/* RIGHT: PROFILE, ALWAYS-VISIBLE KILL SWITCH & COMPACT TOOLS MENU */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 relative">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 relative">
             {/* Profile Switcher */}
-            <div className="flex bg-black/80 rounded border border-zinc-800 p-0.5 shrink-0">
+            <div className="hidden xs:flex bg-black/80 rounded border border-zinc-800 p-0.5 shrink-0">
               <button
                 onClick={() => onSwitchProfile('SCALP')}
                 className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-colors ${
@@ -2913,15 +2919,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               </button>
             </div>
 
-            {/* KILL SWITCH - ALWAYS VISIBLE, NEVER HIDDEN IN SCROLL */}
+            {/* KILL SWITCH - ALWAYS VISIBLE, NEVER HIDDEN IN SCROLL, WITH CONFIRMATION ON CLICK */}
             <button
-              onClick={onToggleKillSwitch}
-              className={`px-2 sm:px-3 py-1 rounded font-bold text-[11px] sm:text-xs border transition-all flex items-center space-x-1 shrink-0 cursor-pointer shadow-sm ${
+              onClick={() => setShowKillSwitchConfirmModal(true)}
+              className={`px-1.5 sm:px-3 py-1 rounded font-bold text-[10px] sm:text-xs border transition-all flex items-center space-x-1 shrink-0 cursor-pointer shadow-sm ${
                 isKillSwitch
                   ? 'bg-rose-600 text-white border-rose-400 animate-pulse shadow-[0_0_12px_rgba(225,29,72,0.6)]'
                   : 'bg-zinc-900/90 text-rose-400 border-rose-500/50 hover:bg-rose-950/80 hover:text-rose-300'
               }`}
-              title={isKillSwitch ? 'Dezactivează Kill Switch' : 'Oprește imediat tranzacționarea și noile ordine'}
+              title={isKillSwitch ? 'Dezactivează Kill Switch (cere confirmare)' : 'Oprește imediat tranzacționarea și noile ordine (cere confirmare)'}
             >
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>{isKillSwitch ? 'KILL ENGAGED' : 'KILL SWITCH'}</span>
@@ -2931,7 +2937,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <div className="relative" ref={toolsMenuRef}>
               <button
                 onClick={() => setShowToolsMenu(!showToolsMenu)}
-                className={`px-2 py-1 rounded text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer ${
                   showToolsMenu
                     ? 'bg-amber-500 text-black border-amber-400'
                     : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:text-amber-400 hover:border-amber-500/50'
@@ -2939,7 +2945,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 title="Meniu Utilități & Integrări (OKX, TG, FADE, VAULT, AUTH, MONO, SYNC, LIMBĂ)"
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">UTIL</span>
+                <span>UTIL</span>
               </button>
 
               {/* DROPDOWN POPOVER */}
@@ -3357,6 +3363,36 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             >
               <span>[7:CHART]</span>
               <span className="hidden sm:inline">TradingView</span>
+            </button>
+
+            {/* QUICK UTIL SHORTCUT BUTTON (ALWAYS ACCESSIBLE IN TAB BAR ON MOBILE & DESKTOP) */}
+            <button
+              type="button"
+              onClick={() => setShowToolsMenu(!showToolsMenu)}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 cursor-pointer ${
+                showToolsMenu
+                  ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                  : 'bg-zinc-900 text-amber-300 hover:bg-zinc-800 border border-amber-500/50'
+              }`}
+              title="Deschide Meniul Utilități & Integrări (OKX, TG, FADE, VAULT, AUTH, MONO, SYNC)"
+            >
+              <MoreHorizontal className="w-3.5 h-3.5" />
+              <span>[UTIL]</span>
+            </button>
+
+            {/* QUICK KILL SWITCH BUTTON (ACCESSIBLE DIRECTLY IN TAB BAR ON MOBILE) */}
+            <button
+              type="button"
+              onClick={() => setShowKillSwitchConfirmModal(true)}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-all flex items-center space-x-1 sm:space-x-1.5 shrink-0 cursor-pointer border ${
+                isKillSwitch
+                  ? 'bg-rose-600 text-white border-rose-400 animate-pulse shadow-[0_0_10px_rgba(225,29,72,0.6)]'
+                  : 'bg-zinc-900 text-rose-400 border-rose-500/50 hover:bg-rose-950/80'
+              }`}
+              title="Comută Kill Switch cu dialog de confirmare de securitate"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{isKillSwitch ? '[KILL ENGAGED]' : '[KILL SWITCH]'}</span>
             </button>
           </div>
         </div>
@@ -6682,6 +6718,79 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         onClose={() => setShowManualModal(false)}
         lang={lang}
       />
+
+      {/* MODAL CONFIRMARE SECURITATE KILL SWITCH (ACTIVARE & DEZACTIVARE) */}
+      {showKillSwitchConfirmModal && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className={`bg-zinc-950 border-2 rounded p-5 max-w-md w-full shadow-2xl font-mono text-xs ${
+            isKillSwitch ? 'border-amber-500 shadow-amber-950/60' : 'border-rose-600 shadow-rose-950/70'
+          }`}>
+            <div className="flex items-center space-x-2.5 pb-2.5 border-b border-zinc-800 mb-3">
+              <ShieldAlert className={`w-5 h-5 shrink-0 ${isKillSwitch ? 'text-amber-400' : 'text-rose-500 animate-pulse'}`} />
+              <h3 className={`font-black text-sm tracking-wide ${isKillSwitch ? 'text-amber-400' : 'text-rose-400'}`}>
+                {isKillSwitch ? 'CONFIRMARE DEZACTIVARE KILL SWITCH' : 'CONFIRMARE ACTIVARE EMERGENCY KILL SWITCH'}
+              </h3>
+            </div>
+
+            <div className="space-y-3 mb-5 text-zinc-300 leading-relaxed font-sans text-xs">
+              {!isKillSwitch ? (
+                <>
+                  <p className="text-zinc-200">
+                    Sunteți pe cale să declanșați <strong className="text-rose-400">EMERGENCY KILL SWITCH</strong>.
+                  </p>
+                  <div className="bg-rose-950/40 border border-rose-500/40 rounded p-2.5 space-y-1.5 font-mono text-[11px] text-rose-200">
+                    <div className="font-bold text-rose-300">ACȚIUNI IMEDIATE CE SE VOR EXECUTA:</div>
+                    <div>1. Se blochează imediat scanerul și deschiderea oricărei noi poziții.</div>
+                    <div>2. Toate ordinele active în așteptare sunt anulate.</div>
+                    <div>3. Sistemul trece în mod conservativ de protecție a capitalului.</div>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Confirmați doar dacă doriți oprirea automată de urgență a tranzacționării.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-zinc-200">
+                    Kill Switch este în prezent <strong className="text-rose-400">ACTIV (BLOCAT)</strong>.
+                  </p>
+                  <div className="bg-amber-950/40 border border-amber-500/40 rounded p-2.5 space-y-1.5 font-mono text-[11px] text-amber-200">
+                    <div className="font-bold text-amber-300">RELOGARE ÎN REGIM NORMAL:</div>
+                    <div>1. Scanerul pieței va relua căutarea de semnale la fiecare ciclu.</div>
+                    <div>2. Se permite executarea de noi intrări conform profilului curent ({activeProfile}).</div>
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Confirmați reluarea tranzacționării automate normale?
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-zinc-900 font-mono">
+              <button
+                type="button"
+                onClick={() => setShowKillSwitchConfirmModal(false)}
+                className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs font-bold cursor-pointer"
+              >
+                ANULEAZĂ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowKillSwitchConfirmModal(false);
+                  onToggleKillSwitch();
+                }}
+                className={`px-4 py-1.5 rounded text-xs font-bold cursor-pointer transition-all shadow-md ${
+                  isKillSwitch
+                    ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-950'
+                    : 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-950 animate-pulse'
+                }`}
+              >
+                {isKillSwitch ? 'DA, REIA TRANZACȚIONAREA' : 'DA, DECLANȘEAZĂ KILL SWITCH'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
