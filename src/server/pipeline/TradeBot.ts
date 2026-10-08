@@ -49,8 +49,8 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
   SCALP: {
     type: 'SCALP',
     timeframes: ['15', '60'],
-    riskPerTradePct: 50,
-    maxOpenPositions: 10,
+    riskPerTradePct: 10,
+    maxOpenPositions: 15,
     trailingActivationPct: 1.1,
     trailingDistancePct: 0.35,
     breakEvenActivationPct: 5.0,
@@ -857,6 +857,18 @@ export class TradeBot {
           continue;
         }
 
+        // STRICT CHECK 2.5: Cooldown per simbol după ORDER_REJECTED (10-15 min, setat la 15 min)
+        // Previne spam-ul repetat pe simboluri respinse de OKX (ex: ANTHROPIC 63x, OPENAI 23x, TRX 20x)
+        const rejCooldown = this.orderManager.isSymbolInRejectionCooldown(symbol, 15);
+        if (rejCooldown.inCooldown) {
+          this.logAudit(
+            'CANDIDATE_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) omis: Simbol în pauză post-respingere (${rejCooldown.remainingMinutes} min rămase din 15 min după ORDER_REJECTED). Previne încercările repetate.`,
+            { symbol, remainingMinutes: rejCooldown.remainingMinutes }
+          );
+          continue;
+        }
+
         // STRICT CHECK 3: Check cooldown period
         if (profile.cooldownMinutes && profile.cooldownMinutes > 0) {
           const lastClosedTime = this.positionManager.getLastClosedTime(symbol);
@@ -913,6 +925,49 @@ export class TradeBot {
             );
             continue;
           }
+        }
+
+        // STRICT CHECK 3.6: Poarta de fază a lumânării (nu intra dacă candleElapsedSeconds > 675)
+        // Ocolită în PAPER (paperFullCollection) pentru logarea populației complete
+        const candleElapsed = candidate.candleElapsedSeconds ?? candidate.signal?.candleElapsedSeconds ?? 0;
+        if (!isExpActive && !isPaperCollection && candleElapsed > 675) {
+          this.logAudit(
+            'CANDIDATE_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) omis: Poarta de fază depășită (${candleElapsed}s > 675s din lumânare). Previne intrarea tardivă pe final de lumânare în mod LIVE.`,
+            { symbol, candleElapsed, maxAllowed: 675 }
+          );
+          continue;
+        }
+
+        // STRICT CHECK 3.7: Plafon maxMomentumScore (LIVE interimar: 82; PAPER colectare: 99)
+        // Ocolit în PAPER (paperFullCollection) pentru a acoperi întregul spectru de scoruri
+        const effectiveMaxScore = (!isExpActive && !isPaperCollection && config.executionMode === 'LIVE')
+          ? Math.min(profile.maxMomentumScore ?? 82, 82)
+          : (profile.maxMomentumScore ?? 99);
+
+        if (!isExpActive && !isPaperCollection && candidate.score > effectiveMaxScore && !config.invertSignals) {
+          this.logAudit(
+            'CANDIDATE_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) omis: Scor momentum ${candidate.score.toFixed(1)}/100 depășește plafonul LIVE (${effectiveMaxScore}). Previne intrările supra-extinse.`,
+            { symbol, score: candidate.score, maxScore: effectiveMaxScore }
+          );
+          continue;
+        }
+
+        // STRICT CHECK 3.8: Exclude Climax (rvol 10 + atrExp 5) din LIVE
+        // Ocolit în PAPER (paperFullCollection) pentru analiza completă a epuizărilor
+        const isClimaxTrade = Boolean(
+          candidate.climax ||
+          candidate.signal?.climax ||
+          (candidate.rvol >= 9.95 && candidate.atrExpansion >= 4.95)
+        );
+        if (!isExpActive && !isPaperCollection && isClimaxTrade) {
+          this.logAudit(
+            'CANDIDATE_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) omis: Climax extrem de volum și expansiune (RVOL: ${candidate.rvol}x, ATRexp: ${candidate.atrExpansion}x). Exclus din LIVE pentru prevenirea tranzacțiilor la epuizare.`,
+            { symbol, rvol: candidate.rvol, atrExpansion: candidate.atrExpansion }
+          );
+          continue;
         }
 
         // STRICT CHECK 4: Affordability check (ensures min contract notional fits within available equity)
@@ -1050,6 +1105,7 @@ export class TradeBot {
               entriesLastHour,
               lastClosedTradeWasLoss,
               lastClosedTradeTime,
+              isPaperCollection,
             }
           );
 
@@ -1110,6 +1166,9 @@ export class TradeBot {
             // Persist order & position state
             this.orderStore.save(this.orderManager.getOrders());
             this.positionStore.save(this.positionManager.getActivePositions());
+          } else {
+            // Salvează ordinul respins în store pentru ca BLOT / CSV să aibă motivul respingerii imediat
+            this.orderStore.save(this.orderManager.getOrders());
           }
         }
       }

@@ -21,6 +21,7 @@ export class RiskEngine {
       entriesLastHour?: number;
       lastClosedTradeWasLoss?: boolean;
       lastClosedTradeTime?: number;
+      isPaperCollection?: boolean;
     }
   ): RiskApproval {
     // 1. Kill Switch check
@@ -120,7 +121,9 @@ export class RiskEngine {
     // 4. Max Open Positions & Risk Allocation check
     const riskPct = config.riskPerTradePct > 0 ? config.riskPerTradePct : 50;
     const maxTradesByRisk = Math.max(1, Math.floor(100 / riskPct));
-    const effectiveMaxOpenPositions = isExpActive ? 50 : Math.min(config.maxOpenPositions, maxTradesByRisk);
+    const effectiveMaxOpenPositions = isExpActive
+      ? 50
+      : (options?.isPaperCollection ? config.maxOpenPositions : Math.min(config.maxOpenPositions, maxTradesByRisk));
 
     if (activePositions.length >= effectiveMaxOpenPositions) {
       return {
@@ -128,7 +131,7 @@ export class RiskEngine {
         sizeUSDT: 0,
         reason: isExpActive
           ? `Plafonul de 50 poziții simultane în modul Experiment a fost atins (${activePositions.length}/50).`
-          : `Max open positions reached for risk setting ${riskPct}% (${activePositions.length}/${effectiveMaxOpenPositions} allowed; max trades by risk: ${maxTradesByRisk})`,
+          : `Max open positions reached (${activePositions.length}/${effectiveMaxOpenPositions} allowed; risk setting ${riskPct}%, max trades by risk: ${maxTradesByRisk})`,
       };
     }
 

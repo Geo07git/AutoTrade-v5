@@ -25,6 +25,7 @@ export class OrderManager {
   private orders: Map<string, OrderRecord> = new Map();
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
   private symbolStatsTracker?: SymbolStatsTracker;
+  private rejectedSymbolsCooldown: Map<string, number> = new Map();
 
   constructor(
     exchange: IExecutionAdapter,
@@ -84,15 +85,51 @@ export class OrderManager {
   public setOrders(orders: OrderRecord[]) {
     this.orders.clear();
     const reconciled = reconcileHistoricalOrderPrecision(orders || []);
+    const now = Date.now();
     for (const order of reconciled.slice(0, 1000)) {
       if (order && order.id) {
         this.orders.set(order.id, order);
+        if (order.status === 'REJECTED' && order.symbol) {
+          const orderTime = order.updatedTime || order.createdTime;
+          if (now - orderTime < 15 * 60 * 1000) {
+            const existing = this.rejectedSymbolsCooldown.get(order.symbol) || 0;
+            if (orderTime > existing) {
+              this.rejectedSymbolsCooldown.set(order.symbol, orderTime);
+            }
+          }
+        }
       }
     }
   }
 
   public getOrder(id: string): OrderRecord | undefined {
     return this.orders.get(id);
+  }
+
+  /**
+   * Verifica daca un simbol se afla in perioada de cooldown (10-15 min) dupa un ORDER_REJECTED.
+   * Previne spam-ul de ordine respinse (ex: ANTHROPIC 63x, OPENAI 23x, TRX 20x).
+   */
+  public isSymbolInRejectionCooldown(symbol: string, cooldownMinutes: number = 15): { inCooldown: boolean; remainingMinutes: number } {
+    const lastRejection = this.rejectedSymbolsCooldown.get(symbol);
+    if (!lastRejection) return { inCooldown: false, remainingMinutes: 0 };
+    const elapsedMinutes = (Date.now() - lastRejection) / 60000;
+    if (elapsedMinutes < cooldownMinutes) {
+      return { inCooldown: true, remainingMinutes: parseFloat((cooldownMinutes - elapsedMinutes).toFixed(1)) };
+    }
+    return { inCooldown: false, remainingMinutes: 0 };
+  }
+
+  public recordRejection(symbol: string) {
+    this.rejectedSymbolsCooldown.set(symbol, Date.now());
+  }
+
+  public clearRejectionCooldown(symbol?: string) {
+    if (symbol) {
+      this.rejectedSymbolsCooldown.delete(symbol);
+    } else {
+      this.rejectedSymbolsCooldown.clear();
+    }
   }
 
   /**
@@ -124,6 +161,7 @@ export class OrderManager {
 
   public clearOrders(): void {
     this.orders.clear();
+    this.rejectedSymbolsCooldown.clear();
   }
 
   /**
@@ -402,6 +440,7 @@ export class OrderManager {
       orderRecord.status = 'REJECTED';
       orderRecord.rejectionReason = err.message || 'Execution error';
       orderRecord.updatedTime = Date.now();
+      this.recordRejection(signal.symbol);
 
       this.auditLogger('ORDER_REJECTED', `Order ${clientOrderId} rejected: ${err.message}`, {
         orderId: clientOrderId,
