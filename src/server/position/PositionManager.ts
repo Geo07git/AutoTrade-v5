@@ -904,7 +904,7 @@ export class PositionManager {
       // 3. Staged Time-Stop & Max Holding Time Check (Configurable Stagnation Exit + Hard Max Limit)
       const maxHoldingLimit = config.maxHoldingTimeMinutes && config.maxHoldingTimeMinutes > 0 ? config.maxHoldingTimeMinutes : 45;
       const stagnationMinutes = config.stagnationTimeMinutes && config.stagnationTimeMinutes > 0 ? config.stagnationTimeMinutes : 0;
-      const stagnationMinPeak = config.stagnationMinPeakPct ?? 0.5;
+      const stagnationMinPeak = config.stagnationMinPeakPct ?? 0.4;
 
       const heldMinutes = (Date.now() - pos.entryTime) / 60000;
 

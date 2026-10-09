@@ -45,32 +45,36 @@ const DEFAULT_CONFIG: AppConfig = {
   scannerFilter: { ...DEFAULT_UNIVERSE_FILTER },
 };
 
+export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
+  type: 'SCALP',
+  timeframes: ['15', '60'],
+  riskPerTradePct: 10,
+  maxOpenPositions: 15,
+  trailingActivationPct: 1.5,
+  trailingDistancePct: 0.5,
+  breakEvenActivationPct: 0.8, // Recomandat din 289 tranzacții PAPER
+  takeProfitPct: 20.0, // Coada dreaptă neschimbată
+  hardStopLossPct: 1.5, // Redus de la 2.5% la 1.5% (tăierea a 73% din pierderi)
+  equityProtectionActivationPct: 1.9,
+  equityTrailingDrawdownPct: 0.3,
+  minMomentumScore: 50,
+  maxMomentumScore: 99,
+  min24hVolumeUSDT: 1_500_000,
+  max24hVolumeUSDT: 0,
+  maxHoldingTimeMinutes: 45, // Neschimbat la 45 min
+  stagnationTimeMinutes: 25, // Stagnare la 25 min (eliberează sloturi)
+  stagnationMinPeakPct: 0.4, // Vârf minim de 0.4%
+  cooldownMinutes: 0,
+  sentimentThreshold: 5.0,
+  shortRegimeGuard: 'OFF',
+  btcBearGuard: false,
+  maxEntriesPerSymbolPerHour: 3,
+  cooldownAfterLossMinutes: 30,
+};
+
 const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
   SCALP: {
-    type: 'SCALP',
-    timeframes: ['15', '60'],
-    riskPerTradePct: 10,
-    maxOpenPositions: 15,
-    trailingActivationPct: 1.1,
-    trailingDistancePct: 0.35,
-    breakEvenActivationPct: 5.0,
-    takeProfitPct: 20.0,
-    hardStopLossPct: 20.0, // Stop-loss hard 20%
-    equityProtectionActivationPct: 1.9,
-    equityTrailingDrawdownPct: 0.3,
-    minMomentumScore: 50,
-    maxMomentumScore: 99,
-    min24hVolumeUSDT: 1_500_000,
-    max24hVolumeUSDT: 0,
-    maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
-    stagnationTimeMinutes: 0, // Time-stop eșalonat la stagnare (0 = dezactivat, folosește strict maxHoldingTimeMinutes)
-    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
-    cooldownMinutes: 0,
-    sentimentThreshold: 5.0,
-    shortRegimeGuard: 'OFF',
-    btcBearGuard: false,
-    maxEntriesPerSymbolPerHour: 3,
-    cooldownAfterLossMinutes: 30,
+    ...DEFAULT_SCALP_CONFIG,
   },
   MOMENTUM: {
     type: 'MOMENTUM',
@@ -191,6 +195,14 @@ export class TradeBot {
     // Ensure profiles are initialized in config
     if (!appConfig.profiles) {
       appConfig.profiles = { ...DEFAULT_PROFILES };
+      this.configStore.save(appConfig);
+    } else {
+      // Synchronize SCALP profile with recommended default parameters
+      appConfig.profiles.SCALP = {
+        ...appConfig.profiles.SCALP,
+        ...DEFAULT_SCALP_CONFIG,
+        maxOpenPositions: appConfig.executionMode === 'LIVE' ? 6 : 15,
+      };
       this.configStore.save(appConfig);
     }
 
@@ -1424,6 +1436,14 @@ export class TradeBot {
 
     const config = this.configStore.get();
     config.activeProfile = profile;
+    if (profile === 'SCALP') {
+      if (!config.profiles) config.profiles = { ...DEFAULT_PROFILES };
+      config.profiles.SCALP = {
+        ...config.profiles.SCALP,
+        ...DEFAULT_SCALP_CONFIG,
+        maxOpenPositions: config.executionMode === 'LIVE' ? 6 : 15,
+      };
+    }
     this.configStore.save();
 
     this.engine.setConfig(this.getProfiles()[profile]);

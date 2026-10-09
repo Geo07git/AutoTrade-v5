@@ -38,15 +38,27 @@ function getInitialConfig(): AppConfig {
       SCALP: {
         type: 'SCALP',
         timeframes: ['15', '60'],
-        riskPerTradePct: 1.5,
-        maxOpenPositions: 6,
-        trailingActivationPct: 1.0,
+        riskPerTradePct: 10,
+        maxOpenPositions: 15,
+        trailingActivationPct: 1.5,
         trailingDistancePct: 0.5,
-        breakEvenActivationPct: 0.6,
-        takeProfitPct: 2.0,
-        hardStopLossPct: 1.2,
-        equityProtectionActivationPct: 4.0,
-        equityTrailingDrawdownPct: 2.0
+        breakEvenActivationPct: 0.8,
+        takeProfitPct: 20.0,
+        hardStopLossPct: 1.5,
+        equityProtectionActivationPct: 1.9,
+        equityTrailingDrawdownPct: 0.3,
+        minMomentumScore: 50,
+        maxMomentumScore: 99,
+        min24hVolumeUSDT: 1_500_000,
+        maxHoldingTimeMinutes: 45,
+        stagnationTimeMinutes: 25,
+        stagnationMinPeakPct: 0.4,
+        cooldownMinutes: 0,
+        sentimentThreshold: 5.0,
+        shortRegimeGuard: 'OFF',
+        btcBearGuard: false,
+        maxEntriesPerSymbolPerHour: 3,
+        cooldownAfterLossMinutes: 30
       }
     }
   };

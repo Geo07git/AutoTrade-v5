@@ -458,13 +458,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const isDraggingShortcuts = useRef(false);
   const dragStartX = useRef(0);
   const dragScrollLeft = useRef(0);
-  const [equityProtAct, setEquityProtAct] = useState(profileConfig?.equityProtectionActivationPct ?? 0);
-  const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0);
+  const [equityProtAct, setEquityProtAct] = useState(profileConfig?.equityProtectionActivationPct ?? 1.9);
+  const [equityTrailingDraw, setEquityTrailingDraw] = useState(profileConfig?.equityTrailingDrawdownPct ?? 0.3);
   const [riskPerTrade, setRiskPerTrade] = useState(profileConfig?.riskPerTradePct ?? 10);
-  const [maxPositions, setMaxPositions] = useState(profileConfig?.maxOpenPositions ?? 5);
-  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 20.0);
-  const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.1);
-  const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.35);
+  const [maxPositions, setMaxPositions] = useState(profileConfig?.maxOpenPositions ?? 15);
+  const [hardStopLoss, setHardStopLoss] = useState(profileConfig?.hardStopLossPct ?? 1.5);
+  const [trailingAct, setTrailingAct] = useState(profileConfig?.trailingActivationPct ?? 1.5);
+  const [trailingDist, setTrailingDist] = useState(profileConfig?.trailingDistancePct ?? 0.5);
   const [minMomentum, setMinMomentum] = useState(
     Math.min(95, Math.max(50, profileConfig?.minMomentumScore ?? 50))
   );
@@ -481,12 +481,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       ? profileConfig.max24hVolumeUSDT / 1_000_000
       : 0
   );
-  const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 0);
-  const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 1.0);
+  const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 20.0);
+  const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 0.8);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 45);
-  const [stagnationTime, setStagnationTime] = useState(profileConfig?.stagnationTimeMinutes ?? 0);
-  const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 5);
-  const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 1.5);
+  const [stagnationTime, setStagnationTime] = useState(profileConfig?.stagnationTimeMinutes ?? 25);
+  const [stagnationMinPeak, setStagnationMinPeak] = useState(profileConfig?.stagnationMinPeakPct ?? 0.4);
+  const [cooldownMins, setCooldownMins] = useState(profileConfig?.cooldownMinutes ?? 0);
+  const [sentimentThreshold, setSentimentThreshold] = useState(profileConfig?.sentimentThreshold ?? 5.0);
   const [shortRegimeGuard, setShortRegimeGuard] = useState<'BEAR_ONLY' | 'OFF' | 'DISABLED'>(profileConfig?.shortRegimeGuard ?? 'OFF');
   const [btcBearGuard, setBtcBearGuard] = useState<boolean>(profileConfig?.btcBearGuard ?? false);
   const [minShortScore, setMinShortScore] = useState<number>(profileConfig?.minShortMomentumScore ?? 0);
@@ -1805,19 +1806,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   };
 
   const hasUnsavedSettings = profileConfig ? (
-    riskPerTrade !== (profileConfig.riskPerTradePct ?? 50) ||
-    maxPositions !== (profileConfig.maxOpenPositions ?? 2) ||
-    hardStopLoss !== (profileConfig.hardStopLossPct ?? 20.0) ||
-    trailingAct !== (profileConfig.trailingActivationPct ?? 1.1) ||
-    trailingDist !== (profileConfig.trailingDistancePct ?? 0.35) ||
+    riskPerTrade !== (profileConfig.riskPerTradePct ?? 10) ||
+    maxPositions !== (profileConfig.maxOpenPositions ?? 15) ||
+    hardStopLoss !== (profileConfig.hardStopLossPct ?? 1.5) ||
+    trailingAct !== (profileConfig.trailingActivationPct ?? 1.5) ||
+    trailingDist !== (profileConfig.trailingDistancePct ?? 0.5) ||
     minMomentum !== (profileConfig.minMomentumScore ?? 50) ||
     maxMomentum !== (profileConfig.maxMomentumScore ?? 99) ||
     min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 1_500_000) / 1_000_000) ||
     max24hVol !== ((profileConfig.max24hVolumeUSDT ?? 0) / 1_000_000) ||
-    takeProfit !== (profileConfig.takeProfitPct ?? 20) ||
-    breakEven !== (profileConfig.breakEvenActivationPct ?? 5.0) ||
+    takeProfit !== (profileConfig.takeProfitPct ?? 20.0) ||
+    breakEven !== (profileConfig.breakEvenActivationPct ?? 0.8) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 45) ||
-    stagnationTime !== (profileConfig.stagnationTimeMinutes ?? 0) ||
+    stagnationTime !== (profileConfig.stagnationTimeMinutes ?? 25) ||
+    stagnationMinPeak !== (profileConfig.stagnationMinPeakPct ?? 0.4) ||
     equityProtAct !== (profileConfig.equityProtectionActivationPct ?? 1.9) ||
     equityTrailingDraw !== (profileConfig.equityTrailingDrawdownPct ?? 0.3) ||
     cooldownMins !== (profileConfig.cooldownMinutes ?? 0) ||
@@ -1834,11 +1836,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     if (profileConfig && !hasUnsavedSettings) {
       setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 1.9);
       setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
-      setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
-      setMaxPositions(profileConfig.maxOpenPositions ?? 2);
-      setHardStopLoss(profileConfig.hardStopLossPct ?? 20.0);
-      setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
-      setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
+      setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
+      setMaxPositions(profileConfig.maxOpenPositions ?? 15);
+      setHardStopLoss(profileConfig.hardStopLossPct ?? 1.5);
+      setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
+      setTrailingDist(profileConfig.trailingDistancePct ?? 0.5);
       setMinMomentum(
         Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
       );
@@ -1855,10 +1857,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           ? profileConfig.max24hVolumeUSDT / 1_000_000
           : 0
       );
-      setTakeProfit(profileConfig.takeProfitPct ?? 20);
-      setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
+      setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
+      setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
-      setStagnationTime(profileConfig.stagnationTimeMinutes ?? 0);
+      setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
+      setStagnationMinPeak(profileConfig.stagnationMinPeakPct ?? 0.4);
       setCooldownMins(profileConfig.cooldownMinutes ?? 0);
       setSentimentThreshold(profileConfig.sentimentThreshold ?? 5.0);
       setShortRegimeGuard(profileConfig.shortRegimeGuard ?? 'OFF');
@@ -1885,6 +1888,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
       stagnationTimeMinutes: stagnationTime,
+      stagnationMinPeakPct: stagnationMinPeak,
       equityProtectionActivationPct: equityProtAct,
       equityTrailingDrawdownPct: equityTrailingDraw,
       cooldownMinutes: cooldownMins,
@@ -1901,11 +1905,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
   const handleResetSettingsToSaved = () => {
     if (!profileConfig) return;
-    setRiskPerTrade(profileConfig.riskPerTradePct ?? 50);
-    setMaxPositions(profileConfig.maxOpenPositions ?? 2);
-    setHardStopLoss(profileConfig.hardStopLossPct ?? 20.0);
-    setTrailingAct(profileConfig.trailingActivationPct ?? 1.1);
-    setTrailingDist(profileConfig.trailingDistancePct ?? 0.35);
+    setRiskPerTrade(profileConfig.riskPerTradePct ?? 10);
+    setMaxPositions(profileConfig.maxOpenPositions ?? 15);
+    setHardStopLoss(profileConfig.hardStopLossPct ?? 1.5);
+    setTrailingAct(profileConfig.trailingActivationPct ?? 1.5);
+    setTrailingDist(profileConfig.trailingDistancePct ?? 0.5);
     setMinMomentum(
       Math.min(95, Math.max(50, profileConfig.minMomentumScore ?? 50))
     );
@@ -1922,10 +1926,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         ? profileConfig.max24hVolumeUSDT / 1_000_000
         : 0
     );
-    setTakeProfit(profileConfig.takeProfitPct ?? 20);
-    setBreakEven(profileConfig.breakEvenActivationPct ?? 5.0);
+    setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
+    setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
-    setStagnationTime(profileConfig.stagnationTimeMinutes ?? 0);
+    setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
+    setStagnationMinPeak(profileConfig.stagnationMinPeakPct ?? 0.4);
     setEquityProtAct(profileConfig.equityProtectionActivationPct ?? 1.9);
     setEquityTrailingDraw(profileConfig.equityTrailingDrawdownPct ?? 0.3);
     setCooldownMins(profileConfig.cooldownMinutes ?? 0);
@@ -2729,18 +2734,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Distanță Retragere:</span>
-                          <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
+                          <span className="text-zinc-300">-{profileConfig?.trailingDistancePct ?? 0.5}%</span>
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Break-Even (BE):</span>
                           <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
-                            {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 5.0}%)`}
+                            {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 0.8}%)`}
                           </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Hard Stop Loss:</span>
                           <span className="text-rose-400 font-bold font-mono">
-                            {pos.stopLossPrice ? `${formatPrice(pos.stopLossPrice, { prefix: '$' })} (-${profileConfig?.hardStopLossPct ?? 20.0}%)` : `-${profileConfig?.hardStopLossPct ?? 20.0}%`}
+                            {pos.stopLossPrice ? `${formatPrice(pos.stopLossPrice, { prefix: '$' })} (-${profileConfig?.hardStopLossPct ?? 1.5}%)` : `-${profileConfig?.hardStopLossPct ?? 1.5}%`}
                           </span>
                         </div>
                       </div>
@@ -2922,7 +2927,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             {/* COMPACT TOOLS MENU BUTTON */}
             <button
               type="button"
-              onClick={() => setShowToolsMenu(true)}
+              onClick={() => setShowToolsMenu(!showToolsMenu)}
               className={`px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer shrink-0 ${
                 showToolsMenu
                   ? 'bg-amber-500 text-black border-amber-400'
@@ -3814,7 +3819,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Capacitate:</span>
                       <span className="font-bold text-zinc-200">
-                        {status?.activePositions?.length || 0} / {profileConfig?.maxOpenPositions ?? 5}
+                        {status?.activePositions?.length || 0} / {profileConfig?.maxOpenPositions ?? 15}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -3832,11 +3837,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Hard SL:</span>
-                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 20.0}%</span>
+                      <span className="font-bold text-rose-400">-{profileConfig?.hardStopLossPct ?? 1.5}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Break-Even:</span>
-                      <span className="font-bold text-amber-300">+{profileConfig?.breakEvenActivationPct ?? 5.0}%</span>
+                      <span className="font-bold text-amber-300">+{profileConfig?.breakEvenActivationPct ?? 0.8}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Take-Profit:</span>
@@ -3853,11 +3858,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Act. Poziție:</span>
-                      <span className="font-bold text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.1}%</span>
+                      <span className="font-bold text-emerald-400">+{profileConfig?.trailingActivationPct ?? 1.5}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Pas Urmărire:</span>
-                      <span className="font-bold text-purple-300">-{profileConfig?.trailingDistancePct ?? 0.35}%</span>
+                      <span className="font-bold text-purple-300">-{profileConfig?.trailingDistancePct ?? 0.5}%</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Trail Eq DD:</span>
@@ -4621,23 +4626,23 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Max Poziții</span>
-                    <strong className="text-zinc-200 text-xs">{profileConfig?.maxOpenPositions ?? 5} sloturi</strong>
+                    <strong className="text-zinc-200 text-xs">{profileConfig?.maxOpenPositions ?? 15} sloturi</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Hard Stop-Loss</span>
-                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 20.0}%</strong>
+                    <strong className="text-rose-400 text-xs">-{profileConfig?.hardStopLossPct ?? 1.5}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Break-Even Act</span>
-                    <strong className="text-amber-300 text-xs">+{profileConfig?.breakEvenActivationPct ?? 5.0}%</strong>
+                    <strong className="text-amber-300 text-xs">+{profileConfig?.breakEvenActivationPct ?? 0.8}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Trailing Act</span>
-                    <strong className="text-emerald-400 text-xs">+{profileConfig?.trailingActivationPct ?? 1.1}%</strong>
+                    <strong className="text-emerald-400 text-xs">+{profileConfig?.trailingActivationPct ?? 1.5}%</strong>
                   </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Trailing Dist</span>
-                    <strong className="text-purple-400 text-xs">-{profileConfig?.trailingDistancePct ?? 0.35}%</strong>
+                    <strong className="text-purple-400 text-xs">-{profileConfig?.trailingDistancePct ?? 0.5}%</strong>
                   </div>
 
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
@@ -4969,6 +4974,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     />
                     <div className="text-[10px] text-zinc-500">
                       Setează 0 pentru a dezactiva ieșirea la stagnare și a lăsa tranzacția să ruleze până la Max Hold Time ({maxHoldTime}m).
+                    </div>
+                  </div>
+
+                  {/* Stagnation Min Peak - step 0.05 */}
+                  <div className="bg-zinc-900 p-3 rounded border border-cyan-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300">Stagnation Min Peak (%)</span>
+                      <span className="font-bold text-cyan-400">
+                        +{stagnationMinPeak.toFixed(2)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="2.0"
+                      step="0.05"
+                      value={stagnationMinPeak}
+                      onChange={(e) => setStagnationMinPeak(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                    <div className="text-[10px] text-zinc-500">
+                      Ieșire dacă vârful PnL este &lt; {stagnationMinPeak}% și PnL curent &lt;= +0.2% după {stagnationTime} min de stagnare.
                     </div>
                   </div>
 
