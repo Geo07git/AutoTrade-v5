@@ -2714,6 +2714,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               : '45m unificat'}
                           </span>
                         </div>
+                        {profileConfig?.stagnationTimeMinutes && profileConfig.stagnationTimeMinutes > 0 && (
+                          <div className="flex justify-between text-[11px]" title={`Ieșire dacă vârful < ${(profileConfig?.stagnationMinPeakPct ?? 0.40).toFixed(2)}% și PnL <= +0.2% după ${profileConfig.stagnationTimeMinutes}m`}>
+                            <span className="text-zinc-500">Ieșire Stagnare:</span>
+                            <span className={holdingMinutes >= profileConfig.stagnationTimeMinutes ? (peakPnlPct < (profileConfig.stagnationMinPeakPct ?? 0.40) ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold') : 'text-cyan-400'}>
+                              {holdingMinutes >= profileConfig.stagnationTimeMinutes
+                                ? `Verificat (${holdingMinutes.toFixed(1)}m, Vârf +${peakPnlPct.toFixed(2)}% vs prag +${(profileConfig.stagnationMinPeakPct ?? 0.40).toFixed(2)}%)`
+                                : `${(profileConfig.stagnationTimeMinutes - holdingMinutes).toFixed(1)}m rămase (Prag: +${(profileConfig.stagnationMinPeakPct ?? 0.40).toFixed(2)}%)`}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Panel 3: Stare Risc & Trailing */}
@@ -3888,14 +3898,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Hold / CD:</span>
+                      <span className="text-slate-400">Hold / Stag:</span>
                       <span className="font-bold text-amber-300">
-                        {profileConfig?.maxHoldingTimeMinutes ?? 45}m / {profileConfig?.cooldownMinutes ?? 0}m
+                        {profileConfig?.maxHoldingTimeMinutes ?? 45}m / {profileConfig?.stagnationTimeMinutes && profileConfig.stagnationTimeMinutes > 0 ? `${profileConfig.stagnationTimeMinutes}m (+${(profileConfig.stagnationMinPeakPct ?? 0.40).toFixed(2)}%)` : 'OFF'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Sentiment:</span>
-                      <span className="font-bold text-zinc-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</span>
+                      <span className="text-slate-400">CD / Sentim:</span>
+                      <span className="font-bold text-zinc-300">
+                        {profileConfig?.cooldownMinutes ?? 0}m / ±{profileConfig?.sentimentThreshold ?? 1.5}%
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -4661,6 +4673,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       {profileConfig?.stagnationTimeMinutes && profileConfig.stagnationTimeMinutes > 0 ? `${profileConfig.stagnationTimeMinutes} min` : 'OFF (0m)'}
                     </strong>
                   </div>
+                  <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5" title="Ieșire dacă vârful PnL este < 0.40% și PnL curent <= +0.2% după 25 min de stagnare">
+                    <span className="text-slate-400 block text-[9px] uppercase">Stagnation Min Peak</span>
+                    <strong className="text-cyan-400 text-xs">
+                      +{((profileConfig?.stagnationMinPeakPct ?? 0.40)).toFixed(2)}%
+                    </strong>
+                  </div>
                   <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-1.5">
                     <span className="text-slate-400 block text-[9px] uppercase">Equity Prot Act</span>
                     <strong className="text-cyan-400 text-xs">
@@ -4692,13 +4710,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-zinc-900 flex flex-wrap items-center justify-between text-[10px] text-zinc-400 gap-2">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span>Prag Clasificare Sentiment OKX: <strong className="text-amber-300">±{profileConfig?.sentimentThreshold ?? 1.5}%</strong></span>
                     <span>•</span>
                     <span>Timeframes: <strong className="text-zinc-200">{profileConfig?.timeframes?.join(', ') || '15m, 1h'}</strong></span>
+                    <span>•</span>
+                    <span>Regulă Stagnare: <strong className="text-cyan-400">Ieșire dacă vârful &lt; +{(profileConfig?.stagnationMinPeakPct ?? 0.40).toFixed(2)}% și PnL &le; +0.2% după {profileConfig?.stagnationTimeMinutes ?? 25} min</strong></span>
                   </div>
                   <div className="text-zinc-500">
-                    Modificările glisoarelor de mai jos devin active după apăsarea butonului <strong>SAVE CHANGES</strong>.
+                    Modificările glisoarelor devin active după apăsarea butonului <strong>SAVE CHANGES</strong>.
                   </div>
                 </div>
               </div>
@@ -4994,8 +5014,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       onChange={(e) => setStagnationMinPeak(Number(e.target.value))}
                       className="w-full accent-cyan-500 cursor-pointer"
                     />
-                    <div className="text-[10px] text-zinc-500">
-                      Ieșire dacă vârful PnL este &lt; {stagnationMinPeak}% și PnL curent &lt;= +0.2% după {stagnationTime} min de stagnare.
+                    <div className="text-[10px] text-zinc-400 font-mono">
+                      Ieșire dacă vârful PnL este &lt; {stagnationMinPeak.toFixed(2)}% și PnL curent &lt;= +0.2% după {stagnationTime} min de stagnare.
                     </div>
                   </div>
 

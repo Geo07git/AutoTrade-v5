@@ -94,7 +94,7 @@ const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
     max24hVolumeUSDT: 0,
     maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
     stagnationTimeMinutes: 0, // Time-stop eșalonat la stagnare (0 = dezactivat)
-    stagnationMinPeakPct: 0.5, // Vârf minim de +0.5% cerut la stagnare
+    stagnationMinPeakPct: 0.4, // Vârf minim de +0.4% cerut la stagnare
     cooldownMinutes: 60,
     sentimentThreshold: 2.0,
     shortRegimeGuard: 'OFF',
@@ -1227,6 +1227,11 @@ export class TradeBot {
     config.executionMode = mode;
     config.testnet = false;
     config.killSwitchEngaged = false;
+    if (config.profiles?.SCALP) {
+      config.profiles.SCALP.maxOpenPositions = mode === 'LIVE' ? 6 : 15;
+      config.profiles.SCALP.stagnationTimeMinutes = 25;
+      config.profiles.SCALP.stagnationMinPeakPct = 0.4;
+    }
     this.configStore.save(config);
 
     // Switch active execution adapter
