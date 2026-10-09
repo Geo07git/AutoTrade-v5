@@ -362,6 +362,24 @@ export function initCapacitorMockBackend() {
           });
         }
 
+        if (endpoint.endsWith('/api/bot/invert-signals')) {
+          const current = status.config.invertSignals ?? false;
+          const target = typeof body?.enabled === 'boolean' ? body.enabled : !current;
+          status.config.invertSignals = target;
+          saveStatus(status);
+          logs.unshift({
+            id: 'log_' + Date.now(),
+            timestamp: Date.now(),
+            type: 'CONFIG_UPDATED',
+            message: `[EXPERIMENT] Inversare Semnale (LONG ⇄ SHORT) pentru tot spectrul de scor a fost ${target ? 'ACTIVATĂ 🧪' : 'DEZACTIVATĂ 🛡️'}.`
+          });
+          saveLogs(logs);
+          return new Response(JSON.stringify({ success: true, invertSignals: target, status }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
         if (endpoint.endsWith('/api/bot/mode')) {
           if (method === 'POST' && body) {
             status.executionMode = body.mode || 'PAPER';

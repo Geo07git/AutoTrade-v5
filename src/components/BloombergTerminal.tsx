@@ -2987,13 +2987,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
                   <span className="font-bold text-[9px] sm:text-[10px] text-purple-300">FADE:</span>
                   <span className="text-[9px] sm:text-[10px]">
-                    <span className="hidden sm:inline">Semnale Climax Inversate</span>
-                    <span className="sm:hidden">Fade Inv</span>
+                    <span className="hidden sm:inline">Inversare Semnale (Tot Spectrul)</span>
+                    <span className="sm:hidden">Fade (All)</span>
                   </span>
                   <button
                     onClick={handleToggleInvertSignals}
                     className="ml-0.5 text-[9px] text-purple-400 hover:text-white underline cursor-pointer"
-                    title="Dezactivează Fade Climax"
+                    title="Dezactivează Inversare Semnale"
                   >
                     [✕]
                   </button>
@@ -6751,12 +6751,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 onClick={() => {
                   handleToggleInvertSignals();
                 }}
-                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-purple-500/50 text-zinc-200 hover:text-purple-300 transition-colors cursor-pointer"
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-purple-500/50 text-zinc-200 hover:text-purple-300 transition-colors cursor-pointer text-left"
               >
-                <span className="flex items-center space-x-2.5">
+                <div className="flex items-center space-x-2.5">
                   <span className="text-sm">🧪</span>
-                  <span className="font-medium">Inversare Semnale (Fade Climax)</span>
-                </span>
+                  <div>
+                    <div className="font-medium">Inversare Semnale (Fade Climax)</div>
+                    <div className="text-[10px] text-zinc-400">Tot spectrul de scor (Paper &amp; Live) • Long ⇄ Short</div>
+                  </div>
+                </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${status?.config?.invertSignals ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-zinc-800 text-zinc-400'}`}>
                   {status?.config?.invertSignals ? 'ON' : 'OFF'}
                 </span>

@@ -840,7 +840,7 @@ export class TradeBot {
         }
         if (!opp.isEligible) return false;
         if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
-        if (profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
+        if (!config.invertSignals && profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
         const effMinVol = (config.scannerFilter?.min24hVolumeUSDT && config.scannerFilter.min24hVolumeUSDT > 0)
           ? config.scannerFilter.min24hVolumeUSDT
           : (profile.min24hVolumeUSDT || 0);
@@ -968,12 +968,13 @@ export class TradeBot {
 
         // STRICT CHECK 3.8: Exclude Climax (rvol 10 + atrExp 5) din LIVE
         // Ocolit în PAPER (paperFullCollection) pentru analiza completă a epuizărilor
+        // Ocolit când Inversare Semnale (Fade Climax) este activă, permițând fade-ul pe epuizări extreme
         const isClimaxTrade = Boolean(
           candidate.climax ||
           candidate.signal?.climax ||
           (candidate.rvol >= 9.95 && candidate.atrExpansion >= 4.95)
         );
-        if (!isExpActive && !isPaperCollection && isClimaxTrade) {
+        if (!isExpActive && !isPaperCollection && isClimaxTrade && !config.invertSignals) {
           this.logAudit(
             'CANDIDATE_REJECTED',
             `Candidatul #${candidate.rank} (${symbol}) omis: Climax extrem de volum și expansiune (RVOL: ${candidate.rvol}x, ATRexp: ${candidate.atrExpansion}x). Exclus din LIVE pentru prevenirea tranzacțiilor la epuizare.`,
@@ -1071,8 +1072,22 @@ export class TradeBot {
           signal.isFadeTrade = candidate.isFadeTrade || signal.isFadeTrade;
           signal.originalSide = candidate.originalSide || signal.originalSide || signal.side;
 
+          // In Invert Signals mode: guarantee signal.side is inverted across ALL score ranges (paper and live)
+          if (config.invertSignals) {
+            signal.isFadeTrade = true;
+            if (candidate.originalSide && candidate.side !== candidate.originalSide) {
+              signal.side = candidate.side;
+            } else if (signal.side === signal.originalSide) {
+              signal.side = signal.originalSide === 'BUY' ? 'SELL' : 'BUY';
+              candidate.side = signal.side;
+            }
+          }
+
+          const isExtremeClimax = signal.score > (profile.maxMomentumScore ?? 82) || candidate.climax || signal.climax;
           const signalMessage = signal.isFadeTrade
-            ? `[FADE CLIMAX] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+            ? (isExtremeClimax
+                ? `[FADE CLIMAX] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+                : `[INVERSARE SEMNALE] Momentum ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Spectru Complet Inversat, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`)
             : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`;
 
           this.logAudit(
@@ -1779,7 +1794,7 @@ export class TradeBot {
     this.configStore.save(config);
     this.logAudit(
       'CONFIG_UPDATED',
-      `[EXPERIMENT] Inversare Semnale (LONG ⇄ SHORT) a fost ${invert ? 'ACTIVATĂ 🧪' : 'DEZACTIVATĂ (Mod Normal) 🛡️'}.`,
+      `[EXPERIMENT] Inversare Semnale (LONG ⇄ SHORT) pentru tot spectrul de scor a fost ${invert ? 'ACTIVATĂ 🧪' : 'DEZACTIVATĂ (Mod Normal) 🛡️'}.`,
       { invertSignals: invert }
     );
     return invert;

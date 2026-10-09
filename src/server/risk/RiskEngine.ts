@@ -151,7 +151,7 @@ export class RiskEngine {
     const maxScoreCap = config.maxMomentumScore !== undefined ? config.maxMomentumScore : 100;
     const minScoreRequired = config.minMomentumScore !== undefined ? config.minMomentumScore : 50;
 
-    if (maxScoreCap < 100 && signal.score > maxScoreCap) {
+    if (!signal.isFadeTrade && maxScoreCap < 100 && signal.score > maxScoreCap) {
       return {
         approved: false,
         sizeUSDT: 0,

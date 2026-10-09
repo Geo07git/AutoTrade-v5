@@ -70,18 +70,23 @@ export class MomentumEngine {
       return null;
     }
 
-    // CASE 1: Standard Momentum Continuation (threshold <= score <= maxScore)
+    // CASE 1: Standard Momentum Continuation / Inversion (threshold <= score <= maxScore)
+    const shouldInvert = Boolean(options?.invertExtremeSignals);
     if (metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore)) {
       // STRICT HTF CONFLUENCE FILTER for continuation:
       if (!metrics.htfAligned) {
         return null;
       }
 
+      const signalSide: OrderSide = shouldInvert
+        ? (metrics.side === 'BUY' ? 'SELL' : 'BUY')
+        : metrics.side;
+
       return {
         symbol,
-        side: metrics.side,
+        side: signalSide,
         originalSide: metrics.side,
-        isFadeTrade: false,
+        isFadeTrade: shouldInvert,
         climax: Boolean(metrics.climax || metrics.factors?.climax),
         score: metrics.score,
         profile: this.config.type,
@@ -95,9 +100,10 @@ export class MomentumEngine {
           score: metrics.score,
           threshold: metrics.threshold,
           maxScore,
-          side: metrics.side,
+          side: signalSide,
           originalSide: metrics.side,
-          isFadeTrade: false,
+          isFadeTrade: shouldInvert,
+          fadeClimax: shouldInvert,
           climax: Boolean(metrics.climax || metrics.factors?.climax),
           mom: metrics.mom,
           rvol: metrics.rvol,
@@ -117,7 +123,7 @@ export class MomentumEngine {
 
     // CASE 2: Extreme Momentum Climax Zone (score > maxScore when maxScore < 100)
     // In inverted mode: Instead of discarding, we INVERT the side to fade the exhaustion blow-off / climax
-    if (maxScore < 100 && metrics.score > maxScore && options?.invertExtremeSignals) {
+    if (maxScore < 100 && metrics.score > maxScore && shouldInvert) {
       const invertedSide: OrderSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
 
       return {
@@ -192,6 +198,7 @@ export class MomentumEngine {
     const bypassImpulse = options?.bypassImpulseGate ?? false;
     const passesImpulseGate = bypassImpulse || (metrics.mom !== 0 && impulseScore >= 10 && momInAtrUnits >= 0.5);
 
+    const shouldInvert = Boolean(options?.invertExtremeSignals);
     const isExtreme = maxScore < 100 && metrics.score > maxScore;
     const isStandard = metrics.score >= metrics.threshold && (maxScore >= 100 || metrics.score <= maxScore);
 
@@ -199,15 +206,23 @@ export class MomentumEngine {
     let finalSide: OrderSide = metrics.side;
     let isFadeTrade = false;
 
-    if (isStandard && passesImpulseGate) {
-      isEligible = metrics.htfAligned;
-      finalSide = metrics.side;
-      isFadeTrade = false;
-    } else if (isExtreme && options?.invertExtremeSignals && passesImpulseGate) {
-      // Invert signals above maxScore as a fade strategy
-      isEligible = true;
-      finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
-      isFadeTrade = true;
+    if (shouldInvert) {
+      // Invert signals across the ENTIRE score spectrum (both standard and extreme scores)
+      if (isStandard && passesImpulseGate) {
+        isEligible = metrics.htfAligned;
+        finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
+        isFadeTrade = true;
+      } else if (isExtreme && passesImpulseGate) {
+        isEligible = true;
+        finalSide = metrics.side === 'BUY' ? 'SELL' : 'BUY';
+        isFadeTrade = true;
+      }
+    } else {
+      if (isStandard && passesImpulseGate) {
+        isEligible = metrics.htfAligned;
+        finalSide = metrics.side;
+        isFadeTrade = false;
+      }
     }
 
     return {
