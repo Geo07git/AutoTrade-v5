@@ -601,20 +601,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   }, [showOKXModal, detectedServerIp]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) {
-        setShowToolsMenu(false);
-      }
-    };
-    if (showToolsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showToolsMenu]);
-
   const handleCopyServerIp = () => {
     if (detectedServerIp) {
       navigator.clipboard.writeText(detectedServerIp);
@@ -2933,171 +2919,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               <span>{isKillSwitch ? 'KILL ENGAGED' : 'KILL SWITCH'}</span>
             </button>
 
-            {/* COMPACT TOOLS DROPDOWN MENU */}
-            <div className="relative" ref={toolsMenuRef}>
-              <button
-                onClick={() => setShowToolsMenu(!showToolsMenu)}
-                className={`px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer ${
-                  showToolsMenu
-                    ? 'bg-amber-500 text-black border-amber-400'
-                    : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:text-amber-400 hover:border-amber-500/50'
-                }`}
-                title="Meniu Utilități & Integrări (OKX, TG, FADE, VAULT, AUTH, MONO, SYNC, LIMBĂ)"
-              >
-                <MoreHorizontal className="w-3.5 h-3.5" />
-                <span>UTIL</span>
-              </button>
-
-              {/* DROPDOWN POPOVER */}
-              {showToolsMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-64 bg-zinc-950 border border-amber-500/50 rounded shadow-2xl py-2 px-2 z-50 text-xs flex flex-col space-y-1.5 backdrop-blur-md">
-                  <div className="text-[10px] uppercase font-bold text-zinc-500 px-2 pb-1 border-b border-zinc-800 flex justify-between">
-                    <span>PANOU INSTRUMENTE</span>
-                    <span className="text-amber-400">TB5</span>
-                  </div>
-
-                  {/* Integrations */}
-                  <button
-                    onClick={() => {
-                      setShowOKXModal(true);
-                      setShowToolsMenu(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <Key className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Conexiune OKX</span>
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${status?.config?.okxApiKey ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      if (!isTelegramConfigured) {
-                        setActiveScreen('SET');
-                        setShowToolsMenu(false);
-                        return;
-                      }
-                      await handleToggleTelegramNotifications();
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      {isTelegramNotificationsEnabled ? <Bell className="w-3.5 h-3.5 text-sky-400" /> : <BellOff className="w-3.5 h-3.5 text-rose-400" />}
-                      <span>Telegram Alerte</span>
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${!isTelegramNotificationsEnabled ? 'bg-rose-950 text-rose-300' : 'bg-sky-950 text-sky-300'}`}>
-                      {isTelegramNotificationsEnabled ? 'ACTIV' : 'MUTE'}
-                    </span>
-                  </button>
-
-                  {/* Fade & Vault */}
-                  <button
-                    onClick={() => {
-                      handleToggleInvertSignals();
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <span>🧪</span>
-                      <span>Fade Climax</span>
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${status?.config?.invertSignals ? 'bg-purple-950 text-purple-300' : 'bg-zinc-800 text-zinc-400'}`}>
-                      {status?.config?.invertSignals ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      handleToggleProfitVault();
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <span>🏦</span>
-                      <span>Profit Vault</span>
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${isVaultActive ? 'bg-cyan-950 text-cyan-300' : 'bg-zinc-800 text-zinc-400'}`}>
-                      {isVaultActive ? 'ON' : 'OFF'}
-                    </span>
-                  </button>
-
-                  <div className="border-t border-zinc-800 my-1" />
-
-                  {/* Utilities */}
-                  <button
-                    onClick={() => {
-                      setShowTokenModal(true);
-                      setShowToolsMenu(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <Lock className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Bot Control Token (AUTH)</span>
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsMonochrome(!isMonochrome);
-                      setShowToolsMenu(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <span>🎨</span>
-                      <span>Mod Monocrom</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-400">{isMonochrome ? 'ACTIV' : 'INACTIV'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onRefresh();
-                      setShowToolsMenu(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-zinc-300 hover:text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Sincronizare Forțată (SYNC)</span>
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowManualModal(true);
-                      setShowToolsMenu(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-zinc-900 text-amber-300 cursor-pointer"
-                  >
-                    <span className="flex items-center space-x-2">
-                      <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Manual Utilizare (PDF)</span>
-                    </span>
-                  </button>
-
-                  <div className="border-t border-zinc-800 pt-1 flex items-center justify-between px-2">
-                    <span className="text-zinc-500 text-[10px]">LIMBĂ INTERFAȚĂ:</span>
-                    <div className="flex bg-zinc-900 rounded border border-zinc-800 p-0.5">
-                      <button
-                        onClick={() => setLang('EN')}
-                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${lang === 'EN' ? 'bg-amber-500 text-black' : 'text-zinc-400'}`}
-                      >
-                        EN
-                      </button>
-                      <button
-                        onClick={() => setLang('RO')}
-                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${lang === 'RO' ? 'bg-amber-500 text-black' : 'text-zinc-400'}`}
-                      >
-                        RO
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* COMPACT TOOLS MENU BUTTON */}
+            <button
+              type="button"
+              onClick={() => setShowToolsMenu(true)}
+              className={`px-1.5 sm:px-2 py-1 rounded text-[10px] sm:text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer shrink-0 ${
+                showToolsMenu
+                  ? 'bg-amber-500 text-black border-amber-400'
+                  : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:text-amber-400 hover:border-amber-500/50'
+              }`}
+              title="Meniu Utilități & Integrări (OKX, TG, FADE, VAULT, AUTH, MONO, SYNC, LIMBĂ)"
+            >
+              <MoreHorizontal className="w-3.5 h-3.5" />
+              <span>UTIL</span>
+            </button>
           </div>
         </header>
 
@@ -6787,6 +6622,198 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               >
                 {isKillSwitch ? 'DA, REIA TRANZACȚIONAREA' : 'DA, DECLANȘEAZĂ KILL SWITCH'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* 🛠️ MODAL OFICIAL UTILITĂȚI & INTEGRĂRI TB5 (CENTRAT, HIGH Z-INDEX) */}
+      {/* ================================================================= */}
+      {showToolsMenu && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-sm select-none"
+          onClick={() => setShowToolsMenu(false)}
+        >
+          <div 
+            className="bg-zinc-950 border-2 border-amber-500/80 rounded-lg shadow-2xl w-full max-w-sm flex flex-col p-4 space-y-3 font-mono text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <div className="flex items-center space-x-2">
+                <MoreHorizontal className="w-4 h-4 text-amber-400" />
+                <span className="font-bold text-amber-400 tracking-wider">PANOU UTILITĂȚI &amp; INTEGRĂRI</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowToolsMenu(false)}
+                className="text-zinc-400 hover:text-white px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List of Utilities & Tools */}
+            <div className="flex flex-col space-y-2 py-1 max-h-[75vh] overflow-y-auto terminal-scrollbar pr-0.5">
+              {/* 1. OKX Connection */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowToolsMenu(false);
+                  setShowOKXModal(true);
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-500/50 text-zinc-200 hover:text-amber-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-medium">Conexiune OKX &amp; Chei API</span>
+                </span>
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${status?.config?.okxApiKey ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-zinc-600'}`} />
+              </button>
+
+              {/* 2. Telegram Notifications */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!isTelegramConfigured) {
+                    setShowToolsMenu(false);
+                    setActiveScreen('SET');
+                    return;
+                  }
+                  await handleToggleTelegramNotifications();
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-sky-500/50 text-zinc-200 hover:text-sky-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  {isTelegramNotificationsEnabled ? (
+                    <Bell className="w-4 h-4 text-sky-400 shrink-0" />
+                  ) : (
+                    <BellOff className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span className="font-medium">Telegram Alerte &amp; Notificări</span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${!isTelegramNotificationsEnabled ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-sky-950 text-sky-300 border border-sky-800'}`}>
+                  {isTelegramNotificationsEnabled ? 'ACTIV' : 'MUTE'}
+                </span>
+              </button>
+
+              {/* 3. Fade Climax */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggleInvertSignals();
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-purple-500/50 text-zinc-200 hover:text-purple-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <span className="text-sm">🧪</span>
+                  <span className="font-medium">Inversare Semnale (Fade Climax)</span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${status?.config?.invertSignals ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-zinc-800 text-zinc-400'}`}>
+                  {status?.config?.invertSignals ? 'ON' : 'OFF'}
+                </span>
+              </button>
+
+              {/* 4. Profit Vault */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggleProfitVault();
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-cyan-500/50 text-zinc-200 hover:text-cyan-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <span className="text-sm">🏦</span>
+                  <span className="font-medium">Profit Vault (Seif Profituri)</span>
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${isVaultActive ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' : 'bg-zinc-800 text-zinc-400'}`}>
+                  {isVaultActive ? 'ON' : 'OFF'}
+                </span>
+              </button>
+
+              <div className="border-t border-zinc-800 my-1" />
+
+              {/* 5. Bot Control Token (AUTH) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowToolsMenu(false);
+                  setShowTokenModal(true);
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-amber-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <Lock className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span>Bot Control Token (AUTH)</span>
+                </span>
+              </button>
+
+              {/* 6. Monochrome Mode */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMonochrome(!isMonochrome);
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-amber-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <span className="text-sm">🎨</span>
+                  <span>Mod Monocrom Terminal</span>
+                </span>
+                <span className="text-[10px] text-zinc-400">{isMonochrome ? 'ACTIV' : 'INACTIV'}</span>
+              </button>
+
+              {/* 7. Forced Sync */}
+              <button
+                type="button"
+                onClick={() => {
+                  onRefresh();
+                  setShowToolsMenu(false);
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-amber-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <RefreshCw className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Sincronizare Forțată (SYNC)</span>
+                </span>
+              </button>
+
+              {/* 8. User Manual */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowToolsMenu(false);
+                  setShowManualModal(true);
+                }}
+                className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-amber-300 transition-colors cursor-pointer"
+              >
+                <span className="flex items-center space-x-2.5">
+                  <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Manual Utilizare (PDF)</span>
+                </span>
+              </button>
+            </div>
+
+            {/* Language Switcher Footer */}
+            <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
+              <span className="text-zinc-500 text-[11px]">LIMBĂ INTERFAȚĂ:</span>
+              <div className="flex bg-zinc-900 rounded border border-zinc-800 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setLang('EN')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${lang === 'EN' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('RO')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${lang === 'RO' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                  RO
+                </button>
+              </div>
             </div>
           </div>
         </div>
