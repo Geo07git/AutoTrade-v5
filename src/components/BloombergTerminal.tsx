@@ -2900,20 +2900,22 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           {/* RIGHT: PROFILE, ALWAYS-VISIBLE KILL SWITCH & COMPACT TOOLS MENU */}
           <div className="flex items-center space-x-1 sm:space-x-2 shrink-0 relative">
-            {/* Profile Switcher */}
-            <div className="hidden xs:flex bg-black/80 rounded border border-zinc-800 p-0.5 shrink-0">
+            {/* Profile Switcher - ALWAYS VISIBLE ON ALL SCREENS */}
+            <div className="flex bg-black/80 rounded border border-zinc-800 p-0.5 shrink-0 shadow-sm">
               <button
+                type="button"
                 onClick={() => onSwitchProfile('SCALP')}
                 className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-colors ${
-                  activeProfile === 'SCALP' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-amber-400'
+                  activeProfile === 'SCALP' ? 'bg-amber-500 text-black shadow' : 'text-zinc-400 hover:text-amber-400'
                 }`}
               >
                 SCALP
               </button>
               <button
+                type="button"
                 onClick={() => onSwitchProfile('MOMENTUM')}
                 className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-colors ${
-                  activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-amber-400'
+                  activeProfile === 'MOMENTUM' ? 'bg-amber-500 text-black shadow' : 'text-zinc-400 hover:text-amber-400'
                 }`}
               >
                 MOMENTUM
@@ -4622,10 +4624,32 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <span>VALORI ACTIVE ÎN TIMP REAL (TOATE REGULILE CU CARE CALCULEAZĂ BOTUL):</span>
                   </div>
                   <div className="flex items-center space-x-2 text-[10px]">
-                    <span className="px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      PROFIL: {status?.currentProfile || 'SCALP'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded font-bold bg-zinc-900 text-zinc-300 border border-zinc-700">
+                    <div className="flex items-center bg-black/80 rounded border border-amber-500/40 p-0.5">
+                      <span className="px-1.5 py-0.5 text-zinc-400 font-semibold">PROFIL:</span>
+                      <button
+                        type="button"
+                        onClick={() => onSwitchProfile('SCALP')}
+                        className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                          activeProfile === 'SCALP'
+                            ? 'bg-amber-500 text-black shadow-sm'
+                            : 'text-zinc-400 hover:text-amber-400'
+                        }`}
+                      >
+                        SCALP
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSwitchProfile('MOMENTUM')}
+                        className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                          activeProfile === 'MOMENTUM'
+                            ? 'bg-amber-500 text-black shadow-sm'
+                            : 'text-zinc-400 hover:text-amber-400'
+                        }`}
+                      >
+                        MOMENTUM
+                      </button>
+                    </div>
+                    <span className="px-2 py-1 rounded font-bold bg-zinc-900 text-zinc-300 border border-zinc-700">
                       MOD: {status?.executionMode || 'PAPER'}
                     </span>
                   </div>
@@ -6703,6 +6727,42 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
             {/* List of Utilities & Tools */}
             <div className="flex flex-col space-y-2 py-1 max-h-[75vh] overflow-y-auto terminal-scrollbar pr-0.5">
+              {/* Profile Switcher */}
+              <div className="flex items-center justify-between px-3 py-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-200">
+                <span className="flex items-center space-x-2.5">
+                  <span className="text-sm">⚡</span>
+                  <span className="font-medium">Profil Activ</span>
+                </span>
+                <div className="flex bg-black/90 rounded border border-zinc-700 p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitchProfile('SCALP');
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-colors ${
+                      activeProfile === 'SCALP'
+                        ? 'bg-amber-500 text-black shadow'
+                        : 'text-zinc-400 hover:text-amber-400'
+                    }`}
+                  >
+                    SCALP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitchProfile('MOMENTUM');
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-colors ${
+                      activeProfile === 'MOMENTUM'
+                        ? 'bg-amber-500 text-black shadow'
+                        : 'text-zinc-400 hover:text-amber-400'
+                    }`}
+                  >
+                    MOMENTUM
+                  </button>
+                </div>
+              </div>
+
               {/* 1. OKX Connection */}
               <button
                 type="button"

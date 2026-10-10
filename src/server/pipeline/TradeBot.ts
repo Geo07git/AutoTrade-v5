@@ -191,10 +191,16 @@ export class TradeBot {
       this.configStore.save(appConfig);
     }
     
-    // Ensure activeProfile is MOMENTUM, mode is PAPER, and paperFullCollection is false
-    appConfig.activeProfile = 'MOMENTUM';
-    appConfig.executionMode = 'PAPER' as ExecutionMode;
-    appConfig.paperFullCollection = false;
+    // Ensure activeProfile defaults to MOMENTUM, mode is PAPER, and paperFullCollection is false if not explicitly set
+    if (!appConfig.activeProfile) {
+      appConfig.activeProfile = 'MOMENTUM';
+    }
+    if (!appConfig.executionMode) {
+      appConfig.executionMode = 'PAPER' as ExecutionMode;
+    }
+    if (appConfig.paperFullCollection === undefined) {
+      appConfig.paperFullCollection = false;
+    }
 
     // Ensure invertSignals is false by default to prevent unintentional signal fade
     if (appConfig.invertSignals === undefined) {
