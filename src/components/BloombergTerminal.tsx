@@ -431,8 +431,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   // COADA INVIZIBILĂ PENTRU DESK AUDIT FEED & AUTO-TAPE (ELIMINARE SALTURI)
   // 1. Audit Feed: capacitate 50 (nu 100). Coadă invizibilă (auditQueueRef)
   //    ce reține ultimele 50 de evenimente; preluare stabilă la rotație completă
-  // 2. Auto-Tape: Coadă invizibilă (tapeQueueRef) cu simboluri stabile;
-  //    actualizare în-loc a prețului/variației fără reordonare haotică
+  // 2. Auto-Tape: Coadă invizibilă (tapeQueueRef) ordonată descrescător după creșterea 24h;
+  //    actualizare în-loc a prețului/variației fără salturi și sync la final de rotație
   // =========================================================================
   const AUDIT_FEED_CAPACITY = 50;
   const auditQueueRef = useRef<AuditLog[]>([]);
@@ -2153,8 +2153,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       };
     });
 
-    // Păstrăm ordinea alfabetică stabilă în coada invizibilă pentru a preveni reordonările haotice
-    items.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    // Ordonare descrescătoare după creșterea la 24h (de la cel mai mare randament la cel mai mic)
+    items.sort((a, b) => {
+      const diff = (b.priceChange24hPct ?? 0) - (a.priceChange24hPct ?? 0);
+      if (Math.abs(diff) > 0.000001) return diff;
+      return a.symbol.localeCompare(b.symbol);
+    });
     tapeQueueRef.current = items;
 
     setTapeItems((prev) => {
