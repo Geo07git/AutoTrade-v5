@@ -75,29 +75,29 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
 export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
   type: 'MOMENTUM',
   timeframes: ['60', '240'],
-  riskPerTradePct: 20, // 20% alocare mărime poziție (cu SL 4% => risc 0.8% din cont)
-  maxOpenPositions: 3, // 3 poziții x 0.8% = 2.4% risc total
-  hardStopLossPct: 4.0, // ~1R SL fix în %
-  breakEvenActivationPct: 4.0, // Break-even la +1R
-  trailingActivationPct: 6.0, // Trailing după +1.5R
-  trailingDistancePct: 3.0, // 3.0% distanță de retragere
-  takeProfitPct: 0, // 0 = Oprit (TP taie exact runner-ii)
-  maxHoldingTimeMinutes: 1440, // 24h
+  riskPerTradePct: 20, // 20% alocare mărime poziție
+  maxOpenPositions: 5, // 5 sloturi (atât în PAPER cât și în LIVE)
+  hardStopLossPct: 20.0, // -20% Hard Stop-Loss
+  breakEvenActivationPct: 1.0, // +1% Break-Even Act
+  trailingActivationPct: 6.0, // +6% Trailing Act
+  trailingDistancePct: 3.0, // -3% Trailing Dist
+  takeProfitPct: 0, // 0 = OFF (Trailing)
+  maxHoldingTimeMinutes: 1440, // 1440 min (24h)
   trailingMaxHoldMultiplier: 2, // Pozițiile cu trailing activ permise până la 48h (1440 * 2)
-  stagnationTimeMinutes: 480, // 8h (se aplică doar dacă trailing nu e activ)
-  stagnationMinPeakPct: 1.5, // Iese dacă vârful < +1.5% și PnL <= +0.2%
-  minMomentumScore: 60,
+  stagnationTimeMinutes: 120, // 120 min Stagnation Stop
+  stagnationMinPeakPct: 1.5, // +1.50% Stagnation Min Peak (ieșire dacă vârf < +1.50% și PnL <= +0.2% după 120 min)
+  minMomentumScore: 50, // Fereastră Momentum: [50 - 99]
   maxMomentumScore: 99,
   maxEntriesPerSymbolPerHour: 1, // Fără intrări repetate pe aceeași monedă
-  cooldownMinutes: 60, // Re-intrare permisă după 1h
+  cooldownMinutes: 0, // 0 min Cooldown Simbol
   cooldownAfterLossMinutes: 1440, // Pauză 24h pe simbol după pierdere/SL
   shortRegimeGuard: 'DISABLED', // Doar LONG
-  btcBearGuard: true, // Blochează LONG cu scor < 68 în regim BTC BEAR
-  equityProtectionActivationPct: 6.0,
-  equityTrailingDrawdownPct: 4.0,
-  min24hVolumeUSDT: 1_500_000,
-  max24hVolumeUSDT: 0,
-  sentimentThreshold: 2.0,
+  btcBearGuard: false,
+  equityProtectionActivationPct: 0, // OFF (0%) Equity Prot Act
+  equityTrailingDrawdownPct: 0, // OFF (0%) Equity Trailing DD
+  min24hVolumeUSDT: 100_000, // Fereastră Volum 24h: [0.1M - ∞]
+  max24hVolumeUSDT: 0, // Nelimitat
+  sentimentThreshold: 5.0, // Prag Clasificare Sentiment OKX: ±5%
 };
 
 const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
@@ -1268,6 +1268,9 @@ export class TradeBot {
       config.profiles.SCALP.maxOpenPositions = mode === 'LIVE' ? 6 : 15;
       config.profiles.SCALP.stagnationTimeMinutes = 25;
       config.profiles.SCALP.stagnationMinPeakPct = 0.4;
+    }
+    if (config.profiles?.MOMENTUM) {
+      config.profiles.MOMENTUM.maxOpenPositions = 5;
     }
     this.configStore.save(config);
 

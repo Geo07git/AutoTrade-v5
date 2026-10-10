@@ -95,6 +95,7 @@ interface TapeItem {
   symbol: string;
   side: 'BUY' | 'SELL';
   price: number;
+  priceChange24hPct?: number;
   size: string;
   type: 'TRADE' | 'SIGNAL' | 'FILL' | 'STOP';
 }
@@ -1951,7 +1952,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   useEffect(() => {
     let animId: number;
     let lastTime = performance.now();
-    const SPEED_PX_PER_SEC = 72;
+    const SPEED_PX_PER_SEC = 36; // Viteză redusă la jumătate (36 px/s vs 72 px/s)
 
     let isTickerHovered = false;
     let isAuditHovered = false;
@@ -2079,58 +2080,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     isDraggingShortcuts.current = false;
   };
 
-  // Generate real-time tape stream items from scanner and activity
+  // Generate real-time tape stream items from scanner: doar preț și variație 24h
   useEffect(() => {
     const items: TapeItem[] = [];
 
-    // Add scanner top opportunities with genuine momentum metrics & local time
     if (status?.scannerStats?.topOpportunities && status.scannerStats.topOpportunities.length > 0) {
-      const topOpps = status.scannerStats.topOpportunities.slice(0, 20);
-      topOpps.forEach((opp, idx) => {
-        const timeStr = formatTimeLocal(opp.lastScannedTime || status?.scannerStats?.lastScanTimestamp || Date.now());
-        const pctStr = (opp.priceChange24hPct || 0) >= 0 ? `+${(opp.priceChange24hPct || 0).toFixed(2)}%` : `${(opp.priceChange24hPct || 0).toFixed(2)}%`;
-        const genuineSide = opp.signal?.side || opp.side;
-        const climaxTag = opp.climax || opp.signal?.climax ? ' | ⚡CLIMAX' : '';
+      status.scannerStats.topOpportunities.forEach((opp, idx) => {
+        const changePct = typeof opp.priceChange24hPct === 'number' ? opp.priceChange24hPct : 0;
         items.push({
           id: `opp_${opp.symbol}_${idx}`,
-          timestamp: timeStr,
+          timestamp: '',
           symbol: opp.symbol,
-          side: genuineSide, // Genuine evaluated direction (BUY / SELL), not 24h change
+          side: changePct >= 0 ? 'BUY' : 'SELL',
           price: opp.price,
-          size: `Scor ${opp.score.toFixed(1)} | RVOL ${opp.rvol.toFixed(1)}x | ${pctStr}${climaxTag}`,
+          priceChange24hPct: changePct,
+          size: '',
           type: 'SIGNAL',
         });
       });
     }
-    
-    // Add real orders to tape
-    orders.forEach((ord) => {
-      items.push({
-        id: `ord_${ord.id}`,
-        timestamp: formatTimeLocal(ord.createdTime),
-        symbol: ord.symbol,
-        side: ord.side,
-        price: ord.fillPrice || 0,
-        size: `$${ord.sizeUSDT.toFixed(0)}`,
-        type: ord.status === 'FILLED' ? 'FILL' : 'TRADE',
-      });
-    });
 
-    // Add real open positions to tape
-    status?.positions?.forEach((pos) => {
-      items.push({
-        id: `pos_${pos.id}`,
-        timestamp: formatTimeLocal(pos.entryTime),
-        symbol: pos.symbol,
-        side: pos.side,
-        price: pos.entryPrice,
-        size: `$${pos.sizeUSDT.toFixed(0)}`,
-        type: 'TRADE',
-      });
-    });
-
-    setTapeItems(items.slice(0, 50));
-  }, [orders, status]);
+    setTapeItems(items.slice(0, 60));
+  }, [status?.scannerStats?.topOpportunities]);
 
   // Handle command line execution
   const handleCommandSubmit = (e: React.FormEvent) => {
@@ -3055,32 +3026,48 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           ) : (
             <div className="flex items-center shrink-0">
               {/* Track 1 */}
-              <div ref={autoTapeTrackRef} className="inline-flex items-center space-x-6 pr-6 shrink-0">
-                {extendedTapeItems.map((item, idx) => (
-                  <div key={`auto_1_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-                    <span className="text-slate-400">[{item.timestamp}]</span>
-                    <span className="font-bold text-amber-300">{item.symbol}</span>
-                    <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                      {item.side === 'BUY' ? 'LONG' : 'SHORT'}
-                    </span>
-                    <span className="text-zinc-200">${item.price.toLocaleString()}</span>
-                    <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
-                  </div>
-                ))}
+              <div ref={autoTapeTrackRef} className="inline-flex items-center space-x-4 pr-4 shrink-0">
+                {extendedTapeItems.map((item, idx) => {
+                  const chg = item.priceChange24hPct ?? 0;
+                  const isUp = chg >= 0;
+                  return (
+                    <div key={`auto_1_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px]">
+                      <span className="font-bold text-amber-300">{item.symbol.replace('-SWAP', '')}</span>
+                      <span className="text-zinc-100 font-medium">
+                        ${item.price >= 1000
+                          ? item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : item.price >= 1
+                            ? item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                            : item.price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}
+                      </span>
+                      <span className={`font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isUp ? `+${chg.toFixed(2)}%` : `${chg.toFixed(2)}%`}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
               {/* Track 2 - Clonă exactă identică pentru buclă infinită perfectă fără salt */}
-              <div className="inline-flex items-center space-x-6 pr-6 shrink-0">
-                {extendedTapeItems.map((item, idx) => (
-                  <div key={`auto_2_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-                    <span className="text-slate-400">[{item.timestamp}]</span>
-                    <span className="font-bold text-amber-300">{item.symbol}</span>
-                    <span className={item.side === 'BUY' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                      {item.side === 'BUY' ? 'LONG' : 'SHORT'}
-                    </span>
-                    <span className="text-zinc-200">${item.price.toLocaleString()}</span>
-                    <span className="text-amber-400 text-[10px] font-bold">({item.size})</span>
-                  </div>
-                ))}
+              <div className="inline-flex items-center space-x-4 pr-4 shrink-0">
+                {extendedTapeItems.map((item, idx) => {
+                  const chg = item.priceChange24hPct ?? 0;
+                  const isUp = chg >= 0;
+                  return (
+                    <div key={`auto_2_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px]">
+                      <span className="font-bold text-amber-300">{item.symbol.replace('-SWAP', '')}</span>
+                      <span className="text-zinc-100 font-medium">
+                        ${item.price >= 1000
+                          ? item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : item.price >= 1
+                            ? item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+                            : item.price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}
+                      </span>
+                      <span className={`font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {isUp ? `+${chg.toFixed(2)}%` : `${chg.toFixed(2)}%`}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
