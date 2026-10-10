@@ -36,7 +36,7 @@ const DEFAULT_CONFIG: AppConfig = {
   testnet: true,
   killSwitchEngaged: false,
   invertSignals: false, // Default: FALSE. Signals strictly follow calculated momentum and HTF macro confluence
-  paperFullCollection: true, // Colectare PAPER fără filtrare corelată / poartă strictă de impuls (populație completă de date)
+  paperFullCollection: false, // Fără colectare (test MOMENTUM "Daily Runner")
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
@@ -72,35 +72,40 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
   cooldownAfterLossMinutes: 30,
 };
 
+export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
+  type: 'MOMENTUM',
+  timeframes: ['60', '240'],
+  riskPerTradePct: 20, // 20% alocare mărime poziție (cu SL 4% => risc 0.8% din cont)
+  maxOpenPositions: 3, // 3 poziții x 0.8% = 2.4% risc total
+  hardStopLossPct: 4.0, // ~1R SL fix în %
+  breakEvenActivationPct: 4.0, // Break-even la +1R
+  trailingActivationPct: 6.0, // Trailing după +1.5R
+  trailingDistancePct: 3.0, // 3.0% distanță de retragere
+  takeProfitPct: 0, // 0 = Oprit (TP taie exact runner-ii)
+  maxHoldingTimeMinutes: 1440, // 24h
+  trailingMaxHoldMultiplier: 2, // Pozițiile cu trailing activ permise până la 48h (1440 * 2)
+  stagnationTimeMinutes: 480, // 8h (se aplică doar dacă trailing nu e activ)
+  stagnationMinPeakPct: 1.5, // Iese dacă vârful < +1.5% și PnL <= +0.2%
+  minMomentumScore: 60,
+  maxMomentumScore: 99,
+  maxEntriesPerSymbolPerHour: 1, // Fără intrări repetate pe aceeași monedă
+  cooldownMinutes: 60, // Re-intrare permisă după 1h
+  cooldownAfterLossMinutes: 1440, // Pauză 24h pe simbol după pierdere/SL
+  shortRegimeGuard: 'DISABLED', // Doar LONG
+  btcBearGuard: true, // Blochează LONG cu scor < 68 în regim BTC BEAR
+  equityProtectionActivationPct: 6.0,
+  equityTrailingDrawdownPct: 4.0,
+  min24hVolumeUSDT: 1_500_000,
+  max24hVolumeUSDT: 0,
+  sentimentThreshold: 2.0,
+};
+
 const DEFAULT_PROFILES: Record<ProfileType, ProfileConfig> = {
   SCALP: {
     ...DEFAULT_SCALP_CONFIG,
   },
   MOMENTUM: {
-    type: 'MOMENTUM',
-    timeframes: ['60', '240'],
-    riskPerTradePct: 10,
-    maxOpenPositions: 20,
-    trailingActivationPct: 1.8,
-    trailingDistancePct: 0.5,
-    breakEvenActivationPct: 1.0,
-    takeProfitPct: 6.0,
-    hardStopLossPct: 3.5, // Stop-loss hard 3.5%
-    equityProtectionActivationPct: 3.0,
-    equityTrailingDrawdownPct: 2.0,
-    minMomentumScore: 60,
-    maxMomentumScore: 99,
-    min24hVolumeUSDT: 1_500_000,
-    max24hVolumeUSDT: 0,
-    maxHoldingTimeMinutes: 45, // Time-stop maxim unificat la 45 min
-    stagnationTimeMinutes: 0, // Time-stop eșalonat la stagnare (0 = dezactivat)
-    stagnationMinPeakPct: 0.4, // Vârf minim de +0.4% cerut la stagnare
-    cooldownMinutes: 60,
-    sentimentThreshold: 2.0,
-    shortRegimeGuard: 'OFF',
-    btcBearGuard: false,
-    maxEntriesPerSymbolPerHour: 3,
-    cooldownAfterLossMinutes: 30,
+    ...DEFAULT_MOMENTUM_CONFIG,
   },
 };
 
@@ -182,14 +187,18 @@ export class TradeBot {
 
     const appConfig = this.configStore.get();
     if (!appConfig.executionMode) {
-      appConfig.executionMode = 'PAPER';
+      appConfig.executionMode = 'PAPER' as ExecutionMode;
       this.configStore.save(appConfig);
     }
     
+    // Ensure activeProfile is MOMENTUM, mode is PAPER, and paperFullCollection is false
+    appConfig.activeProfile = 'MOMENTUM';
+    appConfig.executionMode = 'PAPER' as ExecutionMode;
+    appConfig.paperFullCollection = false;
+
     // Ensure invertSignals is false by default to prevent unintentional signal fade
     if (appConfig.invertSignals === undefined) {
       appConfig.invertSignals = false;
-      this.configStore.save(appConfig);
     }
     
     // Ensure profiles are initialized in config
@@ -202,6 +211,11 @@ export class TradeBot {
         ...appConfig.profiles.SCALP,
         ...DEFAULT_SCALP_CONFIG,
         maxOpenPositions: appConfig.executionMode === 'LIVE' ? 6 : 15,
+      };
+      // Synchronize MOMENTUM profile with "Daily Runner" settings
+      appConfig.profiles.MOMENTUM = {
+        ...appConfig.profiles.MOMENTUM,
+        ...DEFAULT_MOMENTUM_CONFIG,
       };
       this.configStore.save(appConfig);
     }
@@ -941,8 +955,9 @@ export class TradeBot {
 
         // STRICT CHECK 3.6: Poarta de fază a lumânării (nu intra dacă candleElapsedSeconds > 675)
         // Ocolită în PAPER (paperFullCollection) pentru logarea populației complete
+        // Dezactivată pentru profilul MOMENTUM (lumânare de 1h - 3600s)
         const candleElapsed = candidate.candleElapsedSeconds ?? candidate.signal?.candleElapsedSeconds ?? 0;
-        if (!isExpActive && !isPaperCollection && candleElapsed > 675) {
+        if (!isExpActive && !isPaperCollection && profile.type !== 'MOMENTUM' && candleElapsed > 675) {
           this.logAudit(
             'CANDIDATE_REJECTED',
             `Candidatul #${candidate.rank} (${symbol}) omis: Poarta de fază depășită (${candleElapsed}s > 675s din lumânare). Previne intrarea tardivă pe final de lumânare în mod LIVE.`,
@@ -969,12 +984,13 @@ export class TradeBot {
         // STRICT CHECK 3.8: Exclude Climax (rvol 10 + atrExp 5) din LIVE
         // Ocolit în PAPER (paperFullCollection) pentru analiza completă a epuizărilor
         // Ocolit când Inversare Semnale (Fade Climax) este activă, permițând fade-ul pe epuizări extreme
+        // Dezactivat pentru profilul MOMENTUM (pe 1h un RVOL >= 10 este adesea impulsul de breakout căutat)
         const isClimaxTrade = Boolean(
           candidate.climax ||
           candidate.signal?.climax ||
           (candidate.rvol >= 9.95 && candidate.atrExpansion >= 4.95)
         );
-        if (!isExpActive && !isPaperCollection && isClimaxTrade && !config.invertSignals) {
+        if (!isExpActive && !isPaperCollection && profile.type !== 'MOMENTUM' && isClimaxTrade && !config.invertSignals) {
           this.logAudit(
             'CANDIDATE_REJECTED',
             `Candidatul #${candidate.rank} (${symbol}) omis: Climax extrem de volum și expansiune (RVOL: ${candidate.rvol}x, ATRexp: ${candidate.atrExpansion}x). Exclus din LIVE pentru prevenirea tranzacțiilor la epuizare.`,
@@ -1462,6 +1478,12 @@ export class TradeBot {
         ...config.profiles.SCALP,
         ...DEFAULT_SCALP_CONFIG,
         maxOpenPositions: config.executionMode === 'LIVE' ? 6 : 15,
+      };
+    } else if (profile === 'MOMENTUM') {
+      if (!config.profiles) config.profiles = { ...DEFAULT_PROFILES };
+      config.profiles.MOMENTUM = {
+        ...config.profiles.MOMENTUM,
+        ...DEFAULT_MOMENTUM_CONFIG,
       };
     }
     this.configStore.save();
