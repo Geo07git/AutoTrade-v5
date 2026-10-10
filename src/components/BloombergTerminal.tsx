@@ -427,13 +427,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const auditTrackRef = useRef<HTMLDivElement>(null);
   const auditPos = useRef<number>(0);
 
-  // Ultimele 100 de evenimente pentru banda derulantă DESK AUDIT FEED
-  const displayLogs = useMemo(() => {
-    // Luăm ultimele 100 de loguri și le ordonăm cronologic (de la cel mai vechi la cel mai recent)
-    // pentru o derulare naturală și stabilă a benzii fără salturi la fiecare poll
-    const slice = logs.slice(0, 100);
-    return [...slice].reverse();
-  }, [logs]);
+  // =========================================================================
+  // COADA INVIZIBILĂ PENTRU DESK AUDIT FEED & AUTO-TAPE (ELIMINARE SALTURI)
+  // 1. Audit Feed: capacitate 50 (nu 100). Coadă invizibilă (auditQueueRef)
+  //    ce reține ultimele 50 de evenimente; preluare stabilă la rotație completă
+  // 2. Auto-Tape: Coadă invizibilă (tapeQueueRef) cu simboluri stabile;
+  //    actualizare în-loc a prețului/variației fără reordonare haotică
+  // =========================================================================
+  const AUDIT_FEED_CAPACITY = 50;
+  const auditQueueRef = useRef<AuditLog[]>([]);
+  const auditQueueNeedsSync = useRef<boolean>(false);
+  const [displayLogs, setDisplayLogs] = useState<AuditLog[]>([]);
+
+  const tapeQueueRef = useRef<TapeItem[]>([]);
+  const tapeQueueNeedsSync = useRef<boolean>(false);
 
   // Asigură că track-ul primar depășește întotdeauna lățimea ecranului pentru derulare fluidă fără cusur
   const extendedTapeItems = useMemo(() => {
@@ -1982,18 +1989,28 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           tickerPos.current += move;
           if (tickerPos.current >= trackW) {
             tickerPos.current -= trackW;
+            // Preluare sincronizată din coada invizibilă la finalul buclei (zero salturi)
+            if (tapeQueueNeedsSync.current && tapeQueueRef.current.length > 0) {
+              tapeQueueNeedsSync.current = false;
+              setTapeItems([...tapeQueueRef.current]);
+            }
           }
           tickerEl.scrollLeft = tickerPos.current;
         }
       }
 
-      // 2. DESK AUDIT FEED TAPE (derulare continuă spre stânga fără restart sau salturi)
+      // 2. DESK AUDIT FEED TAPE (derulare continuă spre stânga fără restart sau salturi, capacitate 50)
       if (auditEl && !isAuditHovered && auditTrackRef.current) {
         const auditTrackW = auditTrackRef.current.offsetWidth;
         if (auditTrackW > 0) {
           auditPos.current += move;
           if (auditPos.current >= auditTrackW) {
             auditPos.current -= auditTrackW;
+            // Preluare sincronizată din coada invizibilă la finalul buclei (capacitate 50, zero salturi)
+            if (auditQueueNeedsSync.current && auditQueueRef.current.length > 0) {
+              auditQueueNeedsSync.current = false;
+              setDisplayLogs([...auditQueueRef.current]);
+            }
           }
           auditEl.scrollLeft = auditPos.current;
         }
@@ -2080,27 +2097,93 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     isDraggingShortcuts.current = false;
   };
 
-  // Generate real-time tape stream items from scanner: doar preț și variație 24h
+  // Preluare evenimente în coada invizibilă pentru DESK AUDIT FEED (capacitate 50)
   useEffect(() => {
-    const items: TapeItem[] = [];
-
-    if (status?.scannerStats?.topOpportunities && status.scannerStats.topOpportunities.length > 0) {
-      status.scannerStats.topOpportunities.forEach((opp, idx) => {
-        const changePct = typeof opp.priceChange24hPct === 'number' ? opp.priceChange24hPct : 0;
-        items.push({
-          id: `opp_${opp.symbol}_${idx}`,
-          timestamp: '',
-          symbol: opp.symbol,
-          side: changePct >= 0 ? 'BUY' : 'SELL',
-          price: opp.price,
-          priceChange24hPct: changePct,
-          size: '',
-          type: 'SIGNAL',
-        });
-      });
+    if (!logs || logs.length === 0) {
+      auditQueueRef.current = [];
+      setDisplayLogs([]);
+      auditQueueNeedsSync.current = false;
+      return;
     }
 
-    setTapeItems(items.slice(0, 60));
+    // Ultimele 50 de evenimente în ordine cronologică (vechi -> nou)
+    const slice = logs.slice(0, AUDIT_FEED_CAPACITY);
+    const chronological = [...slice].reverse();
+    auditQueueRef.current = chronological;
+
+    setDisplayLogs((currentDisplay) => {
+      // Dacă banda este goală la inițializare, populăm imediat
+      if (currentDisplay.length === 0) {
+        auditQueueNeedsSync.current = false;
+        return chronological;
+      }
+      // Dacă avem sub 50 elemente, adăugăm noile elemente la capătul din dreapta (off-screen) fără salt
+      if (currentDisplay.length < AUDIT_FEED_CAPACITY) {
+        const existingIds = new Set(currentDisplay.map((l) => l.id));
+        const newItems = chronological.filter((l) => !existingIds.has(l.id));
+        if (newItems.length > 0) {
+          return [...currentDisplay, ...newItems].slice(0, AUDIT_FEED_CAPACITY);
+        }
+      }
+      // Când banda e plină (50 elemente), lotul nou așteaptă în coada invizibilă
+      // și este transferat la finalul rotației pentru zero salturi
+      auditQueueNeedsSync.current = true;
+      return currentDisplay;
+    });
+  }, [logs]);
+
+  // Generate real-time tape stream items: coadă invizibilă și preluare fluidă doar cu preț și variație 24h
+  useEffect(() => {
+    if (!status?.scannerStats?.topOpportunities || status.scannerStats.topOpportunities.length === 0) {
+      return;
+    }
+
+    const rawOpps = status.scannerStats.topOpportunities;
+    const items: TapeItem[] = rawOpps.slice(0, 50).map((opp) => {
+      const changePct = typeof opp.priceChange24hPct === 'number' ? opp.priceChange24hPct : 0;
+      return {
+        id: `opp_${opp.symbol}`,
+        timestamp: '',
+        symbol: opp.symbol,
+        side: changePct >= 0 ? 'BUY' : 'SELL',
+        price: opp.price,
+        priceChange24hPct: changePct,
+        size: '',
+        type: 'SIGNAL',
+      };
+    });
+
+    // Păstrăm ordinea alfabetică stabilă în coada invizibilă pentru a preveni reordonările haotice
+    items.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    tapeQueueRef.current = items;
+
+    setTapeItems((prev) => {
+      if (prev.length === 0) {
+        tapeQueueNeedsSync.current = false;
+        return items;
+      }
+
+      // Actualizăm doar prețul și variația pe simbolurile deja afișate, fără a permuta pozițiile
+      const freshMap = new Map(items.map((it) => [it.symbol, it]));
+      let changed = false;
+      const updated = prev.map((oldItem) => {
+        const fresh = freshMap.get(oldItem.symbol);
+        if (fresh && (fresh.price !== oldItem.price || fresh.priceChange24hPct !== oldItem.priceChange24hPct)) {
+          changed = true;
+          return {
+            ...oldItem,
+            price: fresh.price,
+            priceChange24hPct: fresh.priceChange24hPct,
+            side: fresh.side,
+          };
+        }
+        return oldItem;
+      });
+
+      // Marcăm pentru sincronizare la finalul buclei dacă au apărut simboluri noi în coadă
+      tapeQueueNeedsSync.current = true;
+      return changed ? updated : prev;
+    });
   }, [status?.scannerStats?.topOpportunities]);
 
   // Handle command line execution
@@ -3031,7 +3114,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   const chg = item.priceChange24hPct ?? 0;
                   const isUp = chg >= 0;
                   return (
-                    <div key={`auto_1_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px]">
+                    <div key={`auto_1_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px] min-w-[135px] justify-between">
                       <span className="font-bold text-amber-300">{item.symbol.replace('-SWAP', '')}</span>
                       <span className="text-zinc-100 font-medium">
                         ${item.price >= 1000
@@ -3053,7 +3136,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   const chg = item.priceChange24hPct ?? 0;
                   const isUp = chg >= 0;
                   return (
-                    <div key={`auto_2_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px]">
+                    <div key={`auto_2_${item.id}_${idx}`} className="flex items-center space-x-2 bg-zinc-900/90 px-2.5 py-0.5 rounded border border-amber-500/20 shrink-0 font-mono text-[11px] min-w-[135px] justify-between">
                       <span className="font-bold text-amber-300">{item.symbol.replace('-SWAP', '')}</span>
                       <span className="text-zinc-100 font-medium">
                         ${item.price >= 1000
@@ -5803,7 +5886,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <span className="hidden sm:inline">DESK AUDIT FEED</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                  ({Math.min(displayLogs.length, 100)})
+                  ({Math.min(displayLogs.length, 50)})
                 </span>
                 <span className="text-[10px] text-zinc-500 hidden md:inline truncate">
                   — Bandă derulantă live &gt;&gt; (puls sistem 1m)
