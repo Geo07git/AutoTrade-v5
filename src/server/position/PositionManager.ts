@@ -1268,19 +1268,19 @@ export class PositionManager {
 
     const exchangeMap = new Map<string, OKXRawPosition>();
     for (const ep of exchangePositions) {
+      if (!ep.symbol || ep.symbol.includes('_UM_XPERP') || ep.symbol.includes('XPERP')) continue;
       exchangeMap.set(normalizeKey(ep.symbol), ep);
-      exchangeMap.set(ep.symbol.toUpperCase(), ep);
     }
 
     // 1. Check existing local positions against the exchange snapshot
     for (const localPos of [...this.activePositions]) {
       const normKey = normalizeKey(localPos.symbol);
-      const okxPos = exchangeMap.get(normKey) || exchangeMap.get(localPos.symbol.toUpperCase());
+      const okxPos = exchangeMap.get(normKey);
 
       // Never touch a position that is mid-close or has an order in flight: the exchange snapshot and local
       // state are legitimately out of sync for the duration of the order lifecycle.
       if (localPos.status !== 'OPEN' || isBusy(localPos.symbol)) {
-        if (okxPos) exchangeMap.delete(normalizeKey(okxPos.symbol));
+        exchangeMap.delete(normKey);
         continue;
       }
 
@@ -1361,12 +1361,15 @@ export class PositionManager {
         localPos.sizeUSDT = parseFloat((localPos.qty * okxPos.avgPrice * ctVal).toFixed(2));
       }
 
-      // Matched
-      exchangeMap.delete(localPos.symbol);
+      // Matched: delete key so it's not treated as unmapped
+      exchangeMap.delete(normKey);
     }
 
     // 2. Positions that exist on the exchange but are missing locally.
-    for (const [symbol, unmappedOkxPos] of exchangeMap.entries()) {
+    for (const [, unmappedOkxPos] of exchangeMap.entries()) {
+      if (unmappedOkxPos.size <= 0) continue;
+      const symbol = unmappedOkxPos.symbol;
+      if (symbol.includes('_UM_XPERP') || symbol.includes('XPERP')) continue;
       if (unmappedOkxPos.size <= 0) continue;
 
       // Do not "discover" a position we closed (or just opened) within the grace window, or one with an order in
