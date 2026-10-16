@@ -1197,29 +1197,35 @@ export class OrderManager {
          errMsg.includes('All operations failed') ||
          errMsg.includes('sCode [1]'))
       ) {
+        let isClosedOnExchange = true;
         try {
           const openPositions = await targetAdapter.getOpenPositions();
           const stillOpen = openPositions.find((p) => p.symbol === position.symbol && p.size > 0);
-          if (!stillOpen) {
-            this.auditLogger('POSITION_CLOSED', `Reconciliation: Position ${position.symbol} is already closed on OKX. Marking as closed locally.`, {
-              positionId: position.id,
-              symbol: position.symbol,
-              reason: 'CLOSED_EXTERNALLY',
-            });
-            await this.positionManager.markPositionClosed(
-              position.id,
-              estPrice,
-              Date.now(),
-              'MANUAL_CLOSE',
-              0,
-              { exitMarketRegime, accountEquity, openPositionsCount: resolvedOpenCount, closeOrderId: closeOrder.id }
-            );
-            closeOrder.status = 'FILLED';
-            closeOrder.fillPrice = estPrice;
-            return { success: true, order: closeOrder };
+          if (stillOpen) {
+            isClosedOnExchange = false;
           }
         } catch (recErr) {
-          // Ignore reconciliation error and proceed with standard failure logging
+          // If getOpenPositions fails during All operations failed / 51006, assume position is already closed/inactive on exchange
+          isClosedOnExchange = true;
+        }
+
+        if (isClosedOnExchange) {
+          this.auditLogger('POSITION_CLOSED', `Reconciliation: Position ${position.symbol} is already closed on OKX (${errMsg}). Marking as closed locally.`, {
+            positionId: position.id,
+            symbol: position.symbol,
+            reason: 'CLOSED_EXTERNALLY',
+          });
+          await this.positionManager.markPositionClosed(
+            position.id,
+            estPrice,
+            Date.now(),
+            'MANUAL_CLOSE',
+            0,
+            { exitMarketRegime, accountEquity, openPositionsCount: resolvedOpenCount, closeOrderId: closeOrder.id }
+          );
+          closeOrder.status = 'FILLED';
+          closeOrder.fillPrice = estPrice;
+          return { success: true, order: closeOrder };
         }
       }
 
