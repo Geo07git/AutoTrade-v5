@@ -2014,6 +2014,30 @@ export class TradeBot {
     if (result.success) {
       this.positionStore.save(this.positionManager.getActivePositions());
       this.orderStore.save(this.orderManager.getOrders());
+      return result;
+    }
+
+    // Force-sync fallback: If manual close failed (e.g. OKX API error / All operations failed),
+    // check exchange via getOpenPositions. If position is no longer open on exchange, force-close locally.
+    if (this.activeAdapter && typeof this.activeAdapter.getOpenPositions === 'function') {
+      try {
+        const openPosList = await this.activeAdapter.getOpenPositions();
+        const stillOpen = openPosList.find((p) => p.symbol === symbol && p.size > 0);
+        if (!stillOpen) {
+          this.logAudit('POSITION_CLOSED', `Manual close force-sync: Position ${symbol} no longer open on exchange. Forcing local closure.`, { symbol });
+          await this.positionManager.markPositionClosed(
+            pos.id,
+            currentPrice,
+            Date.now(),
+            'MANUAL_CLOSE',
+            0,
+            { exitMarketRegime: this.marketRegime, accountEquity: this.currentEquity }
+          );
+          this.positionStore.save(this.positionManager.getActivePositions());
+          this.orderStore.save(this.orderManager.getOrders());
+          return { success: true };
+        }
+      } catch (e) {}
     }
     
     return result;

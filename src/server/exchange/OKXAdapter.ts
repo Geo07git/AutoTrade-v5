@@ -928,24 +928,27 @@ export class OKXAdapter implements IExecutionAdapter {
         }
       }
 
-      // If regular order placement fails on a close order, attempt the dedicated OKX position close endpoint
+      // If regular order placement fails on a close order, attempt the dedicated OKX position close endpoint with multiple body variations
       if (!successfulRes && params.reduceOnly) {
-        try {
-          console.log(`[OKXAdapter] Attempting direct /api/v5/trade/close-position for ${instId}...`);
-          const closeRes = await this.request('POST', '/api/v5/trade/close-position', {
-            instId,
-            mgnMode: this.marginMode,
-            posSide: targetPosSide,
-          }, true);
-          if (closeRes.code === '0') {
-            const ordId = closeRes.data?.[0]?.ordId || `close_${Date.now()}`;
-            return {
-              orderId: ordId,
-              orderLinkId: params.orderLinkId,
-            };
+        const closeBodiesToTry = [
+          { instId, mgnMode: this.marginMode, posSide: targetPosSide },
+          { instId, mgnMode: this.marginMode },
+          { instId, mgnMode: this.marginMode, posSide: 'net' },
+        ];
+        for (const cb of closeBodiesToTry) {
+          try {
+            console.log(`[OKXAdapter] Attempting direct /api/v5/trade/close-position for ${instId} with body:`, cb);
+            const closeRes = await this.request('POST', '/api/v5/trade/close-position', cb, true);
+            if (closeRes.code === '0') {
+              const ordId = closeRes.data?.[0]?.ordId || `close_${Date.now()}`;
+              return {
+                orderId: ordId,
+                orderLinkId: params.orderLinkId,
+              };
+            }
+          } catch (closeErr: any) {
+            console.warn(`[OKXAdapter] close-position attempt failed:`, closeErr?.message || closeErr);
           }
-        } catch (closeErr: any) {
-          console.warn(`[OKXAdapter] Dedicated close-position endpoint failed:`, closeErr?.message || closeErr);
         }
       }
 
