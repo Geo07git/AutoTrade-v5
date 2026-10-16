@@ -993,17 +993,34 @@ export class OrderManager {
           posSide,
         });
       } catch (submitErr: any) {
+        const errMsg = submitErr?.message || '';
         if (
+          this.executionMode === 'LIVE' &&
+          (errMsg.includes('All operations failed') || errMsg.includes('sCode [1]') || errMsg.includes('rate limit') || errMsg.includes('50011'))
+        ) {
+          this.auditLogger('ORDER_RETRY', `Close order for ${position.symbol} hit OKX rate limit / burst rejection (${errMsg}). Retrying after 650ms...`, { symbol: position.symbol });
+          await new Promise((r) => setTimeout(r, 650));
+          submitRes = await targetAdapter.submitOrder({
+            symbol: position.symbol,
+            side: orderSide,
+            orderType: 'Market',
+            qty: formattedQty,
+            price: estPrice,
+            orderLinkId: `${clientOrderId}r`,
+            reduceOnly: true,
+            posSide,
+          });
+        } else if (
           this.executionMode !== 'LIVE' &&
           this.paperAdapter &&
           targetAdapter !== this.paperAdapter &&
-          (submitErr?.message?.includes('401') ||
-           submitErr?.message?.includes('51001') ||
-           submitErr?.message?.includes('50119') ||
-           submitErr?.message?.includes("doesn't exist") ||
-           submitErr?.message?.includes('API key'))
+          (errMsg.includes('401') ||
+           errMsg.includes('51001') ||
+           errMsg.includes('50119') ||
+           errMsg.includes("doesn't exist") ||
+           errMsg.includes('API key'))
         ) {
-          this.auditLogger('ORDER_FAILED', `Adapter submitOrder failed for ${position.symbol} (${submitErr.message}). Falling back to Paper adapter.`, { symbol: position.symbol });
+          this.auditLogger('ORDER_FAILED', `Adapter submitOrder failed for ${position.symbol} (${errMsg}). Falling back to Paper adapter.`, { symbol: position.symbol });
           targetAdapter = this.paperAdapter;
           submitRes = await targetAdapter.submitOrder({
             symbol: position.symbol,
@@ -1018,6 +1035,11 @@ export class OrderManager {
         } else {
           throw submitErr;
         }
+      }
+
+      // Add a polite stagger pause (400ms) in LIVE mode after closing an order to prevent OKX burst limits
+      if (this.executionMode === 'LIVE') {
+        await new Promise((r) => setTimeout(r, 400));
       }
 
       closeOrder.status = 'ACCEPTED';
