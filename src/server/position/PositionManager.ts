@@ -332,7 +332,7 @@ export class PositionManager {
   public setActivePositions(positions: Position[]) {
     this.mutationSeq++;
     this.activePositions = positions
-      .filter((p) => p.status === 'OPEN')
+      .filter((p) => p.status === 'OPEN' && !p.symbol.includes('_UM_XPERP') && !p.symbol.includes('XPERP'))
       .map((p) => {
         const ctVal = p.ctVal || 1;
         const validQty = p.qty && !isNaN(p.qty) && p.qty > 0

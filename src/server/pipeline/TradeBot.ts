@@ -300,7 +300,7 @@ export class TradeBot {
     }
 
     // Rehydrate saved positions and orders
-    const savedPositions = this.positionStore.get() || [];
+    const savedPositions = (this.positionStore.get() || []).filter((p: any) => !p.symbol?.includes('_UM_XPERP') && !p.symbol?.includes('XPERP'));
     this.positionManager.setActivePositions(savedPositions);
 
     const savedOrders = this.orderStore.get() || [];

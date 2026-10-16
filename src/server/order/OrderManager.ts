@@ -864,6 +864,21 @@ export class OrderManager {
       return { success: false, error: `Position ${position.symbol} is already closed.` };
     }
 
+    // Immediately handle legacy mock symbols (_UM_XPERP): close locally without attempting invalid OKX calls
+    if (position.symbol.includes('_UM_XPERP') || position.symbol.includes('XPERP')) {
+      const exitPrice = currentPrice || position.entryPrice || 0;
+      await this.positionManager.markPositionClosed(
+        position.id,
+        exitPrice,
+        Date.now(),
+        reason || 'MANUAL_CLOSE',
+        0,
+        { exitMarketRegime, accountEquity, openPositionsCount, closeOrderId: `close_mock_${Date.now()}` }
+      );
+      this.auditLogger('POSITION_CLOSED', `Closed legacy mock position ${position.symbol} locally.`, { symbol: position.symbol });
+      return { success: true };
+    }
+
     // Immediately lock position status to prevent concurrent duplicate close triggers from rapid ticks
     position.status = 'CLOSING';
 
@@ -1208,31 +1223,36 @@ export class OrderManager {
       position.lastCloseAttempt = Date.now();
       const errMsg = err?.message || String(err);
 
-      // Reconcile with exchange: If OKX reported position does not exist or all operations failed,
-      // verify if the position is already closed on the exchange.
+      // Reconcile with exchange: If OKX reported position does not exist, all operations failed, or burst limit
+      // verify if the position is already closed or non-existent on the exchange.
       if (
-        this.executionMode === 'LIVE' &&
         targetAdapter &&
         (errMsg.includes('51006') ||
+         errMsg.includes('51001') ||
          errMsg.includes('51000') ||
          errMsg.includes('does not exist') ||
          errMsg.includes('All operations failed') ||
+         errMsg.includes('All order placement attempts failed') ||
+         errMsg.includes('burst') ||
          errMsg.includes('sCode [1]'))
       ) {
         let isClosedOnExchange = true;
-        try {
-          const openPositions = await targetAdapter.getOpenPositions();
-          const stillOpen = openPositions.find((p) => p.symbol === position.symbol && p.size > 0);
-          if (stillOpen) {
-            isClosedOnExchange = false;
+        if (typeof targetAdapter.getOpenPositions === 'function') {
+          try {
+            const openPositions = await targetAdapter.getOpenPositions();
+            const normalizeKey = (s: string) => (s || '').trim().toUpperCase().replace(/-SWAP$/, '').replace(/-/g, '');
+            const targetKey = normalizeKey(position.symbol);
+            const stillOpen = openPositions.find((p) => normalizeKey(p.symbol) === targetKey && p.size > 0);
+            if (stillOpen) {
+              isClosedOnExchange = false;
+            }
+          } catch (recErr) {
+            isClosedOnExchange = true;
           }
-        } catch (recErr) {
-          // If getOpenPositions fails during All operations failed / 51006, assume position is already closed/inactive on exchange
-          isClosedOnExchange = true;
         }
 
         if (isClosedOnExchange) {
-          this.auditLogger('POSITION_CLOSED', `Reconciliation: Position ${position.symbol} is already closed on OKX (${errMsg}). Marking as closed locally.`, {
+          this.auditLogger('POSITION_CLOSED', `Reconciliation: Position ${position.symbol} does not exist on exchange (${errMsg}). Marking as closed locally.`, {
             positionId: position.id,
             symbol: position.symbol,
             reason: 'CLOSED_EXTERNALLY',
