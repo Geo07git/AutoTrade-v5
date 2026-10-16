@@ -229,6 +229,16 @@ async function startServer() {
     }
   });
 
+  // Force sync positions with exchange
+  app.post('/api/bot/force-sync', requireControlAuth, async (req, res) => {
+    try {
+      const result = await tradeBot.forceSyncPositions();
+      res.json({ success: true, ...result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Emergency Kill Switch
   app.post('/api/bot/killswitch', requireControlAuth, async (req, res) => {
     const engaged = await tradeBot.toggleKillSwitch();

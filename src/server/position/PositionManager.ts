@@ -1261,20 +1261,26 @@ export class PositionManager {
     const now = Date.now();
     const grace = PositionManager.RECONCILE_GRACE_MS;
     const isBusy = (symbol: string) => Boolean(options?.isSymbolBusy?.(symbol));
-    const exchangeMap = new Map<string, OKXRawPosition>();
+    const normalizeKey = (s: string) => {
+      if (!s) return '';
+      return s.trim().toUpperCase().replace(/-SWAP$/, '').replace(/-/g, '');
+    };
 
+    const exchangeMap = new Map<string, OKXRawPosition>();
     for (const ep of exchangePositions) {
-      exchangeMap.set(ep.symbol, ep);
+      exchangeMap.set(normalizeKey(ep.symbol), ep);
+      exchangeMap.set(ep.symbol.toUpperCase(), ep);
     }
 
     // 1. Check existing local positions against the exchange snapshot
     for (const localPos of [...this.activePositions]) {
-      const okxPos = exchangeMap.get(localPos.symbol);
+      const normKey = normalizeKey(localPos.symbol);
+      const okxPos = exchangeMap.get(normKey) || exchangeMap.get(localPos.symbol.toUpperCase());
 
       // Never touch a position that is mid-close or has an order in flight: the exchange snapshot and local
       // state are legitimately out of sync for the duration of the order lifecycle.
       if (localPos.status !== 'OPEN' || isBusy(localPos.symbol)) {
-        exchangeMap.delete(localPos.symbol);
+        if (okxPos) exchangeMap.delete(normalizeKey(okxPos.symbol));
         continue;
       }
 

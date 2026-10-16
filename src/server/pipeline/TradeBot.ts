@@ -2043,6 +2043,22 @@ export class TradeBot {
     return result;
   }
 
+  public async forceSyncPositions(): Promise<{ success: boolean; closedCount: number }> {
+    if (!this.activeAdapter || typeof this.activeAdapter.getOpenPositions !== 'function') {
+      return { success: false, closedCount: 0 };
+    }
+    try {
+      const realPositions = await this.activeAdapter.getOpenPositions();
+      const reconResult = this.positionManager.reconcileWithExchange(realPositions, this.configStore.get().activeProfile);
+      this.positionStore.save(this.positionManager.getActivePositions());
+      this.logAudit('FORCE_SYNC', `Force sync executed. Discrepancies reconciled: ${reconResult.discrepanciesFound}`);
+      return { success: true, closedCount: reconResult.discrepanciesFound };
+    } catch (err: any) {
+      this.logAudit('ERROR', `Force sync failed: ${err?.message || err}`);
+      return { success: false, closedCount: 0 };
+    }
+  }
+
 
   public updateProfileSettings(profileType: ProfileType, settings: Partial<ProfileConfig>) {
     const config = this.configStore.get();
