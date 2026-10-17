@@ -739,12 +739,23 @@ export class OKXAdapter implements IExecutionAdapter {
         })
         .map((p: any) => {
           const rawSize = parseFloat(p.pos || '0');
-          const posSide = p.posSide || 'net';
-          const side: 'Buy' | 'Sell' = posSide === 'long' || rawSize > 0 ? 'Buy' : 'Sell';
+          const posSideRaw = (p.posSide || 'net').toLowerCase();
+          let side: 'Buy' | 'Sell';
+          if (posSideRaw === 'short') {
+            side = 'Sell';
+          } else if (posSideRaw === 'long') {
+            side = 'Buy';
+          } else {
+            side = rawSize >= 0 ? 'Buy' : 'Sell';
+          }
+          const posSide: 'long' | 'short' | 'net' = posSideRaw === 'short' ? 'short' : (posSideRaw === 'long' ? 'long' : 'net');
+          const mgnMode = (p.mgnMode || 'cross').toLowerCase() as 'cross' | 'isolated';
 
           return {
             symbol: p.instId,
             side,
+            posSide,
+            mgnMode,
             size: Math.abs(rawSize),
             avgPrice: parseFloat(p.avgPx || '0'),
             unrealisedPnl: parseFloat(p.upl || '0'),
@@ -930,11 +941,16 @@ export class OKXAdapter implements IExecutionAdapter {
 
       // If regular order placement fails on a close order, attempt the dedicated OKX position close endpoint with multiple body variations
       if (!successfulRes && params.reduceOnly) {
+        const oppositePosSide = targetPosSide === 'long' ? 'short' : 'long';
         const closeBodiesToTry = [
           { instId, mgnMode: this.marginMode, posSide: targetPosSide },
+          { instId, mgnMode: this.marginMode, posSide: oppositePosSide },
           { instId, mgnMode: this.marginMode },
           { instId, mgnMode: this.marginMode, posSide: 'net' },
+          { instId, mgnMode: 'isolated', posSide: targetPosSide },
+          { instId, mgnMode: 'isolated', posSide: oppositePosSide },
         ];
+        let allReportedNonExistent = true;
         for (const cb of closeBodiesToTry) {
           try {
             console.log(`[OKXAdapter] Attempting direct /api/v5/trade/close-position for ${instId} with body:`, cb);
@@ -949,19 +965,22 @@ export class OKXAdapter implements IExecutionAdapter {
           } catch (closeErr: any) {
             console.warn(`[OKXAdapter] close-position attempt failed:`, closeErr?.message || closeErr);
             const cMsg = closeErr?.message || String(closeErr);
-            if (
+            const isNonExistent =
               cMsg.includes('51023') ||
               cMsg.includes('51006') ||
               cMsg.includes("doesn't exist") ||
-              cMsg.includes('does not exist')
-            ) {
-              console.log(`[OKXAdapter] Position ${instId} is confirmed already closed on OKX (${cMsg}). Treating close as success.`);
-              return {
-                orderId: `okx_already_closed_${Date.now()}`,
-                orderLinkId: params.orderLinkId,
-              };
+              cMsg.includes('does not exist');
+            if (!isNonExistent) {
+              allReportedNonExistent = false;
             }
           }
+        }
+        if (allReportedNonExistent) {
+          console.log(`[OKXAdapter] Position ${instId} is confirmed non-existent in any side/mode on OKX. Treating close as success.`);
+          return {
+            orderId: `okx_already_closed_${Date.now()}`,
+            orderLinkId: params.orderLinkId,
+          };
         }
       }
 

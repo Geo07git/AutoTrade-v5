@@ -37,7 +37,7 @@ export class PositionManager {
   // Per-symbol bookkeeping for re-entry control (closedHistory is capped at 200 so it cannot be used for this).
   private entryTimes: Map<string, number[]> = new Map();
   private lastLossAt: Map<string, number> = new Map();
-  private static readonly RECONCILE_GRACE_MS = 30_000;
+  private static readonly RECONCILE_GRACE_MS = 120_000;
   // A 2-tick confirmation filters single-print wicks, but it must not let a real crash run unchecked:
   // when price is already this far beyond the trigger, exit immediately (observed avg SL fill was -3.18% vs -3% set).
   private static readonly SL_IMMEDIATE_BUFFER_PCT = 0.25;
@@ -1354,6 +1354,8 @@ export class PositionManager {
           { symbol: localPos.symbol, oldSide: localPos.side, newSide: okxSide }
         );
         localPos.side = okxSide;
+        if (okxPos.posSide) localPos.posSide = okxPos.posSide;
+        if (okxPos.mgnMode) localPos.mgnMode = okxPos.mgnMode;
       }
 
       // Check entry price mismatch (relative check > 0.05%)
@@ -1398,6 +1400,8 @@ export class PositionManager {
         id: `okx_sync_${Date.now()}_${symbol}`,
         symbol,
         side,
+        posSide: unmappedOkxPos.posSide || (side === 'BUY' ? 'long' : 'short'),
+        mgnMode: unmappedOkxPos.mgnMode || 'cross',
         qty: unmappedOkxPos.size,
         entryPrice,
         ctVal,

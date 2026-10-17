@@ -981,7 +981,7 @@ export class OrderManager {
 
     try {
       let submitRes;
-      const posSide = position.side === 'BUY' ? 'long' : 'short';
+      const posSide = position.posSide || (position.side === 'BUY' ? 'long' : 'short');
       try {
         submitRes = await targetAdapter.submitOrder({
           symbol: position.symbol,
@@ -1492,7 +1492,7 @@ export class OrderManager {
       status: 'FILLED',
       createdTime: params.exitTime,
       updatedTime: params.exitTime,
-      intent: params.reason || 'EXCHANGE_CLOSE',
+      intent: (params.reason as any) || 'MANUAL_CLOSE',
       profile: params.position.profile,
       executionMode: params.position.executionMode || this.executionMode,
       entryPrice: params.position.entryPrice,

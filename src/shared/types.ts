@@ -57,6 +57,8 @@ export type AuditLogType =
   | 'PROFIT_VAULT_DEPOSIT'
   | 'PROFIT_VAULT_RESET'
   | 'EXPERIMENT'
+  | 'ORDER_RETRY'
+  | 'FORCE_SYNC'
   | 'SYSTEM'
   | 'ERROR';
 
@@ -289,7 +291,7 @@ export interface OrderRecord {
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'BREAK_EVEN' | 'EXPERIMENT_END';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'BREAK_EVEN' | 'EXPERIMENT_END' | 'EXCHANGE_CLOSE';
   profile: ProfileType;
   executionMode: ExecutionMode;
   // Detailed exit / profit / log telemetry
@@ -454,11 +456,15 @@ export interface Position {
   pairTimeStopMin?: number; // Time stop for the pair (e.g. 45 min)
   exitMode?: PairExitMode; // 'pair_close' | 'hedge_runs'
   isTruncated?: boolean; // True if position closed on EXPERIMENT_END or truncated
+  posSide?: 'long' | 'short' | 'net';
+  mgnMode?: 'cross' | 'isolated';
 }
 
 export interface OKXRawPosition {
   symbol: string;
   side: 'Buy' | 'Sell' | 'None';
+  posSide?: 'long' | 'short' | 'net';
+  mgnMode?: 'cross' | 'isolated';
   size: number;
   avgPrice: number;
   unrealisedPnl: number;
