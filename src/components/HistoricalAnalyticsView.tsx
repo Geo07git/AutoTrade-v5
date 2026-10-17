@@ -67,8 +67,10 @@ export const HistoricalAnalyticsView: React.FC = () => {
     fetch('/api/bot/scanner/debug-symbols')
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setSymbolsList(data.filter(s => s.includes('_UM_XPERP')).sort());
+        // Look for the correct array in response (universeSample or similar)
+        const symbols = data.universeSample || [];
+        if (Array.isArray(symbols)) {
+          setSymbolsList(symbols.filter(s => s.includes('_UM_XPERP')).sort());
         }
       })
       .catch(err => console.error('Failed to fetch universe symbols', err));
