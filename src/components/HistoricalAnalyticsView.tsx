@@ -61,18 +61,21 @@ export const HistoricalAnalyticsView: React.FC = () => {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'HOURLY' | 'CONSECUTIVE' | 'DAYS' | 'SESSIONS' | 'COMBINED'>('HOURLY');
+  const [symbolsList, setSymbolsList] = useState<string[]>([]);
 
-  const symbolsList = [
-    'TRUMP-USD_UM_XPERP-310704',
-    'LINK-USD_UM_XPERP-310523',
-    'BTC-USD_UM_XPERP-310404',
-    'ETH-USD_UM_XPERP-310404',
-    'SOL-USD_UM_XPERP-310404',
-    'DOGE-USD_UM_XPERP-310404',
-    'XRP-USD_UM_XPERP-310404'
-  ];
+  useEffect(() => {
+    fetch('/api/bot/scanner/debug-symbols')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSymbolsList(data.filter(s => s.includes('_UM_XPERP')).sort());
+        }
+      })
+      .catch(err => console.error('Failed to fetch universe symbols', err));
+  }, []);
 
   const fetchAnalytics = async () => {
+    if (symbolsList.length === 0) return;
     setLoading(true);
     setError(null);
     try {
@@ -92,8 +95,10 @@ export const HistoricalAnalyticsView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [days, selectedSymbol]);
+    if (symbolsList.length > 0) {
+      fetchAnalytics();
+    }
+  }, [days, selectedSymbol, symbolsList]);
 
   const formatHour = (utcH: number) => {
     let h = utcH;
