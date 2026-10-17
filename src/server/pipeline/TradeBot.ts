@@ -28,6 +28,7 @@ import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseMan
 import { MarketScanner } from '../scanner/MarketScanner';
 import { telegramService } from '../telegram/TelegramService';
 import { SymbolStatsTracker } from '../stats/SymbolStatsTracker';
+import { hourProfile } from '../analytics/HourProfile';
 
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -243,6 +244,14 @@ export class TradeBot {
 
     const profile = this.getActiveProfileConfig();
 
+    // Initialize daily HourProfile recalculation at 00:05 UTC
+    setInterval(() => {
+      const now = new Date();
+      if (now.getUTCHours() === 0 && now.getUTCMinutes() === 5) {
+        hourProfile.recalculate();
+      }
+    }, 60000);
+    
     // Unified audit logger callback
     const auditLogger = (type: AuditLogType, message: string, details?: any) => {
       this.logAudit(type, message, details);

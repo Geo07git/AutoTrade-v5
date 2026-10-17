@@ -1,4 +1,5 @@
 import { Kline, ProfileConfig, TradeSignal, ScannedOpportunity, OrderSide } from '../../shared/types';
+import { hourProfile } from '../analytics/HourProfile';
 
 export interface MomentumMetrics {
   score: number;
@@ -56,6 +57,11 @@ export class MomentumEngine {
     if (!mainKlines || mainKlines.length < 22) return null;
 
     const metrics = precomputedMetrics || this.calculateMetrics(klines);
+    
+    // Apply HourProfile threshold adjustment (+3 points for weakest quarter)
+    const utcHour = new Date().getUTCHours();
+    metrics.score += hourProfile.getThresholdAdjustment(utcHour);
+
     const maxScore = this.config.maxMomentumScore !== undefined ? this.config.maxMomentumScore : 100;
     const effAtr = metrics.atr14 > 0 ? metrics.atr14 : metrics.currentAtr;
     const atrPct = metrics.lastPrice > 0 ? (effAtr / metrics.lastPrice) * 100 : 0;

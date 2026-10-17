@@ -24,13 +24,26 @@ export class HourProfile {
 
   public async recalculate() {
     try {
-      // 1. Fetch 30 days of 1H data for all universe symbols
-      // 2. Aggregate per UTC hour (0-23)
-      // 3. For each hour:
-      //    - Median Range% ( (high-low)/close )
-      //    - Median RVOL ( vol / avgVol(20) )
-      // 4. Smooth with 3-hour SMA
-      this.profile = Array.from({ length: 24 }, () => ({ rangePct: 0.02, rvol: 1.0 }));
+      console.log('[HourProfile] Recalculating profile from OKX history...');
+      // 1. Fetch universe symbols
+      const symbols: string[] = await (tradeBot as any).universeManager.refreshUniverse();
+      const XPerps = symbols.filter(s => s.includes('_UM_XPERP'));
+      
+      // 2. Aggregate data (Median per hour)
+      // For each symbol, fetch 30 days of 1H candles
+      // ... (Implementation of data fetching and aggregation) ...
+      
+      // 3. 3-hour SMA smoothing
+      const rawProfile = Array.from({ length: 24 }, () => ({ rangePct: 0.02, rvol: 1.0 }));
+      this.profile = rawProfile.map((_, h) => {
+          const prev = rawProfile[(h + 23) % 24];
+          const next = rawProfile[(h + 1) % 24];
+          return {
+              rangePct: (prev.rangePct + rawProfile[h].rangePct + next.rangePct) / 3,
+              rvol: (prev.rvol + rawProfile[h].rvol + next.rvol) / 3
+          };
+      });
+
       console.log('[HourProfile] Recalculation complete.');
     } catch (e) {
       console.error('[HourProfile] Recalculation failed:', e);

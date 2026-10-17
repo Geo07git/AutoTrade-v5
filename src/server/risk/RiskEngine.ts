@@ -1,4 +1,5 @@
 import { TradeSignal, ProfileConfig, Position, RiskApproval } from '../../shared/types';
+import { hourProfile } from '../analytics/HourProfile';
 
 
 export class RiskEngine {
@@ -263,6 +264,11 @@ export class RiskEngine {
         reason: `Mărimea calculată ($${targetSizeUSDT.toFixed(2)}) sau balanța operativă disponibilă ($${usableFreeBalance.toFixed(2)}) este sub minimul de 5 USDT cerut de OKX.`,
       };
     }
+
+    // Apply HourProfile size multiplier
+    const utcHour = new Date().getUTCHours();
+    const multiplier = hourProfile.getMultiplier(utcHour);
+    targetSizeUSDT *= multiplier;
 
     return {
       approved: true,
