@@ -64,10 +64,12 @@ export const HistoricalAnalyticsView: React.FC = () => {
 
   const symbolsList = [
     'TRUMP-USD_UM_XPERP-310704',
-    'LINK-USD_UM_XPERP-310523',
+    'LINK-USD_UM_XPERP-310530',
     'BTC-USD_UM_XPERP-310404',
-    'ETH-USD_UM_XPERP-310516',
-    'SOL-USD_UM_XPERP-310613'
+    'ETH-USD_UM_XPERP-310404',
+    'SOL-USD_UM_XPERP-310404',
+    'DOGE-USD_UM_XPERP-310404',
+    'XRP-USD_UM_XPERP-310404'
   ];
 
   const fetchAnalytics = async () => {
