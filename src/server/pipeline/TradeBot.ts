@@ -300,11 +300,12 @@ export class TradeBot {
     }
 
     // Rehydrate saved positions and orders
-    const savedPositions = (this.positionStore.get() || []).filter((p: any) => !p.symbol?.includes('_UM_XPERP') && !p.symbol?.includes('XPERP'));
+    const savedPositions = this.positionStore.get() || [];
     this.positionManager.setActivePositions(savedPositions);
 
     const savedOrders = this.orderStore.get() || [];
-    this.orderManager.setOrders(savedOrders);
+    this.orderManager.setOrders(savedOrders, savedPositions);
+    this.orderStore.save(this.orderManager.getOrders());
 
     if (appConfig.executionMode === 'LIVE' && appConfig.baseCapital && appConfig.baseCapital > 0) {
       this.positionManager.resetHighestEquity(appConfig.baseCapital);
@@ -599,7 +600,9 @@ export class TradeBot {
       const realPositions = await this.activeAdapter.getOpenPositions();
       const currentProfile = config.activeProfile;
 
-      const reconResult = this.positionManager.reconcileWithExchange(realPositions, currentProfile);
+      const reconResult = this.positionManager.reconcileWithExchange(realPositions, currentProfile, {
+        onPositionClosed: (pos, px, time, pnl, pct) => this.handleExternalClose(pos, px, time, pnl, pct),
+      });
       this.positionStore.save(this.positionManager.getActivePositions());
       this.lastSyncTime = Date.now();
       reconciliationSuccessful = true;
@@ -666,14 +669,19 @@ export class TradeBot {
       const config = this.configStore.get();
       const profile = this.getActiveProfileConfig();
 
-      // One batched request for every SWAP ticker instead of one REST call per open position
+      // One batched request for every SWAP and FUTURES ticker instead of one REST call per open position
       // (100 positions => 100 calls / 2.5s, far above OKX public rate limits => silent stale prices => late stops).
       const prices = await this.fetchSwapTickers();
       for (const pos of activePositions) {
-        const instId = pos.symbol.includes('-SWAP') ? pos.symbol : `${pos.symbol}-SWAP`;
-        const px = prices[instId];
+        const px = prices[pos.symbol] ||
+                   prices[pos.symbol.includes('-SWAP') ? pos.symbol : `${pos.symbol}-SWAP`] ||
+                   prices[pos.symbol.replace(/-SWAP$/, '')];
         if (px && px > 0) {
           this.latestPrices[pos.symbol] = px;
+        } else if (!this.latestPrices[pos.symbol] && pos.currentPrice && pos.currentPrice > 0) {
+          this.latestPrices[pos.symbol] = pos.currentPrice;
+        } else if (!this.latestPrices[pos.symbol] && pos.entryPrice && pos.entryPrice > 0) {
+          this.latestPrices[pos.symbol] = pos.entryPrice;
         }
       }
 
@@ -717,27 +725,35 @@ export class TradeBot {
   }
 
   /**
-   * Fetches all OKX SWAP tickers in a single request (cached for 1s) and returns instId -> last price.
+   * Fetches all OKX SWAP and FUTURES tickers in a single request (cached for 1s) and returns instId -> last price.
    */
   private async fetchSwapTickers(): Promise<Record<string, number>> {
     const now = Date.now();
-    if (now - this.tickerCache.at < 1000) {
+    if (now - this.tickerCache.at < 1000 && Object.keys(this.tickerCache.prices).length > 0) {
       return this.tickerCache.prices;
     }
     try {
-      const res = await fetch('https://eea.okx.com/api/v5/market/tickers?instType=SWAP', {
-        signal: AbortSignal.timeout(4000),
-      });
-      const data: any = await res.json();
-      if (data?.code === '0' && Array.isArray(data.data)) {
-        const prices: Record<string, number> = {};
-        for (const t of data.data) {
-          const px = parseFloat(t.last || '0');
-          if (t.instId && px > 0) prices[t.instId] = px;
+      const [swapRes, futRes] = await Promise.allSettled([
+        fetch('https://eea.okx.com/api/v5/market/tickers?instType=SWAP', { signal: AbortSignal.timeout(4000) }),
+        fetch('https://eea.okx.com/api/v5/market/tickers?instType=FUTURES', { signal: AbortSignal.timeout(4000) }),
+      ]);
+      const prices: Record<string, number> = { ...this.tickerCache.prices };
+      for (const res of [swapRes, futRes]) {
+        if (res.status === 'fulfilled' && res.value.ok) {
+          const data: any = await res.value.json();
+          if (data?.code === '0' && Array.isArray(data.data)) {
+            for (const t of data.data) {
+              const px = parseFloat(t.last || '0');
+              if (t.instId && px > 0) {
+                prices[t.instId] = px;
+                prices[t.instId.replace(/-SWAP$/, '')] = px;
+              }
+            }
+          }
         }
-        this.tickerCache = { at: now, prices };
-        return prices;
       }
+      this.tickerCache = { at: now, prices };
+      return prices;
     } catch {
       // fall through: keep the previous snapshot rather than evaluating on nothing
     }
@@ -790,6 +806,7 @@ export class TradeBot {
           if (this.positionManager.getMutationSeq() === seqBefore && !this.positionManager.hasInFlightOperations()) {
             this.positionManager.reconcileWithExchange(exchangePositions, config.activeProfile, {
               isSymbolBusy: (sym) => this.orderManager.hasPendingOrderForSymbol(sym),
+              onPositionClosed: (pos, px, time, pnl, pct) => this.handleExternalClose(pos, px, time, pnl, pct),
             });
             this.positionStore.save(this.positionManager.getActivePositions());
             this.lastSyncTime = now;
@@ -2025,7 +2042,7 @@ export class TradeBot {
         const stillOpen = openPosList.find((p) => p.symbol === symbol && p.size > 0);
         if (!stillOpen) {
           this.logAudit('POSITION_CLOSED', `Manual close force-sync: Position ${symbol} no longer open on exchange. Forcing local closure.`, { symbol });
-          await this.positionManager.markPositionClosed(
+          const closedPos = await this.positionManager.markPositionClosed(
             pos.id,
             currentPrice,
             Date.now(),
@@ -2033,8 +2050,15 @@ export class TradeBot {
             0,
             { exitMarketRegime: this.marketRegime, accountEquity: this.currentEquity }
           );
+          this.handleExternalClose(
+            pos,
+            currentPrice,
+            Date.now(),
+            closedPos?.pnl ?? 0,
+            closedPos?.pnlPct ?? 0,
+            'MANUAL_CLOSE'
+          );
           this.positionStore.save(this.positionManager.getActivePositions());
-          this.orderStore.save(this.orderManager.getOrders());
           return { success: true };
         }
       } catch (e) {}
@@ -2043,13 +2067,27 @@ export class TradeBot {
     return result;
   }
 
+  private handleExternalClose(pos: Position, exitPrice: number, exitTime: number, pnl: number, pnlPct: number, reason: string = 'EXCHANGE_CLOSE') {
+    this.orderManager.recordExternalClose({
+      position: pos,
+      exitPrice,
+      exitTime,
+      pnl,
+      pnlPct,
+      reason,
+    });
+    this.orderStore.save(this.orderManager.getOrders());
+  }
+
   public async forceSyncPositions(): Promise<{ success: boolean; closedCount: number }> {
     if (!this.activeAdapter || typeof this.activeAdapter.getOpenPositions !== 'function') {
       return { success: false, closedCount: 0 };
     }
     try {
       const realPositions = await this.activeAdapter.getOpenPositions();
-      const reconResult = this.positionManager.reconcileWithExchange(realPositions, this.configStore.get().activeProfile);
+      const reconResult = this.positionManager.reconcileWithExchange(realPositions, this.configStore.get().activeProfile, {
+        onPositionClosed: (pos, px, time, pnl, pct) => this.handleExternalClose(pos, px, time, pnl, pct),
+      });
       this.positionStore.save(this.positionManager.getActivePositions());
       this.logAudit('FORCE_SYNC', `Force sync executed. Discrepancies reconciled: ${reconResult.discrepanciesFound}`);
       return { success: true, closedCount: reconResult.discrepanciesFound };

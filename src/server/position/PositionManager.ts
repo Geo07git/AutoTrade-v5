@@ -332,7 +332,7 @@ export class PositionManager {
   public setActivePositions(positions: Position[]) {
     this.mutationSeq++;
     this.activePositions = positions
-      .filter((p) => p.status === 'OPEN' && !p.symbol.includes('_UM_XPERP') && !p.symbol.includes('XPERP'))
+      .filter((p) => p.status === 'OPEN')
       .map((p) => {
         const ctVal = p.ctVal || 1;
         const validQty = p.qty && !isNaN(p.qty) && p.qty > 0
@@ -431,8 +431,11 @@ export class PositionManager {
       exitFee: 0,
       status: 'OPEN',
       entryTime: Date.now(),
+      currentPrice: entryPrice,
       highestPrice: entryPrice,
       lowestPrice: entryPrice,
+      pnl: 0,
+      pnlPct: 0,
       maePct: 0,
       mfePct: 0,
       stopLossPrice: order.stopLossPrice,
@@ -690,8 +693,9 @@ export class PositionManager {
                        currentPrices[`${pos.symbol}-SWAP`] || 
                        currentPrices[pos.symbol.replace('USDT', '-USDT')] ||
                        currentPrices[pos.symbol.replace('-USDT', 'USDT')] ||
-                       pos.currentPrice;
-      const currentPrice = rawPrice && rawPrice > 0 ? rawPrice : 0;
+                       pos.currentPrice ||
+                       pos.entryPrice;
+      const currentPrice = rawPrice && rawPrice > 0 ? rawPrice : (pos.entryPrice || 0);
       if (!currentPrice || currentPrice <= 0) continue;
 
       pos.currentPrice = currentPrice;
@@ -1252,6 +1256,7 @@ export class PositionManager {
     options?: {
       /** Return true when an order is in flight for the symbol; such symbols are never touched. */
       isSymbolBusy?: (symbol: string) => boolean;
+      onPositionClosed?: (pos: Position, exitPrice: number, exitTime: number, pnl: number, pnlPct: number) => void;
     }
   ): {
     discrepanciesFound: number;
@@ -1268,7 +1273,7 @@ export class PositionManager {
 
     const exchangeMap = new Map<string, OKXRawPosition>();
     for (const ep of exchangePositions) {
-      if (!ep.symbol || ep.symbol.includes('_UM_XPERP') || ep.symbol.includes('XPERP')) continue;
+      if (!ep.symbol) continue;
       exchangeMap.set(normalizeKey(ep.symbol), ep);
     }
 
@@ -1317,6 +1322,9 @@ export class PositionManager {
         this.recentlyClosedAt.set(localPos.symbol, now);
         this.activePositions = this.activePositions.filter((p) => p.id !== localPos.id);
         this.closedHistory.unshift(localPos);
+
+        // Record close in OrderManager so it appears in BLOT
+        options?.onPositionClosed?.(localPos, exitPrice, now, localPos.pnl, localPos.pnlPct);
 
         continue;
       }
@@ -1369,8 +1377,7 @@ export class PositionManager {
     for (const [, unmappedOkxPos] of exchangeMap.entries()) {
       if (unmappedOkxPos.size <= 0) continue;
       const symbol = unmappedOkxPos.symbol;
-      if (symbol.includes('_UM_XPERP') || symbol.includes('XPERP')) continue;
-      if (unmappedOkxPos.size <= 0) continue;
+      if (!symbol) continue;
 
       // Do not "discover" a position we closed (or just opened) within the grace window, or one with an order in
       // flight: the snapshot was taken before our own state change landed. This was the source of phantom

@@ -948,11 +948,38 @@ export class OKXAdapter implements IExecutionAdapter {
             }
           } catch (closeErr: any) {
             console.warn(`[OKXAdapter] close-position attempt failed:`, closeErr?.message || closeErr);
+            const cMsg = closeErr?.message || String(closeErr);
+            if (
+              cMsg.includes('51023') ||
+              cMsg.includes('51006') ||
+              cMsg.includes("doesn't exist") ||
+              cMsg.includes('does not exist')
+            ) {
+              console.log(`[OKXAdapter] Position ${instId} is confirmed already closed on OKX (${cMsg}). Treating close as success.`);
+              return {
+                orderId: `okx_already_closed_${Date.now()}`,
+                orderLinkId: params.orderLinkId,
+              };
+            }
           }
         }
       }
 
       if (!successfulRes) {
+        const lastMsg = lastError?.message || '';
+        if (
+          params.reduceOnly &&
+          (lastMsg.includes('51023') ||
+           lastMsg.includes('51006') ||
+           lastMsg.includes("doesn't exist") ||
+           lastMsg.includes('does not exist'))
+        ) {
+          console.log(`[OKXAdapter] Position ${instId} does not exist on OKX (${lastMsg}). Close order confirmed.`);
+          return {
+            orderId: `okx_already_closed_${Date.now()}`,
+            orderLinkId: params.orderLinkId,
+          };
+        }
         throw lastError || new Error('All order placement attempts failed');
       }
 
@@ -962,7 +989,7 @@ export class OKXAdapter implements IExecutionAdapter {
         orderLinkId: orderData.clOrdId || params.orderLinkId,
       };
     } catch (err: any) {
-      if (err?.message?.includes('51001') || err?.message?.includes("doesn't exist")) {
+      if (err?.message?.includes('51001') || (err?.message?.includes("doesn't exist") && !err?.message?.includes('Position'))) {
         this.unlistedSymbols.add(instId);
       }
       console.error(`[OKXAdapter] Failed submitOrder for ${instId}:`, err?.message || err);
@@ -985,6 +1012,16 @@ export class OKXAdapter implements IExecutionAdapter {
     cumFee: number;
     rawStatus: string;
   } | null> {
+    if (exchangeOrderId && (exchangeOrderId.startsWith('okx_already_closed_') || exchangeOrderId.startsWith('already_closed_') || exchangeOrderId.startsWith('okx_closed_'))) {
+      return {
+        orderId: exchangeOrderId,
+        status: 'FILLED',
+        filledQty: 0,
+        avgPrice: 0,
+        cumFee: 0,
+        rawStatus: 'filled',
+      };
+    }
     if (!this.hasCredentials()) return null;
     const instId = this.normalizeSymbol(symbol);
     const clOrdId = orderLinkId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);

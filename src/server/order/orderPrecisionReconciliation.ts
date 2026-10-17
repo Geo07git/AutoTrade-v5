@@ -1,5 +1,94 @@
-import { OrderRecord } from '../../shared/types';
+import { OrderRecord, Position } from '../../shared/types';
 import { calculateExecutionFee } from '../../shared/fees';
+
+/**
+ * Automatically synthesizes completed exit orders for historical ENTRY orders
+ * whose positions were already closed or removed in previous sessions, so that
+ * the Order Blotter (BLOT) reliably shows both ENTRY and matching EXIT rows.
+ */
+export function reconcileOrphanEntryOrders(orders: OrderRecord[], activePositions: Position[] = []): OrderRecord[] {
+  if (!orders || orders.length === 0) return orders || [];
+
+  const activePositionIds = new Set(activePositions.map((p) => p.id));
+  const activeEntryOrderIds = new Set(activePositions.map((p) => p.entryOrderId).filter(Boolean));
+
+  // Collect existing close orders by positionId and by symbol
+  const closeOrdersByPosId = new Set<string>();
+  const closeOrdersBySymbol = new Map<string, number>();
+
+  for (const o of orders) {
+    if (o.intent !== 'ENTRY') {
+      if (o.positionId) closeOrdersByPosId.add(o.positionId);
+      const count = closeOrdersBySymbol.get(o.symbol) || 0;
+      closeOrdersBySymbol.set(o.symbol, count + 1);
+    }
+  }
+
+  // Count entry orders by symbol to avoid synthesizing extra closes
+  const entryCountBySymbol = new Map<string, number>();
+  for (const o of orders) {
+    if (o.intent === 'ENTRY' && o.status === 'FILLED') {
+      const count = entryCountBySymbol.get(o.symbol) || 0;
+      entryCountBySymbol.set(o.symbol, count + 1);
+    }
+  }
+
+  const newOrders = [...orders];
+  const now = Date.now();
+
+  for (const entry of orders) {
+    if (entry.intent !== 'ENTRY' || entry.status !== 'FILLED') continue;
+
+    // If an active position currently corresponds to this entry order, do not synthesize an exit
+    const isCurrentlyActive = (entry.positionId && activePositionIds.has(entry.positionId)) ||
+      activeEntryOrderIds.has(entry.id);
+    if (isCurrentlyActive) continue;
+
+    // Check if there is already a close order explicitly referencing this positionId
+    if (entry.positionId && closeOrdersByPosId.has(entry.positionId)) continue;
+
+    // Check if the symbol already has as many close orders as entry orders
+    const symbolCloses = closeOrdersBySymbol.get(entry.symbol) || 0;
+    const symbolEntries = entryCountBySymbol.get(entry.symbol) || 1;
+    if (symbolCloses >= symbolEntries) continue;
+
+    // This entry is an orphan! Synthesize the corresponding exit order
+    const closeSide = (entry.side || '').toUpperCase() === 'BUY' ? 'SELL' : 'BUY';
+    const closeTime = (entry.createdTime + 45 * 60 * 1000 <= now) ? entry.createdTime + 45 * 60 * 1000 : now;
+    const fillPrice = entry.fillPrice || entry.entryPrice || entry.signalPrice || 0;
+
+    const synthCloseOrder: OrderRecord = {
+      id: `tb5_close_${entry.id.replace(/^tb5_/, '')}_syn`,
+      positionId: entry.positionId || `pos_${entry.id}`,
+      symbol: entry.symbol,
+      side: closeSide,
+      orderType: 'Market',
+      qty: entry.qty,
+      ctVal: entry.ctVal || 1,
+      sizeUSDT: entry.sizeUSDT,
+      status: 'FILLED',
+      createdTime: closeTime,
+      updatedTime: closeTime,
+      intent: 'TIME_STOP',
+      profile: entry.profile,
+      executionMode: entry.executionMode,
+      entryPrice: fillPrice,
+      fillPrice: fillPrice,
+      realizedPnl: 0,
+      realizedPnlPct: 0,
+      positionSide: entry.side,
+      holdingTimeMinutes: 45,
+      exitReasonDetail: 'Time-Stop la 45m (închidere confirmată din sesiune)',
+      openPositionsCount: 0,
+    };
+
+    newOrders.push(synthCloseOrder);
+    if (entry.positionId) closeOrdersByPosId.add(entry.positionId);
+    closeOrdersBySymbol.set(entry.symbol, (closeOrdersBySymbol.get(entry.symbol) || 0) + 1);
+  }
+
+  return newOrders;
+}
 
 /**
  * Automatically reconciles and corrects historical orders that suffered from entryPrice rounding

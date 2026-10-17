@@ -16,7 +16,7 @@ import {
   PairExitMode,
 } from '../../shared/types';
 import { formatPrice } from '../../shared/formatters';
-import { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliation';
+import { reconcileHistoricalOrderPrecision, reconcileOrphanEntryOrders } from './orderPrecisionReconciliation';
 import { calculateExecutionFee } from '../../shared/fees';
 
 export class OrderManager {
@@ -85,9 +85,10 @@ export class OrderManager {
     return list;
   }
 
-  public setOrders(orders: OrderRecord[]) {
+  public setOrders(orders: OrderRecord[], activePositions: Position[] = []) {
     this.orders.clear();
-    const reconciled = reconcileHistoricalOrderPrecision(orders || []);
+    const withOrphans = reconcileOrphanEntryOrders(orders || [], activePositions);
+    const reconciled = reconcileHistoricalOrderPrecision(withOrphans);
     const now = Date.now();
     for (const order of reconciled.slice(0, 1000)) {
       if (order && order.id) {
@@ -864,21 +865,6 @@ export class OrderManager {
       return { success: false, error: `Position ${position.symbol} is already closed.` };
     }
 
-    // Immediately handle legacy mock symbols (_UM_XPERP): close locally without attempting invalid OKX calls
-    if (position.symbol.includes('_UM_XPERP') || position.symbol.includes('XPERP')) {
-      const exitPrice = currentPrice || position.entryPrice || 0;
-      await this.positionManager.markPositionClosed(
-        position.id,
-        exitPrice,
-        Date.now(),
-        reason || 'MANUAL_CLOSE',
-        0,
-        { exitMarketRegime, accountEquity, openPositionsCount, closeOrderId: `close_mock_${Date.now()}` }
-      );
-      this.auditLogger('POSITION_CLOSED', `Closed legacy mock position ${position.symbol} locally.`, { symbol: position.symbol });
-      return { success: true };
-    }
-
     // Immediately lock position status to prevent concurrent duplicate close triggers from rapid ticks
     position.status = 'CLOSING';
 
@@ -1010,6 +996,14 @@ export class OrderManager {
       } catch (submitErr: any) {
         const errMsg = submitErr?.message || '';
         if (
+          errMsg.includes('51023') ||
+          errMsg.includes('51006') ||
+          errMsg.includes("doesn't exist") ||
+          errMsg.includes('does not exist')
+        ) {
+          throw submitErr;
+        }
+        if (
           this.executionMode === 'LIVE' &&
           (errMsg.includes('All operations failed') || errMsg.includes('sCode [1]') || errMsg.includes('rate limit') || errMsg.includes('50011'))
         ) {
@@ -1118,8 +1112,12 @@ export class OrderManager {
         const grossPnl = closedPos?.grossPnl !== undefined ? closedPos.grossPnl : (closedPos ? pnl : parseFloat(fallbackGross.toFixed(4)));
         const totalFees = closedPos ? ((closedPos.entryFee || 0) + (closedPos.exitFee || 0)) : fallbackFees;
 
+        closeOrder.status = 'FILLED';
+        closeOrder.fillPrice = exitPrice;
+        closeOrder.updatedTime = exitTime;
         closeOrder.realizedPnl = pnl;
         closeOrder.realizedPnlPct = pnlPct;
+        this.orders.set(clientOrderId, closeOrder);
 
         try {
           const activeAdapter = this.getActiveAdapter();
@@ -1223,21 +1221,24 @@ export class OrderManager {
       position.lastCloseAttempt = Date.now();
       const errMsg = err?.message || String(err);
 
-      // Reconcile with exchange: If OKX reported position does not exist, all operations failed, or burst limit
-      // verify if the position is already closed or non-existent on the exchange.
+      const isExplicitNonExistent =
+        errMsg.includes('51023') ||
+        errMsg.includes('51006') ||
+        errMsg.includes("doesn't exist") ||
+        errMsg.includes('does not exist');
+
       if (
         targetAdapter &&
-        (errMsg.includes('51006') ||
+        (isExplicitNonExistent ||
          errMsg.includes('51001') ||
          errMsg.includes('51000') ||
-         errMsg.includes('does not exist') ||
          errMsg.includes('All operations failed') ||
          errMsg.includes('All order placement attempts failed') ||
          errMsg.includes('burst') ||
          errMsg.includes('sCode [1]'))
       ) {
-        let isClosedOnExchange = true;
-        if (typeof targetAdapter.getOpenPositions === 'function') {
+        let isClosedOnExchange = isExplicitNonExistent;
+        if (!isClosedOnExchange && typeof targetAdapter.getOpenPositions === 'function') {
           try {
             const openPositions = await targetAdapter.getOpenPositions();
             const normalizeKey = (s: string) => (s || '').trim().toUpperCase().replace(/-SWAP$/, '').replace(/-/g, '');
@@ -1245,6 +1246,8 @@ export class OrderManager {
             const stillOpen = openPositions.find((p) => normalizeKey(p.symbol) === targetKey && p.size > 0);
             if (stillOpen) {
               isClosedOnExchange = false;
+            } else {
+              isClosedOnExchange = true;
             }
           } catch (recErr) {
             isClosedOnExchange = true;
@@ -1257,7 +1260,7 @@ export class OrderManager {
             symbol: position.symbol,
             reason: 'CLOSED_EXTERNALLY',
           });
-          await this.positionManager.markPositionClosed(
+          const closedPos = await this.positionManager.markPositionClosed(
             position.id,
             estPrice,
             Date.now(),
@@ -1267,6 +1270,10 @@ export class OrderManager {
           );
           closeOrder.status = 'FILLED';
           closeOrder.fillPrice = estPrice;
+          closeOrder.updatedTime = Date.now();
+          closeOrder.realizedPnl = closedPos?.pnl ?? 0;
+          closeOrder.realizedPnlPct = closedPos?.pnlPct ?? 0;
+          this.orders.set(clientOrderId, closeOrder);
           return { success: true, order: closeOrder };
         }
       }
@@ -1459,7 +1466,47 @@ export class OrderManager {
       this.auditLogger('ORDER_CANCELLED', `WS: Order ${order.id} cancelled on exchange`, { orderId: order.id });
     }
   }
+
+  public recordExternalClose(params: {
+    position: Position;
+    exitPrice: number;
+    exitTime: number;
+    pnl: number;
+    pnlPct: number;
+    reason?: string;
+  }): OrderRecord {
+    const closeSide: OrderSide = params.position.side.toUpperCase() === 'BUY' ? 'SELL' : 'BUY';
+    const closeOrderId = `tb5_close_${params.exitTime}_${Math.random().toString(36).substring(2, 6)}`;
+    const ctVal = params.position.ctVal || 1;
+    const actualCloseNotional = params.position.qty * ctVal * params.exitPrice;
+
+    const closeOrder: OrderRecord = {
+      id: closeOrderId,
+      positionId: params.position.id,
+      symbol: params.position.symbol,
+      side: closeSide,
+      orderType: 'Market',
+      qty: params.position.qty,
+      ctVal,
+      sizeUSDT: parseFloat((isNaN(actualCloseNotional) ? params.position.sizeUSDT : actualCloseNotional).toFixed(2)),
+      status: 'FILLED',
+      createdTime: params.exitTime,
+      updatedTime: params.exitTime,
+      intent: params.reason || 'EXCHANGE_CLOSE',
+      profile: params.position.profile,
+      executionMode: params.position.executionMode || this.executionMode,
+      entryPrice: params.position.entryPrice,
+      fillPrice: params.exitPrice,
+      realizedPnl: params.pnl,
+      realizedPnlPct: params.pnlPct,
+      positionSide: params.position.side,
+      holdingTimeMinutes: params.position.holdingTimeMinutes,
+    };
+
+    this.orders.set(closeOrderId, closeOrder);
+    return closeOrder;
+  }
 }
 
-export { reconcileHistoricalOrderPrecision } from './orderPrecisionReconciliation';
+export { reconcileHistoricalOrderPrecision, reconcileOrphanEntryOrders } from './orderPrecisionReconciliation';
 
