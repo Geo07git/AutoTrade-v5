@@ -249,7 +249,7 @@ export const HistoricalAnalyticsView: React.FC = () => {
           <select
             value={selectedSymbol}
             onChange={(e) => setSelectedSymbol(e.target.value)}
-            className="w-full bg-black border border-amber-500/40 rounded px-3 py-1.5 text-amber-400 text-xs focus:outline-none focus:border-amber-400"
+            className="w-full bg-black border border-amber-500/40 rounded px-3 py-1.5 text-amber-400 text-xs focus:outline-none focus:border-amber-400 max-h-40"
           >
             <option value="ALL">Toate X-Perps (Agregat)</option>
             {symbolsList.map(sym => (
