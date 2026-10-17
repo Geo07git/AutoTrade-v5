@@ -64,7 +64,7 @@ export const HistoricalAnalyticsView: React.FC = () => {
 
   const symbolsList = [
     'TRUMP-USD_UM_XPERP-310704',
-    'LINK-USD_UM_XPERP-310530',
+    'LINK-USD_UM_XPERP-310523',
     'BTC-USD_UM_XPERP-310404',
     'ETH-USD_UM_XPERP-310404',
     'SOL-USD_UM_XPERP-310404',
