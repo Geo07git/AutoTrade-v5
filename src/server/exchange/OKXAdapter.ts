@@ -140,7 +140,7 @@ export class OKXAdapter implements IExecutionAdapter {
   /**
    * Performs an authenticated or public request to OKX REST API with auto-fallback between EEA and Global
    */
-  private async request(method: string, path: string, body?: any, isAuth: boolean = false, signal?: AbortSignal, retryOtherDomain: boolean = true): Promise<any> {
+  public async request(method: string, path: string, body?: any, isAuth: boolean = false, signal?: AbortSignal, retryOtherDomain: boolean = true, retryCount: number = 0): Promise<any> {
     const timestamp = new Date().toISOString();
     const bodyStr = body ? JSON.stringify(body) : '';
     const url = `${this.restBaseUrl}${path}`;
@@ -172,6 +172,12 @@ export class OKXAdapter implements IExecutionAdapter {
       body: body ? bodyStr : undefined,
       signal: signal || AbortSignal.timeout(10000),
     });
+
+    if (res.status === 429 && retryCount < 3) {
+      console.warn(`[OKXAdapter] Rate limited (429), retrying attempt ${retryCount + 1}...`);
+      await new Promise(r => setTimeout(r, (retryCount + 1) * 2000));
+      return this.request(method, path, body, isAuth, signal, retryOtherDomain, retryCount + 1);
+    }
 
     if (!res.ok) {
       const text = await res.text();

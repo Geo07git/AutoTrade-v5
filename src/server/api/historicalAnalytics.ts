@@ -33,6 +33,7 @@ export function registerHistoricalAnalyticsRoutes(app: express.Application) {
           }
           try {
             const resp = await adapter.request('GET', url, undefined, false);
+            await new Promise(r => setTimeout(r, 250));
             if (resp.code === '0' && Array.isArray(resp.data) && resp.data.length > 0) {
               const fetched = resp.data;
               allCandles.push(...fetched);
