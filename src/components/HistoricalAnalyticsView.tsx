@@ -64,13 +64,11 @@ export const HistoricalAnalyticsView: React.FC = () => {
   const [symbolsList, setSymbolsList] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch('/api/bot/scanner/debug-symbols')
+    fetch('/api/bot/symbols')
       .then(res => res.json())
       .then(data => {
-        // Look for the correct array in response (universeSample or similar)
-        const symbols = data.universeSample || [];
-        if (Array.isArray(symbols)) {
-          setSymbolsList(symbols.filter(s => s.includes('_UM_XPERP')).sort());
+        if (Array.isArray(data)) {
+          setSymbolsList(data.filter(s => s.includes('_UM_XPERP')).sort());
         }
       })
       .catch(err => console.error('Failed to fetch universe symbols', err));

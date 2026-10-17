@@ -190,6 +190,16 @@ async function startServer() {
     }
   });
 
+  app.get('/api/bot/symbols', async (req, res) => {
+    try {
+      const universeManager = (tradeBot as any).universeManager;
+      const symbols = await universeManager.refreshUniverse();
+      res.json(symbols);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Switch profile: SCALP | MOMENTUM | PAIR_SCALP
   app.post('/api/bot/profile', requireControlAuth, async (req, res) => {
     const { profile } = req.body;
