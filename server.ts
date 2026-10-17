@@ -7,6 +7,7 @@ import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { flushAllStores } from './src/server/store';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
+import { registerHistoricalAnalyticsRoutes } from './src/server/api/historicalAnalytics';
 
 // Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
 // unconditionally by every control route (kill switch, mode switch, credential update).
@@ -63,6 +64,8 @@ async function startServer() {
   app.use(express.json());
 
   // Public status and inspection routes
+  registerHistoricalAnalyticsRoutes(app);
+
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', bot: 'TradeBot 5' });
   });

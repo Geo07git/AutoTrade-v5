@@ -57,9 +57,11 @@ import {
   BookOpen,
   ListFilter,
   MoreHorizontal,
+  BarChart2,
 } from 'lucide-react';
 import { TradingViewChart } from './TradingViewChart';
 import { SymbolStatsView } from './SymbolStatsView';
+import { HistoricalAnalyticsView } from './HistoricalAnalyticsView';
 import { UserManualModal } from './UserManualModal';
 import { downloadUserManualPdf } from '../utils/generateManualPdf';
 import { formatPrice, formatExactPriceForExport, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
@@ -234,7 +236,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const profileConfig = status?.profileConfig;
   const activeProfile = status?.config?.activeProfile || 'MOMENTUM';
 
-  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM' | 'EXP' | 'TOP'>('PORT');
+  const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM' | 'EXP' | 'TOP' | 'HIST'>('PORT');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
 
   // 8-Hour Experiment State
@@ -3727,6 +3729,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveScreen('HIST')}
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
+                activeScreen === 'HIST' ? 'bg-amber-400 text-black shadow-lg shadow-amber-400/30' : 'bg-black text-amber-400 hover:bg-zinc-800 border border-amber-500/50'
+              }`}
+              title="Dashboard interactiv pentru analiza istorică OKX X-Perps (7, 14, 30, 90 zile)"
+            >
+              <BarChart2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>[📊 HIST]</span>
+            </button>
+
+            <button
               onClick={() => setActiveScreen('BLOT')}
               className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded font-bold text-[11px] sm:text-xs transition-colors flex items-center space-x-1 sm:space-x-1.5 shrink-0 ${
                 activeScreen === 'BLOT' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'bg-black text-amber-500 hover:bg-zinc-800 border border-amber-500/40'
@@ -6429,13 +6442,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           {activeScreen === 'EXP' && renderExperimentView()}
 
           {activeScreen === 'TOP' && renderTopGainsView()}
+
+          {activeScreen === 'HIST' && <HistoricalAnalyticsView />}
         </div>
 
-          {/* RIGHT MODULE PANEL: OPEN POSITIONS IN [1:PORT], TRADINGVIEW CHART IN ALL OTHER SCREENS (HIDDEN IN SYM/EXP/TOP) */}
+          {/* RIGHT MODULE PANEL: OPEN POSITIONS IN [1:PORT], TRADINGVIEW CHART IN ALL OTHER SCREENS (HIDDEN IN SYM/EXP/TOP/HIST) */}
           <div className={`${
             activeScreen === 'CHART'
               ? 'col-span-12 flex'
-              : activeScreen === 'SYM' || activeScreen === 'EXP' || activeScreen === 'TOP'
+              : activeScreen === 'SYM' || activeScreen === 'EXP' || activeScreen === 'TOP' || activeScreen === 'HIST'
               ? 'hidden'
               : 'hidden lg:flex lg:col-span-6'
           } flex-col min-h-0`}>
