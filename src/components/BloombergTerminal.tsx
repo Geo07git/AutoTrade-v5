@@ -6212,7 +6212,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 <Terminal className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span className="font-bold text-[11px] sm:text-xs tracking-wider text-amber-400 shrink-0">
                   <span className="sm:hidden">AUDIT FEED</span>
-                  <span className="hidden sm:inline">DESK AUDIT FEED</span>
+                  <span className="hidden sm:inline">DESK AUDIT LOGS</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono shrink-0" title="Capacitate maximă 500 evenimente (suprascriere FIFO automată)">
                   ({Math.min(displayLogs.length, 500)}/500)
