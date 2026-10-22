@@ -1,0 +1,679 @@
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import cors from 'cors';
+import crypto from 'crypto';
+import { tradeBot } from './src/server/pipeline/TradeBot';
+import { telegramService } from './src/server/telegram/TelegramService';
+import { flushAllStores } from './src/server/store';
+import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
+
+// Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
+// unconditionally by every control route (kill switch, mode switch, credential update).
+const LEGACY_DEV_TOKEN = 'tradebot5_admin_token';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+let CONTROL_TOKEN = process.env.BOT_CONTROL_TOKEN || '';
+if (!CONTROL_TOKEN) {
+  if (IS_PRODUCTION) {
+    CONTROL_TOKEN = crypto.randomBytes(24).toString('hex');
+    console.warn(`[Security] BOT_CONTROL_TOKEN is not set. Generated a one-time token for this run: ${CONTROL_TOKEN}`);
+  } else {
+    CONTROL_TOKEN = LEGACY_DEV_TOKEN;
+    console.warn('[Security] BOT_CONTROL_TOKEN is not set: using the public development token. Set BOT_CONTROL_TOKEN before exposing this server.');
+  }
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+function requireControlAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const customHeader = req.headers['x-bot-token'];
+  const queryToken = req.query.token as string | undefined;
+
+  let providedToken = '';
+  if (typeof customHeader === 'string') {
+    providedToken = customHeader;
+  } else if (authHeader && authHeader.startsWith('Bearer ')) {
+    providedToken = authHeader.slice(7).trim();
+  } else if (queryToken) {
+    providedToken = queryToken;
+  }
+
+  const isValid = Boolean(providedToken) && safeEqual(providedToken, CONTROL_TOKEN);
+
+  if (!providedToken || !isValid) {
+    return res.status(401).json({
+      error: 'Unauthorized: Valid bot control token required.',
+      hint: 'Include x-bot-token header or Authorization: Bearer <token>',
+    });
+  }
+
+  next();
+}
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(cors());
+  app.use(express.json());
+
+  // Public status and inspection routes
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', bot: 'TradeBot 5' });
+  });
+
+  app.get('/api/bot/status', (req, res) => {
+    res.json(tradeBot.getStatus());
+  });
+
+  app.get('/api/bot/logs', (req, res) => {
+    res.json(tradeBot.getAuditLogs());
+  });
+
+  app.post('/api/bot/logs/clear', requireControlAuth, (req, res) => {
+    tradeBot.clearAuditLogs();
+    res.json({ success: true, logs: tradeBot.getAuditLogs() });
+  });
+
+  app.get('/api/bot/orders', (req, res) => {
+    res.json(tradeBot.getOrders());
+  });
+
+  app.post('/api/bot/orders/clear', requireControlAuth, (req, res) => {
+    tradeBot.clearOrders();
+    res.json({ success: true, orders: tradeBot.getOrders() });
+  });
+
+  app.post('/api/bot/auth-verify', (req, res) => {
+    const { token } = req.body;
+    if (typeof token === 'string' && safeEqual(token, CONTROL_TOKEN)) {
+      res.json({ valid: true });
+    } else {
+      res.status(401).json({ valid: false, error: 'Invalid control token' });
+    }
+  });
+
+  // Protected control routes (requireControlAuth)
+
+  // Mode query endpoint
+  app.get('/api/bot/mode', (req, res) => {
+    const status = tradeBot.getStatus();
+    res.json({
+      executionMode: status.executionMode,
+      state: status.state,
+      testnet: status.config.testnet,
+      hasCredentials: tradeBot.hasOKXCredentials(),
+    });
+  });
+
+  // Switch execution mode: PAPER | LIVE
+  app.post('/api/bot/mode', requireControlAuth, async (req, res) => {
+    const { mode } = req.body;
+
+    if (mode !== 'PAPER' && mode !== 'LIVE') {
+      return res.status(400).json({
+        error: 'Mod de execuție invalid. Moduri permise: PAPER, LIVE.',
+      });
+    }
+
+    const result = await tradeBot.setExecutionMode(mode);
+    if (result.success) {
+      res.json({ success: true, mode, status: tradeBot.getStatus() });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  });
+
+  // Reset paper trading account
+  app.post('/api/bot/paper-reset', requireControlAuth, (req, res) => {
+    console.log('[API] Received request to reset paper account');
+    const result = tradeBot.resetPaperAccount();
+    console.log('[API] resetPaperAccount result:', result);
+    if (result.success) {
+      res.json({ success: true, status: tradeBot.getStatus() });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  });
+
+  // Diagnostic endpoint for scanner symbols & fetch status
+  app.get('/api/bot/scanner/debug-symbols', async (req, res) => {
+    try {
+      const universeManager = (tradeBot as any).universeManager;
+      const activeAdapter = (tradeBot as any).activeAdapter;
+      
+      const symbols = await universeManager.refreshUniverse();
+      const testSymbols = symbols.slice(0, 3);
+      
+      const diagnostics = [];
+      for (const sym of testSymbols) {
+        let fetchResult: any = null;
+        let errorMsg: string | null = null;
+        try {
+          const url = `https://eea.okx.com/api/v5/market/candles?instId=${sym}&bar=15m&limit=10`;
+          const fetchRes = await fetch(url);
+          const json = await fetchRes.json();
+          fetchResult = {
+            status: fetchRes.status,
+            ok: fetchRes.ok,
+            code: json.code,
+            dataLength: Array.isArray(json.data) ? json.data.length : 'not-array',
+            sample: Array.isArray(json.data) ? json.data[0] : json
+          };
+        } catch (err: any) {
+          errorMsg = err.message;
+        }
+        
+        diagnostics.push({
+          symbol: sym,
+          normalized: activeAdapter.normalizeSymbol ? activeAdapter.normalizeSymbol(sym) : sym,
+          fetchResult,
+          errorMsg
+        });
+      }
+      
+      res.json({
+        totalUniverseCount: symbols.length,
+        universeSample: symbols.slice(0, 10),
+        diagnostics
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message, stack: err.stack });
+    }
+  });
+
+  app.get('/api/bot/symbols', async (req, res) => {
+    try {
+      const universeManager = (tradeBot as any).universeManager;
+      const symbols = await universeManager.refreshUniverse();
+      res.json(symbols);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Switch profile: SCALP | MOMENTUM | PAIR_SCALP
+  app.post('/api/bot/profile', requireControlAuth, async (req, res) => {
+    const { profile } = req.body;
+    if (profile === 'SCALP' || profile === 'MOMENTUM' || profile === 'PAIR_SCALP') {
+      const result = await tradeBot.setProfile(profile);
+      if (result.success) {
+        res.json({ success: true, profile });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } else {
+      res.status(400).json({ error: 'Invalid profile' });
+    }
+  });
+
+  // Update profile settings
+  app.post('/api/bot/profile/settings', requireControlAuth, async (req, res) => {
+    const { profileType, settings } = req.body;
+    if (!profileType || !settings) {
+      return res.status(400).json({ error: 'Missing profileType or settings' });
+    }
+    tradeBot.updateProfileSettings(profileType, settings);
+    res.json({ success: true, status: tradeBot.getStatus() });
+  });
+
+  // Manual close position
+  app.post('/api/bot/position/:symbol/close', requireControlAuth, async (req, res) => {
+    const { symbol } = req.params;
+    try {
+      const pos = tradeBot.getPositions().find(p => p.symbol === symbol);
+      if (!pos) {
+         return res.status(404).json({ error: 'Position not found' });
+      }
+      
+      // We need a way to close this position manually
+      const result = await tradeBot.closePositionManually(symbol);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Force sync positions with exchange
+  app.post('/api/bot/force-sync', requireControlAuth, async (req, res) => {
+    try {
+      const result = await tradeBot.forceSyncPositions();
+      res.json({ success: true, ...result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Emergency Kill Switch
+  app.post('/api/bot/killswitch', requireControlAuth, async (req, res) => {
+    const engaged = await tradeBot.toggleKillSwitch();
+    res.json({ success: true, killSwitchEngaged: engaged });
+  });
+
+  // Toggle or set experimental inverse signals (Long <-> Short)
+  app.post('/api/bot/invert-signals', requireControlAuth, (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      const current = tradeBot.getStatus().config.invertSignals ?? false;
+      const target = typeof enabled === 'boolean' ? enabled : !current;
+      const result = tradeBot.setInvertSignals(target);
+      res.json({ success: true, invertSignals: result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Profit Vault: Toggle Lock Profit Mode (Fixed Base Capital)
+  app.post('/api/bot/vault/toggle', requireControlAuth, (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      const active = tradeBot.toggleLockProfitVault(typeof enabled === 'boolean' ? enabled : undefined);
+      res.json({ success: true, lockProfitVault: active, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Profit Vault: Manually lock current surplus profit into the vault
+  app.post('/api/bot/vault/lock-now', requireControlAuth, (req, res) => {
+    try {
+      const result = tradeBot.lockProfitVaultNow();
+      res.json({ ...result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Profit Vault: Set fixed operating base capital
+  app.post('/api/bot/vault/set-base', requireControlAuth, (req, res) => {
+    try {
+      const { amount } = req.body || {};
+      const num = parseFloat(amount);
+      const result = tradeBot.setBaseCapital(num);
+      res.json({ ...result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Profit Vault: Reset vault (release locked profits into active trading balance)
+  app.post('/api/bot/vault/reset', requireControlAuth, (req, res) => {
+    try {
+      const result = tradeBot.resetProfitVault();
+      res.json({ ...result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Equity Trailing Protection: Get history of all trigger events
+  app.get('/api/bot/equity-protection/events', (req, res) => {
+    try {
+      const events = tradeBot.getEquityProtectionEvents();
+      res.json({ success: true, count: events.length, events });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Equity Trailing Protection: Clear history
+  app.post('/api/bot/equity-protection/clear', requireControlAuth, (req, res) => {
+    try {
+      tradeBot.clearEquityProtectionEvents();
+      res.json({ success: true, count: 0, events: [] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get server public IP for OKX API Whitelist configuration
+  app.get('/api/bot/server-ip', async (_req, res) => {
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2500) });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        return res.json({ serverIp: data.ip || 'Nedetectat' });
+      }
+    } catch {}
+    res.json({ serverIp: 'Nedetectat' });
+  });
+
+  // Update OKX API credentials
+  app.post('/api/bot/credentials', requireControlAuth, async (req, res) => {
+    const { apiKey, apiSecret, secretKey, passphrase, testnet, region } = req.body;
+    const currentConfig = tradeBot.getStatus().config;
+
+    const isMaskedKey = apiKey && (apiKey.includes('...') || apiKey.includes('***'));
+    const isMaskedSecret = (secretKey || apiSecret) && (secretKey || apiSecret).includes('***');
+    const isMaskedPass = passphrase && passphrase.includes('***');
+
+    const finalKey = (isMaskedKey || !apiKey) ? (currentConfig.okxApiKey || process.env.OKX_API_KEY || '') : apiKey.trim();
+    const rawSecret = secretKey || apiSecret;
+    const finalSecret = (isMaskedSecret || !rawSecret) ? (currentConfig.okxSecretKey || process.env.OKX_SECRET_KEY || '') : rawSecret.trim();
+    const finalPassphrase = (isMaskedPass || !passphrase) ? (currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '') : passphrase.trim();
+
+    if (!finalKey || !finalSecret) {
+      return res.status(400).json({ error: 'apiKey și secretKey sunt obligatorii.' });
+    }
+    try {
+      const isTestnet = testnet !== false;
+      const finalRegion = region || currentConfig.okxRegion || 'EEA';
+      await tradeBot.updateCredentials(finalKey, finalSecret, finalPassphrase, isTestnet, finalRegion);
+      res.json({
+        success: true,
+        message: `Cheile API OKX au fost salvate și conectate (Regiune: ${finalRegion}, Mod: ${isTestnet ? 'OKX Demo / Simulated Trading' : 'OKX Live / Real Trading'}).`,
+        status: tradeBot.getStatus(),
+      });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || 'Eroare la actualizarea cheilor API OKX' });
+    }
+  });
+
+  // Test OKX connection with current or provided credentials
+  app.post('/api/bot/okx/test-connection', requireControlAuth, async (req, res) => {
+    try {
+      const { apiKey, secretKey, passphrase, isDemo, region } = req.body || {};
+      const currentConfig = tradeBot.getStatus().config;
+
+      const isMaskedKey = !apiKey || apiKey.includes('...') || apiKey.includes('***');
+      const isMaskedSecret = !secretKey || secretKey.includes('***');
+      const isMaskedPass = !passphrase || passphrase.includes('***');
+
+      let credsToTest: any = undefined;
+      if (!isMaskedKey && !isMaskedSecret && apiKey && secretKey) {
+        credsToTest = {
+          apiKey: apiKey.trim(),
+          secretKey: secretKey.trim(),
+          passphrase: isMaskedPass ? (currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '') : passphrase.trim(),
+          isDemo: isDemo !== undefined ? isDemo : (currentConfig.executionMode !== 'LIVE' && currentConfig.testnet !== false),
+          region: region || currentConfig.okxRegion || 'AUTO',
+        };
+      } else {
+        credsToTest = {
+          apiKey: currentConfig.okxApiKey || process.env.OKX_API_KEY || '',
+          secretKey: currentConfig.okxSecretKey || process.env.OKX_SECRET_KEY || '',
+          passphrase: currentConfig.okxPassphrase || process.env.OKX_PASSPHRASE || '',
+          isDemo: isDemo !== undefined ? isDemo : (currentConfig.executionMode !== 'LIVE' && currentConfig.testnet !== false),
+          region: region || currentConfig.okxRegion || 'AUTO',
+        };
+      }
+
+      const result = await tradeBot.testOKXConnection(credsToTest);
+      res.json(result);
+    } catch (err: any) {
+      res.json({
+        reachable: false,
+        authenticated: false,
+        error: err.message || 'Eroare la testarea conexiunii OKX',
+      });
+    }
+  });
+
+  // OKX credentials status
+  app.get('/api/bot/okx/status', async (req, res) => {
+    const status = tradeBot.getStatus();
+    const config = status.config;
+    const hasCreds = tradeBot.hasOKXCredentials();
+    const maskedKey = config.okxApiKey
+      ? `${config.okxApiKey.slice(0, 4)}...${config.okxApiKey.slice(-4)}`
+      : (process.env.OKX_API_KEY ? 'CONFIGURAT_IN_ENV' : '');
+
+    let serverIp = 'Nedetectat';
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(2000) });
+      if (resp.ok) {
+        const d: any = await resp.json();
+        serverIp = d.ip || 'Nedetectat';
+      }
+    } catch {}
+
+    res.json({
+      hasCredentials: hasCreds,
+      apiKeyMasked: maskedKey,
+      hasPassphrase: Boolean(config.okxPassphrase || process.env.OKX_PASSPHRASE),
+      executionMode: status.executionMode,
+      isTestnet: config.testnet,
+      okxRegion: config.okxRegion || 'EEA',
+      serverIp,
+    });
+  });
+
+  // Force manual reconciliation
+  app.post('/api/bot/reconcile', requireControlAuth, async (req, res) => {
+    await tradeBot.connectAndRecover();
+    res.json({ success: true, status: tradeBot.getStatus() });
+  });
+
+  // Query Market Scanner statistics & ranked opportunities
+  app.get('/api/bot/scanner', (req, res) => {
+    res.json(tradeBot.getScannerStats());
+  });
+
+  // Trigger manual market scan
+  app.post('/api/bot/scanner/scan', requireControlAuth, async (req, res) => {
+    try {
+      const opportunities = await tradeBot.triggerManualScan();
+      res.json({
+        success: true,
+        stats: tradeBot.getScannerStats(),
+        count: opportunities.length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Scan failed' });
+    }
+  });
+
+  // Get current market sentiment & score independently
+  app.get('/api/bot/sentiment', (req, res) => {
+    const status = tradeBot.getStatus();
+    res.json({
+      sentiment: status.marketSentiment,
+      score: status.marketSentimentScore,
+      updatedAt: Date.now(),
+    });
+  });
+
+  // Force manual market sentiment refresh
+  app.post('/api/bot/sentiment/refresh', requireControlAuth, async (req, res) => {
+    try {
+      await tradeBot.refreshMarketSentiment();
+      res.json({
+        success: true,
+        sentiment: tradeBot.getStatus().marketSentiment,
+        score: tradeBot.getStatus().marketSentimentScore,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Sentiment refresh failed' });
+    }
+  });
+
+  // Telegram status and masked credentials
+  app.get('/api/bot/telegram/status', (req, res) => {
+    res.json({
+      success: true,
+      status: telegramService.getCredentialsStatus(),
+    });
+  });
+
+  // Telegram test alert or report dispatch
+  app.post('/api/bot/telegram/test', requireControlAuth, async (req, res) => {
+    try {
+      const type = req.body?.type || 'hourly';
+      if (type === 'hourly') {
+        const { startHour, endHour } = getBucharestHourlyInterval();
+        await telegramService.sendHourlyReport(startHour, endHour);
+      } else if (type === 'daily') {
+        await telegramService.sendDailySummary();
+      } else if (type === 'guide') {
+        await telegramService.sendMessage(telegramService.getCommandGuideText());
+      } else {
+        await telegramService.sendMessage(`🔔 TEST NOTIFICARE — TradeBot 5 conectat cu succes la Telegram!\n⏰ Ora: ${formatBucharestTime()} (București)`);
+      }
+      res.json({ success: true, active: telegramService.isConfigured() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Telegram test failed' });
+    }
+  });
+
+  // Test Telegram credentials (getMe validation + channel test message)
+  app.post('/api/bot/telegram/test-connection', requireControlAuth, async (req, res) => {
+    try {
+      const { token, chatId } = req.body || {};
+      const result = await telegramService.testConnection(token, chatId);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        reachable: false,
+        validToken: false,
+        error: err.message || 'Eroare la testarea conexiunii Telegram',
+      });
+    }
+  });
+
+  // Telegram notifications ON / OFF toggle
+  app.post('/api/bot/telegram/toggle', requireControlAuth, (req, res) => {
+    const { enabled } = req.body || {};
+    const newState = telegramService.toggleNotifications(typeof enabled === 'boolean' ? enabled : undefined);
+    res.json({
+      success: true,
+      enabled: newState,
+      status: telegramService.getCredentialsStatus(),
+      message: newState
+        ? '🔔 Notificările Telegram au fost PORNITE (Active).'
+        : '🔕 Notificările Telegram au fost OPRITE (Mod Noapte / Silențios activat).',
+    });
+  });
+
+  // Telegram credentials update
+  app.post('/api/bot/telegram/config', requireControlAuth, (req, res) => {
+    const { token, chatId, botUsername } = req.body;
+    telegramService.updateCredentials(token, chatId, botUsername);
+    res.json({
+      success: true,
+      active: telegramService.isConfigured(),
+      status: telegramService.getCredentialsStatus(),
+      message: telegramService.isConfigured()
+        ? 'Configurația Telegram a fost salvată și activată cu succes!'
+        : 'Configurația Telegram a fost actualizată.',
+    });
+  });
+
+  // Update Universe Filter configuration
+  app.post('/api/bot/scanner/config', requireControlAuth, (req, res) => {
+    const { min24hVolumeUSDT, maxSymbols, minPrice, refreshIntervalMs } = req.body;
+    const filterUpdates: any = {};
+    if (typeof min24hVolumeUSDT === 'number' && min24hVolumeUSDT > 0) {
+      filterUpdates.min24hVolumeUSDT = min24hVolumeUSDT;
+    }
+    if (typeof maxSymbols === 'number' && maxSymbols > 0 && maxSymbols <= 100) {
+      filterUpdates.maxSymbols = maxSymbols;
+    }
+    if (typeof minPrice === 'number' && minPrice >= 0) {
+      filterUpdates.minPrice = minPrice;
+    }
+    if (typeof refreshIntervalMs === 'number' && refreshIntervalMs >= 60000) {
+      filterUpdates.refreshIntervalMs = refreshIntervalMs;
+    }
+
+    tradeBot.updateScannerFilter(filterUpdates);
+    res.json({
+      success: true,
+      filter: tradeBot.getScannerStats().filterConfig,
+    });
+  });
+
+  // Update Leverage & Margin Mode
+  app.post('/api/bot/leverage', requireControlAuth, (req, res) => {
+    const { leverage, marginMode } = req.body;
+    const lev = typeof leverage === 'number' ? leverage : parseInt(leverage, 10);
+    if (isNaN(lev) || lev < 1 || lev > 100) {
+      return res.status(400).json({ error: 'Leverage must be a number between 1 and 100' });
+    }
+    const mode = marginMode === 'isolated' ? 'isolated' : 'cross';
+    tradeBot.updateLeverage(lev, mode);
+    res.json({ success: true, leverage: lev, marginMode: mode });
+  });
+
+  // Symbol Performance Rolling Stats (MFE >= 1.5% Hit-rate analysis)
+  app.get('/api/bot/symbol-stats', (req, res) => {
+    res.json({
+      success: true,
+      stats: tradeBot.getSymbolStats(),
+      summary: tradeBot.getSymbolStatsSummary(),
+    });
+  });
+
+  // Recalculate Symbol Stats from full order blotter
+  app.post('/api/bot/symbol-stats/recalculate', requireControlAuth, (req, res) => {
+    const summary = tradeBot.recalculateSymbolStats();
+    res.json({
+      success: true,
+      stats: tradeBot.getSymbolStats(),
+      summary,
+      message: 'Statisticile pe simbol au fost recalculate cu succes din istoricul complet de tranzacții.',
+    });
+  });
+
+  // Toggle Symbol Size Multiplier feedback
+  app.post('/api/bot/symbol-stats/toggle-multiplier', requireControlAuth, (req, res) => {
+    const { enabled } = req.body || {};
+    const state = tradeBot.toggleSymbolMultiplier(typeof enabled === 'boolean' ? enabled : undefined);
+    res.json({
+      success: true,
+      multiplierActive: state,
+      summary: tradeBot.getSymbolStatsSummary(),
+      message: state
+        ? 'Feedback Multiplier pe Simbol a fost ACTIVAT.'
+        : 'Feedback Multiplier pe Simbol a fost DEZACTIVAT.',
+    });
+  });
+
+
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    let distPath = process.cwd();
+    if (fs.existsSync(path.join(distPath, 'dist', 'index.html'))) {
+      distPath = path.join(distPath, 'dist');
+    }
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    tradeBot.start().catch((err) => console.error('[TradeBot] Failed to start TradeBot background loop:', err));
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[Server] Port ${PORT} already in use. Retrying or waiting...`);
+    } else {
+      console.error('[Server] Fatal server error:', err);
+    }
+  });
+
+  const shutdown = () => {
+    try { flushAllStores(); } catch { /* best effort */ }
+    server.close(() => process.exit(0));
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+startServer().catch(console.error);
