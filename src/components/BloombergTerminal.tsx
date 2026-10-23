@@ -4581,6 +4581,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">RVOL</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Scor Momentum</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-center">Levier Rec</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-center">Calitate Intrare</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-right">Eligibilitate</th>
                         </tr>
                       </thead>
@@ -4632,6 +4633,37 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                   {opp.recommendedLeverage ? `${opp.recommendedLeverage}x` : '3x'}
                                 </span>
                               </td>
+                              <td className="py-2 px-3 text-center">
+                                {opp.entryQuality === 'OPTIMAL' || !opp.entryQuality ? (
+                                  <span
+                                    title="Structură sănătoasă de trend, fără epuizare"
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/80"
+                                  >
+                                    OPTIMĂ
+                                  </span>
+                                ) : opp.entryQuality === 'OVEREXTENDED' ? (
+                                  <span
+                                    title={opp.entryFilterReason || 'Preț supra-extins față de media mobilă'}
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-700/80"
+                                  >
+                                    EXTINS {opp.distFromEmaAtr ? `(${opp.distFromEmaAtr} ATR)` : ''}
+                                  </span>
+                                ) : opp.entryQuality === 'EXHAUSTION_WICK' ? (
+                                  <span
+                                    title={opp.entryFilterReason || 'Wick mare de absorbție/respingere'}
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-700/80"
+                                  >
+                                    REJECȚIE WICK
+                                  </span>
+                                ) : (
+                                  <span
+                                    title={opp.entryFilterReason || 'Trend avansat fără consolidare'}
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-950/80 text-orange-300 border border-orange-700/80"
+                                  >
+                                    TREND BĂTRÂN
+                                  </span>
+                                )}
+                              </td>
                               <td className="py-2 px-3 text-right">
                                 <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
                                   opp.isEligible && opp.isFadeTrade
@@ -4651,7 +4683,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={7} className="text-zinc-500 text-xs py-8 text-center">
+                            <td colSpan={8} className="text-zinc-500 text-xs py-8 text-center">
                               Nu există date de scanare în cache. Apasă "RUN SCAN NOW".
                             </td>
                           </tr>

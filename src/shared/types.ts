@@ -96,6 +96,9 @@ export interface ScannedOpportunity {
   lastScannedTime: number;
   recommendedLeverage?: number; // Recomandare dinamică (1x - 5x) bazată pe volatilitate (ATR%)
   recommendedLeverageReason?: string; // Motivație calculată pe baza profilului de risc
+  entryQuality?: 'OPTIMAL' | 'OVEREXTENDED' | 'EXHAUSTION_WICK' | 'TREND_FATIGUE';
+  entryFilterReason?: string;
+  distFromEmaAtr?: number;
 }
 
 export interface ScannerStats {

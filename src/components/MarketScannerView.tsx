@@ -286,6 +286,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                   <th className="py-3 px-4">Momentum Score</th>
                   <th className="py-3 px-4 text-center">Signal</th>
                   <th className="py-3 px-4 text-center">Levier Rec</th>
+                  <th className="py-3 px-4 text-center">Calitate Intrare</th>
                   <th className="py-3 px-4 text-center">Pipeline</th>
                 </tr>
               </thead>
@@ -442,6 +443,39 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                         >
                           {opp.recommendedLeverage ? `${opp.recommendedLeverage}x` : '3x'}
                         </span>
+                      </td>
+
+                      {/* Entry Quality & Anti-Chasing Filter */}
+                      <td className="py-3 px-4 text-center">
+                        {opp.entryQuality === 'OPTIMAL' || !opp.entryQuality ? (
+                          <span
+                            title="Structură sănătoasă de trend, fără epuizare și fără wick masiv de respingere"
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/80"
+                          >
+                            OPTIMĂ
+                          </span>
+                        ) : opp.entryQuality === 'OVEREXTENDED' ? (
+                          <span
+                            title={opp.entryFilterReason || 'Preț supra-extins față de media mobilă'}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/80"
+                          >
+                            EXTINS {opp.distFromEmaAtr ? `(${opp.distFromEmaAtr} ATR)` : ''}
+                          </span>
+                        ) : opp.entryQuality === 'EXHAUSTION_WICK' ? (
+                          <span
+                            title={opp.entryFilterReason || 'Wick mare de absorbție/respingere'}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-300 border border-rose-800/80"
+                          >
+                            WICK REJECȚIE
+                          </span>
+                        ) : (
+                          <span
+                            title={opp.entryFilterReason || 'Trend avansat fără retragere'}
+                            className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-950/80 text-orange-300 border border-orange-800/80"
+                          >
+                            TREND BĂTRÂN
+                          </span>
+                        )}
                       </td>
 
                       {/* Eligibility Status */}

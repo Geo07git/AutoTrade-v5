@@ -1028,6 +1028,22 @@ export class TradeBot {
           continue;
         }
 
+        // STRICT CHECK 3.9: Entry Quality & Exhaustion / Late Trend Filter (Anti-Chasing Top/Bottom)
+        // Blochează intrarea pe lumânări de epuizare, wick-uri mari de respingere sau trenduri supra-extinse
+        if (!isExpActive && !isPaperCollection && !config.invertSignals && candidate.entryQuality && candidate.entryQuality !== 'OPTIMAL') {
+          this.logAudit(
+            'CANDIDATE_REJECTED',
+            `Candidatul #${candidate.rank} (${symbol}) respins de filtrul de calitate a intrării [${candidate.entryQuality}]: ${candidate.entryFilterReason || 'Risc de cumpărare la vârf sau vânzare la minim'}. Se evaluează automat următorul candidat.`,
+            {
+              symbol,
+              entryQuality: candidate.entryQuality,
+              reason: candidate.entryFilterReason,
+              distFromEmaAtr: candidate.distFromEmaAtr,
+            }
+          );
+          continue;
+        }
+
         // STRICT CHECK 4: Affordability check (ensures min contract notional fits within available equity)
         if (!isExpActive) {
           const meta = this.universeManager.getInstrumentMetadata(symbol);
