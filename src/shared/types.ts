@@ -94,6 +94,8 @@ export interface ScannedOpportunity {
   signal?: TradeSignal;
   rank: number;
   lastScannedTime: number;
+  recommendedLeverage?: number; // Recomandare dinamică (1x - 5x) bazată pe volatilitate (ATR%)
+  recommendedLeverageReason?: string; // Motivație calculată pe baza profilului de risc
 }
 
 export interface ScannerStats {
@@ -118,7 +120,9 @@ export interface AppConfig {
   okxPassphrase?: string;
   okxRegion?: 'EEA' | 'GLOBAL' | 'AUTO'; // EEA (Europa/România: eea.okx.com) sau Global (www.okx.com)
   paperEquity?: number;
-  maxLeverage?: number;
+  leverageEnabled?: boolean; // Default: false (oprit / 1x)
+  maxLeverage?: number; // 1 to 10 (default la activare: 3x)
+  marginMode?: 'cross' | 'isolated'; // Default: 'cross'
   watchlist?: string[];
   scannerFilter?: UniverseFilterConfig;
   profiles?: Record<ProfileType, ProfileConfig>;

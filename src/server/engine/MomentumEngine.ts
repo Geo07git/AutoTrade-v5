@@ -229,6 +229,27 @@ export class MomentumEngine {
       }
     }
 
+    // Recomandare dinamică de levier per poziție (1x - 5x) bazată pe volatilitate (ATR%)
+    // - ATR <= 0.8% (monede foarte stabile, risc scăzut de lichidare): levier sigur până la 5x
+    // - ATR 0.8% - 1.5% (volatilitate moderată): levier optim 3x - 4x
+    // - ATR 1.5% - 2.5% (volatilitate ridicată): levier prudent 2x
+    // - ATR > 2.5% (volatilitate extremă pe altcoins): levier 1x (fără multiplicare)
+    let recommendedLeverage = 3;
+    let recommendedLeverageReason = `Volatilitate moderată (ATR ${atrPct.toFixed(2)}%) -> Levier optim 3x`;
+    if (atrPct <= 0.8) {
+      recommendedLeverage = 5;
+      recommendedLeverageReason = `Volatilitate redusă (ATR ${atrPct.toFixed(2)}%) -> Levier sigur 5x`;
+    } else if (atrPct <= 1.5) {
+      recommendedLeverage = 3;
+      recommendedLeverageReason = `Volatilitate moderată (ATR ${atrPct.toFixed(2)}%) -> Levier optim 3x`;
+    } else if (atrPct <= 2.5) {
+      recommendedLeverage = 2;
+      recommendedLeverageReason = `Volatilitate ridicată (ATR ${atrPct.toFixed(2)}%) -> Levier prudent 2x`;
+    } else {
+      recommendedLeverage = 1;
+      recommendedLeverageReason = `Volatilitate extremă (ATR ${atrPct.toFixed(2)}%) -> Levier de protecție 1x`;
+    }
+
     return {
       symbol,
       price: metrics.lastPrice,
@@ -250,6 +271,8 @@ export class MomentumEngine {
       signal: signal || undefined,
       rank: 0,
       lastScannedTime: Date.now(),
+      recommendedLeverage,
+      recommendedLeverageReason,
     };
   }
 

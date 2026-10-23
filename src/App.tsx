@@ -236,6 +236,29 @@ export default function App() {
     }
   };
 
+  const handleUpdateLeverage = async (leverage: number, marginMode: 'cross' | 'isolated', enabled: boolean) => {
+    try {
+      const res = await fetch('/api/bot/leverage', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ leverage, marginMode, enabled }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const err = data.error || 'Eroare la actualizarea levierului';
+        setErrorMessage(err);
+        return { success: false, error: err };
+      }
+      setSuccessMessage(data.enabled ? `Levier activat la ${data.leverage}x (${data.marginMode.toUpperCase()})` : 'Levier dezactivat (1x Spot-like)');
+      await fetchStatus();
+      return { success: true };
+    } catch (err: any) {
+      const errStr = err.message || 'Eroare de rețea la salvarea levierului';
+      setErrorMessage(errStr);
+      return { success: false, error: errStr };
+    }
+  };
+
   const handleTestTelegramConnection = async (token?: string, chatId?: string) => {
     try {
       const res = await fetch('/api/bot/telegram/test-connection', {
@@ -439,6 +462,7 @@ export default function App() {
       onClearOrders={handleClearOrders}
       onUpdateCredentials={handleUpdateCredentials}
       onTestOKXConnection={handleTestOKXConnection}
+      onUpdateLeverage={handleUpdateLeverage}
       onSaveTelegramConfig={handleSaveTelegramConfig}
       onTestTelegramConnection={handleTestTelegramConnection}
       controlToken={controlToken}

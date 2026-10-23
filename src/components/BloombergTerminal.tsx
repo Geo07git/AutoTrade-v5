@@ -82,6 +82,7 @@ interface BloombergTerminalProps {
   onClearOrders?: () => void;
   onUpdateCredentials?: (apiKey: string, secretKey: string, passphrase: string, testnet: boolean, region?: 'EEA' | 'GLOBAL' | 'AUTO') => Promise<{ success: boolean; error?: string }>;
   onTestOKXConnection?: (creds?: any) => Promise<any>;
+  onUpdateLeverage?: (leverage: number, marginMode: 'cross' | 'isolated', enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   onSaveTelegramConfig?: (token: string, chatId: string, botUsername?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   onTestTelegramConnection?: (token?: string, chatId?: string) => Promise<{ success: boolean; reachable: boolean; validToken: boolean; botUsername?: string; botName?: string; chatDelivered?: boolean; error?: string }>;
   controlToken: string;
@@ -225,6 +226,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onClearOrders,
   onUpdateCredentials,
   onTestOKXConnection,
+  onUpdateLeverage,
   onSaveTelegramConfig,
   onTestTelegramConnection,
   controlToken,
@@ -239,6 +241,55 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [activeScreen, setActiveScreen] = useState<'PORT' | 'POS' | 'TAPE' | 'SCAN' | 'BLOT' | 'SET' | 'INFO' | 'CHART' | 'SYM' | 'EXP' | 'TOP'>('PORT');
   const [rankingTab, setRankingTab] = useState<'BOTH' | 'PLUS' | 'MINUS'>('BOTH');
   const [expandedPositionIds, setExpandedPositionIds] = useState<Record<string, boolean>>({});
+
+  // Leverage Configuration State (Default: Disabled / 1x, at activation: 3x)
+  const [leverageEnabled, setLeverageEnabled] = useState<boolean>(status?.config?.leverageEnabled ?? false);
+  const [leverageValue, setLeverageValue] = useState<number>(status?.config?.maxLeverage ?? 3);
+  const [marginMode, setMarginMode] = useState<'cross' | 'isolated'>(status?.config?.marginMode || 'cross');
+  const [isSavingLeverage, setIsSavingLeverage] = useState<boolean>(false);
+  const [leverageSavedMsg, setLeverageSavedMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status?.config) {
+      if (status.config.leverageEnabled !== undefined) {
+        setLeverageEnabled(status.config.leverageEnabled);
+      }
+      if (status.config.maxLeverage !== undefined) {
+        setLeverageValue(status.config.maxLeverage);
+      }
+      if (status.config.marginMode) {
+        setMarginMode(status.config.marginMode);
+      }
+    }
+  }, [status?.config?.leverageEnabled, status?.config?.maxLeverage, status?.config?.marginMode]);
+
+  const handleSaveLeverage = async (overrideEnabled?: boolean, overrideLev?: number, overrideMode?: 'cross' | 'isolated') => {
+    const targetEnabled = overrideEnabled !== undefined ? overrideEnabled : leverageEnabled;
+    const targetLev = overrideLev !== undefined ? overrideLev : leverageValue;
+    const targetMode = overrideMode !== undefined ? overrideMode : marginMode;
+    setIsSavingLeverage(true);
+    try {
+      if (onUpdateLeverage) {
+        await onUpdateLeverage(targetLev, targetMode, targetEnabled);
+      } else {
+        await fetch('/api/bot/leverage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(controlToken ? { 'x-control-token': controlToken } : {}),
+          },
+          body: JSON.stringify({ leverage: targetLev, marginMode: targetMode, enabled: targetEnabled }),
+        });
+      }
+      setLeverageSavedMsg(`Levier ${targetEnabled ? `${targetLev}x (${targetMode.toUpperCase()}) salvat` : 'dezactivat (1x Spot-like)'}`);
+      setTimeout(() => setLeverageSavedMsg(null), 3000);
+      onRefresh();
+    } catch (err: any) {
+      console.error('Error saving leverage:', err);
+    } finally {
+      setIsSavingLeverage(false);
+    }
+  };
 
   // 8-Hour Experiment State
   const [experimentState, setExperimentState] = useState<any>(null);
@@ -4529,6 +4580,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Preț Curent</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">RVOL</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Scor Momentum</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-center">Levier Rec</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-right">Eligibilitate</th>
                         </tr>
                       </thead>
@@ -4564,6 +4616,22 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               <td className="py-2 px-3 text-slate-300 font-mono">${opp.price}</td>
                               <td className="py-2 px-3 text-emerald-400 font-bold">{opp.rvol}x</td>
                               <td className="py-2 px-3 text-amber-400 font-bold">{opp.score}/100</td>
+                              <td className="py-2 px-3 text-center">
+                                <span
+                                  title={opp.recommendedLeverageReason || 'Recomandat pe baza volatilității (ATR%)'}
+                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                    opp.recommendedLeverage && opp.recommendedLeverage >= 5
+                                      ? 'bg-blue-950/80 text-blue-300 border-blue-700/80'
+                                      : opp.recommendedLeverage && opp.recommendedLeverage >= 3
+                                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                                      : opp.recommendedLeverage && opp.recommendedLeverage === 2
+                                      ? 'bg-amber-950/80 text-amber-300 border-amber-700/80'
+                                      : 'bg-rose-950/80 text-rose-300 border-rose-700/80'
+                                  }`}
+                                >
+                                  {opp.recommendedLeverage ? `${opp.recommendedLeverage}x` : '3x'}
+                                </span>
+                              </td>
                               <td className="py-2 px-3 text-right">
                                 <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
                                   opp.isEligible && opp.isFadeTrade
@@ -5122,6 +5190,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <span className="text-slate-400 block text-[9px] uppercase">Cooldown Simbol</span>
                     <strong className="text-zinc-300 text-xs">{profileConfig?.cooldownMinutes ?? 5} min</strong>
                   </div>
+                  <div className={`border rounded px-2.5 py-1.5 ${status?.config?.leverageEnabled ? 'bg-amber-950/40 border-amber-500/50' : 'bg-black/60 border-zinc-800'}`}>
+                    <span className="text-slate-400 block text-[9px] uppercase">Levier Tranzacții</span>
+                    <strong className={`text-xs ${status?.config?.leverageEnabled ? 'text-amber-400' : 'text-zinc-400'}`}>
+                      {status?.config?.leverageEnabled ? `${status?.config?.maxLeverage || 3}x (${(status?.config?.marginMode || 'cross').toUpperCase()})` : '1x (OPRIT)'}
+                    </strong>
+                  </div>
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-zinc-900 flex flex-wrap items-center justify-between text-[10px] text-zinc-400 gap-2">
@@ -5136,6 +5210,190 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     Modificările glisoarelor devin active după apăsarea butonului <strong>SAVE CHANGES</strong>.
                   </div>
                 </div>
+              </div>
+
+              {/* LEVERAGE CONFIGURATION PANEL (1x - 10x, Default: OFF, at activation: 3x) */}
+              <div className="bg-zinc-900/90 border border-amber-500/40 rounded p-3 sm:p-4 mb-4 text-xs font-mono shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/20 pb-2 mb-3 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div>
+                      <span className="font-bold text-sm text-amber-400 tracking-wider">CONFIGURARE LEVIER TRANZACȚII (1x – 10x)</span>
+                      <p className="text-[11px] text-zinc-400">
+                        Blocare redusă de marjă din cont pentru eficiență de capital. {leverageEnabled ? `Activ: ${leverageValue}x (${marginMode.toUpperCase()})` : 'În prezent: OPRIT (1x Spot-like)'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {leverageSavedMsg && (
+                      <span className="text-xs text-emerald-400 font-bold animate-pulse">
+                        ✓ {leverageSavedMsg}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isSavingLeverage}
+                      onClick={() => {
+                        const newEnabled = !leverageEnabled;
+                        setLeverageEnabled(newEnabled);
+                        // Default la activare = 3x conform cerinței utilizatorului
+                        const targetLev = newEnabled && (!leverageValue || leverageValue === 1) ? 3 : leverageValue;
+                        if (newEnabled && (!leverageValue || leverageValue === 1)) {
+                          setLeverageValue(3);
+                        }
+                        handleSaveLeverage(newEnabled, targetLev, marginMode);
+                      }}
+                      className={`px-3 py-1.5 rounded font-bold text-xs transition-all cursor-pointer flex items-center space-x-1.5 border shadow-md ${
+                        leverageEnabled
+                          ? 'bg-amber-500 hover:bg-amber-400 text-black border-amber-400 shadow-amber-500/20'
+                          : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-400 border-zinc-700'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${leverageEnabled ? 'bg-black animate-ping' : 'bg-zinc-500'}`} />
+                      <span>{leverageEnabled ? 'LEVIER ACTIVAT' : 'LEVIER DEZACTIVAT (1x)'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {leverageEnabled ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Slider Levier (1x - 10x) */}
+                      <div className="bg-black/80 p-3 rounded border border-amber-500/30 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-300 font-bold">Multiplicator Levier:</span>
+                          <span className="px-2 py-0.5 bg-amber-500 text-black font-black text-sm rounded shadow-sm">
+                            {leverageValue}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          step="1"
+                          value={leverageValue}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setLeverageValue(val);
+                          }}
+                          className="w-full accent-amber-500 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-zinc-400">
+                          <span>1x (Min)</span>
+                          <span className="text-amber-300 font-bold">Implicit la activare: 3x</span>
+                          <span>10x (Max cont OKX)</span>
+                        </div>
+
+                        {/* Butoane rapide de preset */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="text-[10px] text-zinc-500">Preset rapid:</span>
+                          {[1, 2, 3, 5, 10].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setLeverageValue(preset)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition-colors ${
+                                leverageValue === preset
+                                  ? 'bg-amber-500 text-black border-amber-400'
+                                  : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-700'
+                              }`}
+                            >
+                              {preset}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Mod Marjă (Cross / Isolated) */}
+                      <div className="bg-black/80 p-3 rounded border border-amber-500/30 space-y-2">
+                        <span className="text-slate-300 font-bold block">Mod Marjă OKX:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMarginMode('cross')}
+                            className={`p-2 rounded text-left border cursor-pointer transition-all ${
+                              marginMode === 'cross'
+                                ? 'bg-amber-950/60 border-amber-500 text-amber-300 font-bold'
+                                : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs">CROSS MARGIN</span>
+                              {marginMode === 'cross' && <span className="text-[9px] text-amber-400 font-bold">✓ ACTIV</span>}
+                            </div>
+                            <p className="text-[10px] text-zinc-400 mt-1">
+                              Partajează balanța liberă între poziții. Recomandat pentru bot.
+                            </p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setMarginMode('isolated')}
+                            className={`p-2 rounded text-left border cursor-pointer transition-all ${
+                              marginMode === 'isolated'
+                                ? 'bg-amber-950/60 border-amber-500 text-amber-300 font-bold'
+                                : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs">ISOLATED MARGIN</span>
+                              {marginMode === 'isolated' && <span className="text-[9px] text-amber-400 font-bold">✓ ACTIV</span>}
+                            </div>
+                            <p className="text-[10px] text-zinc-400 mt-1">
+                              Limitează riscul fiecărei poziții strict la marja alocată acelei poziții.
+                            </p>
+                          </button>
+                        </div>
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            disabled={isSavingLeverage}
+                            onClick={() => handleSaveLeverage(true, leverageValue, marginMode)}
+                            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded text-xs transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {isSavingLeverage ? 'Se salvează...' : 'APLICĂ CONFIGURAȚIA LEVIER'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ghid Siguranță & Explicație */}
+                    <div className="bg-zinc-950/80 border border-zinc-800 rounded p-2.5 text-[11px] text-zinc-300 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span className="font-bold text-amber-300">
+                          Diagnostic calcul pentru levierul curent ({leverageValue}x):
+                        </span>
+                      </div>
+                      <p className="text-zinc-400 pl-5">
+                        {leverageValue === 1 && '• Levier 1x: Marjă 1:1 fără multiplicare. Risc minim de lichidare.'}
+                        {leverageValue >= 2 && leverageValue <= 3 && `• Levier ${leverageValue}x (Zonă optimă): Marja blocată scade de ${leverageValue} ori din balanță (Free Balance se conservă). Distanța estimată până la lichidare este de ~${(100 / leverageValue).toFixed(0)}%, lăsând spațiu generos Stop-Loss-ului (-${profileConfig?.hardStopLossPct ?? 1.5}%).`}
+                        {leverageValue > 3 && leverageValue <= 5 && `• Levier ${leverageValue}x (Moderat): Marja blocată scade de ${leverageValue} ori. Distanța de lichidare este de ~${(100 / leverageValue).toFixed(0)}%. Asigură-te că Hard Stop-Loss nu depășește -4%.`}
+                        {leverageValue > 5 && `• Levier ${leverageValue}x (Risc ridicat): Distanța de lichidare se restrânge la ~${(100 / leverageValue).toFixed(0)}%. Recomandat doar cu stop-loss foarte strâns din cauza volatilității altcoins.`}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-zinc-400 bg-black/40 border border-zinc-800 rounded p-2 flex items-center justify-between">
+                    <span>
+                      Levierul este în prezent <strong>OPRIT</strong>. Toate tranzacțiile se deschid cu levier 1x Spot-like (marjă integrală 1:1).
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isSavingLeverage}
+                      onClick={() => {
+                        setLeverageEnabled(true);
+                        setLeverageValue(3);
+                        handleSaveLeverage(true, 3, marginMode);
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black border border-amber-500/50 rounded font-bold text-[11px] transition-colors cursor-pointer"
+                    >
+                      Activează cu 3x (Default)
+                    </button>
+                  </div>
+                )}
               </div>
 
               {profileConfig && (

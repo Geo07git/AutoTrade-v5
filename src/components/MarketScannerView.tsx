@@ -285,6 +285,7 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                   <th className="py-3 px-4 text-center">ATR Exp</th>
                   <th className="py-3 px-4">Momentum Score</th>
                   <th className="py-3 px-4 text-center">Signal</th>
+                  <th className="py-3 px-4 text-center">Levier Rec</th>
                   <th className="py-3 px-4 text-center">Pipeline</th>
                 </tr>
               </thead>
@@ -423,6 +424,24 @@ export const MarketScannerView: React.FC<MarketScannerViewProps> = ({
                         ) : (
                           <span className="text-[10px] text-slate-500">NONE</span>
                         )}
+                      </td>
+
+                      {/* Recommended Leverage */}
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          title={opp.recommendedLeverageReason || 'Recomandat pe baza volatilității (ATR%)'}
+                          className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold border ${
+                            opp.recommendedLeverage && opp.recommendedLeverage >= 5
+                              ? 'bg-blue-950/80 text-blue-300 border-blue-800/80'
+                              : opp.recommendedLeverage && opp.recommendedLeverage >= 3
+                              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80'
+                              : opp.recommendedLeverage && opp.recommendedLeverage === 2
+                              ? 'bg-amber-950/80 text-amber-300 border-amber-800/80'
+                              : 'bg-rose-950/80 text-rose-300 border-rose-800/80'
+                          }`}
+                        >
+                          {opp.recommendedLeverage ? `${opp.recommendedLeverage}x` : '3x'}
+                        </span>
                       </td>
 
                       {/* Eligibility Status */}

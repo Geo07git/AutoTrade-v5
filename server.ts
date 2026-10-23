@@ -590,14 +590,19 @@ async function startServer() {
 
   // Update Leverage & Margin Mode
   app.post('/api/bot/leverage', requireControlAuth, (req, res) => {
-    const { leverage, marginMode } = req.body;
+    const { leverage, marginMode, enabled } = req.body;
     const lev = typeof leverage === 'number' ? leverage : parseInt(leverage, 10);
-    if (isNaN(lev) || lev < 1 || lev > 100) {
-      return res.status(400).json({ error: 'Leverage must be a number between 1 and 100' });
-    }
+    const validLev = isNaN(lev) ? 3 : Math.min(10, Math.max(1, lev));
     const mode = marginMode === 'isolated' ? 'isolated' : 'cross';
-    tradeBot.updateLeverage(lev, mode);
-    res.json({ success: true, leverage: lev, marginMode: mode });
+    const isEnabled = enabled !== undefined ? Boolean(enabled) : undefined;
+    tradeBot.updateLeverage(validLev, mode, isEnabled);
+    const updatedCfg = tradeBot.getConfig();
+    res.json({
+      success: true,
+      leverage: updatedCfg.maxLeverage || validLev,
+      marginMode: updatedCfg.marginMode || mode,
+      enabled: updatedCfg.leverageEnabled ?? false,
+    });
   });
 
   // Symbol Performance Rolling Stats (MFE >= 1.5% Hit-rate analysis)

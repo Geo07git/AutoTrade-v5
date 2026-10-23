@@ -41,6 +41,9 @@ const DEFAULT_CONFIG: AppConfig = {
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
   paperEquity: 200.0,
+  leverageEnabled: false, // Default: OPRIT (1x Spot-like)
+  maxLeverage: 3,         // La activare: DEFAULT 3x (selectabil 1x - 10x)
+  marginMode: 'cross',
   watchlist: ['BTC-USDT-SWAP', 'ETH-USDT-SWAP', 'SOL-USDT-SWAP'],
   scannerFilter: { ...DEFAULT_UNIVERSE_FILTER },
 };
@@ -210,6 +213,17 @@ export class TradeBot {
     if (appConfig.invertSignals === undefined) {
       appConfig.invertSignals = false;
     }
+
+    // Ensure leverage defaults (disabled by default; 3x on activation; 1x-10x range)
+    if (appConfig.leverageEnabled === undefined) {
+      appConfig.leverageEnabled = false;
+    }
+    if (appConfig.maxLeverage === undefined) {
+      appConfig.maxLeverage = 3;
+    }
+    if (appConfig.marginMode === undefined) {
+      appConfig.marginMode = 'cross';
+    }
     
     // Ensure profiles are initialized in config
     if (!appConfig.profiles) {
@@ -247,9 +261,10 @@ export class TradeBot {
       isDemo,
       region
     );
-    if (appConfig.maxLeverage) {
-      this.okxAdapter.setLeverageConfig(appConfig.maxLeverage, 'cross');
-    }
+    const initialLeverage = (appConfig.leverageEnabled && appConfig.maxLeverage)
+      ? Math.min(10, Math.max(1, appConfig.maxLeverage))
+      : 1;
+    this.okxAdapter.setLeverageConfig(initialLeverage, appConfig.marginMode || 'cross');
     this.paperAdapter = new PaperExecutionAdapter();
 
     // Select active adapter based on executionMode (TESTNET or LIVE uses OKXAdapter only if credentials exist)
@@ -1026,8 +1041,10 @@ export class TradeBot {
             continue;
           }
           const minSz = meta?.minSz || 1;
-          const minNotional = (candidate.price || 1) * ctVal * minSz;
-          const leverage = Math.max(1, parseFloat(String(config.maxLeverage || '1').replace(/[^0-9.]/g, '')) || 1);
+          const minNotional = minSz * ctVal * candidate.price;
+          const leverage = (config.leverageEnabled && config.maxLeverage)
+            ? Math.min(10, Math.max(1, config.maxLeverage))
+            : 1;
           const requiredMarginForOneContract = minNotional / leverage;
           if (this.currentEquity > 0 && (requiredMarginForOneContract > this.currentEquity * 1.05 || (leverage === 1 && minNotional > this.currentEquity * 1.05))) {
             this.logAudit(
@@ -1209,7 +1226,7 @@ export class TradeBot {
             accountEquity: parseFloat(this.currentEquity.toFixed(2)),
             accountBalance: currentWalletBalance,
             openPositionsCount: currentPositions.length,
-            leverage: (config.maxLeverage || 1).toString() + 'x',
+            leverage: (config.leverageEnabled && config.maxLeverage ? Math.min(10, Math.max(1, config.maxLeverage)) : 1).toString() + 'x',
             rank: candidate.rank,
             spreadPct: candidate.spreadPct ?? signal.spreadPct,
             candleElapsedSeconds: candidate.candleElapsedSeconds ?? signal.candleElapsedSeconds,
@@ -2099,12 +2116,18 @@ export class TradeBot {
     this.configStore.save(config);
   }
 
-  public updateLeverage(leverage: number, marginMode: 'cross' | 'isolated' = 'cross') {
+  public updateLeverage(leverage: number, marginMode: 'cross' | 'isolated' = 'cross', enabled?: boolean) {
     const config = this.configStore.get();
-    config.maxLeverage = leverage;
+    const clamped = Math.min(10, Math.max(1, Math.round(leverage)));
+    if (enabled !== undefined) {
+      config.leverageEnabled = enabled;
+    }
+    config.maxLeverage = clamped;
+    config.marginMode = marginMode;
     this.configStore.save(config);
-    this.okxAdapter.setLeverageConfig(leverage, marginMode);
-    this.logAudit('SYSTEM', `Leverage configured: ${leverage}x (mode: ${marginMode})`);
+    const effLev = config.leverageEnabled ? clamped : 1;
+    this.okxAdapter.setLeverageConfig(effLev, marginMode);
+    this.logAudit('SYSTEM', `Levier tranzacții configurat: ${config.leverageEnabled ? `${clamped}x (ACTIVAT)` : 'DEZACTIVAT (1x Spot-like)'} (mod: ${marginMode})`);
   }
 
   public getAuditLogs(): AuditLog[] {
