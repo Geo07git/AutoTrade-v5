@@ -29,6 +29,7 @@ import { MarketScanner } from '../scanner/MarketScanner';
 import { telegramService } from '../telegram/TelegramService';
 import { SymbolStatsTracker } from '../stats/SymbolStatsTracker';
 import { experimentManager, ExperimentState } from '../experiment/ExperimentManager';
+import { directionValidationLogger } from '../research/DirectionValidationLogger';
 
 const DEFAULT_CONFIG: AppConfig = {
   executionMode: 'PAPER', // Default safe mode: Full simulation without OKX API keys
@@ -61,6 +62,7 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
   equityProtectionActivationPct: 1.9,
   equityTrailingDrawdownPct: 0.3,
   minMomentumScore: 50,
+  minBlendedScore: 56,
   maxMomentumScore: 99,
   min24hVolumeUSDT: 1_500_000,
   max24hVolumeUSDT: 0,
@@ -861,6 +863,10 @@ export class TradeBot {
         },
       });
 
+      try {
+        directionValidationLogger.updatePrices(this.latestPrices);
+      } catch {}
+
       // 4.5. Pasul 3: Protecție Structurală (Momentum Invalidation pe lumânare închisă)
       if (! experimentManager.getState().isActive && profile.momentumInvalidationEnabled !== false) {
         const remainingOpenPositions = [...this.positionManager.getActivePositions()].filter((p) => p.status === 'OPEN');
@@ -870,7 +876,7 @@ export class TradeBot {
         for (const pos of remainingOpenPositions) {
           try {
             const curPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
-            const klines = await this.marketScanner.getKlinesForSymbol(pos.symbol, mainTf, 60);
+            const klines = await this.marketScanner.getCachedKlinesOrFetch(pos.symbol, mainTf, 60);
             if (klines && klines.length >= 22) {
               const invCheck = this.engine.evaluateStructuralInvalidation(pos, klines, curPrice, minLossThreshold);
               if (invCheck.invalidated) {
@@ -931,7 +937,11 @@ export class TradeBot {
           return opp.score >= minScore && opp.score <= 100;
         }
         if (!opp.isEligible) return false;
-        if (profile.minMomentumScore && opp.score < profile.minMomentumScore) return false;
+        const effectiveMinScore =
+          profile.type === 'SCALP' || profile.type === 'PAIR_SCALP'
+            ? (profile.minBlendedScore ?? (profile.minMomentumScore ? Math.max(50, profile.minMomentumScore - 4) : 56))
+            : (profile.minMomentumScore || 50);
+        if (effectiveMinScore && opp.score < effectiveMinScore) return false;
         if (!config.invertSignals && profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
         const effMinVol = (config.scannerFilter?.min24hVolumeUSDT && config.scannerFilter.min24hVolumeUSDT > 0)
           ? config.scannerFilter.min24hVolumeUSDT

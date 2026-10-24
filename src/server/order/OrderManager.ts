@@ -26,6 +26,7 @@ export class OrderManager {
   private auditLogger: (type: AuditLogType, message: string, details?: any) => void;
   private symbolStatsTracker?: SymbolStatsTracker;
   private rejectedSymbolsCooldown: Map<string, number> = new Map();
+  private partialCloseLocks: Set<string> = new Set();
 
   constructor(
     exchange: IExecutionAdapter,
@@ -704,10 +705,16 @@ export class OrderManager {
           fallbackPct = position.entryPrice > 0 ? ((isBuyPos ? exitPrice - position.entryPrice : position.entryPrice - exitPrice) / position.entryPrice) * 100 : 0;
           this.auditLogger('RECONCILIATION_DISCREPANCY', `Close of ${position.symbol} confirmed but position was no longer tracked; PnL derived from fill.`, { positionId: position.id, symbol: position.symbol });
         }
-        const pnl = closedPos?.pnl !== undefined ? closedPos.pnl : parseFloat((fallbackGross - fallbackFees).toFixed(4));
+        const pnl = closedPos?.pnl !== undefined
+          ? closedPos.pnl
+          : parseFloat((fallbackGross - fallbackFees + (position.partialTpRealizedPnl || 0)).toFixed(4));
         const pnlPct = closedPos?.pnlPct !== undefined ? closedPos.pnlPct : parseFloat(fallbackPct.toFixed(2));
         const grossPnl = closedPos?.grossPnl !== undefined ? closedPos.grossPnl : (closedPos ? pnl : parseFloat(fallbackGross.toFixed(4)));
         const totalFees = closedPos ? ((closedPos.entryFee || 0) + (closedPos.exitFee || 0)) : fallbackFees;
+        const totalClosedQty = parseFloat(((position.qty || 0) + (position.partialTpClosedQty || 0)).toFixed(6));
+        const totalClosedSizeUSDT = totalClosedQty > 0
+          ? parseFloat((totalClosedQty * ctVal * position.entryPrice).toFixed(2))
+          : position.sizeUSDT;
 
         closeOrder.realizedPnl = pnl;
         closeOrder.realizedPnlPct = pnlPct;
@@ -759,7 +766,7 @@ export class OrderManager {
           });
         }
 
-        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${formatPrice(exitPrice)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
+        this.auditLogger('POSITION_CLOSED', `Position ${position.symbol} closed on ${this.executionMode} at $${formatPrice(exitPrice)} (${reason}) - Net PnL: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (Gross: ${grossPnl >= 0 ? '+' : ''}$${grossPnl.toFixed(2)}, Fees: -$${totalFees.toFixed(4)}, Total Qty: ${totalClosedQty}) [MAE: ${position.maePct || 0}%, MFE: ${position.mfePct || 0}%]`, {
           positionId: position.id,
           symbol: position.symbol,
           exitPrice,
@@ -767,6 +774,10 @@ export class OrderManager {
           pnl,
           pnlPct,
           grossPnl,
+          partialTpRealizedPnl: position.partialTpRealizedPnl || 0,
+          partialTpClosedQty: position.partialTpClosedQty || 0,
+          totalClosedQty,
+          totalClosedSizeUSDT,
           maePct: position.maePct,
           mfePct: position.mfePct,
           marketRegimeAtEntry: position.marketRegime,
@@ -788,7 +799,7 @@ export class OrderManager {
           position.signalScore ?? 0,
           position.entryPrice,
           exitPrice,
-          position.sizeUSDT,
+          totalClosedSizeUSDT,
           pnl,
           pnlPct,
           closeOrder.holdingTimeMinutes || 0,
@@ -923,35 +934,43 @@ export class OrderManager {
       openPositionsCount,
     } = params;
 
+    if (this.partialCloseLocks.has(position.id)) {
+      return { success: false, error: `Partial TP already in-flight for position ${position.id}.` };
+    }
+
     if (position.status !== 'OPEN' || position.isPartialTpTriggered) {
       return { success: false, error: `Position ${position.symbol} not eligible for partial TP.` };
     }
 
-    // Mark immediately to prevent re-entrant partial TP triggers on subsequent ticks
-    position.isPartialTpTriggered = true;
-
-    const isBuy = position.side.toUpperCase() === 'BUY';
-    const estPrice = currentPrice || position.entryPrice;
-
-    let isExchangePosition =
-      this.executionMode !== 'PAPER' &&
-      (position.source === 'OKX_SYNC' || position.executionMode === 'LIVE') &&
-      Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
-    let targetAdapter = this.executionMode === 'PAPER' && this.paperAdapter
-      ? this.paperAdapter
-      : (isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter ? this.paperAdapter : this.exchange));
-
-    let filter;
+    this.partialCloseLocks.add(position.id);
     try {
-      filter = await targetAdapter.getInstrumentFilter(position.symbol);
-    } catch (err: any) {
-      if (this.paperAdapter && targetAdapter !== this.paperAdapter) {
-        targetAdapter = this.paperAdapter;
+      // Mark immediately to prevent re-entrant partial TP triggers on subsequent ticks
+      position.isPartialTpTriggered = true;
+
+      const isBuy = position.side.toUpperCase() === 'BUY';
+      const estPrice = currentPrice || position.entryPrice;
+
+      let isExchangePosition =
+        this.executionMode !== 'PAPER' &&
+        (position.source === 'OKX_SYNC' || position.executionMode === 'LIVE') &&
+        Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
+      let targetAdapter = this.executionMode === 'PAPER' && this.paperAdapter
+        ? this.paperAdapter
+        : (isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter ? this.paperAdapter : this.exchange));
+
+      let filter;
+      try {
         filter = await targetAdapter.getInstrumentFilter(position.symbol);
-      } else {
-        throw err;
+      } catch (err: any) {
+        if (this.paperAdapter && targetAdapter !== this.paperAdapter) {
+          targetAdapter = this.paperAdapter;
+          filter = await targetAdapter.getInstrumentFilter(position.symbol);
+        } else {
+          position.lastCloseAttempt = Date.now();
+          position.isPartialTpTriggered = false;
+          throw err;
+        }
       }
-    }
 
     const ctVal = position.ctVal || filter.ctVal || 1;
     const step = filter.qtyStep || 1;
@@ -1104,15 +1123,24 @@ export class OrderManager {
 
         return { success: true, order: partialOrder };
       } else {
-        position.isPartialTpTriggered = false;
+        position.lastCloseAttempt = Date.now();
+        const finalStatus = partialOrder.status as OrderStatus;
+        // Nu reseta isPartialTpTriggered = false dacă ordinul e SUBMITTED sau ACCEPTED; resetează doar la FAILED sau REJECTED confirmat
+        if (finalStatus === 'FAILED' || finalStatus === 'REJECTED') {
+          position.isPartialTpTriggered = false;
+        }
         return { success: false, order: partialOrder, error: `Partial TP order not confirmed filled (${partialOrder.status})` };
       }
     } catch (err: any) {
+      position.lastCloseAttempt = Date.now();
       position.isPartialTpTriggered = false;
       partialOrder.status = 'FAILED';
       partialOrder.rejectionReason = err.message || 'Partial TP close failed';
       partialOrder.updatedTime = Date.now();
       return { success: false, order: partialOrder, error: err.message };
+    }
+    } finally {
+      this.partialCloseLocks.delete(position.id);
     }
   }
 

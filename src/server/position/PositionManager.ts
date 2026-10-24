@@ -1072,8 +1072,8 @@ export class PositionManager {
     const resolvedExitFee = exitFee !== undefined ? exitFee : parseFloat((exitNotional * 0.0005).toFixed(4));
     pos.exitFee = parseFloat(resolvedExitFee.toFixed(4));
 
-    // Net PnL = grossPnl - (entryFee + exitFee)
-    const netPnl = pos.grossPnl - (entryFee + resolvedExitFee);
+    // Net PnL = runner grossPnl - (remaining entryFee + runner exitFee) + partialTpRealizedPnl
+    const netPnl = pos.grossPnl - (entryFee + resolvedExitFee) + (pos.partialTpRealizedPnl || 0);
     pos.pnl = parseFloat((isNaN(netPnl) ? 0 : netPnl).toFixed(4));
     if (pos.pnl < 0 || reason === 'STOP_LOSS') {
       this.lastLossAt.set(pos.symbol, Date.now());

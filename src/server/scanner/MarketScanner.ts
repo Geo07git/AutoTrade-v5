@@ -10,6 +10,7 @@ import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { MomentumEngine } from '../engine/MomentumEngine';
 import { directionEngine } from '../engine/DirectionEngine';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from './UniverseManager';
+import { directionValidationLogger } from '../research/DirectionValidationLogger';
 
 export class MarketScanner {
   private adapter: IExecutionAdapter;
@@ -107,10 +108,20 @@ export class MarketScanner {
   }
 
   /**
-   * Public accessor for cached or fresh LTF klines for structural invalidation checks without API spam.
+   * Public accessor for cached LTF klines (with fallback to fetch only if missing from cache)
+   * used by the structural invalidation loop in TradeBot without API spam.
    */
-  public async getKlinesForSymbol(symbol: string, interval: string, limit: number = 60): Promise<Kline[]> {
+  public async getCachedKlinesOrFetch(symbol: string, interval: string, limit: number = 60): Promise<Kline[]> {
+    const cacheKey = `${symbol}_${interval}`;
+    const cached = this.klineCache.get(cacheKey);
+    if (cached && cached.klines && cached.klines.length > 0) {
+      return cached.klines;
+    }
     return this.fetchKlinesWithTimeout(symbol, interval, limit, 6000, false);
+  }
+
+  public async getKlinesForSymbol(symbol: string, interval: string, limit: number = 60): Promise<Kline[]> {
+    return this.getCachedKlinesOrFetch(symbol, interval, limit);
   }
 
   /**
@@ -218,6 +229,11 @@ export class MarketScanner {
                 cand.isFadeTrade = reevaluated.isFadeTrade;
                 cand.signal = reevaluated.signal;
                 cand.climax = reevaluated.climax;
+                cand.htfTrend = reevaluated.htfTrend;
+                cand.htfAligned = reevaluated.htfAligned;
+                cand.entryQuality = reevaluated.entryQuality;
+                cand.entryFilterReason = reevaluated.entryFilterReason;
+                cand.distFromEmaAtr = reevaluated.distFromEmaAtr;
                 cand.isEligible = reevaluated.isEligible;
               }
             }
@@ -371,7 +387,8 @@ export class MarketScanner {
         });
         opp.directionAssessment = assessment;
 
-        const hasRealTickFlow = (assessment.metrics.sampleTradesCount || 0) >= 5;
+        const hasRealTickFlow =
+          (assessment.metrics.sampleTradesCount || 0) >= 30 && assessment.confidence > 0;
 
         if (isScalpBrain) {
           const isExtremeClimaxFade = Boolean(invertSignals && opp.climax && hasRealTickFlow);
@@ -393,6 +410,13 @@ export class MarketScanner {
             opp.originalSide = rawOriginalSide;
             opp.isFadeTrade = Boolean(invertSignals || assessment.isFadeSignal);
 
+            // Re-verify HTF alignment for the chosen side (Item 2)
+            const htfTrend = opp.htfTrend || 'NEUTRAL';
+            opp.htfAligned = !(
+              (chosenSide === 'BUY' && htfTrend === 'BEARISH') ||
+              (chosenSide === 'SELL' && htfTrend === 'BULLISH')
+            );
+
             // Blend Order Flow Direction Score (65%) with Volatility/RVOL Activity Score (35%)
             const blendedScore = parseFloat(
               Math.min(99.5, Math.max(0, assessment.directionScore * 0.65 + opp.score * 0.35)).toFixed(1)
@@ -408,8 +432,14 @@ export class MarketScanner {
               !opp.entryQuality ||
               opp.entryQuality === 'OPTIMAL';
 
-            const minThreshold = profile.minMomentumScore || 50;
-            opp.isEligible = passesSafetyFilter && opp.score >= minThreshold;
+            // Separate threshold calibrated for the blended score (Item 3) + HTF alignment gate (Item 2)
+            const minThreshold =
+              profile.minBlendedScore ??
+              (profile.minMomentumScore ? Math.max(50, profile.minMomentumScore - 4) : 56);
+            opp.isEligible =
+              passesSafetyFilter &&
+              opp.score >= minThreshold &&
+              (bypassImpulseGate || Boolean(opp.htfAligned));
 
             if (opp.isEligible) {
               opp.signal = {
@@ -440,6 +470,8 @@ export class MarketScanner {
                   atrExpansion: opp.atrExpansion,
                   lastPrice: opp.price,
                   atrPct: opp.atrPct,
+                  htfTrend: opp.htfTrend,
+                  htfAligned: opp.htfAligned,
                   orderFlowRegime: assessment.regime,
                   probabilityUp: assessment.probabilityUp,
                   directionalProbability: assessment.directionalProbability,
@@ -452,7 +484,7 @@ export class MarketScanner {
               opp.signal = undefined;
             }
           } else {
-            // Order flow is CHOP_BALANCED (NEUTRAL) or market is closed/illiquid (<5 trades in 15m) -> veto entry on SCALP
+            // Order flow is CHOP_BALANCED (NEUTRAL) or insufficient ticks (<30 trades / <60s) -> veto entry on SCALP
             if (!hasRealTickFlow) {
               opp.score = parseFloat((opp.score * 0.5).toFixed(1));
             }
@@ -463,6 +495,12 @@ export class MarketScanner {
           }
         }
       }
+
+      // Item 12: Log all scannedList (symbol, timestamp, price, probabilityUp, metrics, entryQuality)
+      // and populate price_t+5m and price_t+15m via background job for empirical validation
+      try {
+        directionValidationLogger.logScanBatch(scannedList, tickersMap);
+      } catch {}
 
       // Re-sort opportunities after Stage 2 Order Flow scoring
       scannedList.sort((a, b) => {

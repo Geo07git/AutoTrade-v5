@@ -26,6 +26,7 @@ export interface ResearchRecord {
   leverage: number;
   marginMode: string;
   sizeUSDT: number;
+  closedQty?: number | null;
   signalPrice: number;
   fillPrice: number | null;
   entryPrice: number | null;
@@ -242,6 +243,10 @@ export class ResearchExportService {
       const entryTime = pos.entryTime;
       const exitTime = pos.exitTime || Date.now();
       const holdingMin = pos.holdingTimeMinutes ?? Number(((exitTime - entryTime) / 60000).toFixed(2));
+      const totalClosedQty = parseFloat(((pos.qty || 0) + (pos.partialTpClosedQty || 0)).toFixed(6));
+      const totalSizeUSDT = totalClosedQty > 0
+        ? parseFloat((totalClosedQty * (pos.ctVal || 1) * pos.entryPrice).toFixed(2))
+        : (pos.sizeUSDT || 0);
 
       if (matchedKey) {
         const r = recordsMap.get(matchedKey)!;
@@ -250,6 +255,8 @@ export class ResearchExportService {
         r.exitTimestamp = exitTime;
         r.entryPrice = pos.entryPrice;
         r.exitPrice = pos.exitPrice || pos.currentPrice || null;
+        r.sizeUSDT = totalSizeUSDT;
+        r.closedQty = totalClosedQty;
         r.rankAtEntry = pos.rankAtEntry ?? r.rankAtEntry;
         r.spreadPctAtEntry = pos.spreadPctAtEntry ?? r.spreadPctAtEntry;
         r.candleElapsedSecondsAtEntry = pos.candleElapsedSecondsAtEntry ?? r.candleElapsedSecondsAtEntry;
@@ -289,7 +296,8 @@ export class ResearchExportService {
           btcRegimeLabel: 'NEUTRAL',
           leverage: pos.leverage ? parseFloat(pos.leverage) || 1 : 1,
           marginMode: 'isolated',
-          sizeUSDT: pos.sizeUSDT || 0,
+          sizeUSDT: totalSizeUSDT,
+          closedQty: totalClosedQty,
           signalPrice: pos.signalPrice || pos.entryPrice,
           fillPrice: pos.entryPrice,
           entryPrice: pos.entryPrice,

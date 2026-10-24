@@ -92,7 +92,7 @@ export interface OrderFlowMetrics {
   bidAskRatio: number;           // Weighted Bid / Ask liquidity ratio
   tradeFlowAccel: number;        // Recent trades/sec vs baseline multiplier (e.g. 2.1x)
   tradesPerSec: number;          // Current trade arrival velocity
-  whaleNetRatio: number;         // -1..+1 net aggressive flow from large prints (>3x avg ticket)
+  whaleNetRatio: number;         // -1..+1 net aggressive flow from large prints (>=2.8x avg ticket)
   absorptionScore: number;       // -1..+1 (>0 bullish passive bid absorption, <0 bearish passive ask absorption)
   oiDeltaPct: number;            // % change in Open Interest over rolling window
   recentLiquidationsUsd: number; // Net liquidations USD (>0 short liquidations, <0 long liquidations)
@@ -140,6 +140,8 @@ export interface ScannedOpportunity {
   entryQuality?: 'OPTIMAL' | 'OVEREXTENDED' | 'EXHAUSTION_WICK' | 'TREND_FATIGUE';
   entryFilterReason?: string;
   distFromEmaAtr?: number;
+  htfTrend?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  htfAligned?: boolean;
   directionAssessment?: DirectionAssessment;
 }
 
@@ -193,6 +195,7 @@ export interface ProfileConfig {
   equityProtectionActivationPct: number;
   equityTrailingDrawdownPct: number;
   minMomentumScore?: number;
+  minBlendedScore?: number; // Prag dedicat scorului blended (OrderFlow 65% + Volatility/RVOL 35%) în SCALP
   maxMomentumScore?: number;
   min24hVolumeUSDT?: number; // Prag inferior volum/turnover 24h în USDT (ex: 1_000_000 = 1.0M)
   max24hVolumeUSDT?: number; // Prag superior volum/turnover 24h în USDT (ex: 1_500_000 = 1.5M, 0 = nelimitat)

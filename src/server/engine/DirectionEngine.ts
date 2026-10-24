@@ -77,8 +77,9 @@ export class DirectionEngine {
   private wsBaseUrl: string = 'wss://wseea.okx.com:8443/ws/v5/public';
 
   private readonly MAX_TRACKED_SYMBOLS = 30;
-  private readonly TRADE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes rolling ring-buffer
-  private readonly MAX_TRADES_PER_SYMBOL = 800;
+  private readonly TRADE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes rolling ring-buffer retention
+  private readonly EVAL_WINDOW_MS = 5 * 60 * 1000;   // Uniform 300s (5m) time window for all symbol metrics
+  private readonly MAX_TRADES_PER_SYMBOL = 5000;     // Memory safety cap only (window is strictly time-based)
   private readonly WARMUP_TTL_MS = 12_000;           // Minimum 12s between REST trade/book refreshes per symbol
   private readonly OI_TTL_MS = 45_000;               // 45s TTL for Open Interest snapshots
 
@@ -354,12 +355,15 @@ export class DirectionEngine {
 
   private pruneBuffer(buf: SymbolMicrostructureBuffer, now: number) {
     const cutoff = now - this.TRADE_WINDOW_MS;
-    if (buf.trades.length > this.MAX_TRADES_PER_SYMBOL) {
-      buf.trades = buf.trades.slice(-this.MAX_TRADES_PER_SYMBOL);
-    }
     const firstValidIdx = buf.trades.findIndex((t) => t.ts >= cutoff);
     if (firstValidIdx > 0) {
       buf.trades = buf.trades.slice(firstValidIdx);
+    } else if (firstValidIdx === -1 && buf.trades.length > 0) {
+      buf.trades = [];
+    }
+    // Apply 5000-tick cap strictly as a memory safety ceiling after time-window pruning
+    if (buf.trades.length > this.MAX_TRADES_PER_SYMBOL) {
+      buf.trades = buf.trades.slice(-this.MAX_TRADES_PER_SYMBOL);
     }
 
     buf.liquidations = buf.liquidations.filter((l) => l.ts >= cutoff);
@@ -395,7 +399,7 @@ export class DirectionEngine {
     const buf = this.getOrCreateBuffer(instId, ctVal);
     const now = Date.now();
 
-    const needsTrades = buf.trades.length < 25 || now - buf.lastWarmupTs > this.WARMUP_TTL_MS;
+    const needsTrades = buf.trades.length < 40 || now - buf.lastWarmupTs > this.WARMUP_TTL_MS;
     const needsBook = !buf.orderBook || buf.orderBook.bids.length < 5 || now - buf.lastBookFetchTs > this.WARMUP_TTL_MS;
     const needsOi = buf.oiHistory.length === 0 || now - buf.lastOiFetchTs > this.OI_TTL_MS;
 
@@ -405,7 +409,7 @@ export class DirectionEngine {
       buf.lastWarmupTs = now;
       tasks.push(
         (async () => {
-          const json = await this.fetchPublicJson(`/api/v5/market/trades?instId=${instId}&limit=100`, 3500);
+          const json = await this.fetchPublicJson(`/api/v5/market/trades?instId=${instId}&limit=500`, 3500);
           if (json && Array.isArray(json.data) && json.data.length > 0) {
             const existingMaxTs = buf.trades.length > 0 ? buf.trades[buf.trades.length - 1].ts : 0;
             // OKX returns newest first; reverse to chronological order
@@ -516,7 +520,10 @@ export class DirectionEngine {
     const now = Date.now();
     this.pruneBuffer(buf, now);
 
-    const trades = buf.trades;
+    // Uniform time-based evaluation window across all symbols (last N = 300 seconds)
+    const evalCutoff = now - this.EVAL_WINDOW_MS;
+    const trades = buf.trades.filter((t) => t.ts >= evalCutoff);
+    const windowLiquidations = buf.liquidations.filter((l) => l.ts >= evalCutoff);
     const sampleTradesCount = trades.length;
 
     const fallbackPrice =
@@ -544,7 +551,7 @@ export class DirectionEngine {
     const takerBuyRatio = totalVolUsdt > 0 ? buyVolUsdt / totalVolUsdt : 0.5;
     const takerImbalance = totalVolUsdt > 0 ? (buyVolUsdt - sellVolUsdt) / totalVolUsdt : 0; // [-1, +1]
 
-    // Whale Prints (> 3x average ticket notional)
+    // Whale Prints (>= 2.8x average ticket notional)
     const avgTicketUsdt = sampleTradesCount > 0 ? totalVolUsdt / sampleTradesCount : 0;
     let whaleBuyUsdt = 0;
     let whaleSellUsdt = 0;
@@ -562,56 +569,45 @@ export class DirectionEngine {
       totalWhaleUsdt > 0 ? (whaleBuyUsdt - whaleSellUsdt) / Math.max(totalWhaleUsdt, totalVolUsdt * 0.25) : 0;
 
     // =========================================================================
-    // 2. CUMULATIVE VOLUME DELTA (CVD Slope & Price-CVD Divergence)
+    // 2. CUMULATIVE VOLUME DELTA (CVD Slope & Price-CVD Divergence over N sec)
     // =========================================================================
     const cvdDeltaUsdt = buyVolUsdt - sellVolUsdt;
     let cvdSlope5m = 0;
     let priceSlopeNorm = 0;
     let cvdDivergence: 'BULLISH' | 'BEARISH' | 'NONE' = 'NONE';
 
-    if (trades.length >= 10) {
-      // Split trades into 5 chronological segments to measure trajectory slope
-      const bucketCount = 5;
-      const chunkSize = Math.max(2, Math.floor(trades.length / bucketCount));
-      const cumCvd: number[] = [];
-      const bucketPrices: number[] = [];
-      let runningCvd = 0;
+    if (trades.length >= 10 && totalVolUsdt > 0) {
+      // Split the uniform N-second time span [firstTs..lastTs] into 5 equal time buckets
+      const firstTs = trades[0].ts;
+      const lastTs = trades[trades.length - 1].ts;
+      const spanMs = Math.max(1000, lastTs - firstTs);
+      const midTs = firstTs + spanMs * 0.5;
 
-      for (let i = 0; i < bucketCount; i++) {
-        const start = i * chunkSize;
-        const end = i === bucketCount - 1 ? trades.length : (i + 1) * chunkSize;
-        const slice = trades.slice(start, end);
-        if (slice.length === 0) continue;
-        for (const t of slice) {
-          runningCvd += t.side === 'buy' ? t.notionalUsdt : -t.notionalUsdt;
+      let runningCvd = 0;
+      let secondHalfDelta = 0;
+      for (const t of trades) {
+        const delta = t.side === 'buy' ? t.notionalUsdt : -t.notionalUsdt;
+        runningCvd += delta;
+        if (t.ts >= midTs) {
+          secondHalfDelta += delta;
         }
-        cumCvd.push(runningCvd);
-        bucketPrices.push(slice[slice.length - 1].px);
       }
 
-      if (cumCvd.length >= 3 && totalVolUsdt > 0) {
-        // Recent half CVD delta vs total volume
-        const halfIdx = Math.floor(trades.length / 2);
-        let secondHalfDelta = 0;
-        for (let i = halfIdx; i < trades.length; i++) {
-          secondHalfDelta += trades[i].side === 'buy' ? trades[i].notionalUsdt : -trades[i].notionalUsdt;
-        }
-        const rawSlope = (runningCvd * 0.45 + secondHalfDelta * 0.55) / (totalVolUsdt * 0.65 + 1e-8);
-        cvdSlope5m = Math.max(-1, Math.min(1, rawSlope));
+      const rawSlope = (runningCvd * 0.45 + secondHalfDelta * 0.55) / (totalVolUsdt * 0.65 + 1e-8);
+      cvdSlope5m = Math.max(-1, Math.min(1, rawSlope));
 
-        const firstPx = trades[0].px;
-        const lastPx = trades[trades.length - 1].px;
-        priceSlopeNorm = Math.max(-2, Math.min(2, (lastPx - firstPx) / Math.max(1e-8, effAtr)));
+      const firstPx = trades[0].px;
+      const lastPx = trades[trades.length - 1].px;
+      priceSlopeNorm = Math.max(-2, Math.min(2, (lastPx - firstPx) / Math.max(1e-8, effAtr)));
 
-        // Divergence detection:
-        // Bearish Divergence: Price pushed up (> +0.30 ATR), but CVD slope is negative (sellers hitting bids into the rally)
-        if (priceSlopeNorm >= 0.30 && cvdSlope5m <= -0.18) {
-          cvdDivergence = 'BEARISH';
-        }
-        // Bullish Divergence: Price dropped (< -0.30 ATR), but CVD slope is positive (aggressive buying stepping in on the dip)
-        else if (priceSlopeNorm <= -0.30 && cvdSlope5m >= 0.18) {
-          cvdDivergence = 'BULLISH';
-        }
+      // Divergence detection:
+      // Bearish Divergence: Price pushed up (> +0.30 ATR), but CVD slope is negative (sellers hitting bids into the rally)
+      if (priceSlopeNorm >= 0.30 && cvdSlope5m <= -0.18) {
+        cvdDivergence = 'BEARISH';
+      }
+      // Bullish Divergence: Price dropped (< -0.30 ATR), but CVD slope is positive (aggressive buying stepping in on the dip)
+      else if (priceSlopeNorm <= -0.30 && cvdSlope5m >= 0.18) {
+        cvdDivergence = 'BULLISH';
       }
     } else if (trades.length >= 3 && totalVolUsdt > 0) {
       // Small real tick sample (3..9 trades): use actual trade delta scaled conservatively by sample size
@@ -638,7 +634,7 @@ export class DirectionEngine {
         let weightedBids = 0;
         let weightedAsks = 0;
 
-        // Exponential distance decay lambda: 15 bps (0.15%) half-life so top levels matter most
+        // Exponential distance decay lambda = 800 (~8.7 bps / 0.087% half-life) so top levels matter most
         const decayScale = 800;
 
         for (let i = 0; i < bids.length; i++) {
@@ -764,7 +760,7 @@ export class DirectionEngine {
 
     let shortLiqUsd = 0;
     let longLiqUsd = 0;
-    for (const liq of buf.liquidations) {
+    for (const liq of windowLiquidations) {
       if (liq.side === 'SHORT_LIQ') shortLiqUsd += liq.usdValue;
       else longLiqUsd += liq.usdValue;
     }
@@ -773,10 +769,12 @@ export class DirectionEngine {
     // =========================================================================
     // COMPOSITE DIRECTIONAL PROBABILITY P(UP in 5–15m) & REGIME CLASSIFICATION
     // =========================================================================
-    // Strict Real-Data Gate: If an instrument has fewer than 5 real tick trades in the 15m window
-    // (e.g. closed traditional equity/commodity X-Perp like SPY, MSTR, SKHYNIX, BZ, XAG outside market hours),
-    // never fabricate a synthetic directional signal!
-    const hasSufficientRealFlow = sampleTradesCount >= 5;
+    // Strict Real-Data & Duration Gate (Item 4): Require at least 30 real tick trades AND
+    // a minimum observed trade span of 60,000 ms (60s) within the uniform evaluation window.
+    const firstTs = trades.length > 0 ? trades[0].ts : 0;
+    const lastTs = trades.length > 0 ? trades[trades.length - 1].ts : 0;
+    const tradeSpanMs = lastTs - firstTs;
+    const hasSufficientRealFlow = sampleTradesCount >= 30 && tradeSpanMs >= 60_000;
 
     // Effective Taker & CVD signal (strictly from real trades)
     const effectiveTakerSignal = hasSufficientRealFlow ? takerImbalance : 0;
@@ -862,16 +860,21 @@ export class DirectionEngine {
       regime = 'SHORT_BUILDUP';
     }
 
-    // Determine primary direction before optional Fade Climax inversion
+    // Determine primary direction before optional Fade Climax inversion (Item 6: strictly requires sampleTradesCount >= 30)
     let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
     let side: OrderSide = probabilityUp >= 0.5 ? 'BUY' : 'SELL';
 
-    if (hasSufficientRealFlow && probabilityUp >= 0.55) {
-      direction = 'LONG';
-      side = 'BUY';
-    } else if (hasSufficientRealFlow && probabilityUp <= 0.45) {
-      direction = 'SHORT';
-      side = 'SELL';
+    if (sampleTradesCount >= 30 && hasSufficientRealFlow) {
+      if (probabilityUp >= 0.55) {
+        direction = 'LONG';
+        side = 'BUY';
+      } else if (probabilityUp <= 0.45) {
+        direction = 'SHORT';
+        side = 'SELL';
+      } else {
+        direction = 'NEUTRAL';
+        side = probabilityUp >= 0.5 ? 'BUY' : 'SELL';
+      }
     } else {
       direction = 'NEUTRAL';
       side = probabilityUp >= 0.5 ? 'BUY' : 'SELL';
@@ -903,25 +906,25 @@ export class DirectionEngine {
       if (cvdSlope5m * signTarget > 0.08) alignedPillars++;
       if (obiWeighted * signTarget > 0.06) alignedPillars++;
       if (tradeFlowAccel >= 1.15) alignedPillars++;
-      if (absorptionScore * (side === 'BUY' ? 1 : -1) > 0.25) alignedPillars++;
+      if (absorptionScore * (isFadeSignal ? -signTarget : signTarget) > 0.25) alignedPillars++;
     }
 
-    const sampleFactor = sampleTradesCount >= 40 ? 1.0 : sampleTradesCount >= 15 ? 0.85 : 0.65;
+    const sampleFactor = sampleTradesCount >= 60 ? 1.0 : sampleTradesCount >= 30 ? 0.90 : 0.65;
     const edgeStrength = Math.min(1.0, Math.abs(directionalProbability - 0.5) / 0.35);
     const confidence = hasSufficientRealFlow
       ? Math.round(Math.max(15, Math.min(99, (edgeStrength * 65 + (alignedPillars / 5) * 35) * sampleFactor)))
       : 0;
 
-    // Direction Score (0..100) calibrated for SCALP ranking & threshold comparison (50 = neutral, 65+ = strong signal)
+    // Direction Score (0..100) rescaled for blended score comparison (Item 3: 50 = neutral, P=0.62 -> 65.0, P=0.70 -> 75.0)
     const directionScore = hasSufficientRealFlow
-      ? parseFloat(Math.max(0, Math.min(100, 50 + (directionalProbability - 0.5) * 115)).toFixed(1))
+      ? parseFloat(Math.max(0, Math.min(100, 50 + (directionalProbability - 0.5) * 125)).toFixed(1))
       : 50;
 
     // Build human-readable explanations for Terminal & Audit Logs
     const reasoning: string[] = [];
     if (!hasSufficientRealFlow) {
       reasoning.push(
-        `Fără flux activ de tranzacții în ultimele 15m (${sampleTradesCount} ticks) — Piață închisă / nelichidă (NEUTRAL)`
+        `Eșantion insuficient de tranzacții în fereastra de ${Math.round(this.EVAL_WINDOW_MS / 1000)}s (${sampleTradesCount}/30 ticks, durată ${(tradeSpanMs / 1000).toFixed(0)}s/60s) — NEUTRAL`
       );
     } else {
       const buyPctStr = (takerBuyRatio * 100).toFixed(0);

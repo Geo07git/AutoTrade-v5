@@ -4774,18 +4774,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               </td>
                               <td className="py-2 px-3" title={da ? (da.reasoning || []).join('\n') : 'Se colectează microstructura...'}>
                                 {da ? (
-                                  (da.metrics.sampleTradesCount ?? 0) < 5 ? (
+                                  (da.metrics.sampleTradesCount ?? 0) < 30 || da.confidence === 0 ? (
                                     <div className="space-y-0.5 leading-tight">
                                       <div className="flex items-center space-x-1.5">
                                         <span className="px-1.5 py-0.2 rounded text-[9px] font-bold border bg-zinc-900 text-zinc-500 border-zinc-700">
-                                          FĂRĂ TICKS ({da.metrics.sampleTradesCount ?? 0} tr)
+                                          EȘANTION &lt;30 ({da.metrics.sampleTradesCount ?? 0} tr)
                                         </span>
                                         <span className="text-[10px] font-bold text-zinc-500">
                                           NEUTRAL (50%)
                                         </span>
                                       </div>
                                       <div className="text-[9px] text-zinc-500">
-                                        Piață închisă / inactivă în ultimele 15m
+                                        Sub pragul minim (30 ticks &amp; 60s)
                                       </div>
                                     </div>
                                   ) : (

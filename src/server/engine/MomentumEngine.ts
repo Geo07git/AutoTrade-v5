@@ -293,6 +293,8 @@ export class MomentumEngine {
       entryQuality: metrics.entryQuality || 'OPTIMAL',
       entryFilterReason: metrics.entryFilterReason,
       distFromEmaAtr: metrics.distFromEmaAtr,
+      htfTrend: metrics.htfTrend,
+      htfAligned: metrics.htfAligned,
     };
   }
 
@@ -488,11 +490,13 @@ export class MomentumEngine {
     // Distanță în unități ATR față de EMA 20 pe LTF (cu plafon de protecție pt lumânări plate)
     const distFromEmaAtr = Math.min(99.9, Math.abs(lastClose - ema20Ltf) / safeAvgAtr);
 
-    // Măsurare Rejecție Wick (Umbre de absorbție la vârf / minim)
-    const upperWick = last.high - Math.max(last.open, last.close);
-    const lowerWick = Math.min(last.open, last.close) - last.low;
-    const upperWickPct = upperWick / candleRange;
-    const lowerWickPct = lowerWick / candleRange;
+    // Măsurare Rejecție Wick & RVOL anti-chasing pe ultima lumânare ÎNCHISĂ (prev = ltfKlines[ltfKlines.length - 2])
+    const prevRange = Math.max(EPSILON, prev.high - prev.low);
+    const upperWick = prev.high - Math.max(prev.open, prev.close);
+    const lowerWick = Math.min(prev.open, prev.close) - prev.low;
+    const upperWickPct = upperWick / prevRange;
+    const lowerWickPct = lowerWick / prevRange;
+    const prevRvol = Math.min(10, prev.volume / (volAvg + EPSILON));
 
     // Numărător lumânări consecutive direcționale (Trend Fatigue)
     let consecutiveCandles = 0;
@@ -511,9 +515,9 @@ export class MomentumEngine {
     // Clasificare Filtre Epuizare / Anti-Chasing:
     // 1. Overextended: preț întins peste 2.2 ATR față de EMA 20
     const isOverextended = distFromEmaAtr > 2.2;
-    // 2. Exhaustion Wick: umbră de respingere >= 38% cu volum ridicat (RVOL >= 2.0)
-    const isExhaustionWick = (side === 'BUY' && upperWickPct >= 0.38 && rvol >= 2.0) ||
-                             (side === 'SELL' && lowerWickPct >= 0.38 && rvol >= 2.0);
+    // 2. Exhaustion Wick: umbră de respingere >= 38% cu volum ridicat (prevRvol >= 2.0) pe ultima lumânare ÎNCHISĂ
+    const isExhaustionWick = (side === 'BUY' && upperWickPct >= 0.38 && prevRvol >= 2.0) ||
+                             (side === 'SELL' && lowerWickPct >= 0.38 && prevRvol >= 2.0);
     // 3. Trend Fatigued: cel puțin 4 lumânări consecutive fără consolidare + extensie considerabilă
     const isTrendFatigued = consecutiveCandles >= 4 && distFromEmaAtr >= 1.8;
 
@@ -523,7 +527,7 @@ export class MomentumEngine {
     if (isExhaustionWick) {
       entryQuality = 'EXHAUSTION_WICK';
       const wickPctVal = ((side === 'BUY' ? upperWickPct : lowerWickPct) * 100).toFixed(0);
-      entryFilterReason = `Wick de absorbție/rejecție (${wickPctVal}% la RVOL ${rvol.toFixed(1)}x) - Risc capcană ${side === 'BUY' ? 'Bull' : 'Bear'}`;
+      entryFilterReason = `Wick de absorbție/rejecție (${wickPctVal}% la RVOL ${prevRvol.toFixed(1)}x pe lumânarea închisă) - Risc capcană ${side === 'BUY' ? 'Bull' : 'Bear'}`;
     } else if (isOverextended) {
       entryQuality = 'OVEREXTENDED';
       entryFilterReason = `Preț supra-extins (${distFromEmaAtr.toFixed(1)} ATR de EMA20) - Risc de epuizare / mean-reversion`;
@@ -615,10 +619,9 @@ export class MomentumEngine {
       return { invalidated: false };
     }
 
-    // Lumânarea analizată (prevClosed) trebuie să se fi închis DUPĂ momentul deschiderii poziției
     const tfMinutes = parseInt(this.config.timeframes[0] || '15', 10) || 15;
-    const prevClosedEndTime = prevClosed.timestamp + tfMinutes * 60_000;
-    if (prevClosedEndTime <= pos.entryTime) {
+    // Lumânarea analizată (prevClosed) trebuie să se fi deschis DUPĂ momentul intrării în poziție
+    if (prevClosed.timestamp < pos.entryTime) {
       return { invalidated: false };
     }
 

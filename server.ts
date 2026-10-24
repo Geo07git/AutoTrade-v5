@@ -7,6 +7,7 @@ import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { flushAllStores } from './src/server/store';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
+import { directionValidationLogger } from './src/server/research/DirectionValidationLogger';
 
 // Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
 // unconditionally by every control route (kill switch, mode switch, credential update).
@@ -611,6 +612,16 @@ async function startServer() {
       success: true,
       stats: tradeBot.getSymbolStats(),
       summary: tradeBot.getSymbolStatsSummary(),
+    });
+  });
+
+  // DirectionEngine & EntryQuality forward validation dataset (price_t+5m & price_t+15m)
+  app.get('/api/bot/research/direction-validation', (req, res) => {
+    const limit = Math.min(5000, Math.max(10, parseInt(String(req.query.limit || '500'), 10) || 500));
+    res.json({
+      success: true,
+      summary: directionValidationLogger.getSummaryStats(),
+      records: directionValidationLogger.getRecords(limit),
     });
   });
 
