@@ -4774,33 +4774,49 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               </td>
                               <td className="py-2 px-3" title={da ? (da.reasoning || []).join('\n') : 'Se colectează microstructura...'}>
                                 {da ? (
-                                  <div className="space-y-0.5 leading-tight">
-                                    <div className="flex items-center space-x-1.5">
-                                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
-                                        da.regime === 'LONG_BUILDUP'
-                                          ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700/70'
-                                          : da.regime === 'SHORT_BUILDUP'
-                                          ? 'bg-rose-950/90 text-rose-300 border-rose-700/70'
-                                          : da.regime === 'SHORT_SQUEEZE'
-                                          ? 'bg-cyan-950/90 text-cyan-300 border-cyan-600/80'
-                                          : da.regime === 'LONG_FLUSH'
-                                          ? 'bg-orange-950/90 text-orange-300 border-orange-600/80'
-                                          : da.regime === 'BULLISH_ABSORPTION'
-                                          ? 'bg-teal-950/90 text-teal-300 border-teal-600/80'
-                                          : da.regime === 'BEARISH_ABSORPTION'
-                                          ? 'bg-purple-950/90 text-purple-300 border-purple-600/80'
-                                          : 'bg-zinc-900 text-zinc-400 border-zinc-700'
-                                      }`}>
-                                        {da.regime.replace('_BALANCED', '')}
-                                      </span>
-                                      <span className={`text-[10px] font-bold ${da.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        P({da.side === 'BUY' ? 'UP' : 'DN'}): {dirProbPct}%
-                                      </span>
+                                  (da.metrics.sampleTradesCount ?? 0) < 5 ? (
+                                    <div className="space-y-0.5 leading-tight">
+                                      <div className="flex items-center space-x-1.5">
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold border bg-zinc-900 text-zinc-500 border-zinc-700">
+                                          FĂRĂ TICKS ({da.metrics.sampleTradesCount ?? 0} tr)
+                                        </span>
+                                        <span className="text-[10px] font-bold text-zinc-500">
+                                          NEUTRAL (50%)
+                                        </span>
+                                      </div>
+                                      <div className="text-[9px] text-zinc-500">
+                                        Piață închisă / inactivă în ultimele 15m
+                                      </div>
                                     </div>
-                                    <div className="text-[9px] text-zinc-400">
-                                      Buy:{buyPct}% | CVD:{da.metrics.cvdSlope5m >= 0 ? '+' : ''}{da.metrics.cvdSlope5m.toFixed(2)} | OBI:{obiPct >= 0 ? '+' : ''}{obiPct}% | {da.metrics.tradeFlowAccel}x
+                                  ) : (
+                                    <div className="space-y-0.5 leading-tight">
+                                      <div className="flex items-center space-x-1.5">
+                                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                          da.regime === 'LONG_BUILDUP'
+                                            ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700/70'
+                                            : da.regime === 'SHORT_BUILDUP'
+                                            ? 'bg-rose-950/90 text-rose-300 border-rose-700/70'
+                                            : da.regime === 'SHORT_SQUEEZE'
+                                            ? 'bg-cyan-950/90 text-cyan-300 border-cyan-600/80'
+                                            : da.regime === 'LONG_FLUSH'
+                                            ? 'bg-orange-950/90 text-orange-300 border-orange-600/80'
+                                            : da.regime === 'BULLISH_ABSORPTION'
+                                            ? 'bg-teal-950/90 text-teal-300 border-teal-600/80'
+                                            : da.regime === 'BEARISH_ABSORPTION'
+                                            ? 'bg-purple-950/90 text-purple-300 border-purple-600/80'
+                                            : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                        }`}>
+                                          {da.regime.replace('_BALANCED', '')}
+                                        </span>
+                                        <span className={`text-[10px] font-bold ${da.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                          P({da.side === 'BUY' ? 'UP' : 'DN'}): {dirProbPct}%
+                                        </span>
+                                      </div>
+                                      <div className="text-[9px] text-zinc-400">
+                                        Buy:{buyPct}% | CVD:{da.metrics.cvdSlope5m >= 0 ? '+' : ''}{da.metrics.cvdSlope5m.toFixed(2)} | OBI:{obiPct >= 0 ? '+' : ''}{obiPct}% | {da.metrics.tradeFlowAccel}x
+                                      </div>
                                     </div>
-                                  </div>
+                                  )
                                 ) : (
                                   <span className="text-[10px] text-zinc-500">--</span>
                                 )}

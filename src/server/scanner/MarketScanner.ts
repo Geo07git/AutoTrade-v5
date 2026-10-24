@@ -330,17 +330,18 @@ export class MarketScanner {
       });
 
       // 4. STAGE 2 FUNNEL: Real-Time Order Flow & Microstructure (DirectionEngine)
-      // Subscribe WS Ring-Buffer (`trades`, `books5`, `liquidation-orders`) to Top 10 candidates + Open Positions
-      const topStage2Candidates = scannedList.slice(0, 10);
+      // Subscribe WS Ring-Buffer (`trades`, `books5`, `liquidation-orders`) to Top 25 candidates + Open Positions
+      const topWsCandidates = scannedList.slice(0, 25);
       const trackedSymbols = Array.from(
-        new Set([...topStage2Candidates.map((c) => c.symbol), ...openPos])
+        new Set([...topWsCandidates.map((c) => c.symbol), ...openPos])
       );
       directionEngine.updateTrackedSymbols(trackedSymbols, (sym) => {
         const meta = this.universeManager.getInstrumentMetadata(sym);
         return meta?.ctVal || this.adapter.getCachedCtVal?.(sym) || 1;
       });
 
-      // Warm up top candidates via lightweight REST (trades + L2 books + open interest) with concurrency 3
+      // Warm up top 35 candidates via lightweight REST (trades + L2 books + open interest) with concurrency 6
+      const topStage2Candidates = scannedList.slice(0, 35);
       const warmupQueue = [...topStage2Candidates];
       const warmupWorker = async () => {
         while (warmupQueue.length > 0) {
@@ -354,7 +355,7 @@ export class MarketScanner {
         }
       };
       await Promise.all(
-        Array.from({ length: Math.min(3, topStage2Candidates.length) }, () => warmupWorker())
+        Array.from({ length: Math.min(6, topStage2Candidates.length) }, () => warmupWorker())
       );
 
       // Evaluate Order Flow & Microstructure across scanned opportunities
@@ -370,13 +371,16 @@ export class MarketScanner {
         });
         opp.directionAssessment = assessment;
 
+        const hasRealTickFlow = (assessment.metrics.sampleTradesCount || 0) >= 5;
+
         if (isScalpBrain) {
-          const isExtremeClimaxFade = Boolean(invertSignals && opp.climax);
+          const isExtremeClimaxFade = Boolean(invertSignals && opp.climax && hasRealTickFlow);
           const isAbsorptionReversal =
+            hasRealTickFlow &&
             (assessment.regime === 'BULLISH_ABSORPTION' || assessment.regime === 'BEARISH_ABSORPTION') &&
             assessment.confidence >= 55;
 
-          if (assessment.direction !== 'NEUTRAL' || isExtremeClimaxFade) {
+          if (hasRealTickFlow && (assessment.direction !== 'NEUTRAL' || isExtremeClimaxFade)) {
             // Varianta B: DirectionEngine dictates the direction on SCALP (with Fade Climax preserved)
             const chosenSide = isExtremeClimaxFade && assessment.direction === 'NEUTRAL'
               ? opp.side
@@ -447,10 +451,15 @@ export class MarketScanner {
             } else {
               opp.signal = undefined;
             }
-          } else if (!bypassImpulseGate) {
-            // Order flow is CHOP_BALANCED (NEUTRAL) -> veto entry on SCALP
-            opp.isEligible = false;
-            opp.signal = undefined;
+          } else {
+            // Order flow is CHOP_BALANCED (NEUTRAL) or market is closed/illiquid (<5 trades in 15m) -> veto entry on SCALP
+            if (!hasRealTickFlow) {
+              opp.score = parseFloat((opp.score * 0.5).toFixed(1));
+            }
+            if (!bypassImpulseGate || !hasRealTickFlow) {
+              opp.isEligible = false;
+              opp.signal = undefined;
+            }
           }
         }
       }

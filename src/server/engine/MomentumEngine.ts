@@ -415,14 +415,17 @@ export class MomentumEngine {
     // 3. ATR Expansion & Volatility Baseline (Item 2 & 3)
     const candleRange = Math.max(EPSILON, last.high - last.low);
     const avgAtr = ltfKlines.slice(-15, -1).reduce((a, b) => a + (b.high - b.low), 0) / 14;
+    const minRealisticAtr = Math.max(EPSILON, lastClose * 0.0005); // 5 bps minimum ATR floor to prevent division by 1e-8 on flat/closed markets
+    const safeAvgAtr = Math.max(avgAtr, minRealisticAtr);
+    const isFlatHaltedMarket = avgAtr < lastClose * 0.0001 && candleRange < lastClose * 0.0001;
     const atrExp = isUnconfirmed
-      ? Math.max(0.1, Math.min(5.0, candleRange / ((avgAtr + EPSILON) * Math.sqrt(f))))
-      : Math.max(0.1, Math.min(5.0, candleRange / (avgAtr + EPSILON)));
-    const atrExpansion = atrExp;
-    const atrPct = (avgAtr / (lastClose + EPSILON)) * 100;
+      ? Math.max(0.1, Math.min(5.0, candleRange / (safeAvgAtr * Math.sqrt(f))))
+      : Math.max(0.1, Math.min(5.0, candleRange / safeAvgAtr));
+    const atrExpansion = isFlatHaltedMarket ? 0.1 : atrExp;
+    const atrPct = (safeAvgAtr / (lastClose + EPSILON)) * 100;
 
     // Marcaj "climax" (Item 4): Cand ambele plafoane (rvol 10, atrExp 5) sunt atinse
-    const isClimax = rvol >= 9.95 && atrExp >= 4.95;
+    const isClimax = !isFlatHaltedMarket && rvol >= 9.95 && atrExpansion >= 4.95;
 
     // Candle body quality ratio & persistence check
     const bodyRange = Math.max(EPSILON, last.high - last.low);
@@ -448,21 +451,21 @@ export class MomentumEngine {
       ? Math.min(6, (Math.abs(distFromEmaPct) / Math.max(0.2, atrPct)) * 3)
       : 0;
 
-    const impulseScore = Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
+    const impulseScore = isFlatHaltedMarket ? 0 : Math.min(35, Math.max(0, (impulseBase + emaBonus + persistenceBonus) * qualityMultiplier));
 
     // Smooth linear weight ramp (0 -> 1 between f = 0.25 and f = 0.50) to eliminate score jump
     const rampWeight = isUnconfirmed ? Math.max(0, Math.min(1.0, (f - 0.25) / 0.25)) : 1.0;
 
     // Pillar B: Relative Volume (0 to 25 points) - Smooth linear ramp between f = 0.25 and 0.50
     let rvolScore = 0;
-    if (rampWeight > 0 && rvol > 1.0) {
+    if (!isFlatHaltedMarket && rampWeight > 0 && rvol > 1.0) {
       const rawRvol = Math.min(25, 25 * (1 - Math.exp(-(rvol - 1.0) / 1.1)));
       rvolScore = rawRvol * rampWeight;
     }
 
     // Pillar C: ATR / Volatility Expansion (0 to 20 points) - Smooth linear ramp between f = 0.25 and 0.50
     let atrScore = 0;
-    if (rampWeight > 0 && atrExpansion > 1.0) {
+    if (!isFlatHaltedMarket && rampWeight > 0 && atrExpansion > 1.0) {
       const rawAtr = Math.min(20, (atrExpansion - 1.0) * 16);
       atrScore = rawAtr * rampWeight;
     }
@@ -482,8 +485,8 @@ export class MomentumEngine {
     }
     const totalScore = Math.max(0, Math.min(100, rawScore));
 
-    // Distanță în unități ATR față de EMA 20 pe LTF
-    const distFromEmaAtr = Math.abs(lastClose - ema20Ltf) / (avgAtr + EPSILON);
+    // Distanță în unități ATR față de EMA 20 pe LTF (cu plafon de protecție pt lumânări plate)
+    const distFromEmaAtr = Math.min(99.9, Math.abs(lastClose - ema20Ltf) / safeAvgAtr);
 
     // Măsurare Rejecție Wick (Umbre de absorbție la vârf / minim)
     const upperWick = last.high - Math.max(last.open, last.close);

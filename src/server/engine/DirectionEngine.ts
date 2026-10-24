@@ -73,24 +73,24 @@ export class DirectionEngine {
   private pingInterval?: NodeJS.Timeout;
   private oiPollInterval?: NodeJS.Timeout;
   private isWsConnected: boolean = false;
-  private restBaseUrl: string = 'https://www.okx.com';
-  private wsBaseUrl: string = 'wss://ws.okx.com:8443/ws/v5/public';
+  private restBaseUrl: string = 'https://eea.okx.com';
+  private wsBaseUrl: string = 'wss://wseea.okx.com:8443/ws/v5/public';
 
-  private readonly MAX_TRACKED_SYMBOLS = 14;
+  private readonly MAX_TRACKED_SYMBOLS = 30;
   private readonly TRADE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes rolling ring-buffer
   private readonly MAX_TRADES_PER_SYMBOL = 800;
   private readonly WARMUP_TTL_MS = 12_000;           // Minimum 12s between REST trade/book refreshes per symbol
   private readonly OI_TTL_MS = 45_000;               // 45s TTL for Open Interest snapshots
 
   constructor(region: 'EEA' | 'GLOBAL' | 'AUTO' = 'AUTO') {
-    // Public market data (trades, books5, open-interest, liquidation-orders) is identical globally on OKX,
-    // and www.okx.com / eea.okx.com both serve v5 public endpoints without authentication.
-    if (region === 'EEA') {
-      this.restBaseUrl = 'https://eea.okx.com';
-      this.wsBaseUrl = 'wss://wseea.okx.com:8443/ws/v5/public';
-    } else {
+    // Default to OKX EEA endpoints (since X-Perp _UM_XPERP instruments live on eea.okx.com),
+    // with automatic fallback to www.okx.com in fetchPublicJson.
+    if (region === 'GLOBAL') {
       this.restBaseUrl = 'https://www.okx.com';
       this.wsBaseUrl = 'wss://ws.okx.com:8443/ws/v5/public';
+    } else {
+      this.restBaseUrl = 'https://eea.okx.com';
+      this.wsBaseUrl = 'wss://wseea.okx.com:8443/ws/v5/public';
     }
     this.initWebSocket();
   }
@@ -148,12 +148,15 @@ export class DirectionEngine {
           }
         }, 20_000);
 
-        // Subscribe to global SWAP liquidation-orders stream (single channel covers all SWAP pairs)
+        // Subscribe to global SWAP and FUTURES liquidation-orders streams
         try {
           this.wsPublic.send(
             JSON.stringify({
               op: 'subscribe',
-              args: [{ channel: 'liquidation-orders', instType: 'SWAP' }],
+              args: [
+                { channel: 'liquidation-orders', instType: 'SWAP' },
+                { channel: 'liquidation-orders', instType: 'FUTURES' },
+              ],
             })
           );
         } catch {}
@@ -465,7 +468,8 @@ export class DirectionEngine {
   }
 
   private async fetchOpenInterestForBuffer(buf: SymbolMicrostructureBuffer): Promise<void> {
-    const json = await this.fetchPublicJson(`/api/v5/public/open-interest?instType=SWAP&instId=${buf.instId}`, 3500);
+    const instType = buf.instId.includes('_UM_XPERP') ? 'FUTURES' : 'SWAP';
+    const json = await this.fetchPublicJson(`/api/v5/public/open-interest?instType=${instType}&instId=${buf.instId}`, 3500);
     if (json && Array.isArray(json.data) && json.data.length > 0) {
       const item = json.data[0];
       const oiCcy = parseFloat(item.oiCcy || item.oi || '0');
@@ -609,19 +613,9 @@ export class DirectionEngine {
           cvdDivergence = 'BULLISH';
         }
       }
-    } else if (klines && klines.length >= 4) {
-      // Fallback kline-derived delta approximation if tick stream just started
-      const recent = klines.slice(-4);
-      let estBuy = 0;
-      let estSell = 0;
-      for (const k of recent) {
-        const range = Math.max(1e-9, k.high - k.low);
-        const buyShare = Math.max(0.1, Math.min(0.9, (k.close - k.low) / range));
-        estBuy += k.volume * buyShare;
-        estSell += k.volume * (1 - buyShare);
-      }
-      const tot = estBuy + estSell;
-      cvdSlope5m = tot > 0 ? Math.max(-1, Math.min(1, ((estBuy - estSell) / tot) * 1.6)) : 0;
+    } else if (trades.length >= 3 && totalVolUsdt > 0) {
+      // Small real tick sample (3..9 trades): use actual trade delta scaled conservatively by sample size
+      cvdSlope5m = Math.max(-1, Math.min(1, takerImbalance * (trades.length / 10)));
     }
 
     // =========================================================================
@@ -779,44 +773,57 @@ export class DirectionEngine {
     // =========================================================================
     // COMPOSITE DIRECTIONAL PROBABILITY P(UP in 5–15m) & REGIME CLASSIFICATION
     // =========================================================================
-    // Effective Taker & CVD signal (incorporating divergence & absorption)
-    const effectiveTakerSignal = sampleTradesCount >= 8 ? takerImbalance : cvdSlope5m * 0.7;
+    // Strict Real-Data Gate: If an instrument has fewer than 5 real tick trades in the 15m window
+    // (e.g. closed traditional equity/commodity X-Perp like SPY, MSTR, SKHYNIX, BZ, XAG outside market hours),
+    // never fabricate a synthetic directional signal!
+    const hasSufficientRealFlow = sampleTradesCount >= 5;
+
+    // Effective Taker & CVD signal (strictly from real trades)
+    const effectiveTakerSignal = hasSufficientRealFlow ? takerImbalance : 0;
 
     // 1. Taker Aggressive Flow Contribution (-0.30 to +0.30)
-    const takerContrib = Math.max(-1, Math.min(1, effectiveTakerSignal * 1.5 + whaleNetRatio * 0.35)) * 0.28;
+    const takerContrib = hasSufficientRealFlow
+      ? Math.max(-1, Math.min(1, effectiveTakerSignal * 1.5 + whaleNetRatio * 0.35)) * 0.28
+      : 0;
 
     // 2. CVD Slope & Divergence Contribution (-0.25 to +0.25)
-    let cvdContrib = cvdSlope5m * 0.22;
-    if (cvdDivergence === 'BULLISH') cvdContrib += 0.10;
-    else if (cvdDivergence === 'BEARISH') cvdContrib -= 0.10;
+    let cvdContrib = hasSufficientRealFlow ? cvdSlope5m * 0.22 : 0;
+    if (hasSufficientRealFlow && cvdDivergence === 'BULLISH') cvdContrib += 0.10;
+    else if (hasSufficientRealFlow && cvdDivergence === 'BEARISH') cvdContrib -= 0.10;
 
     // 3. Distance-Weighted L2 Order Book Imbalance Contribution (-0.20 to +0.20)
-    const obiContrib = Math.max(-1, Math.min(1, obiWeighted * 1.35)) * 0.18;
+    const obiContrib = hasSufficientRealFlow
+      ? Math.max(-1, Math.min(1, obiWeighted * 1.35)) * 0.18
+      : 0;
 
     // 4. Absorption Contribution (-0.20 to +0.20)
-    const absorptionContrib = absorptionScore * 0.18;
+    const absorptionContrib = hasSufficientRealFlow ? absorptionScore * 0.18 : 0;
 
     // 5. Open Interest & Liquidation Squeeze Contribution (-0.14 to +0.14)
     let squeezeContrib = 0;
-    if (recentLiquidationsUsd > 1000) {
-      squeezeContrib += Math.min(0.10, (recentLiquidationsUsd / 25_000) * 0.10);
-    } else if (recentLiquidationsUsd < -1000) {
-      squeezeContrib -= Math.min(0.10, (Math.abs(recentLiquidationsUsd) / 25_000) * 0.10);
-    }
-    if (Math.abs(oiDeltaPct) >= 0.05) {
-      // Rising OI in direction of CVD = new money build-up
-      const oiDir = effectiveTakerSignal >= 0 ? 1 : -1;
-      if (oiDeltaPct > 0) {
-        squeezeContrib += oiDir * Math.min(0.08, oiDeltaPct * 0.12);
-      } else {
-        // Falling OI + strong directional move = squeeze / covering
-        squeezeContrib += oiDir * Math.min(0.05, Math.abs(oiDeltaPct) * 0.08);
+    if (hasSufficientRealFlow) {
+      if (recentLiquidationsUsd > 1000) {
+        squeezeContrib += Math.min(0.10, (recentLiquidationsUsd / 25_000) * 0.10);
+      } else if (recentLiquidationsUsd < -1000) {
+        squeezeContrib -= Math.min(0.10, (Math.abs(recentLiquidationsUsd) / 25_000) * 0.10);
+      }
+      if (Math.abs(oiDeltaPct) >= 0.05) {
+        // Rising OI in direction of CVD = new money build-up
+        const oiDir = effectiveTakerSignal >= 0 ? 1 : -1;
+        if (oiDeltaPct > 0) {
+          squeezeContrib += oiDir * Math.min(0.08, oiDeltaPct * 0.12);
+        } else {
+          // Falling OI + strong directional move = squeeze / covering
+          squeezeContrib += oiDir * Math.min(0.05, Math.abs(oiDeltaPct) * 0.08);
+        }
       }
     }
 
     // 6. Trade Flow Acceleration Amplifier (1.0x to 1.30x conviction boost when tape accelerates)
     const accelMultiplier =
-      tradeFlowAccel >= 1.35
+      !hasSufficientRealFlow
+        ? 1.0
+        : tradeFlowAccel >= 1.35
         ? Math.min(1.28, 1.0 + (tradeFlowAccel - 1.0) * 0.16)
         : tradeFlowAccel < 0.75
         ? 0.88
@@ -827,11 +834,15 @@ export class DirectionEngine {
 
     // Map rawDirectionalEdge [-0.90, +0.90] to probabilityUp [0.05, 0.95]
     const clampedEdge = Math.max(-0.85, Math.min(0.85, rawDirectionalEdge));
-    let probabilityUp = parseFloat(Math.max(0.05, Math.min(0.95, 0.5 + clampedEdge * 0.52)).toFixed(3));
+    let probabilityUp = hasSufficientRealFlow
+      ? parseFloat(Math.max(0.05, Math.min(0.95, 0.5 + clampedEdge * 0.52)).toFixed(3))
+      : 0.5;
 
     // Classify Market Microstructure Regime
     let regime: OrderFlowRegime = 'CHOP_BALANCED';
-    if (absorptionScore >= 0.38 && probabilityUp >= 0.54) {
+    if (!hasSufficientRealFlow) {
+      regime = 'CHOP_BALANCED';
+    } else if (absorptionScore >= 0.38 && probabilityUp >= 0.54) {
       regime = 'BULLISH_ABSORPTION';
     } else if (absorptionScore <= -0.38 && probabilityUp <= 0.46) {
       regime = 'BEARISH_ABSORPTION';
@@ -855,10 +866,10 @@ export class DirectionEngine {
     let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
     let side: OrderSide = probabilityUp >= 0.5 ? 'BUY' : 'SELL';
 
-    if (probabilityUp >= 0.55) {
+    if (hasSufficientRealFlow && probabilityUp >= 0.55) {
       direction = 'LONG';
       side = 'BUY';
-    } else if (probabilityUp <= 0.45) {
+    } else if (hasSufficientRealFlow && probabilityUp <= 0.45) {
       direction = 'SHORT';
       side = 'SELL';
     } else {
@@ -880,54 +891,62 @@ export class DirectionEngine {
       probabilityUp = parseFloat((1 - probabilityUp).toFixed(3));
     }
 
-    const directionalProbability = parseFloat(
-      (side === 'BUY' ? probabilityUp : 1 - probabilityUp).toFixed(3)
-    );
+    const directionalProbability = hasSufficientRealFlow
+      ? parseFloat((side === 'BUY' ? probabilityUp : 1 - probabilityUp).toFixed(3))
+      : 0.5;
 
     // Confidence (0..100): measures alignment across Taker Flow, CVD, OBI, and sample depth
     const signTarget = isFadeSignal ? (side === 'BUY' ? -1 : 1) : side === 'BUY' ? 1 : -1;
     let alignedPillars = 0;
-    if (effectiveTakerSignal * signTarget > 0.08) alignedPillars++;
-    if (cvdSlope5m * signTarget > 0.08) alignedPillars++;
-    if (obiWeighted * signTarget > 0.06) alignedPillars++;
-    if (tradeFlowAccel >= 1.15) alignedPillars++;
-    if (absorptionScore * (side === 'BUY' ? 1 : -1) > 0.25) alignedPillars++;
+    if (hasSufficientRealFlow) {
+      if (effectiveTakerSignal * signTarget > 0.08) alignedPillars++;
+      if (cvdSlope5m * signTarget > 0.08) alignedPillars++;
+      if (obiWeighted * signTarget > 0.06) alignedPillars++;
+      if (tradeFlowAccel >= 1.15) alignedPillars++;
+      if (absorptionScore * (side === 'BUY' ? 1 : -1) > 0.25) alignedPillars++;
+    }
 
     const sampleFactor = sampleTradesCount >= 40 ? 1.0 : sampleTradesCount >= 15 ? 0.85 : 0.65;
     const edgeStrength = Math.min(1.0, Math.abs(directionalProbability - 0.5) / 0.35);
-    const confidence = Math.round(
-      Math.max(15, Math.min(99, (edgeStrength * 65 + (alignedPillars / 5) * 35) * sampleFactor))
-    );
+    const confidence = hasSufficientRealFlow
+      ? Math.round(Math.max(15, Math.min(99, (edgeStrength * 65 + (alignedPillars / 5) * 35) * sampleFactor)))
+      : 0;
 
     // Direction Score (0..100) calibrated for SCALP ranking & threshold comparison (50 = neutral, 65+ = strong signal)
-    const directionScore = parseFloat(
-      Math.max(0, Math.min(100, 50 + (directionalProbability - 0.5) * 115)).toFixed(1)
-    );
+    const directionScore = hasSufficientRealFlow
+      ? parseFloat(Math.max(0, Math.min(100, 50 + (directionalProbability - 0.5) * 115)).toFixed(1))
+      : 50;
 
     // Build human-readable explanations for Terminal & Audit Logs
     const reasoning: string[] = [];
-    const buyPctStr = (takerBuyRatio * 100).toFixed(0);
-    reasoning.push(
-      `Regim: ${regime} | P(${side === 'BUY' ? 'UP' : 'DOWN'} 5-15m): ${(directionalProbability * 100).toFixed(1)}% (Conf: ${confidence}%)`
-    );
-    reasoning.push(
-      `Taker Buy: ${buyPctStr}% (Imb: ${(takerImbalance * 100).toFixed(0)}%) | CVD Slope: ${cvdSlope5m >= 0 ? '+' : ''}${cvdSlope5m.toFixed(2)}`
-    );
-    reasoning.push(
-      `OrderBook OBI: ${obiWeighted >= 0 ? '+' : ''}${(obiWeighted * 100).toFixed(0)}% (Bid/Ask: ${bidAskRatio.toFixed(2)}x) | Tape: ${tradeFlowAccel.toFixed(2)}x`
-    );
-    if (Math.abs(absorptionScore) >= 0.30) {
+    if (!hasSufficientRealFlow) {
       reasoning.push(
-        `Absorbție Pasivă: ${absorptionScore > 0 ? 'BULLISH (Suport Limit absoarbe Sell-ul)' : 'BEARISH (Zid Ask absoarbe Buy-ul)'} (${absorptionScore.toFixed(2)})`
+        `Fără flux activ de tranzacții în ultimele 15m (${sampleTradesCount} ticks) — Piață închisă / nelichidă (NEUTRAL)`
       );
-    }
-    if (Math.abs(oiDeltaPct) >= 0.05 || Math.abs(recentLiquidationsUsd) > 0) {
+    } else {
+      const buyPctStr = (takerBuyRatio * 100).toFixed(0);
       reasoning.push(
-        `Derivate: ΔOI ${oiDeltaPct >= 0 ? '+' : ''}${oiDeltaPct.toFixed(2)}% | Liq Net: $${recentLiquidationsUsd.toFixed(0)}`
+        `Regim: ${regime} | P(${side === 'BUY' ? 'UP' : 'DOWN'} 5-15m): ${(directionalProbability * 100).toFixed(1)}% (Conf: ${confidence}% | ${sampleTradesCount} ticks)`
       );
-    }
-    if (isFadeSignal) {
-      reasoning.push(`FADE CLIMAX ACTIV: Direcția microstructurii a fost inversată în ${direction} (${side})`);
+      reasoning.push(
+        `Taker Buy: ${buyPctStr}% (Imb: ${(takerImbalance * 100).toFixed(0)}%) | CVD Slope: ${cvdSlope5m >= 0 ? '+' : ''}${cvdSlope5m.toFixed(2)}`
+      );
+      reasoning.push(
+        `OrderBook OBI: ${obiWeighted >= 0 ? '+' : ''}${(obiWeighted * 100).toFixed(0)}% (Bid/Ask: ${bidAskRatio.toFixed(2)}x) | Tape: ${tradeFlowAccel.toFixed(2)}x`
+      );
+      if (Math.abs(absorptionScore) >= 0.30) {
+        reasoning.push(
+          `Absorbție Pasivă: ${absorptionScore > 0 ? 'BULLISH (Suport Limit absoarbe Sell-ul)' : 'BEARISH (Zid Ask absoarbe Buy-ul)'} (${absorptionScore.toFixed(2)})`
+        );
+      }
+      if (Math.abs(oiDeltaPct) >= 0.05 || Math.abs(recentLiquidationsUsd) > 0) {
+        reasoning.push(
+          `Derivate: ΔOI ${oiDeltaPct >= 0 ? '+' : ''}${oiDeltaPct.toFixed(2)}% | Liq Net: $${recentLiquidationsUsd.toFixed(0)}`
+        );
+      }
+      if (isFadeSignal) {
+        reasoning.push(`FADE CLIMAX ACTIV: Direcția microstructurii a fost inversată în ${direction} (${side})`);
+      }
     }
 
     const metrics: OrderFlowMetrics = {
