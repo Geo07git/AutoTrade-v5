@@ -540,6 +540,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 20.0);
   const [partialTpPct, setPartialTpPct] = useState(profileConfig?.partialTakeProfitPct ?? 1.2);
   const [partialTpRatio, setPartialTpRatio] = useState(profileConfig?.partialTakeProfitCloseRatio ?? 50);
+  const [momentumInvEnabled, setMomentumInvEnabled] = useState<boolean>(profileConfig?.momentumInvalidationEnabled ?? true);
+  const [momentumInvMinLoss, setMomentumInvMinLoss] = useState<number>(profileConfig?.momentumInvalidationMinLossPct ?? 0.35);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 0.8);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 45);
   const [stagnationTime, setStagnationTime] = useState(profileConfig?.stagnationTimeMinutes ?? 25);
@@ -2101,6 +2103,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     takeProfit !== (profileConfig.takeProfitPct ?? 20.0) ||
     partialTpPct !== (profileConfig.partialTakeProfitPct ?? 1.2) ||
     partialTpRatio !== (profileConfig.partialTakeProfitCloseRatio ?? 50) ||
+    momentumInvEnabled !== (profileConfig.momentumInvalidationEnabled ?? true) ||
+    momentumInvMinLoss !== (profileConfig.momentumInvalidationMinLossPct ?? 0.35) ||
     breakEven !== (profileConfig.breakEvenActivationPct ?? 0.8) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 45) ||
     stagnationTime !== (profileConfig.stagnationTimeMinutes ?? 25) ||
@@ -2145,6 +2149,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
       setPartialTpPct(profileConfig.partialTakeProfitPct ?? 1.2);
       setPartialTpRatio(profileConfig.partialTakeProfitCloseRatio ?? 50);
+      setMomentumInvEnabled(profileConfig.momentumInvalidationEnabled ?? true);
+      setMomentumInvMinLoss(profileConfig.momentumInvalidationMinLossPct ?? 0.35);
       setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
       setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
@@ -2174,6 +2180,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       takeProfitPct: takeProfit,
       partialTakeProfitPct: partialTpPct,
       partialTakeProfitCloseRatio: partialTpRatio,
+      momentumInvalidationEnabled: momentumInvEnabled,
+      momentumInvalidationMinLossPct: momentumInvMinLoss,
       breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
       stagnationTimeMinutes: stagnationTime,
@@ -2218,6 +2226,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
     setPartialTpPct(profileConfig.partialTakeProfitPct ?? 1.2);
     setPartialTpRatio(profileConfig.partialTakeProfitCloseRatio ?? 50);
+    setMomentumInvEnabled(profileConfig.momentumInvalidationEnabled ?? true);
+    setMomentumInvMinLoss(profileConfig.momentumInvalidationMinLossPct ?? 0.35);
     setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
     setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
@@ -4841,6 +4851,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                                 ord.intent === 'TAKE_PROFIT' ? 'bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-800/40' :
                                 ord.intent === 'PARTIAL_TP' ? 'bg-lime-950/80 text-lime-300 font-bold border border-lime-700/50' :
+                                ord.intent === 'MOMENTUM_INVALIDATED' ? 'bg-fuchsia-950/80 text-fuchsia-300 font-bold border border-fuchsia-700/50' :
                                 ord.intent === 'STOP_LOSS' ? 'bg-rose-950/80 text-rose-300 font-bold border border-rose-800/40' :
                                 ord.intent === 'TRAILING_STOP' ? 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/40' :
                                 ord.intent === 'STAGNATION' ? 'bg-sky-950/80 text-sky-300 font-bold border border-sky-800/40' :
@@ -5039,6 +5050,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                       ) : ord.intent === 'PARTIAL_TP' ? (
                                         <p className="text-lime-300 font-bold">
                                           Declanșat de <strong>Take-Profit Parțial (Scaling Out TP1)</strong>: o tranșă din poziție a fost marcată în profit, iar restul poziției (runner) are Stop-Loss mutat la Break-Even+.
+                                        </p>
+                                      ) : ord.intent === 'MOMENTUM_INVALIDATED' ? (
+                                        <p className="text-fuchsia-300 font-bold">
+                                          Declanșat de <strong>Protecția Structurală (Momentum Invalidation - Pasul 3)</strong>: lumânarea s-a închis împotriva direcției sub/peste EMA20, invalidând impulsul înainte de atingerea Hard Stop-Loss-ului.
                                         </p>
                                       ) : ord.intent === 'STOP_LOSS' ? (
                                         <p className="text-rose-300">
@@ -5734,6 +5749,51 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       value={partialTpRatio}
                       onChange={(e) => setPartialTpRatio(Number(e.target.value))}
                       className="w-full accent-lime-500 cursor-pointer disabled:opacity-40"
+                    />
+                  </div>
+
+                  {/* Pasul 3: Structural Momentum Invalidation Toggle */}
+                  <div className="bg-zinc-900 p-3 rounded border border-fuchsia-500/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300" title="Închide rapid poziția aflată în pierdere dacă o lumânare completă se închide împotriva direcției (sub/peste EMA20 + spargere structurală), fără a mai aștepta Hard Stop-Loss-ul">
+                        Protecție Invalidare Structurală (Pasul 3)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMomentumInvEnabled(!momentumInvEnabled)}
+                        className={`px-2.5 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
+                          momentumInvEnabled
+                            ? 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-500'
+                            : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                        }`}
+                      >
+                        {momentumInvEnabled ? 'ACTIVĂ (ON)' : 'OPRITĂ (OFF)'}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-zinc-400 font-mono">
+                      Ieșire pe lumânare închisă contra direcției (sub/peste EMA20) după min {activeProfile === 'MOMENTUM' ? '15m' : '5m'}.
+                    </div>
+                  </div>
+
+                  {/* Pasul 3: Structural Momentum Invalidation Min Loss (%) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-fuchsia-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300" title="Pragul minim de pierdere curentă de la care se activează verificarea de invalidare structurală pe lumânarea închisă">
+                        Prag Minim Pierdere Invalidare (%)
+                      </span>
+                      <span className="font-bold text-fuchsia-400">
+                        {!momentumInvEnabled ? 'OFF' : `-${momentumInvMinLoss.toFixed(2)}%`}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.20"
+                      max="1.50"
+                      step="0.05"
+                      disabled={!momentumInvEnabled}
+                      value={momentumInvMinLoss}
+                      onChange={(e) => setMomentumInvMinLoss(Number(e.target.value))}
+                      className="w-full accent-fuchsia-500 cursor-pointer disabled:opacity-40"
                     />
                   </div>
 

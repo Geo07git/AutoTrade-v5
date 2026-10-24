@@ -106,6 +106,13 @@ export class MarketScanner {
   }
 
   /**
+   * Public accessor for cached or fresh LTF klines for structural invalidation checks without API spam.
+   */
+  public async getKlinesForSymbol(symbol: string, interval: string, limit: number = 60): Promise<Kline[]> {
+    return this.fetchKlinesWithTimeout(symbol, interval, limit, 6000, false);
+  }
+
+  /**
    * Concurrency-controlled worker pool to scan symbols without overwhelming API rate limits.
    * Supports Multi-Timeframe (LTF + HTF confirmation for top 35 candidates via worker pool).
    */
@@ -288,13 +295,13 @@ export class MarketScanner {
 
       // Latenta scan (Item 5: Hot list doar daca SCAN_COMPLETED > 10s)
       this.scanCycleCount++;
-      let symbolsToScan = eligibleSymbols;
+      const openPos = activePositionsSymbols || [];
+      let symbolsToScan = Array.from(new Set([...eligibleSymbols, ...openPos]));
       const isHighLatency = this.lastScanDurationMs > 10_000;
       if (isHighLatency && this.cachedOpportunities.length > 30 && (this.scanCycleCount % 4 !== 0)) {
         const top30 = this.cachedOpportunities.slice(0, 30).map((s) => s.symbol);
-        const openPos = activePositionsSymbols || [];
         const hotSet = new Set([...top30, ...openPos]);
-        symbolsToScan = eligibleSymbols.filter((s) => hotSet.has(s));
+        symbolsToScan = symbolsToScan.filter((s) => hotSet.has(s));
       }
 
       // 2. Scan candidates with concurrency protection (max 3 concurrent requests)

@@ -75,6 +75,8 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
   cooldownAfterLossMinutes: 30,
   partialTakeProfitPct: 1.2, // Închide 50% la +1.2% PnL și lasă restul ca runner fără risc
   partialTakeProfitCloseRatio: 50,
+  momentumInvalidationEnabled: true, // Pasul 3: Ieșire rapidă dacă lumânarea se închide împotriva direcției sub/peste EMA20
+  momentumInvalidationMinLossPct: 0.35, // Prag minim de pierdere curentă (-0.35%) pentru activarea invalidării structurale
 };
 
 export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
@@ -89,6 +91,8 @@ export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
   takeProfitPct: 0, // 0 = OFF (Trailing)
   partialTakeProfitPct: 2.5, // Închide 50% la +2.5% PnL și securizează runner-ul
   partialTakeProfitCloseRatio: 50,
+  momentumInvalidationEnabled: true, // Pasul 3: Protecție structurală activă pe lumânări 1h închise
+  momentumInvalidationMinLossPct: 0.50, // Prag minim de pierdere curentă (-0.50%) pe 1h
   maxHoldingTimeMinutes: 1440, // 1440 min (24h)
   trailingMaxHoldMultiplier: 2, // Pozițiile cu trailing activ permise până la 48h (1440 * 2)
   stagnationTimeMinutes: 120, // 120 min Stagnation Stop
@@ -856,6 +860,51 @@ export class TradeBot {
           this.handleVaultProfitLocked(lockedAmount, totalVault);
         },
       });
+
+      // 4.5. Pasul 3: Protecție Structurală (Momentum Invalidation pe lumânare închisă)
+      if (! experimentManager.getState().isActive && profile.momentumInvalidationEnabled !== false) {
+        const remainingOpenPositions = [...this.positionManager.getActivePositions()].filter((p) => p.status === 'OPEN');
+        const mainTf = profile.timeframes[0] || '15';
+        const minLossThreshold = profile.momentumInvalidationMinLossPct ?? (profile.type === 'MOMENTUM' ? 0.50 : 0.35);
+
+        for (const pos of remainingOpenPositions) {
+          try {
+            const curPrice = this.latestPrices[pos.symbol] || pos.currentPrice || pos.entryPrice;
+            const klines = await this.marketScanner.getKlinesForSymbol(pos.symbol, mainTf, 60);
+            if (klines && klines.length >= 22) {
+              const invCheck = this.engine.evaluateStructuralInvalidation(pos, klines, curPrice, minLossThreshold);
+              if (invCheck.invalidated) {
+                this.logAudit(
+                  'POSITION_UPDATED',
+                  `🛡️ [MOMENTUM INVALIDATION] ${pos.symbol} (${pos.side}): ${invCheck.reason}. Se execută ieșirea structurală timpurie!`,
+                  {
+                    symbol: pos.symbol,
+                    side: pos.side,
+                    entryPrice: pos.entryPrice,
+                    currentPrice: curPrice,
+                    ema20: invCheck.ema20,
+                    prevClose: invCheck.prevClose,
+                    reason: invCheck.reason,
+                  }
+                );
+
+                await this.orderManager.executeCloseOrder({
+                  position: pos,
+                  reason: 'MOMENTUM_INVALIDATED',
+                  currentPrice: curPrice,
+                  exitReasonDetail: invCheck.reason,
+                  exitMarketRegime: this.marketRegime,
+                  accountEquity: parseFloat(this.currentEquity.toFixed(2)),
+                  accountBalance: currentWallet,
+                  openPositionsCount: this.positionManager.getActivePositions().length,
+                });
+              }
+            }
+          } catch (invErr: any) {
+            // Non-blocking error per position during structural invalidation check
+          }
+        }
+      }
 
       this.positionStore.save(this.positionManager.getActivePositions());
       this.orderStore.save(this.orderManager.getOrders());

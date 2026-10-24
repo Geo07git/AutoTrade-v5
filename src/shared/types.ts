@@ -170,6 +170,8 @@ export interface ProfileConfig {
   pairScalpInverseDirPct?: number; // % alocare pe direcția inversă (ex: 25)
   partialTakeProfitPct?: number; // Pragul de activare TP Parțial în % (ex: 1.2% în SCALP, 2.5% în MOMENTUM; 0 = dezactivat)
   partialTakeProfitCloseRatio?: number; // Procentul din poziție închis la TP Parțial (ex: 50 = 50% din contracte)
+  momentumInvalidationEnabled?: boolean; // Pasul 3: Ieșire structurală rapidă la invalidarea impulsului pe lumânare închisă (implicit: true)
+  momentumInvalidationMinLossPct?: number; // Pragul minim de pierdere curentă pentru activarea protecției structurale (ex: 0.35% în SCALP, 0.50% în MOMENTUM)
 }
 
 export interface Kline {
@@ -300,7 +302,7 @@ export interface OrderRecord {
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'PARTIAL_TP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END' | 'EXCHANGE_CLOSE';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'PARTIAL_TP' | 'MOMENTUM_INVALIDATED' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END' | 'EXCHANGE_CLOSE';
   profile: ProfileType;
   executionMode: ExecutionMode;
   // Detailed exit / profit / log telemetry

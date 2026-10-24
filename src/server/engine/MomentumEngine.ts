@@ -1,4 +1,4 @@
-import { Kline, ProfileConfig, TradeSignal, ScannedOpportunity, OrderSide } from '../../shared/types';
+import { Kline, ProfileConfig, TradeSignal, ScannedOpportunity, OrderSide, Position } from '../../shared/types';
 
 export interface MomentumMetrics {
   score: number;
@@ -576,5 +576,148 @@ export class MomentumEngine {
       ema = values[i] * k + ema * (1 - k);
     }
     return ema;
+  }
+
+  /**
+   * Pasul 3 — Protecție Structurală (Momentum Invalidation Exit):
+   * Evaluează strict pe ultima lumânare ÎNCHISĂ (prevClosed = klines[klines.length - 2]) dacă impulsul
+   * care a justificat intrarea în poziție a fost invalidat structural (ex: Bull/Bear Trap),
+   * tăind pierderea timpuriu înainte de atingerea Hard Stop-Loss-ului complet.
+   */
+  public evaluateStructuralInvalidation(
+    pos: Position,
+    klines: Kline[],
+    currentPrice: number,
+    minLossPct: number = 0.35
+  ): { invalidated: boolean; reason?: string; ema20?: number; prevClose?: number } {
+    if (!pos || pos.status !== 'OPEN' || !klines || klines.length < 22) {
+      return { invalidated: false };
+    }
+
+    // 1. Nu invalida pozițiile care și-au securizat deja profitul (Break-Even, TP1 Parțial sau Time-Decay Lock)
+    if (pos.isBreakEvenTriggered || pos.isPartialTpTriggered || pos.isTimeDecayProtected) {
+      return { invalidated: false };
+    }
+
+    // 2. Perioadă de grație anti-whipsaw: min 5 minute în SCALP, min 15 minute în MOMENTUM
+    const holdingMinutes = (Date.now() - pos.entryTime) / 60_000;
+    const minHoldMinutes = pos.profile === 'MOMENTUM' ? 15 : 5;
+    if (holdingMinutes < minHoldMinutes) {
+      return { invalidated: false };
+    }
+
+    const prevClosed = klines[klines.length - 2];
+    const prev2 = klines[klines.length - 3];
+    if (!prevClosed || !prev2) {
+      return { invalidated: false };
+    }
+
+    // Lumânarea analizată (prevClosed) trebuie să se fi închis DUPĂ momentul deschiderii poziției
+    const tfMinutes = parseInt(this.config.timeframes[0] || '15', 10) || 15;
+    const prevClosedEndTime = prevClosed.timestamp + tfMinutes * 60_000;
+    if (prevClosedEndTime <= pos.entryTime) {
+      return { invalidated: false };
+    }
+
+    // 3. Zona de pierdere neprotejată: poziția trebuie să fie în pierdere cel puțin cu pragul configurat (ex: -0.35%)
+    const isBuy = pos.side.toUpperCase() === 'BUY';
+    const effPrice = currentPrice > 0 ? currentPrice : (pos.currentPrice || pos.entryPrice);
+    if (effPrice <= 0 || pos.entryPrice <= 0) {
+      return { invalidated: false };
+    }
+
+    const pnlPct = isBuy
+      ? ((effPrice - pos.entryPrice) / pos.entryPrice) * 100
+      : ((pos.entryPrice - effPrice) / pos.entryPrice) * 100;
+
+    const effectiveMinLoss = Math.max(0.15, minLossPct || 0.35);
+    if (pnlPct > -effectiveMinLoss) {
+      return { invalidated: false };
+    }
+
+    // 4. Calcul EMA20 și ATR14 strict pe lumânările închise (până la prevClosed inclusiv)
+    const closedCandles = klines.slice(0, -1);
+    const closedCloses = closedCandles.map((k) => k.close);
+    const ema20 = this.calculateEMA(closedCloses, 20);
+
+    const atrSlice = closedCandles.slice(-14);
+    const avgAtr = atrSlice.reduce((acc, k) => acc + (k.high - k.low), 0) / Math.max(1, atrSlice.length);
+    const effAtr = Math.max(1e-9, avgAtr);
+
+    const prevBody = Math.abs(prevClosed.close - prevClosed.open);
+    const prevRange = Math.max(1e-9, prevClosed.high - prevClosed.low);
+    const prevBodyRatio = prevBody / prevRange;
+
+    // A. Regim Fade Climax (contra-trend): invalidare dacă lumânarea închisă continuă expansiunea agresivă împotriva poziției
+    if (pos.isFadeTrade) {
+      if (isBuy) {
+        const fadeBroken =
+          prevClosed.close < prevClosed.open &&
+          prevBodyRatio >= 0.55 &&
+          prevBody >= 0.65 * effAtr &&
+          prevClosed.close < prev2.low;
+        if (fadeBroken) {
+          return {
+            invalidated: true,
+            ema20,
+            prevClose: prevClosed.close,
+            reason: `Invalidare Fade LONG: Lumânarea închisă (${tfMinutes}m) a spart minimul anterior cu corp plin (${(prevBodyRatio * 100).toFixed(0)}%) la PnL ${pnlPct.toFixed(2)}%`,
+          };
+        }
+      } else {
+        const fadeBroken =
+          prevClosed.close > prevClosed.open &&
+          prevBodyRatio >= 0.55 &&
+          prevBody >= 0.65 * effAtr &&
+          prevClosed.close > prev2.high;
+        if (fadeBroken) {
+          return {
+            invalidated: true,
+            ema20,
+            prevClose: prevClosed.close,
+            reason: `Invalidare Fade SHORT: Lumânarea închisă (${tfMinutes}m) a spart maximul anterior cu corp plin (${(prevBodyRatio * 100).toFixed(0)}%) la PnL ${pnlPct.toFixed(2)}%`,
+          };
+        }
+      }
+      return { invalidated: false };
+    }
+
+    // B. Regim Standard Momentum Continuation:
+    // Necesită închiderea lumânării de partea opusă a EMA20 + structură clară de reversare (anti-fakeout)
+    if (isBuy) {
+      const closedBelowEma = prevClosed.close < ema20 && prevClosed.close < prevClosed.open;
+      const brokePrevLow = prevBodyRatio >= 0.45 && prevClosed.close < prev2.low;
+      const decisiveReversal = (ema20 - prevClosed.close) >= 0.35 * effAtr && prevBody >= 0.50 * effAtr;
+
+      if (closedBelowEma && (brokePrevLow || decisiveReversal)) {
+        const detail = brokePrevLow
+          ? `sub EMA20 și sub minimul lumânării anterioare (corp ${(prevBodyRatio * 100).toFixed(0)}%)`
+          : `decisiv sub EMA20 (-${((ema20 - prevClosed.close) / effAtr).toFixed(2)} ATR)`;
+        return {
+          invalidated: true,
+          ema20,
+          prevClose: prevClosed.close,
+          reason: `Invalidare Structurală LONG (${tfMinutes}m): Lumânare bearish închisă ${detail} la PnL ${pnlPct.toFixed(2)}% (protecție înainte de Hard SL)`,
+        };
+      }
+    } else {
+      const closedAboveEma = prevClosed.close > ema20 && prevClosed.close > prevClosed.open;
+      const brokePrevHigh = prevBodyRatio >= 0.45 && prevClosed.close > prev2.high;
+      const decisiveReversal = (prevClosed.close - ema20) >= 0.35 * effAtr && prevBody >= 0.50 * effAtr;
+
+      if (closedAboveEma && (brokePrevHigh || decisiveReversal)) {
+        const detail = brokePrevHigh
+          ? `peste EMA20 și peste maximul lumânării anterioare (corp ${(prevBodyRatio * 100).toFixed(0)}%)`
+          : `decisiv peste EMA20 (+${((prevClosed.close - ema20) / effAtr).toFixed(2)} ATR)`;
+        return {
+          invalidated: true,
+          ema20,
+          prevClose: prevClosed.close,
+          reason: `Invalidare Structurală SHORT (${tfMinutes}m): Lumânare bullish închisă ${detail} la PnL ${pnlPct.toFixed(2)}% (protecție înainte de Hard SL)`,
+        };
+      }
+    }
+
+    return { invalidated: false };
   }
 }

@@ -463,7 +463,7 @@ export class OrderManager {
    */
   public async executeCloseOrder(params: {
     position: Position;
-    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END';
+    reason: 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'MOMENTUM_INVALIDATED' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END';
     currentPrice?: number;
     exitReasonDetail?: string;
     triggerStopValue?: number;
