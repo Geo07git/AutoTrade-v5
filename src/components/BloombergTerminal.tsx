@@ -2634,6 +2634,39 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
+  const isDirectionEngineEnabled =
+    profileConfig?.directionEngineEnabled !== undefined
+      ? Boolean(profileConfig.directionEngineEnabled)
+      : status?.config?.directionEngineEnabled !== undefined
+      ? Boolean(status.config.directionEngineEnabled)
+      : activeProfile === 'SCALP' || activeProfile === 'PAIR_SCALP';
+
+  const handleToggleDirectionEngine = async (explicitState?: boolean) => {
+    const nextState = typeof explicitState === 'boolean' ? explicitState : !isDirectionEngineEnabled;
+    try {
+      const token = localStorage.getItem('tb5_control_token') || 'tradebot5_admin_token';
+      const res = await fetch('/api/bot/direction-engine', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-token': token,
+        },
+        body: JSON.stringify({ enabled: nextState }),
+      });
+      if (res.ok) {
+        onRefresh();
+        setLocalAlert({
+          type: nextState ? 'success' : 'info',
+          message: nextState
+            ? '⚡ Mod activ: CU DIRECTION ENGINE (Order Flow + Microstructură în timp real).'
+            : '📊 Mod activ: FĂRĂ DIRECTION ENGINE (Momentum Tehnic Clasic).',
+        });
+      }
+    } catch (err) {
+      console.warn('Eroare la comutarea DirectionEngine:', err);
+    }
+  };
+
   const isExpOn = Boolean(status?.isExperimentActive || experimentState?.isActive);
   const effectiveExpHours = isExpOn ? (experimentState?.durationHours || 8) : expDurationHours;
   const effectiveExpMinMom = isExpOn ? (experimentState?.minMomentumScore || 50) : expMinMomentum;
@@ -3336,6 +3369,30 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 MOMENTUM
               </button>
             </div>
+
+            {/* COMUTATOR RAPID: CU DIRECTION ENGINE / FĂRĂ DIRECTION ENGINE */}
+            <button
+              type="button"
+              onClick={() => handleToggleDirectionEngine()}
+              className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded text-[10px] sm:text-[11px] font-bold border transition-all flex items-center space-x-1 shrink-0 cursor-pointer shadow-sm ${
+                isDirectionEngineEnabled
+                  ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/80 hover:bg-cyan-900 shadow-[0_0_8px_rgba(34,211,238,0.25)]'
+                  : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-amber-300 hover:border-amber-500/50'
+              }`}
+              title={
+                isDirectionEngineEnabled
+                  ? 'Activ: CU DIRECTION ENGINE (Order Flow + Microstructură conduce direcția și scorul). Apasă pentru a trece pe FĂRĂ DIRECTION ENGINE (Momentum Clasic).'
+                  : 'Activ: FĂRĂ DIRECTION ENGINE (Doar MomentumEngine clasic pe lumânări). Apasă pentru a activa CU DIRECTION ENGINE.'
+              }
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isDirectionEngineEnabled ? 'bg-cyan-400 animate-pulse' : 'bg-zinc-500'}`} />
+              <span className="hidden md:inline">
+                {isDirectionEngineEnabled ? 'CU DIRECTION ENGINE' : 'FĂRĂ DIRECTION ENGINE'}
+              </span>
+              <span className="md:hidden">
+                {isDirectionEngineEnabled ? 'DIR: ON' : 'DIR: OFF'}
+              </span>
+            </button>
 
             {/* KILL SWITCH - ALWAYS VISIBLE, NEVER HIDDEN IN SCROLL, WITH CONFIRMATION ON CLICK */}
             <button
@@ -4518,7 +4575,34 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   <Search className="w-4 h-4 text-amber-500" />
                   <span className="font-bold text-xs sm:text-sm tracking-wider">F3: MARKET MOMENTUM SCANNER &amp; UNIVERSE</span>
                 </div>
-                <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <div className="flex flex-wrap items-center space-x-1.5 sm:space-x-2">
+                  {/* Comutator 2 căi: CU DIRECTION ENGINE vs FĂRĂ DIRECTION ENGINE */}
+                  <div className="flex bg-black/90 rounded border border-cyan-500/40 p-0.5 text-[10px] sm:text-[11px] font-mono">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDirectionEngine(true)}
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        isDirectionEngineEnabled
+                          ? 'bg-cyan-500 text-black shadow'
+                          : 'text-zinc-400 hover:text-cyan-300'
+                      }`}
+                      title="Activează Order Flow + Microstructură ca motor decizional (Varianta B)"
+                    >
+                      ⚡ CU DIRECTION ENGINE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDirectionEngine(false)}
+                      className={`px-2 py-0.5 rounded font-bold transition-colors cursor-pointer ${
+                        !isDirectionEngineEnabled
+                          ? 'bg-amber-500 text-black shadow'
+                          : 'text-zinc-400 hover:text-amber-300'
+                      }`}
+                      title="Dezactivează DirectionEngine și folosește exclusiv MomentumEngine tehnic clasic"
+                    >
+                      📊 FĂRĂ DIRECTION ENGINE
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowScannerConfig(!showScannerConfig)}
                     className="bg-zinc-900 hover:bg-zinc-800 text-amber-400 border border-amber-500/40 px-2 py-0.5 sm:py-1 rounded text-[11px] sm:text-xs font-bold flex items-center space-x-1"
@@ -4616,7 +4700,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         </span>
                       </div>
                       <span className="text-[10px] font-mono text-zinc-400">
-                        {activeProfile === 'SCALP' ? '⚡ Creier Principal SCALP Activ (Varianta B + Fade Climax)' : '📊 Telemetrie Order Flow Activă'}
+                        {isDirectionEngineEnabled
+                          ? '⚡ ACTIV: Creier Principal Decizional (Order Flow + Fade Climax)'
+                          : '📊 PASIV (Doar Telemetrie — Decizia aparține MomentumEngine Clasic)'}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 font-mono text-[11px]">
@@ -5444,6 +5530,20 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     <span className="text-slate-400 block text-[9px] uppercase">Levier Tranzacții</span>
                     <strong className={`text-xs ${status?.config?.leverageEnabled ? 'text-amber-400' : 'text-zinc-400'}`}>
                       {status?.config?.leverageEnabled ? `${status?.config?.maxLeverage || 3}x (${(status?.config?.marginMode || 'cross').toUpperCase()})` : '1x (OPRIT)'}
+                    </strong>
+                  </div>
+                  <div
+                    onClick={() => handleToggleDirectionEngine()}
+                    className={`border rounded px-2.5 py-1.5 cursor-pointer transition-colors ${
+                      isDirectionEngineEnabled
+                        ? 'bg-cyan-950/40 border-cyan-500/60 hover:bg-cyan-950/70'
+                        : 'bg-black/60 border-zinc-800 hover:border-amber-500/50'
+                    }`}
+                    title="Apasă pentru a comuta între CU DIRECTION ENGINE și FĂRĂ DIRECTION ENGINE"
+                  >
+                    <span className="text-slate-400 block text-[9px] uppercase">Motor Direcție</span>
+                    <strong className={`text-xs ${isDirectionEngineEnabled ? 'text-cyan-300' : 'text-amber-300'}`}>
+                      {isDirectionEngineEnabled ? '⚡ CU DIRECTION ENGINE' : '📊 FĂRĂ (CLASIC)'}
                     </strong>
                   </div>
                 </div>
@@ -7804,6 +7904,47 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   {status?.config?.invertSignals ? 'ON' : 'OFF'}
                 </span>
               </button>
+
+              {/* 3.5. Comutator DirectionEngine (Cu / Fără DirectionEngine) */}
+              <div className="px-3 py-2 rounded bg-zinc-900 border border-cyan-500/30 text-zinc-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center space-x-2">
+                    <Activity className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span className="font-medium">Motor Analiză Direcție</span>
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    isDirectionEngineEnabled
+                      ? 'bg-cyan-950 text-cyan-300 border border-cyan-700'
+                      : 'bg-amber-950 text-amber-300 border border-amber-700'
+                  }`}>
+                    {isDirectionEngineEnabled ? 'CU DIRECTION ENGINE' : 'FĂRĂ DIRECTION ENGINE'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleDirectionEngine(true)}
+                    className={`py-1 px-2 rounded text-[10px] font-bold border cursor-pointer transition-all ${
+                      isDirectionEngineEnabled
+                        ? 'bg-cyan-500 text-black border-cyan-400 shadow'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-cyan-300'
+                    }`}
+                  >
+                    ⚡ Cu DirectionEngine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleDirectionEngine(false)}
+                    className={`py-1 px-2 rounded text-[10px] font-bold border cursor-pointer transition-all ${
+                      !isDirectionEngineEnabled
+                        ? 'bg-amber-500 text-black border-amber-400 shadow'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-amber-300'
+                    }`}
+                  >
+                    📊 Fără DirectionEngine
+                  </button>
+                </div>
+              </div>
 
               {/* 4. Profit Vault */}
               <button

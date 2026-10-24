@@ -162,6 +162,7 @@ export interface AppConfig {
   testnet: boolean;
   killSwitchEngaged: boolean;
   invertSignals?: boolean; // Experimental: Invert Long <-> Short signals
+  directionEngineEnabled?: boolean; // Comutator: true = Cu DirectionEngine (Order Flow + Microstructură), false = Fără DirectionEngine (Momentum Clasic)
   okxApiKey?: string;
   okxSecretKey?: string;
   okxPassphrase?: string;
@@ -196,6 +197,7 @@ export interface ProfileConfig {
   equityTrailingDrawdownPct: number;
   minMomentumScore?: number;
   minBlendedScore?: number; // Prag dedicat scorului blended (OrderFlow 65% + Volatility/RVOL 35%) în SCALP
+  directionEngineEnabled?: boolean; // true = Cu DirectionEngine, false = Fără DirectionEngine
   maxMomentumScore?: number;
   min24hVolumeUSDT?: number; // Prag inferior volum/turnover 24h în USDT (ex: 1_000_000 = 1.0M)
   max24hVolumeUSDT?: number; // Prag superior volum/turnover 24h în USDT (ex: 1_500_000 = 1.5M, 0 = nelimitat)

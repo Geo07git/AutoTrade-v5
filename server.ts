@@ -269,6 +269,17 @@ async function startServer() {
     }
   });
 
+  // Toggle "Cu DirectionEngine" vs "Fără DirectionEngine"
+  app.post('/api/bot/direction-engine', requireControlAuth, (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      const result = tradeBot.setDirectionEngineEnabled(typeof enabled === 'boolean' ? enabled : undefined);
+      res.json({ success: true, directionEngineEnabled: result, status: tradeBot.getStatus() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Profit Vault: Toggle Lock Profit Mode (Fixed Base Capital)
   app.post('/api/bot/vault/toggle', requireControlAuth, (req, res) => {
     try {

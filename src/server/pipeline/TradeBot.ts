@@ -37,6 +37,7 @@ const DEFAULT_CONFIG: AppConfig = {
   testnet: true,
   killSwitchEngaged: false,
   invertSignals: false, // Default: FALSE. Signals strictly follow calculated momentum and HTF macro confluence
+  directionEngineEnabled: true, // Default: TRUE (Cu DirectionEngine pe SCALP)
   paperFullCollection: false, // Fără colectare (test MOMENTUM "Daily Runner")
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
@@ -63,6 +64,7 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
   equityTrailingDrawdownPct: 0.3,
   minMomentumScore: 50,
   minBlendedScore: 56,
+  directionEngineEnabled: true,
   maxMomentumScore: 99,
   min24hVolumeUSDT: 1_500_000,
   max24hVolumeUSDT: 0,
@@ -100,6 +102,7 @@ export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
   stagnationTimeMinutes: 120, // 120 min Stagnation Stop
   stagnationMinPeakPct: 1.5, // +1.50% Stagnation Min Peak (ieșire dacă vârf < +1.50% și PnL <= +0.2% după 120 min)
   minMomentumScore: 50, // Fereastră Momentum: [50 - 99]
+  directionEngineEnabled: false,
   maxMomentumScore: 99,
   maxEntriesPerSymbolPerHour: 1, // Fără intrări repetate pe aceeași monedă
   cooldownMinutes: 0, // 0 min Cooldown Simbol
@@ -937,10 +940,13 @@ export class TradeBot {
           return opp.score >= minScore && opp.score <= 100;
         }
         if (!opp.isEligible) return false;
-        const effectiveMinScore =
-          profile.type === 'SCALP' || profile.type === 'PAIR_SCALP'
-            ? (profile.minBlendedScore ?? (profile.minMomentumScore ? Math.max(50, profile.minMomentumScore - 4) : 56))
-            : (profile.minMomentumScore || 50);
+        const useDirectionEngine =
+          profile.directionEngineEnabled !== undefined
+            ? Boolean(profile.directionEngineEnabled)
+            : profile.type === 'SCALP' || profile.type === 'PAIR_SCALP';
+        const effectiveMinScore = useDirectionEngine
+          ? (profile.minBlendedScore ?? (profile.minMomentumScore ? Math.max(50, profile.minMomentumScore - 4) : 56))
+          : (profile.minMomentumScore || 50);
         if (effectiveMinScore && opp.score < effectiveMinScore) return false;
         if (!config.invertSignals && profile.maxMomentumScore && profile.maxMomentumScore < 100 && opp.score > profile.maxMomentumScore) return false;
         const effMinVol = (config.scannerFilter?.min24hVolumeUSDT && config.scannerFilter.min24hVolumeUSDT > 0)
@@ -1230,7 +1236,11 @@ export class TradeBot {
           }
 
           const isExtremeClimax = signal.score > (profile.maxMomentumScore ?? 82) || candidate.climax || signal.climax;
-          const isScalpOrderFlow = (config.activeProfile === 'SCALP' || config.activeProfile === 'PAIR_SCALP') && da;
+          const useDirectionEngine =
+            profile.directionEngineEnabled !== undefined
+              ? Boolean(profile.directionEngineEnabled)
+              : config.activeProfile === 'SCALP' || config.activeProfile === 'PAIR_SCALP';
+          const isScalpOrderFlow = useDirectionEngine && da;
           const signalMessage = signal.isFadeTrade
             ? (isExtremeClimax
                 ? `[FADE CLIMAX] Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100${ofSummary}) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
@@ -1965,6 +1975,38 @@ export class TradeBot {
       { invertSignals: invert }
     );
     return invert;
+  }
+
+  public setDirectionEngineEnabled(enabled?: boolean): boolean {
+    const config = this.configStore.get();
+    const activeProf = config.activeProfile || 'SCALP';
+    if (!config.profiles) {
+      config.profiles = { ...DEFAULT_PROFILES };
+    }
+    const currentProfCfg = config.profiles[activeProf] || this.getActiveProfileConfig();
+    const currentVal =
+      currentProfCfg.directionEngineEnabled !== undefined
+        ? Boolean(currentProfCfg.directionEngineEnabled)
+        : activeProf === 'SCALP' || activeProf === 'PAIR_SCALP';
+    const nextVal = typeof enabled === 'boolean' ? enabled : !currentVal;
+
+    config.directionEngineEnabled = nextVal;
+    config.profiles[activeProf] = {
+      ...currentProfCfg,
+      directionEngineEnabled: nextVal,
+    };
+    this.configStore.save(config);
+    this.engine.setConfig(config.profiles[activeProf]);
+
+    this.logAudit(
+      'CONFIG_UPDATED',
+      `[DIRECTION ENGINE] Comutator mod analiză (${activeProf}) setat pe: ${nextVal ? '⚡ CU DIRECTION ENGINE (Order Flow + Microstructură Activ)' : '📊 FĂRĂ DIRECTION ENGINE (Momentum Tehnic Clasic)'}.`,
+      { profile: activeProf, directionEngineEnabled: nextVal }
+    );
+
+    // Trigger immediate background rescan so the scanner table updates right away
+    this.triggerManualScan().catch(() => {});
+    return nextVal;
   }
 
   public getEquityProtectionEvents() {

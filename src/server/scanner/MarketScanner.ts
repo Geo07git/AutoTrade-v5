@@ -375,8 +375,11 @@ export class MarketScanner {
       );
 
       // Evaluate Order Flow & Microstructure across scanned opportunities
-      // On SCALP profile (Varianta B): DirectionEngine is the primary directional brain, while preserving Fade Climax option
-      const isScalpBrain = profile.type === 'SCALP' || profile.type === 'PAIR_SCALP';
+      // Comutator: Cu DirectionEngine (Varianta B + Fade Climax) vs. Fără DirectionEngine (Momentum Tehnic Clasic)
+      const isScalpBrain =
+        profile.directionEngineEnabled !== undefined
+          ? Boolean(profile.directionEngineEnabled)
+          : profile.type === 'SCALP' || profile.type === 'PAIR_SCALP';
       for (const opp of scannedList) {
         const cachedLtf = this.klineCache.get(`${opp.symbol}_${mainTf}`)?.klines;
         const assessment = directionEngine.evaluate(opp.symbol, cachedLtf, {
