@@ -4605,10 +4605,121 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 </div>
 
+                {/* LIVE ORDER FLOW & MICROSTRUCTURE DESK (DIRECTION ENGINE — SCALP 5-15m) */}
+                {status?.scannerStats?.topOpportunities && status.scannerStats.topOpportunities.some((o) => o.directionAssessment) && (
+                  <div className="bg-zinc-900/90 border border-cyan-500/40 rounded p-2.5 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-500/20 pb-1.5">
+                      <div className="flex items-center space-x-2">
+                        <Activity className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                        <span className="text-[11px] sm:text-xs font-bold text-cyan-300 font-mono tracking-wide">
+                          DIRECTION ENGINE — ORDER FLOW &amp; MICROSTRUCTURĂ ÎN TIMP REAL (TOP CANDIDAȚI 5–15m)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        {activeProfile === 'SCALP' ? '⚡ Creier Principal SCALP Activ (Varianta B + Fade Climax)' : '📊 Telemetrie Order Flow Activă'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 font-mono text-[11px]">
+                      {status.scannerStats.topOpportunities
+                        .filter((o) => o.directionAssessment)
+                        .slice(0, 4)
+                        .map((opp) => {
+                          const da = opp.directionAssessment!;
+                          const buyPct = Math.round((da.metrics.takerBuyRatio ?? 0.5) * 100);
+                          const obiPct = Math.round((da.metrics.obiWeighted ?? 0) * 100);
+                          const dirProbPct = Math.round((da.directionalProbability ?? 0.5) * 100);
+                          const isBull = da.side === 'BUY';
+
+                          const regimeBadge =
+                            da.regime === 'LONG_BUILDUP'
+                              ? { label: 'LONG BUILDUP', cls: 'bg-emerald-950 text-emerald-300 border-emerald-600/60' }
+                              : da.regime === 'SHORT_BUILDUP'
+                              ? { label: 'SHORT BUILDUP', cls: 'bg-rose-950 text-rose-300 border-rose-600/60' }
+                              : da.regime === 'SHORT_SQUEEZE'
+                              ? { label: '🔥 SHORT SQUEEZE', cls: 'bg-cyan-950 text-cyan-300 border-cyan-500/70' }
+                              : da.regime === 'LONG_FLUSH'
+                              ? { label: '💧 LONG FLUSH', cls: 'bg-orange-950 text-orange-300 border-orange-500/70' }
+                              : da.regime === 'BULLISH_ABSORPTION'
+                              ? { label: '🛡️ BULL ABSORB', cls: 'bg-teal-950 text-teal-300 border-teal-500/70' }
+                              : da.regime === 'BEARISH_ABSORPTION'
+                              ? { label: '🧱 BEAR ABSORB', cls: 'bg-purple-950 text-purple-300 border-purple-500/70' }
+                              : { label: 'CHOP / BALANCED', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+
+                          return (
+                            <div
+                              key={`of_card_${opp.symbol}`}
+                              className="bg-black/80 border border-zinc-800 hover:border-cyan-500/40 rounded p-2 space-y-1.5 transition-colors"
+                              title={(da.reasoning || []).join('\n')}
+                            >
+                              <div className="flex items-center justify-between">
+                                <button
+                                  type="button"
+                                  onClick={() => loadTradingViewChart(opp.symbol)}
+                                  className="font-bold text-amber-300 hover:underline text-xs"
+                                >
+                                  #{opp.rank} {opp.symbol.replace('-SWAP', '')}
+                                </button>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${regimeBadge.cls}`}>
+                                  {regimeBadge.label}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className={isBull ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                  P({isBull ? 'UP' : 'DOWN'} 5-15m): {dirProbPct}%
+                                </span>
+                                <span className="text-zinc-400">
+                                  Conf: <strong className="text-cyan-300">{da.confidence}%</strong>
+                                </span>
+                              </div>
+
+                              {/* Aggressive Buy vs Sell Volume Bar */}
+                              <div className="space-y-0.5">
+                                <div className="flex justify-between text-[9px] text-zinc-400">
+                                  <span className="text-emerald-400">Taker Buy {buyPct}%</span>
+                                  <span className="text-rose-400">Sell {100 - buyPct}%</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-rose-950 rounded overflow-hidden flex">
+                                  <div
+                                    className="bg-emerald-500 h-full transition-all"
+                                    style={{ width: `${Math.max(5, Math.min(95, buyPct))}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1 pt-0.5 text-[9px] text-zinc-400 border-t border-zinc-900">
+                                <div>
+                                  CVD:{' '}
+                                  <strong className={da.metrics.cvdSlope5m >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {da.metrics.cvdSlope5m >= 0 ? '+' : ''}
+                                    {da.metrics.cvdSlope5m.toFixed(2)}
+                                  </strong>
+                                </div>
+                                <div>
+                                  OBI:{' '}
+                                  <strong className={obiPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {obiPct >= 0 ? '+' : ''}
+                                    {obiPct}%
+                                  </strong>
+                                </div>
+                                <div className="text-right">
+                                  Tape:{' '}
+                                  <strong className={da.metrics.tradeFlowAccel >= 1.3 ? 'text-amber-300' : 'text-zinc-300'}>
+                                    {da.metrics.tradeFlowAccel}x
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-zinc-900/80 rounded border border-amber-500/20 overflow-hidden flex flex-col flex-1 min-h-0">
                   <div className="text-xs font-bold text-amber-400 p-2 sm:p-2.5 border-b border-amber-500/30 flex items-center justify-between bg-zinc-950">
                     <span className="tracking-wide text-[11px] sm:text-xs">TOP SCANNED OPPORTUNITIES / SCANNED UNIVERSE ({status?.scannerStats?.topOpportunities?.length || 0})</span>
-                    <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">OKX Real-time</span>
+                    <span className="text-[9px] sm:text-[10px] text-zinc-500 font-mono">OKX Real-time Order Flow + Microstructure</span>
                   </div>
                   <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0 relative">
                     <table className="w-full text-left text-xs border-collapse">
@@ -4617,9 +4728,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Rank</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Symbol</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Direcție</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Order Flow (5-15m)</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Preț Curent</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">RVOL</th>
-                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Scor Momentum</th>
+                          <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold">Scor</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-center">Levier Rec</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-center">Calitate Intrare</th>
                           <th className="py-2.5 px-3 bg-zinc-950 sticky top-0 font-bold text-right">Eligibilitate</th>
@@ -4627,7 +4739,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </thead>
                       <tbody className="divide-y divide-zinc-800/80 font-mono">
                         {status?.scannerStats?.topOpportunities?.length ? (
-                          status.scannerStats.topOpportunities.map((opp) => (
+                          status.scannerStats.topOpportunities.map((opp) => {
+                            const da = opp.directionAssessment;
+                            const buyPct = da ? Math.round((da.metrics.takerBuyRatio ?? 0.5) * 100) : 50;
+                            const obiPct = da ? Math.round((da.metrics.obiWeighted ?? 0) * 100) : 0;
+                            const dirProbPct = da ? Math.round((da.directionalProbability ?? 0.5) * 100) : 50;
+
+                            return (
                             <tr key={opp.symbol} className="hover:bg-zinc-800/40 transition-colors">
                               <td className="py-2 px-3 text-slate-400 text-[11px]">#{opp.rank}</td>
                               <td className="py-2 px-3 font-bold text-amber-300">
@@ -4648,11 +4766,44 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                     {opp.side === 'SELL' ? 'SHORT' : 'LONG'}
                                   </span>
                                   {opp.isFadeTrade && (
-                                    <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-700 rounded font-bold" title="Sub-strategie Fade Extrem">
+                                    <span className="text-[9px] px-1 py-0.2 bg-purple-950 text-purple-300 border border-purple-700 rounded font-bold" title="Sub-strategie Fade Extrem / Inversare Climax">
                                       FADE
                                     </span>
                                   )}
                                 </div>
+                              </td>
+                              <td className="py-2 px-3" title={da ? (da.reasoning || []).join('\n') : 'Se colectează microstructura...'}>
+                                {da ? (
+                                  <div className="space-y-0.5 leading-tight">
+                                    <div className="flex items-center space-x-1.5">
+                                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                                        da.regime === 'LONG_BUILDUP'
+                                          ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700/70'
+                                          : da.regime === 'SHORT_BUILDUP'
+                                          ? 'bg-rose-950/90 text-rose-300 border-rose-700/70'
+                                          : da.regime === 'SHORT_SQUEEZE'
+                                          ? 'bg-cyan-950/90 text-cyan-300 border-cyan-600/80'
+                                          : da.regime === 'LONG_FLUSH'
+                                          ? 'bg-orange-950/90 text-orange-300 border-orange-600/80'
+                                          : da.regime === 'BULLISH_ABSORPTION'
+                                          ? 'bg-teal-950/90 text-teal-300 border-teal-600/80'
+                                          : da.regime === 'BEARISH_ABSORPTION'
+                                          ? 'bg-purple-950/90 text-purple-300 border-purple-600/80'
+                                          : 'bg-zinc-900 text-zinc-400 border-zinc-700'
+                                      }`}>
+                                        {da.regime.replace('_BALANCED', '')}
+                                      </span>
+                                      <span className={`text-[10px] font-bold ${da.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        P({da.side === 'BUY' ? 'UP' : 'DN'}): {dirProbPct}%
+                                      </span>
+                                    </div>
+                                    <div className="text-[9px] text-zinc-400">
+                                      Buy:{buyPct}% | CVD:{da.metrics.cvdSlope5m >= 0 ? '+' : ''}{da.metrics.cvdSlope5m.toFixed(2)} | OBI:{obiPct >= 0 ? '+' : ''}{obiPct}% | {da.metrics.tradeFlowAccel}x
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-500">--</span>
+                                )}
                               </td>
                               <td className="py-2 px-3 text-slate-300 font-mono">${opp.price}</td>
                               <td className="py-2 px-3 text-emerald-400 font-bold">{opp.rvol}x</td>
@@ -4720,10 +4871,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                 </span>
                               </td>
                             </tr>
-                          ))
+                            );
+                          })
                         ) : (
                           <tr>
-                            <td colSpan={8} className="text-zinc-500 text-xs py-8 text-center">
+                            <td colSpan={10} className="text-zinc-500 text-xs py-8 text-center">
                               Nu există date de scanare în cache. Apasă "RUN SCAN NOW".
                             </td>
                           </tr>

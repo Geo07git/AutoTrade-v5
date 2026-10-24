@@ -73,6 +73,47 @@ export interface UniverseFilterConfig {
   excludedSymbols?: string[]; // Underperforming or high-spread tokens excluded from trading
 }
 
+export type OrderFlowRegime =
+  | 'LONG_BUILDUP'
+  | 'SHORT_BUILDUP'
+  | 'SHORT_SQUEEZE'
+  | 'LONG_FLUSH'
+  | 'BULLISH_ABSORPTION'
+  | 'BEARISH_ABSORPTION'
+  | 'CHOP_BALANCED';
+
+export interface OrderFlowMetrics {
+  takerBuyRatio: number;         // 0..1 (Aggressive Buy volume share)
+  takerImbalance: number;        // -1..+1 ((Buy - Sell) / Total)
+  cvdSlope5m: number;            // -1..+1 normalized CVD slope
+  cvdDeltaUsdt: number;          // Net aggressive delta in USDT over rolling window
+  cvdDivergence: 'BULLISH' | 'BEARISH' | 'NONE';
+  obiWeighted: number;           // -1..+1 distance-weighted & spoof-filtered L2 Order Book Imbalance
+  bidAskRatio: number;           // Weighted Bid / Ask liquidity ratio
+  tradeFlowAccel: number;        // Recent trades/sec vs baseline multiplier (e.g. 2.1x)
+  tradesPerSec: number;          // Current trade arrival velocity
+  whaleNetRatio: number;         // -1..+1 net aggressive flow from large prints (>3x avg ticket)
+  absorptionScore: number;       // -1..+1 (>0 bullish passive bid absorption, <0 bearish passive ask absorption)
+  oiDeltaPct: number;            // % change in Open Interest over rolling window
+  recentLiquidationsUsd: number; // Net liquidations USD (>0 short liquidations, <0 long liquidations)
+  sampleTradesCount: number;     // Number of ticks analyzed
+}
+
+export interface DirectionAssessment {
+  symbol: string;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+  side: OrderSide;               // 'BUY' | 'SELL'
+  probabilityUp: number;         // 0..1 probability of price rising in next 5-15m
+  directionalProbability: number;// 0.5..1.0 probability in the chosen direction
+  confidence: number;            // 0..100 alignment across the 6 microstructure pillars
+  directionScore: number;        // 0..100 composite score for ranking/sizing
+  regime: OrderFlowRegime;
+  isFadeSignal?: boolean;
+  metrics: OrderFlowMetrics;
+  reasoning: string[];
+  timestamp: number;
+}
+
 export interface ScannedOpportunity {
   symbol: string;
   price: number;
@@ -99,6 +140,7 @@ export interface ScannedOpportunity {
   entryQuality?: 'OPTIMAL' | 'OVEREXTENDED' | 'EXHAUSTION_WICK' | 'TREND_FATIGUE';
   entryFilterReason?: string;
   distFromEmaAtr?: number;
+  directionAssessment?: DirectionAssessment;
 }
 
 export interface ScannerStats {
@@ -266,6 +308,7 @@ export interface TradeSignal {
   candleElapsedSeconds?: number;
   atrPct?: number;
   stopLossPrice?: number;
+  directionAssessment?: DirectionAssessment;
 }
 
 export interface RiskApproval {

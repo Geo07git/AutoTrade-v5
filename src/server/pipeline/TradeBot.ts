@@ -1083,7 +1083,21 @@ export class TradeBot {
 
         // STRICT CHECK 3.9: Entry Quality & Exhaustion / Late Trend Filter (Anti-Chasing Top/Bottom)
         // Blochează intrarea pe lumânări de epuizare, wick-uri mari de respingere sau trenduri supra-extinse
-        if (!isExpActive && !isPaperCollection && !config.invertSignals && candidate.entryQuality && candidate.entryQuality !== 'OPTIMAL') {
+        // Excepție: Când DirectionEngine detectează Absorbție Pasivă de reversare (BULLISH/BEARISH_ABSORPTION) sau Fade Climax
+        const da = candidate.directionAssessment;
+        const isAbsorptionReversal = Boolean(
+          da &&
+          (da.regime === 'BULLISH_ABSORPTION' || da.regime === 'BEARISH_ABSORPTION') &&
+          da.confidence >= 55
+        );
+        if (
+          !isExpActive &&
+          !isPaperCollection &&
+          !config.invertSignals &&
+          !isAbsorptionReversal &&
+          candidate.entryQuality &&
+          candidate.entryQuality !== 'OPTIMAL'
+        ) {
           this.logAudit(
             'CANDIDATE_REJECTED',
             `Candidatul #${candidate.rank} (${symbol}) respins de filtrul de calitate a intrării [${candidate.entryQuality}]: ${candidate.entryFilterReason || 'Risc de cumpărare la vârf sau vânzare la minim'}. Se evaluează automat următorul candidat.`,
@@ -1133,9 +1147,13 @@ export class TradeBot {
           }
         }
 
+        const ofSummary = da
+          ? ` | OrderFlow: ${da.regime}, P(${da.side === 'BUY' ? 'UP' : 'DOWN'}): ${(da.directionalProbability * 100).toFixed(0)}%, TakerBuy: ${(da.metrics.takerBuyRatio * 100).toFixed(0)}%, OBI: ${(da.metrics.obiWeighted * 100).toFixed(0)}%`
+          : '';
+
         this.logAudit(
           'CANDIDATE_SELECTED',
-          `Dynamic Candidate #${candidate.rank} Selected: ${symbol} (Momentum Score: ${candidate.score}/100, RVOL: ${candidate.rvol}x, 24h Vol: $${(candidate.volume24hUSDT / 1e6).toFixed(1)}M)`,
+          `Dynamic Candidate #${candidate.rank} Selected: ${symbol} (Score: ${candidate.score}/100, RVOL: ${candidate.rvol}x, 24h Vol: $${(candidate.volume24hUSDT / 1e6).toFixed(1)}M${ofSummary})`,
           {
             symbol,
             rank: candidate.rank,
@@ -1144,6 +1162,7 @@ export class TradeBot {
             atrExpansion: candidate.atrExpansion,
             price: candidate.price,
             profile: config.activeProfile,
+            directionAssessment: da,
           }
         );
 
@@ -1170,7 +1189,7 @@ export class TradeBot {
         if (!signal) {
           this.logAudit(
             'SIGNAL_REJECTED',
-            `Candidatul #${candidate.rank} (${symbol}) respins: nu a trecut confirmarea strictă MTF/HTF.`,
+            `Candidatul #${candidate.rank} (${symbol}) respins: nu a trecut confirmarea strictă MTF/HTF / OrderFlow.`,
             {
               symbol,
               rank: candidate.rank,
@@ -1187,6 +1206,7 @@ export class TradeBot {
           signal.atrPct = signal.atrPct || candidate.atrPct;
           signal.isFadeTrade = candidate.isFadeTrade || signal.isFadeTrade;
           signal.originalSide = candidate.originalSide || signal.originalSide || signal.side;
+          signal.directionAssessment = signal.directionAssessment || candidate.directionAssessment;
 
           // In Invert Signals mode: guarantee signal.side is inverted across ALL score ranges (paper and live)
           if (config.invertSignals) {
@@ -1200,10 +1220,13 @@ export class TradeBot {
           }
 
           const isExtremeClimax = signal.score > (profile.maxMomentumScore ?? 82) || candidate.climax || signal.climax;
+          const isScalpOrderFlow = (config.activeProfile === 'SCALP' || config.activeProfile === 'PAIR_SCALP') && da;
           const signalMessage = signal.isFadeTrade
             ? (isExtremeClimax
-                ? `[FADE CLIMAX] Momentum Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
-                : `[INVERSARE SEMNALE] Momentum ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Spectru Complet Inversat, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`)
+                ? `[FADE CLIMAX] Climax ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100${ofSummary}) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Sub-strategie Fade Extrem, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`
+                : `[INVERSARE SEMNALE] ${signal.originalSide} (Scor: ${signal.score.toFixed(1)}/100${ofSummary}) ➡️ INVERSAT în ${signal.side} (${signal.side === 'BUY' ? 'LONG' : 'SHORT'}) pe ${symbol} (Spectru Complet Inversat, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`)
+            : isScalpOrderFlow
+            ? `[DIRECTION ENGINE SCALP] ${signal.side === 'BUY' ? 'LONG' : 'SHORT'} confirmat din Microstructură pe ${symbol} [${da.regime}] — P(${signal.side === 'BUY' ? 'UP' : 'DOWN'} 5-15m): ${(da.directionalProbability * 100).toFixed(1)}%, Conf: ${da.confidence}%, TakerBuy: ${(da.metrics.takerBuyRatio * 100).toFixed(0)}%, CVD: ${da.metrics.cvdSlope5m >= 0 ? '+' : ''}${da.metrics.cvdSlope5m.toFixed(2)}, OBI: ${(da.metrics.obiWeighted * 100).toFixed(0)}%, Tape: ${da.metrics.tradeFlowAccel}x (Scor: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank})`
             : `Momentum Engine confirmed ${signal.side} signal on candidate ${symbol} (Score: ${signal.score.toFixed(1)}/100, Rank #${candidate.rank}, ATR: ${signal.atrPct ?? '--'}%)`;
 
           this.logAudit(
@@ -1220,6 +1243,7 @@ export class TradeBot {
               currentPrice: signal.currentPrice,
               currentAtr: signal.currentAtr,
               atrPct: signal.atrPct,
+              directionAssessment: da,
             }
           );
 

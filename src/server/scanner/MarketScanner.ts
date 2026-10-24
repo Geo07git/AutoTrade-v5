@@ -8,6 +8,7 @@ import {
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { MomentumEngine } from '../engine/MomentumEngine';
+import { directionEngine } from '../engine/DirectionEngine';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from './UniverseManager';
 
 export class MarketScanner {
@@ -315,7 +316,7 @@ export class MarketScanner {
         bypassImpulseGate
       );
 
-      // 3. Rank opportunities descending by Momentum score with strict tie-break (Item 6)
+      // 3. Initial rank by Momentum & Volatility score
       scannedList.sort((a, b) => {
         if (b.score !== a.score) {
           return b.score - a.score;
@@ -328,7 +329,146 @@ export class MarketScanner {
         return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);
       });
 
-      // Assign ranks (#1, #2, ...)
+      // 4. STAGE 2 FUNNEL: Real-Time Order Flow & Microstructure (DirectionEngine)
+      // Subscribe WS Ring-Buffer (`trades`, `books5`, `liquidation-orders`) to Top 10 candidates + Open Positions
+      const topStage2Candidates = scannedList.slice(0, 10);
+      const trackedSymbols = Array.from(
+        new Set([...topStage2Candidates.map((c) => c.symbol), ...openPos])
+      );
+      directionEngine.updateTrackedSymbols(trackedSymbols, (sym) => {
+        const meta = this.universeManager.getInstrumentMetadata(sym);
+        return meta?.ctVal || this.adapter.getCachedCtVal?.(sym) || 1;
+      });
+
+      // Warm up top candidates via lightweight REST (trades + L2 books + open interest) with concurrency 3
+      const warmupQueue = [...topStage2Candidates];
+      const warmupWorker = async () => {
+        while (warmupQueue.length > 0) {
+          const cand = warmupQueue.shift();
+          if (!cand) break;
+          try {
+            const meta = this.universeManager.getInstrumentMetadata(cand.symbol);
+            const ctVal = meta?.ctVal || this.adapter.getCachedCtVal?.(cand.symbol) || 1;
+            await directionEngine.warmupSymbol(cand.symbol, ctVal);
+          } catch {}
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(3, topStage2Candidates.length) }, () => warmupWorker())
+      );
+
+      // Evaluate Order Flow & Microstructure across scanned opportunities
+      // On SCALP profile (Varianta B): DirectionEngine is the primary directional brain, while preserving Fade Climax option
+      const isScalpBrain = profile.type === 'SCALP' || profile.type === 'PAIR_SCALP';
+      for (const opp of scannedList) {
+        const cachedLtf = this.klineCache.get(`${opp.symbol}_${mainTf}`)?.klines;
+        const assessment = directionEngine.evaluate(opp.symbol, cachedLtf, {
+          invertSignals,
+          isClimax: Boolean(opp.climax),
+          currentAtr: opp.atr14 || opp.currentAtr,
+          lastPrice: opp.price,
+        });
+        opp.directionAssessment = assessment;
+
+        if (isScalpBrain) {
+          const isExtremeClimaxFade = Boolean(invertSignals && opp.climax);
+          const isAbsorptionReversal =
+            (assessment.regime === 'BULLISH_ABSORPTION' || assessment.regime === 'BEARISH_ABSORPTION') &&
+            assessment.confidence >= 55;
+
+          if (assessment.direction !== 'NEUTRAL' || isExtremeClimaxFade) {
+            // Varianta B: DirectionEngine dictates the direction on SCALP (with Fade Climax preserved)
+            const chosenSide = isExtremeClimaxFade && assessment.direction === 'NEUTRAL'
+              ? opp.side
+              : assessment.side;
+            const rawOriginalSide = assessment.isFadeSignal
+              ? (chosenSide === 'BUY' ? 'SELL' : 'BUY')
+              : chosenSide;
+
+            opp.side = chosenSide;
+            opp.originalSide = rawOriginalSide;
+            opp.isFadeTrade = Boolean(invertSignals || assessment.isFadeSignal);
+
+            // Blend Order Flow Direction Score (65%) with Volatility/RVOL Activity Score (35%)
+            const blendedScore = parseFloat(
+              Math.min(99.5, Math.max(0, assessment.directionScore * 0.65 + opp.score * 0.35)).toFixed(1)
+            );
+            opp.score = blendedScore;
+
+            // Safety gate from MomentumEngine: block overextended / exhaustion wicks UNLESS
+            // we are fading climax (invertSignals) OR DirectionEngine detected true passive Absorption reversal
+            const passesSafetyFilter =
+              bypassImpulseGate ||
+              invertSignals ||
+              isAbsorptionReversal ||
+              !opp.entryQuality ||
+              opp.entryQuality === 'OPTIMAL';
+
+            const minThreshold = profile.minMomentumScore || 50;
+            opp.isEligible = passesSafetyFilter && opp.score >= minThreshold;
+
+            if (opp.isEligible) {
+              opp.signal = {
+                symbol: opp.symbol,
+                side: opp.side,
+                originalSide: opp.originalSide,
+                isFadeTrade: opp.isFadeTrade,
+                climax: opp.climax,
+                score: opp.score,
+                profile: profile.type,
+                timestamp: Date.now(),
+                currentPrice: opp.price,
+                currentAtr: opp.currentAtr,
+                atr14: opp.atr14,
+                spreadPct: opp.spreadPct,
+                candleElapsedSeconds: opp.candleElapsedSeconds,
+                atrPct: opp.atrPct,
+                directionAssessment: assessment,
+                reasons: {
+                  ...(opp.signal?.reasons || {}),
+                  score: opp.score,
+                  side: opp.side,
+                  originalSide: opp.originalSide,
+                  isFadeTrade: opp.isFadeTrade,
+                  fadeClimax: opp.isFadeTrade,
+                  climax: opp.climax,
+                  rvol: opp.rvol,
+                  atrExpansion: opp.atrExpansion,
+                  lastPrice: opp.price,
+                  atrPct: opp.atrPct,
+                  orderFlowRegime: assessment.regime,
+                  probabilityUp: assessment.probabilityUp,
+                  directionalProbability: assessment.directionalProbability,
+                  orderFlowConfidence: assessment.confidence,
+                  orderFlowMetrics: assessment.metrics,
+                  orderFlowReasoning: assessment.reasoning,
+                },
+              };
+            } else {
+              opp.signal = undefined;
+            }
+          } else if (!bypassImpulseGate) {
+            // Order flow is CHOP_BALANCED (NEUTRAL) -> veto entry on SCALP
+            opp.isEligible = false;
+            opp.signal = undefined;
+          }
+        }
+      }
+
+      // Re-sort opportunities after Stage 2 Order Flow scoring
+      scannedList.sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        const spreadA = a.spreadPct !== undefined ? a.spreadPct : 999;
+        const spreadB = b.spreadPct !== undefined ? b.spreadPct : 999;
+        if (spreadA !== spreadB) {
+          return spreadA - spreadB;
+        }
+        return (b.volume24hUSDT || 0) - (a.volume24hUSDT || 0);
+      });
+
+      // Assign final ranks (#1, #2, ...)
       scannedList.forEach((opp, index) => {
         opp.rank = index + 1;
       });
