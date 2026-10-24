@@ -741,6 +741,23 @@ export class PositionManager {
           }
       }
 
+      // Partial Take-Profit (Scaling Out - Pasul 2)
+      const partialTpPct = config.partialTakeProfitPct ?? 0;
+      const partialTpRatio = config.partialTakeProfitCloseRatio ?? 50;
+      if (partialTpPct > 0 && partialTpRatio > 0 && !pos.isPartialTpTriggered && pnlPct >= partialTpPct) {
+        await orderManager.executePartialCloseOrder({
+          position: pos,
+          closeRatioPct: partialTpRatio,
+          currentPrice,
+          pnlPct,
+          partialTakeProfitPct: partialTpPct,
+          exitMarketRegime: options?.marketRegime,
+          accountEquity: currentEquity,
+          accountBalance: options?.accountBalance,
+          openPositionsCount: this.activePositions.length,
+        });
+      }
+
       // Break-Even Logic
       if (pos.side === 'BUY' && pnlPct >= config.breakEvenActivationPct && (!pos.isBreakEvenTriggered || pos.stopLossPrice < pos.entryPrice)) {
           pos.breakEvenStopPrice = pos.entryPrice * 1.0025; // Move SL to entry + 0.25% buffer
@@ -907,6 +924,45 @@ export class PositionManager {
         ? (((pos.highestPrice || pos.entryPrice) - pos.entryPrice) / pos.entryPrice) * 100
         : ((pos.entryPrice - (pos.lowestPrice || pos.entryPrice)) / pos.entryPrice) * 100;
 
+      // Time-Decay Profit Protection (Protecție Dinamică a Profitului la Maturizare - Pasul 2)
+      // Dacă poziția a acumulat vechime (>= 60% din timpul de stagnare) și este pe verde (+0.45% .. +1.4%),
+      // dar nu a atins încă pragul complet de Trailing Stop, îi securizăm 40% din vârful atins ca prag minim de ieșire.
+      const timeDecayThresholdMins = stagnationMinutes > 0
+        ? Math.max(12, Math.round(stagnationMinutes * 0.6))
+        : (config.type === 'SCALP' ? 15 : 45);
+      if (
+        !isTrailingActive &&
+        heldMinutes >= timeDecayThresholdMins &&
+        peakPnlPct >= 0.65 &&
+        pnlPct >= 0.45 &&
+        !pos.isTimeDecayProtected
+      ) {
+        const lockedProfitPct = Math.max(0.30, parseFloat((peakPnlPct * 0.40).toFixed(2)));
+        const newStopPrice = isBuy
+          ? pos.entryPrice * (1 + lockedProfitPct / 100)
+          : pos.entryPrice * (1 - lockedProfitPct / 100);
+        const isBetterStop = !pos.breakEvenStopPrice ||
+          (isBuy ? newStopPrice > pos.breakEvenStopPrice : newStopPrice < pos.breakEvenStopPrice);
+
+        if (isBetterStop && (isBuy ? currentPrice > newStopPrice : currentPrice < newStopPrice)) {
+          pos.breakEvenStopPrice = newStopPrice;
+          pos.stopLossPrice = newStopPrice;
+          pos.isBreakEvenTriggered = true;
+          pos.isTimeDecayProtected = true;
+          this.auditLogger(
+            'POSITION_UPDATED',
+            `Time-Decay Profit Protection activat pentru ${pos.symbol} la ${heldMinutes.toFixed(1)}m (vârf +${peakPnlPct.toFixed(2)}%, actual +${pnlPct.toFixed(2)}%): SL ridicat în profit garantat la +${lockedProfitPct.toFixed(2)}% ($${formatPrice(newStopPrice)}).`,
+            {
+              symbol: pos.symbol,
+              heldMinutes: parseFloat(heldMinutes.toFixed(1)),
+              peakPnlPct: parseFloat(peakPnlPct.toFixed(2)),
+              lockedProfitPct,
+              newStopPrice,
+            }
+          );
+        }
+      }
+
       // Stage 1: Stagnation Time-Stop (ONLY if explicitly enabled > 0 and strictly less than maxHoldingLimit)
       if (stagnationMinutes > 0 && stagnationMinutes < maxHoldingLimit && !isTrailingActive && heldMinutes >= stagnationMinutes && peakPnlPct < stagnationMinPeak && pnlPct <= 0.2) {
         this.auditLogger('RISK_REJECTED', `Stagnation Time-Stop at ${heldMinutes.toFixed(1)}m for ${pos.symbol}: Peak +${peakPnlPct.toFixed(2)}% < +${stagnationMinPeak}%. Closing early to preserve winrate.`, {
@@ -1041,18 +1097,29 @@ export class PositionManager {
   public async handlePartialClose(
     posId: string,
     filledQty: number,
-    exitPrice: number
+    exitPrice: number,
+    exitFee?: number,
+    realizedNetPnl?: number
   ): Promise<Position | null> {
     const pos = this.activePositions.find((p) => p.id === posId);
     if (!pos) return null;
 
     this.mutationSeq++;
+    this.recentlyOpenedAt.set(pos.symbol, Date.now());
+    const oldQty = pos.qty || 1;
     const remainingQty = Math.max(0, parseFloat((pos.qty - filledQty).toFixed(6)));
     if (remainingQty <= 1e-6) {
       return this.markPositionClosed(posId, exitPrice, Date.now(), 'PARTIAL_CLOSE_COMPLETED');
     }
 
     const ctVal = pos.ctVal || 1;
+    if (pos.entryFee && oldQty > 0) {
+      pos.entryFee = parseFloat((pos.entryFee * (remainingQty / oldQty)).toFixed(4));
+    }
+    if (realizedNetPnl !== undefined) {
+      pos.partialTpRealizedPnl = parseFloat(((pos.partialTpRealizedPnl || 0) + realizedNetPnl).toFixed(4));
+    }
+    pos.partialTpClosedQty = parseFloat(((pos.partialTpClosedQty || 0) + filledQty).toFixed(6));
     pos.qty = remainingQty;
     pos.sizeUSDT = parseFloat((remainingQty * pos.entryPrice * ctVal).toFixed(2));
 
@@ -1065,6 +1132,8 @@ export class PositionManager {
         closedQty: filledQty,
         remainingQty,
         exitPrice,
+        exitFee,
+        realizedNetPnl,
       }
     );
 

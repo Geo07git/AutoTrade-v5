@@ -894,6 +894,229 @@ export class OrderManager {
   }
 
   /**
+   * Executes a Partial Take-Profit (Scaling Out) order on an open position.
+   * - If the position has enough contracts to split (partialQty >= minOrderQty and remainingQty >= minOrderQty),
+   *   executes a reduceOnly Market order for the partial quantity and locks Break-Even on the remaining runner.
+   * - If the position has only 1 minimum lot and cannot be split on the exchange, dynamically raises the
+   *   Break-Even Stop-Loss to lock in 50% of the current unrealized gain without closing prematurely.
+   */
+  public async executePartialCloseOrder(params: {
+    position: Position;
+    closeRatioPct: number;
+    currentPrice: number;
+    pnlPct: number;
+    partialTakeProfitPct: number;
+    exitMarketRegime?: string;
+    accountEquity?: number;
+    accountBalance?: number;
+    openPositionsCount?: number;
+  }): Promise<{ success: boolean; order?: OrderRecord; error?: string }> {
+    const {
+      position,
+      closeRatioPct,
+      currentPrice,
+      pnlPct,
+      partialTakeProfitPct,
+      exitMarketRegime,
+      accountEquity,
+      accountBalance,
+      openPositionsCount,
+    } = params;
+
+    if (position.status !== 'OPEN' || position.isPartialTpTriggered) {
+      return { success: false, error: `Position ${position.symbol} not eligible for partial TP.` };
+    }
+
+    // Mark immediately to prevent re-entrant partial TP triggers on subsequent ticks
+    position.isPartialTpTriggered = true;
+
+    const isBuy = position.side.toUpperCase() === 'BUY';
+    const estPrice = currentPrice || position.entryPrice;
+
+    let isExchangePosition =
+      this.executionMode !== 'PAPER' &&
+      (position.source === 'OKX_SYNC' || position.executionMode === 'LIVE') &&
+      Boolean(this.okxAdapter && this.okxAdapter.hasCredentials());
+    let targetAdapter = this.executionMode === 'PAPER' && this.paperAdapter
+      ? this.paperAdapter
+      : (isExchangePosition && this.okxAdapter ? this.okxAdapter : (this.paperAdapter ? this.paperAdapter : this.exchange));
+
+    let filter;
+    try {
+      filter = await targetAdapter.getInstrumentFilter(position.symbol);
+    } catch (err: any) {
+      if (this.paperAdapter && targetAdapter !== this.paperAdapter) {
+        targetAdapter = this.paperAdapter;
+        filter = await targetAdapter.getInstrumentFilter(position.symbol);
+      } else {
+        throw err;
+      }
+    }
+
+    const ctVal = position.ctVal || filter.ctVal || 1;
+    const step = filter.qtyStep || 1;
+    const minQty = filter.minOrderQty || 1;
+    const stepStr = step.toString();
+    const decimals = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
+
+    const ratio = Math.min(90, Math.max(10, closeRatioPct || 50)) / 100;
+    const rawPartial = position.qty * ratio;
+    const partialQty = parseFloat((Math.floor(rawPartial / step) * step).toFixed(decimals));
+    const remainingQty = parseFloat((position.qty - partialQty).toFixed(decimals));
+
+    // Case 1: Position has 1 contract (or cannot be split into two valid lots >= minOrderQty)
+    // Lock in 50% of the achieved profit via Break-Even Stop-Loss upgrade instead of closing 100% early
+    if (partialQty < minQty || remainingQty < minQty) {
+      const lockedGainPct = Math.max(0.30, parseFloat((pnlPct * 0.50).toFixed(2)));
+      const newBePrice = isBuy
+        ? position.entryPrice * (1 + lockedGainPct / 100)
+        : position.entryPrice * (1 - lockedGainPct / 100);
+
+      position.breakEvenStopPrice = newBePrice;
+      position.stopLossPrice = newBePrice;
+      position.isBreakEvenTriggered = true;
+
+      this.auditLogger(
+        'POSITION_UPDATED',
+        `TP Parțial (+${pnlPct.toFixed(2)}% >= +${partialTakeProfitPct}%) atins pe ${position.symbol}: Poziția are ${position.qty} contract(e) (lot minim: ${minQty}) și nu poate fi fracționată. S-a securizat automat profitul prin ridicarea SL la +${lockedGainPct.toFixed(2)}% ($${formatPrice(newBePrice)}).`,
+        {
+          symbol: position.symbol,
+          qty: position.qty,
+          minQty,
+          pnlPct: parseFloat(pnlPct.toFixed(2)),
+          lockedGainPct,
+          newBePrice,
+        }
+      );
+      return { success: true };
+    }
+
+    // Case 2: Position has >= 2 valid lots -> Execute real Partial Close Order
+    const closeSide: OrderSide = isBuy ? 'SELL' : 'BUY';
+    const orderSide: 'Buy' | 'Sell' = closeSide === 'BUY' ? 'Buy' : 'Sell';
+    const clientOrderId = `tb5_ptp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const holdingTimeMinutes = position.entryTime ? parseFloat(((Date.now() - position.entryTime) / 60000).toFixed(1)) : 0;
+    const partialNotional = partialQty * ctVal * estPrice;
+    const resolvedOpenCount = openPositionsCount !== undefined
+      ? openPositionsCount
+      : this.positionManager.getActivePositions().length;
+
+    const partialOrder: OrderRecord = {
+      id: clientOrderId,
+      positionId: position.id,
+      symbol: position.symbol,
+      side: closeSide,
+      orderType: 'Market',
+      qty: partialQty,
+      ctVal,
+      sizeUSDT: parseFloat(partialNotional.toFixed(2)),
+      status: 'CREATED',
+      createdTime: Date.now(),
+      updatedTime: Date.now(),
+      intent: 'PARTIAL_TP',
+      profile: position.profile,
+      executionMode: this.executionMode,
+      entryPrice: position.entryPrice,
+      exitReasonDetail: `Take-Profit Parțial (${Math.round(ratio * 100)}% = ${partialQty} contracte) încasat la +${pnlPct.toFixed(2)}% (prag: +${partialTakeProfitPct}%). Restul de ${remainingQty} contracte rulează cu SL la Break-Even (+0.30%).`,
+      triggerStopValue: partialTakeProfitPct,
+      holdingTimeMinutes,
+      positionSide: position.side,
+      marketRegime: position.marketRegime,
+      exitMarketRegime,
+      signalScore: position.signalScore,
+      signalPrice: estPrice,
+      leverage: position.leverage || '1x',
+      openPositionsCount: resolvedOpenCount,
+      maePct: position.maePct,
+      mfePct: position.mfePct,
+      timeToMfe15Minutes: position.timeToMfe15Minutes,
+      isFastRunner: position.isFastRunner,
+      accountEquity,
+      accountBalance,
+    };
+
+    this.orders.set(clientOrderId, partialOrder);
+    partialOrder.status = 'SUBMITTED';
+
+    try {
+      const posSide = isBuy ? 'long' : 'short';
+      const submitRes = await targetAdapter.submitOrder({
+        symbol: position.symbol,
+        side: orderSide,
+        orderType: 'Market',
+        qty: partialQty,
+        price: estPrice,
+        orderLinkId: clientOrderId,
+        reduceOnly: true,
+        posSide,
+      });
+
+      partialOrder.status = 'ACCEPTED';
+      partialOrder.exchangeOrderId = submitRes.orderId;
+      partialOrder.updatedTime = Date.now();
+
+      await this.pollExecutionConfirmation(partialOrder, 5, 800);
+
+      if ((partialOrder.status as OrderStatus) === 'FILLED') {
+        const exitPrice = partialOrder.fillPrice || estPrice;
+        const exitFee = partialOrder.cumFee !== undefined
+          ? partialOrder.cumFee
+          : parseFloat((partialOrder.sizeUSDT * 0.0005).toFixed(4));
+        partialOrder.cumFee = exitFee;
+
+        const propEntryFee = (position.entryFee || 0) * (partialQty / position.qty);
+        const grossPnl = (isBuy ? exitPrice - position.entryPrice : position.entryPrice - exitPrice) * partialQty * ctVal;
+        const netPnl = parseFloat((grossPnl - propEntryFee - exitFee).toFixed(4));
+        const finalPnlPct = parseFloat((((isBuy ? exitPrice - position.entryPrice : position.entryPrice - exitPrice) / position.entryPrice) * 100).toFixed(2));
+
+        partialOrder.realizedPnl = netPnl;
+        partialOrder.realizedPnlPct = finalPnlPct;
+
+        await this.positionManager.handlePartialClose(
+          position.id,
+          partialQty,
+          exitPrice,
+          exitFee,
+          netPnl
+        );
+
+        // Lock Break-Even (+0.30% buffer) on the remaining runner contracts
+        const runnerBePrice = isBuy
+          ? position.entryPrice * 1.003
+          : position.entryPrice * 0.997;
+        position.breakEvenStopPrice = runnerBePrice;
+        position.stopLossPrice = runnerBePrice;
+        position.isBreakEvenTriggered = true;
+
+        this.auditLogger(
+          'POSITION_UPDATED',
+          `Take-Profit Parțial executat pe ${position.symbol}: închise ${partialQty} contracte @ $${formatPrice(exitPrice)} (PnL net încasat: +$${netPnl.toFixed(2)} / +${finalPnlPct.toFixed(2)}%). Rămân ${remainingQty} contracte ca Free Runner cu SL la +0.30%.`,
+          {
+            positionId: position.id,
+            symbol: position.symbol,
+            closedQty: partialQty,
+            remainingQty,
+            exitPrice,
+            netPnl,
+            finalPnlPct,
+          }
+        );
+
+        return { success: true, order: partialOrder };
+      } else {
+        position.isPartialTpTriggered = false;
+        return { success: false, order: partialOrder, error: `Partial TP order not confirmed filled (${partialOrder.status})` };
+      }
+    } catch (err: any) {
+      position.isPartialTpTriggered = false;
+      partialOrder.status = 'FAILED';
+      partialOrder.rejectionReason = err.message || 'Partial TP close failed';
+      partialOrder.updatedTime = Date.now();
+      return { success: false, order: partialOrder, error: err.message };
+    }
+  }
+
+  /**
    * Central idempotent execution update handler for both Polling and WebSocket streams.
    * - Eliminates duplicate onOrderFilled() invocations between polling and WebSocket.
    * - Accurately processes cumulative filled quantity (cumFilledQty) into incremental fills.

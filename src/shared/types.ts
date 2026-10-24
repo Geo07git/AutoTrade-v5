@@ -168,6 +168,8 @@ export interface ProfileConfig {
   cooldownAfterLossMinutes?: number; // Pauză pe simbol după pierdere/SL (implicit: 30 min, 0 = dezactivat)
   pairScalpSignalDirPct?: number; // % alocare pe direcția semnalului (ex: 75)
   pairScalpInverseDirPct?: number; // % alocare pe direcția inversă (ex: 25)
+  partialTakeProfitPct?: number; // Pragul de activare TP Parțial în % (ex: 1.2% în SCALP, 2.5% în MOMENTUM; 0 = dezactivat)
+  partialTakeProfitCloseRatio?: number; // Procentul din poziție închis la TP Parțial (ex: 50 = 50% din contracte)
 }
 
 export interface Kline {
@@ -298,7 +300,7 @@ export interface OrderRecord {
   createdTime: number;
   updatedTime: number;
   rejectionReason?: string;
-  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END' | 'EXCHANGE_CLOSE';
+  intent: 'ENTRY' | 'STOP_LOSS' | 'TRAILING_STOP' | 'TAKE_PROFIT' | 'PARTIAL_TP' | 'KILL_SWITCH' | 'MANUAL_CLOSE' | 'EQUITY_PROTECTION' | 'TIME_STOP' | 'STAGNATION' | 'BREAK_EVEN' | 'EXPERIMENT_END' | 'EXCHANGE_CLOSE';
   profile: ProfileType;
   executionMode: ExecutionMode;
   // Detailed exit / profit / log telemetry
@@ -426,6 +428,10 @@ export interface Position {
   isBreakEvenTriggered?: boolean;
   breakEvenStopPrice?: number;
   consecutiveBeHits?: number;
+  isPartialTpTriggered?: boolean;
+  partialTpRealizedPnl?: number;
+  partialTpClosedQty?: number;
+  isTimeDecayProtected?: boolean;
   currentPrice?: number;
   holdingTimeMinutes?: number;
   exitReason?: string;

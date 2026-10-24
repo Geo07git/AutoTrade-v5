@@ -538,6 +538,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       : 0
   );
   const [takeProfit, setTakeProfit] = useState(profileConfig?.takeProfitPct ?? 20.0);
+  const [partialTpPct, setPartialTpPct] = useState(profileConfig?.partialTakeProfitPct ?? 1.2);
+  const [partialTpRatio, setPartialTpRatio] = useState(profileConfig?.partialTakeProfitCloseRatio ?? 50);
   const [breakEven, setBreakEven] = useState(profileConfig?.breakEvenActivationPct ?? 0.8);
   const [maxHoldTime, setMaxHoldTime] = useState(profileConfig?.maxHoldingTimeMinutes ?? 45);
   const [stagnationTime, setStagnationTime] = useState(profileConfig?.stagnationTimeMinutes ?? 25);
@@ -2097,6 +2099,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     min24hVol !== ((profileConfig.min24hVolumeUSDT ?? 1_500_000) / 1_000_000) ||
     max24hVol !== ((profileConfig.max24hVolumeUSDT ?? 0) / 1_000_000) ||
     takeProfit !== (profileConfig.takeProfitPct ?? 20.0) ||
+    partialTpPct !== (profileConfig.partialTakeProfitPct ?? 1.2) ||
+    partialTpRatio !== (profileConfig.partialTakeProfitCloseRatio ?? 50) ||
     breakEven !== (profileConfig.breakEvenActivationPct ?? 0.8) ||
     maxHoldTime !== (profileConfig.maxHoldingTimeMinutes ?? 45) ||
     stagnationTime !== (profileConfig.stagnationTimeMinutes ?? 25) ||
@@ -2139,6 +2143,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           : 0
       );
       setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
+      setPartialTpPct(profileConfig.partialTakeProfitPct ?? 1.2);
+      setPartialTpRatio(profileConfig.partialTakeProfitCloseRatio ?? 50);
       setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
       setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
       setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
@@ -2166,6 +2172,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       min24hVolumeUSDT: Math.round(min24hVol * 1_000_000),
       max24hVolumeUSDT: max24hVol > 0 ? Math.round(max24hVol * 1_000_000) : 0,
       takeProfitPct: takeProfit,
+      partialTakeProfitPct: partialTpPct,
+      partialTakeProfitCloseRatio: partialTpRatio,
       breakEvenActivationPct: breakEven,
       maxHoldingTimeMinutes: maxHoldTime,
       stagnationTimeMinutes: stagnationTime,
@@ -2208,6 +2216,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         : 0
     );
     setTakeProfit(profileConfig.takeProfitPct ?? 20.0);
+    setPartialTpPct(profileConfig.partialTakeProfitPct ?? 1.2);
+    setPartialTpRatio(profileConfig.partialTakeProfitCloseRatio ?? 50);
     setBreakEven(profileConfig.breakEvenActivationPct ?? 0.8);
     setMaxHoldTime(profileConfig.maxHoldingTimeMinutes ?? 45);
     setStagnationTime(profileConfig.stagnationTimeMinutes ?? 25);
@@ -2953,6 +2963,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             FADE
                           </span>
                         )}
+                        {pos.isPartialTpTriggered && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-emerald-950 text-emerald-300 border border-emerald-500/60" title={`Take-Profit Parțial executat${pos.partialTpRealizedPnl !== undefined ? ` (+$${pos.partialTpRealizedPnl.toFixed(2)})` : ''}`}>
+                            TP1 EXEC
+                          </span>
+                        )}
+                        {pos.isTimeDecayProtected && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-cyan-950 text-cyan-300 border border-cyan-500/60" title="Time-Decay Profit Protection: 40% din vârful PnL blocat">
+                            DECAY LOCK
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -3124,7 +3144,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                         <div className="flex justify-between text-[11px]">
                           <span className="text-zinc-500">Break-Even (BE):</span>
                           <span className={isBreakEvenActive ? 'text-blue-400 font-bold' : 'text-zinc-500'}>
-                            {isBreakEvenActive ? 'ACTIVAT (SL la intrare)' : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 0.8}%)`}
+                            {isBreakEvenActive ? (pos.isTimeDecayProtected ? 'DECAY LOCK (40% Vârf)' : 'ACTIVAT (SL la intrare)') : `Inactiv (Necesar +${profileConfig?.breakEvenActivationPct ?? 0.8}%)`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-zinc-500">TP1 Parțial:</span>
+                          <span className={pos.isPartialTpTriggered ? 'text-emerald-400 font-bold' : 'text-zinc-400'}>
+                            {pos.isPartialTpTriggered
+                              ? `EXECUTAT${pos.partialTpRealizedPnl !== undefined ? ` (+$${pos.partialTpRealizedPnl.toFixed(2)})` : ''}`
+                              : (profileConfig?.partialTakeProfitPct ?? 1.2) > 0
+                              ? `Țintă +${profileConfig?.partialTakeProfitPct ?? 1.2}% (${profileConfig?.partialTakeProfitCloseRatio ?? 50}%)`
+                              : 'OFF'}
                           </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
@@ -4810,6 +4840,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                             <td className="py-2 px-2">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                                 ord.intent === 'TAKE_PROFIT' ? 'bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-800/40' :
+                                ord.intent === 'PARTIAL_TP' ? 'bg-lime-950/80 text-lime-300 font-bold border border-lime-700/50' :
                                 ord.intent === 'STOP_LOSS' ? 'bg-rose-950/80 text-rose-300 font-bold border border-rose-800/40' :
                                 ord.intent === 'TRAILING_STOP' ? 'bg-amber-950/80 text-amber-300 font-bold border border-amber-800/40' :
                                 ord.intent === 'STAGNATION' ? 'bg-sky-950/80 text-sky-300 font-bold border border-sky-800/40' :
@@ -5004,6 +5035,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                                       ) : ord.intent === 'TAKE_PROFIT' ? (
                                         <p className="text-emerald-300 font-bold">
                                           Declanșat de <strong>Take-Profit</strong> (ținta automată procentuală de profit a fost atinsă cu succes).
+                                        </p>
+                                      ) : ord.intent === 'PARTIAL_TP' ? (
+                                        <p className="text-lime-300 font-bold">
+                                          Declanșat de <strong>Take-Profit Parțial (Scaling Out TP1)</strong>: o tranșă din poziție a fost marcată în profit, iar restul poziției (runner) are Stop-Loss mutat la Break-Even+.
                                         </p>
                                       ) : ord.intent === 'STOP_LOSS' ? (
                                         <p className="text-rose-300">
@@ -5649,7 +5684,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   {/* Take-Profit (%) */}
                   <div className="bg-zinc-900 p-3 rounded border border-emerald-500/20 space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-300">Take-Profit (%)</span>
+                      <span className="text-slate-300">Take-Profit Final (%)</span>
                       <span className="font-bold text-emerald-400">{takeProfit === 0 ? 'OFF' : `${takeProfit}%`}</span>
                     </div>
                     <input
@@ -5660,6 +5695,45 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       value={takeProfit}
                       onChange={(e) => setTakeProfit(Number(e.target.value))}
                       className="w-full accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Partial Take-Profit TP1 (%) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-lime-500/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300" title="Pragul PnL (%) la care se închide parțial poziția (Scaling Out TP1) și se mută SL la Break-Even+. 0 = dezactivat.">
+                        Take-Profit Parțial TP1 (%)
+                      </span>
+                      <span className="font-bold text-lime-400">{partialTpPct === 0 ? 'OFF' : `+${partialTpPct.toFixed(1)}%`}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="5"
+                      step="0.1"
+                      value={partialTpPct}
+                      onChange={(e) => setPartialTpPct(Number(e.target.value))}
+                      className="w-full accent-lime-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Partial Take-Profit Close Ratio (%) */}
+                  <div className="bg-zinc-900 p-3 rounded border border-lime-500/20 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300" title="Procentul din cantitatea poziției care se vinde la atingerea TP1 (restul rămâne runner cu Trailing Stop)">
+                        Tranșă Închidere TP1 (%)
+                      </span>
+                      <span className="font-bold text-lime-400">{partialTpPct === 0 ? 'OFF' : `${partialTpRatio}%`}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="80"
+                      step="5"
+                      disabled={partialTpPct === 0}
+                      value={partialTpRatio}
+                      onChange={(e) => setPartialTpRatio(Number(e.target.value))}
+                      className="w-full accent-lime-500 cursor-pointer disabled:opacity-40"
                     />
                   </div>
 

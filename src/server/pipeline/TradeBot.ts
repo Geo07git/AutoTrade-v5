@@ -73,6 +73,8 @@ export const DEFAULT_SCALP_CONFIG: ProfileConfig = {
   btcBearGuard: false,
   maxEntriesPerSymbolPerHour: 3,
   cooldownAfterLossMinutes: 30,
+  partialTakeProfitPct: 1.2, // Închide 50% la +1.2% PnL și lasă restul ca runner fără risc
+  partialTakeProfitCloseRatio: 50,
 };
 
 export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
@@ -85,6 +87,8 @@ export const DEFAULT_MOMENTUM_CONFIG: ProfileConfig = {
   trailingActivationPct: 6.0, // +6% Trailing Act
   trailingDistancePct: 3.0, // -3% Trailing Dist
   takeProfitPct: 0, // 0 = OFF (Trailing)
+  partialTakeProfitPct: 2.5, // Închide 50% la +2.5% PnL și securizează runner-ul
+  partialTakeProfitCloseRatio: 50,
   maxHoldingTimeMinutes: 1440, // 1440 min (24h)
   trailingMaxHoldMultiplier: 2, // Pozițiile cu trailing activ permise până la 48h (1440 * 2)
   stagnationTimeMinutes: 120, // 120 min Stagnation Stop
