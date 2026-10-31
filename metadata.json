@@ -1,0 +1,6 @@
+{
+  "name": "TradeBot 5 - Neutral Grid Bot",
+  "description": "An autonomous OCI trading system and Bloomberg-grade terminal for creating and managing OKX Futures Grid Neutral bots with strict risk management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

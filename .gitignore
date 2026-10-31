@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+release/
+coverage/
+.DS_Store
+*.log
+# Runtime data & secrets (config with API keys, orders, positions, audit, experiment logs) must NEVER be committed
+.data/
+.env*
+!.env.example
+.telegram*.json
+# Never ship build bundles or patches (they have leaked secrets via public/ before)
+*.zip
+*.patch
+*.tar.gz
+public/*.zip
+.aistudio/

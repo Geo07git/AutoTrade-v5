@@ -1,0 +1,8 @@
+{
+  "appId": "com.bloomberg.tradebot5",
+  "appName": "Bloomberg TradeBot Pro",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

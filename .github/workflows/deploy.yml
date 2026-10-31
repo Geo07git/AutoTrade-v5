@@ -1,0 +1,169 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches:
+      - main
+    # Docs / repo-config-only commits must not restart the live trading service.
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '.gitignore'
+  # Manual trigger: Actions -> "Deploy to OCI" -> Run workflow
+  workflow_dispatch:
+
+# Serialize deploys: never run two SSH deploys against the server at once.
+# cancel-in-progress stays FALSE on purpose - interrupting a run between
+# `git reset --hard` and the service restart can leave tracked files dirty,
+# and the deploy script aborts on "Unexpected local modifications found".
+concurrency:
+  group: deploy-oci-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Without this a hung SSH/npm step would occupy the concurrency group for
+    # the default 360 minutes and block every later deploy.
+    timeout-minutes: 25
+    steps:
+      - name: SSH Remote Deploy to OCI
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/ubuntu/AutoTrade-v5
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            BACKUP_DIR="/home/ubuntu/backups/$TIMESTAMP"
+            mkdir -p "$BACKUP_DIR"
+
+            echo "--- 1. Checking modified tracked files ---"
+            if [ -n "$(git diff --name-only)" ] || [ -n "$(git diff --cached --name-only)" ]; then
+              echo "CRITICAL: Unexpected local modifications found in tracked files. Aborting deployment."
+              git diff --name-only
+              exit 1
+            fi
+
+            echo "--- 2. Creating secure verified backups (permissions 600) ---"
+            if ! git bundle create "$BACKUP_DIR/autotrade-git.bundle" --all; then
+              echo "CRITICAL: Git bundle backup failed. Aborting deployment."
+              exit 1
+            fi
+            chmod 600 "$BACKUP_DIR/autotrade-git.bundle"
+
+            if [ -d "dist" ]; then
+              if ! tar -czf "$BACKUP_DIR/autotrade-dist-backup.tar.gz" dist/ package.json; then
+                echo "CRITICAL: Dist archive backup failed. Aborting deployment."
+                exit 1
+              fi
+              chmod 600 "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+            fi
+
+            git rev-parse HEAD > "$BACKUP_DIR/version.meta"
+            chmod 600 "$BACKUP_DIR/version.meta"
+
+            echo "--- Verifying backup integrity ---"
+            git bundle verify "$BACKUP_DIR/autotrade-git.bundle" || exit 1
+            if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+              tar -tzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz" >/dev/null || exit 1
+            fi
+
+            echo "--- 3. Fetching and resetting repository to origin/main ---"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "--- 4. Installing dependencies, running lint + automated tests, and building project ---"
+            # npm ci installs exactly what package-lock.json pins; npm install could drift
+            npm ci --no-audit --no-fund
+
+            if ! npm run lint; then
+              echo "CRITICAL: TypeScript lint (npm run lint) failed! Initiating automatic rollback..."
+              PREV_COMMIT=$(cat "$BACKUP_DIR/version.meta")
+              git reset --hard "$PREV_COMMIT"
+              if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+                tar -xzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+              fi
+              echo "Rollback completed due to lint failure."
+              exit 1
+            fi
+
+            if ! npm test; then
+              echo "CRITICAL: Automated strategy verification suite (npm test) failed! Initiating automatic rollback..."
+              PREV_COMMIT=$(cat "$BACKUP_DIR/version.meta")
+              git reset --hard "$PREV_COMMIT"
+              if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+                tar -xzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+              fi
+              echo "Rollback completed due to test failure."
+              exit 1
+            fi
+
+            if ! NODE_OPTIONS="--max-old-space-size=768" npm run build; then
+              echo "CRITICAL: Build failed! Initiating automatic rollback to previous version..."
+              PREV_COMMIT=$(cat "$BACKUP_DIR/version.meta")
+              git reset --hard "$PREV_COMMIT"
+              if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+                tar -xzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+              fi
+              echo "Rollback completed due to build failure."
+              exit 1
+            fi
+
+            echo "--- 5. Restarting systemd service ---"
+            sudo systemctl restart autotrade-v5.service || sudo -n systemctl restart autotrade-v5.service
+
+            echo "--- 6. Verifying service status and health endpoint ---"
+            # Poll instead of a single fixed sleep: a slow boot must never trigger
+            # a rollback (and a double restart) on an otherwise healthy service.
+            HEALTH_URL="http://localhost:3000/api/health"
+            MAX_ATTEMPTS=10
+            RETRY_DELAY=3
+            HTTP_STATUS="000"
+            HEALTH_BODY=""
+
+            for i in $(seq 1 "$MAX_ATTEMPTS"); do
+              if systemctl is-active --quiet autotrade-v5.service; then
+                HTTP_STATUS=$(curl -s -o /tmp/tb5_health.json -w "%{http_code}" "$HEALTH_URL" || echo "000")
+                if [ "$HTTP_STATUS" -eq 200 ]; then
+                  HEALTH_BODY=$(cat /tmp/tb5_health.json 2>/dev/null || echo "")
+                  echo "health: 200 OK (attempt $i/$MAX_ATTEMPTS) -> $HEALTH_BODY"
+                  break
+                fi
+                echo "health: HTTP $HTTP_STATUS (attempt $i/$MAX_ATTEMPTS), retrying in ${RETRY_DELAY}s..."
+              else
+                echo "service: not active yet (attempt $i/$MAX_ATTEMPTS), retrying in ${RETRY_DELAY}s..."
+              fi
+              sleep "$RETRY_DELAY"
+            done
+
+            if ! systemctl is-active --quiet autotrade-v5.service; then
+              echo "CRITICAL: Service failed to start after restart. Initiating automatic rollback..."
+              PREV_COMMIT=$(cat "$BACKUP_DIR/version.meta")
+              git reset --hard "$PREV_COMMIT"
+              if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+                tar -xzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+              fi
+              sudo systemctl restart autotrade-v5.service || true
+              echo "Rollback completed due to service failure."
+              exit 1
+            fi
+
+            # Guard against an empty value from the polling loop above.
+            HTTP_STATUS="${HTTP_STATUS:-000}"
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              DEPLOYED_COMMIT=$(git rev-parse --short HEAD)
+              echo "SUCCESS: Deployment completed and verified successfully! Deployed commit: $DEPLOYED_COMMIT. /api/health returned 200 OK: $HEALTH_BODY"
+            else
+              echo "CRITICAL: Health check failed (HTTP $HTTP_STATUS). Initiating automatic rollback..."
+              PREV_COMMIT=$(cat "$BACKUP_DIR/version.meta")
+              git reset --hard "$PREV_COMMIT"
+              if [ -f "$BACKUP_DIR/autotrade-dist-backup.tar.gz" ]; then
+                tar -xzf "$BACKUP_DIR/autotrade-dist-backup.tar.gz"
+              fi
+              sudo systemctl restart autotrade-v5.service || true
+              echo "Rollback completed due to health check failure."
+              exit 1
+            fi

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" class="h-full bg-black">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TradeBot 5 - Neutral Grid Bot</title>
+    <meta name="description" content="An autonomous OCI trading system and Bloomberg-grade terminal for creating and managing OKX Futures Grid Neutral bots with strict risk management." />
+    <meta property="og:title" content="TradeBot 5 - Neutral Grid Bot" />
+    <meta property="og:description" content="An autonomous OCI trading system and Bloomberg-grade terminal for creating and managing OKX Futures Grid Neutral bots with strict risk management." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      // Shield against opaque cross-origin script errors (e.g. from third-party widgets)
+      window.addEventListener('error', function(event) {
+        if (!event || event.message === 'Script error.' || (typeof event.message === 'string' && event.message.includes('Script error'))) {
+          if (event.preventDefault) event.preventDefault();
+          if (event.stopPropagation) event.stopPropagation();
+          return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event && event.reason && typeof event.reason === 'string' && event.reason.includes('Script error')) {
+          if (event.preventDefault) event.preventDefault();
+          return true;
+        }
+      });
+      window.onerror = function(msg) {
+        if (msg === 'Script error.' || (typeof msg === 'string' && msg.includes('Script error'))) {
+          return true;
+        }
+      };
+    </script>
+  </head>
+  <body class="h-full w-full bg-black text-amber-500 m-0 p-0 overflow-x-hidden">
+    <div id="root" class="h-full w-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
