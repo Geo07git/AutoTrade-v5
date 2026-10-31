@@ -118,20 +118,19 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   const [isSavingThresholds, setIsSavingThresholds] = useState<boolean>(false);
   const [analyzerThresholds, setAnalyzerThresholds] = useState<GridAnalyzerThresholds>({
     adxMonitorThreshold: gridAnalyzer?.thresholds?.adxMonitorThreshold ?? 25,
-    adxConsecutiveForMonitor: gridAnalyzer?.thresholds?.adxConsecutiveForMonitor ?? 2,
+    adxMonitorConsecutiveCount: gridAnalyzer?.thresholds?.adxMonitorConsecutiveCount ?? 2,
     adxStopThreshold: gridAnalyzer?.thresholds?.adxStopThreshold ?? 30,
-    adxConsecutiveForStop: gridAnalyzer?.thresholds?.adxConsecutiveForStop ?? 2,
-    choppinessStopThreshold: gridAnalyzer?.thresholds?.choppinessStopThreshold ?? 38,
-    choppinessConsecutiveForStop: gridAnalyzer?.thresholds?.choppinessConsecutiveForStop ?? 2,
-    atrIncreaseMonitorPct: gridAnalyzer?.thresholds?.atrIncreaseMonitorPct ?? 50,
+    adxStopConsecutiveCount: gridAnalyzer?.thresholds?.adxStopConsecutiveCount ?? 2,
+    chopStopThreshold: gridAnalyzer?.thresholds?.chopStopThreshold ?? 38,
+    chopStopConsecutiveCount: gridAnalyzer?.thresholds?.chopStopConsecutiveCount ?? 2,
+    atrSpikeMonitorPct: gridAnalyzer?.thresholds?.atrSpikeMonitorPct ?? 50,
     rangeEdgeWarningPct: gridAnalyzer?.thresholds?.rangeEdgeWarningPct ?? 10,
-    drawdownWarningPct: gridAnalyzer?.thresholds?.drawdownWarningPct ?? 5,
-    drawdownStopPct: gridAnalyzer?.thresholds?.drawdownStopPct ?? 8,
-    minLiqDistanceSafetyPct: gridAnalyzer?.thresholds?.minLiqDistanceSafetyPct ?? 6,
-    minOrderBookDepthUSD: gridAnalyzer?.thresholds?.minOrderBookDepthUSD ?? 1500,
-    maxSpreadBpsWarning: gridAnalyzer?.thresholds?.maxSpreadBpsWarning ?? 35,
+    warningDrawdownPct: gridAnalyzer?.thresholds?.warningDrawdownPct ?? 5,
+    stopDrawdownPct: gridAnalyzer?.thresholds?.stopDrawdownPct ?? 8,
+    minLiqSafetyPct: gridAnalyzer?.thresholds?.minLiqSafetyPct ?? 4.0,
+    requireMultiIndicatorForTrendStop:
+      gridAnalyzer?.thresholds?.requireMultiIndicatorForTrendStop ?? true,
     emergencyClosePosition: gridAnalyzer?.thresholds?.emergencyClosePosition ?? true,
-    defaultStopType: gridAnalyzer?.thresholds?.defaultStopType ?? '1',
   });
 
   const hasHydratedAutopilot = useRef<boolean>(false);
@@ -742,23 +741,25 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-black border ${
-                      gridAnalyzer?.okxReconciliationStatus === 'SYNCED'
+                      gridAnalyzer?.reconciliationStatus === 'SYNCED'
                         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
-                        : gridAnalyzer?.okxReconciliationStatus === 'RECONCILING'
+                        : gridAnalyzer?.reconciliationStatus === 'RECONCILING'
                         ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
                         : 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
                     }`}
                   >
-                    RECONCILIERE OKX: {gridAnalyzer?.okxReconciliationStatus || 'SYNCED'}
+                    RECONCILIERE OKX: {gridAnalyzer?.reconciliationStatus || 'SYNCED'}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      gridAnalyzer?.okxConnected !== false
+                      gridAnalyzer?.okxConnectionOk !== false
                         ? 'bg-zinc-900 text-emerald-400 border border-emerald-500/30'
                         : 'bg-rose-950 text-rose-300 border border-rose-500/40'
                     }`}
                   >
-                    {gridAnalyzer?.okxConnected !== false ? '● API OKX ONLINE' : '○ API OKX DEGRADAT'}
+                    {gridAnalyzer?.okxConnectionOk !== false
+                      ? '● API OKX ONLINE'
+                      : '○ API OKX DEGRADAT'}
                   </span>
                 </div>
                 <p className="text-[10px] text-zinc-400 mt-0.5">
@@ -828,7 +829,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 }`}
               >
                 <ShieldAlert className="w-3 h-3" />
-                <span>Jurnal Opriri ({gridAnalyzer?.recentStopEvents?.length || 0})</span>
+                <span>Jurnal Opriri ({gridAnalyzer?.stopEvents?.length || 0})</span>
               </button>
             </div>
           </div>
@@ -842,9 +843,13 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   {gridAnalyzer?.monitoredBotsCount ?? bots.length} total
                 </span>
                 <span className="text-[10px] text-emerald-400 font-bold tabular-nums">
-                  {gridAnalyzer?.activeBotsCount ?? bots.filter((b) => b.state === 'running').length} activi /{' '}
+                  {gridAnalyzer?.activeNativeBotsCount ??
+                    bots.filter((b) => b.state === 'running').length}{' '}
+                  activi /{' '}
                   <span className="text-zinc-400">
-                    {gridAnalyzer?.stoppedBotsCount ?? bots.filter((b) => b.state !== 'running').length} opriți
+                    {gridAnalyzer?.stoppedNativeBotsCount ??
+                      bots.filter((b) => b.state !== 'running').length}{' '}
+                    opriți
                   </span>
                 </span>
               </div>
@@ -872,7 +877,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           : 'bg-rose-600 text-white'
                       }`}
                     >
-                      {s.instId.split('-')[0]}: {s.decision}
+                      {(s.instId || '').split('-')[0]}: {s.decision}
                     </span>
                   ));
                 })()}
@@ -884,26 +889,29 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               <div className="flex items-baseline justify-between mt-0.5">
                 <span
                   className={`font-black text-sm tabular-nums ${
-                    (gridAnalyzer?.totalPnlAllMonitoredUSDT ??
-                      bots.reduce((s, b) => s + b.totalPnl, 0)) >= 0
+                    Number(
+                      gridAnalyzer?.totalPnlUSDT ??
+                        bots.reduce((s, b) => s + Number(b.totalPnl || 0), 0)
+                    ) >= 0
                       ? 'text-emerald-400'
                       : 'text-rose-400'
                   }`}
                 >
-                  {(gridAnalyzer?.totalPnlAllMonitoredUSDT ??
-                    bots.reduce((s, b) => s + b.totalPnl, 0)) >= 0
+                  {Number(
+                    gridAnalyzer?.totalPnlUSDT ??
+                      bots.reduce((s, b) => s + Number(b.totalPnl || 0), 0)
+                  ) >= 0
                     ? '+'
                     : ''}
                   $
-                  {(
-                    gridAnalyzer?.totalPnlAllMonitoredUSDT ??
-                    bots.reduce((s, b) => s + b.totalPnl, 0)
+                  {Number(
+                    gridAnalyzer?.totalPnlUSDT ??
+                      bots.reduce((s, b) => s + Number(b.totalPnl || 0), 0)
                   ).toFixed(2)}
                 </span>
                 <span
                   className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
-                    gridAnalyzer?.overallRiskLevel === 'EMERGENCY' ||
-                    gridAnalyzer?.overallRiskLevel === 'HIGH'
+                    gridAnalyzer?.overallRiskLevel === 'CRITICAL'
                       ? 'bg-rose-600 text-white'
                       : gridAnalyzer?.overallRiskLevel === 'WARNING'
                       ? 'bg-amber-500/20 text-amber-300'
@@ -921,13 +929,17 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               <span className="text-[10px] text-zinc-500 block">4. MOTIVUL ULTIMEI OPRIRI</span>
               <div
                 className="text-[10px] font-bold text-amber-300 truncate mt-0.5"
-                title={gridAnalyzer?.lastStopReason || 'Nicio oprire autonomă declanșată'}
+                title={
+                  gridAnalyzer?.stopEvents?.[0]?.exactStopReason ||
+                  'Nicio oprire autonomă declanșată'
+                }
               >
-                {gridAnalyzer?.lastStopReason || 'Nicio oprire autonomă declanșată'}
+                {gridAnalyzer?.stopEvents?.[0]?.exactStopReason ||
+                  'Nicio oprire autonomă declanșată'}
               </div>
-              {gridAnalyzer?.lastStopTimestamp && (
+              {gridAnalyzer?.stopEvents?.[0]?.timestamp && (
                 <span className="text-[9px] text-zinc-500 block">
-                  {new Date(gridAnalyzer.lastStopTimestamp).toLocaleTimeString()}
+                  {new Date(gridAnalyzer.stopEvents[0].timestamp).toLocaleTimeString()}
                 </span>
               )}
             </div>
@@ -935,14 +947,14 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <div className="bg-zinc-950 border border-zinc-800 rounded p-2">
               <span className="text-[10px] text-zinc-500 block">5. SINCRONIZARE &amp; VERIFICARE</span>
               <div className="text-[11px] font-bold text-cyan-300 mt-0.5">
-                {gridAnalyzer?.okxReconciliationStatus === 'SYNCED'
+                {gridAnalyzer?.reconciliationStatus === 'SYNCED'
                   ? '✓ Reconciliat cu OKX EEA'
-                  : `⚠ Stare: ${gridAnalyzer?.okxReconciliationStatus}`}
+                  : `⚠ Stare: ${gridAnalyzer?.reconciliationStatus || 'SYNCED'}`}
               </div>
               <span className="text-[9px] text-zinc-500 block">
-                Ultima analiză:{' '}
-                {gridAnalyzer?.lastEvaluationTimestamp
-                  ? new Date(gridAnalyzer.lastEvaluationTimestamp).toLocaleTimeString()
+                Ultima reconciliere:{' '}
+                {gridAnalyzer?.lastReconcileAt
+                  ? new Date(gridAnalyzer.lastReconcileAt).toLocaleTimeString()
                   : 'În curs...'}
               </span>
             </div>
@@ -1030,11 +1042,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <input
                     type="number"
                     step="1"
-                    value={analyzerThresholds.choppinessStopThreshold}
+                    value={analyzerThresholds.chopStopThreshold}
                     onChange={(e) =>
                       setAnalyzerThresholds({
                         ...analyzerThresholds,
-                        choppinessStopThreshold: parseFloat(e.target.value) || 38,
+                        chopStopThreshold: parseFloat(e.target.value) || 38,
                       })
                     }
                     className="w-full bg-zinc-900 border border-rose-500/40 rounded px-2 py-1 text-rose-300 font-bold mt-0.5"
@@ -1045,11 +1057,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <input
                     type="number"
                     step="5"
-                    value={analyzerThresholds.atrIncreaseMonitorPct}
+                    value={analyzerThresholds.atrSpikeMonitorPct}
                     onChange={(e) =>
                       setAnalyzerThresholds({
                         ...analyzerThresholds,
-                        atrIncreaseMonitorPct: parseFloat(e.target.value) || 50,
+                        atrSpikeMonitorPct: parseFloat(e.target.value) || 50,
                       })
                     }
                     className="w-full bg-zinc-900 border border-cyan-500/40 rounded px-2 py-1 text-cyan-300 font-bold mt-0.5"
@@ -1075,11 +1087,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <input
                     type="number"
                     step="0.5"
-                    value={analyzerThresholds.drawdownWarningPct}
+                    value={analyzerThresholds.warningDrawdownPct}
                     onChange={(e) =>
                       setAnalyzerThresholds({
                         ...analyzerThresholds,
-                        drawdownWarningPct: parseFloat(e.target.value) || 5,
+                        warningDrawdownPct: parseFloat(e.target.value) || 5,
                       })
                     }
                     className="w-full bg-zinc-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold mt-0.5"
@@ -1090,11 +1102,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <input
                     type="number"
                     step="0.5"
-                    value={analyzerThresholds.drawdownStopPct}
+                    value={analyzerThresholds.stopDrawdownPct}
                     onChange={(e) =>
                       setAnalyzerThresholds({
                         ...analyzerThresholds,
-                        drawdownStopPct: parseFloat(e.target.value) || 8,
+                        stopDrawdownPct: parseFloat(e.target.value) || 8,
                       })
                     }
                     className="w-full bg-zinc-900 border border-rose-500/40 rounded px-2 py-1 text-rose-300 font-bold mt-0.5"
@@ -1105,11 +1117,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <input
                     type="number"
                     step="0.5"
-                    value={analyzerThresholds.minLiqDistanceSafetyPct}
+                    value={analyzerThresholds.minLiqSafetyPct}
                     onChange={(e) =>
                       setAnalyzerThresholds({
                         ...analyzerThresholds,
-                        minLiqDistanceSafetyPct: parseFloat(e.target.value) || 6,
+                        minLiqSafetyPct: parseFloat(e.target.value) || 4,
                       })
                     }
                     className="w-full bg-zinc-900 border border-rose-500/40 rounded px-2 py-1 text-rose-300 font-bold mt-0.5"
@@ -1127,11 +1139,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   JURNAL OBLIGATORIU EXCLUSIV LA OPRIRE / ÎNCHIDERE / EROARE OPERAȚIONALĂ (SECȚIUNEA 7)
                 </h4>
                 <span className="text-[10px] text-zinc-400">
-                  .data/grid_analyzer_stops.json ({gridAnalyzer?.recentStopEvents?.length || 0} evenimente)
+                  .data/grid_analyzer_events.json ({gridAnalyzer?.stopEvents?.length || 0} evenimente)
                 </span>
               </div>
 
-              {!gridAnalyzer?.recentStopEvents || gridAnalyzer.recentStopEvents.length === 0 ? (
+              {!gridAnalyzer?.stopEvents || gridAnalyzer.stopEvents.length === 0 ? (
                 <div className="text-center py-4 text-xs text-zinc-400">
                   Niciun eveniment STOP / EMERGENCY înregistrat. Analizele normale (CONTINUE, MONITOR, WARNING) rulează exclusiv în memorie conform Secțiunii 7.
                 </div>
@@ -1151,8 +1163,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900">
-                      {gridAnalyzer.recentStopEvents.map((ev) => (
-                        <tr key={ev.id} className="hover:bg-zinc-900/60">
+                      {gridAnalyzer.stopEvents.map((ev) => (
+                        <tr key={ev.idempotencyKey} className="hover:bg-zinc-900/60">
                           <td className="py-1.5 px-2 tabular-nums text-zinc-300">
                             {new Date(ev.timestamp).toLocaleString()}
                           </td>
@@ -1163,42 +1175,50 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           <td className="py-1.5 px-2">
                             <span
                               className={`px-1.5 py-0.5 rounded font-black ${
-                                ev.decisionExecuted === 'EMERGENCY'
+                                ev.executedDecision === 'EMERGENCY'
                                   ? 'bg-rose-600 text-white'
-                                  : ev.decisionExecuted === 'STOP'
+                                  : ev.executedDecision === 'STOP'
                                   ? 'bg-amber-500 text-black'
                                   : 'bg-zinc-800 text-rose-300'
                               }`}
                             >
-                              {ev.decisionExecuted} (stopType={ev.stopType})
+                              {ev.executedDecision} (stopType={ev.stopType})
                             </span>
                           </td>
-                          <td className="py-1.5 px-2 text-rose-300 max-w-xs">{ev.exactReason}</td>
+                          <td className="py-1.5 px-2 text-rose-300 max-w-xs">
+                            {ev.exactStopReason}
+                          </td>
                           <td className="py-1.5 px-2 tabular-nums text-zinc-300">
-                            ADX: {ev.triggeringMarketIndicators.adx.toFixed(1)} | Chop:{' '}
-                            {ev.triggeringMarketIndicators.choppiness.toFixed(1)} | ATR Δ:{' '}
-                            {ev.triggeringMarketIndicators.atrChangePct.toFixed(1)}%
+                            ADX: {Number(ev.triggeringIndicators?.adx || 0).toFixed(1)} | Chop:{' '}
+                            {Number(ev.triggeringIndicators?.choppinessIndex || 0).toFixed(1)} | ATR
+                            Δ: {Number(ev.triggeringIndicators?.atrChangePct || 0).toFixed(1)}%
                           </td>
                           <td className="py-1.5 px-2 tabular-nums">
-                            G: ${ev.pnlSummary.gridPnlUSDT.toFixed(2)} | F: $
-                            {ev.pnlSummary.floatPnlUSDT.toFixed(2)} | T: $
-                            {ev.pnlSummary.totalPnlUSDT.toFixed(2)}
+                            G: ${Number(ev.pnlBreakdown?.gridProfitUSDT || 0).toFixed(2)} | F: $
+                            {Number(ev.pnlBreakdown?.floatProfitUSDT || 0).toFixed(2)} | T: $
+                            {Number(ev.pnlBreakdown?.totalPnlUSDT || 0).toFixed(2)}
                           </td>
                           <td className="py-1.5 px-2 tabular-nums text-rose-300">
-                            DD: {ev.riskAtStop.drawdownPct.toFixed(2)}% | Liq:{' '}
-                            {ev.riskAtStop.distanceToLiqPct !== null
-                              ? `${ev.riskAtStop.distanceToLiqPct.toFixed(1)}%`
+                            DD: {Number(ev.riskMetrics?.drawdownPct || 0).toFixed(2)}% | Liq:{' '}
+                            {ev.riskMetrics?.distToLiqPct !== undefined
+                              ? `${Number(ev.riskMetrics.distToLiqPct).toFixed(1)}%`
                               : 'N/A'}
                           </td>
                           <td className="py-1.5 px-2">
                             <div
                               className={
-                                ev.okxFinalStateConfirmed ? 'text-emerald-400 font-bold' : 'text-amber-300'
+                                ev.okxFinalStateConfirmed
+                                  ? 'text-emerald-400 font-bold'
+                                  : 'text-amber-300'
                               }
                             >
-                              {ev.okxFinalStateSummary}
+                              {ev.okxFinalStateConfirmed
+                                ? `✓ Confirmat (${ev.okxConfirmedState})`
+                                : `⚠ ${ev.okxConfirmedState}`}
                             </div>
-                            <div className="text-zinc-400">{ev.positionCloseResult}</div>
+                            <div className="text-zinc-400">
+                              Close Pos: {ev.closePositionResult}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1897,10 +1917,17 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                         </div>
                         {snap && (
                           <div className="text-[9px] text-zinc-400 mt-0.5 tabular-nums">
-                            ADX: <strong className="text-white">{snap.market.adx.toFixed(1)}</strong> | Chop:{' '}
-                            <strong className="text-white">{snap.market.choppiness.toFixed(1)}</strong> | Edge:{' '}
+                            ADX:{' '}
+                            <strong className="text-white">
+                              {Number(snap.market?.adx || 0).toFixed(1)}
+                            </strong>{' '}
+                            | Chop:{' '}
+                            <strong className="text-white">
+                              {Number(snap.market?.choppinessIndex || 0).toFixed(1)}
+                            </strong>{' '}
+                            | Edge:{' '}
                             <strong className="text-amber-300">
-                              {snap.risk.distanceToClosestEdgePct.toFixed(1)}%
+                              {Number(snap.risk?.minDistToEdgePct || 0).toFixed(1)}%
                             </strong>
                           </div>
                         )}
@@ -1918,12 +1945,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           ${formatPrice(b.minPx)} – ${formatPrice(b.maxPx)}
                         </div>
                         <div className="text-[10px] text-zinc-400">
-                          {b.gridNum} grile ({b.runType === '1' ? 'Aritm' : 'Geom'}) • Arb: {b.arbitrageNum}
+                          {b.gridNum} grile ({b.runType === '1' ? 'Aritm' : 'Geom'}) • Arb: {b.arbitrageNum ?? 0}
                         </div>
                       </td>
                       <td className="py-2 px-2 tabular-nums">
-                        <div className="font-bold text-amber-300">${b.sz.toFixed(2)}</div>
-                        <div className="text-[10px] text-zinc-400">{b.lever}x NEUTRAL</div>
+                        <div className="font-bold text-amber-300">${Number(b.sz || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-zinc-400">{b.lever || 1}x NEUTRAL</div>
                       </td>
                       <td className="py-2 px-2 tabular-nums">
                         <div className="font-bold text-white">${formatPrice(b.currentPx)}</div>
@@ -1933,27 +1960,27 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       </td>
                       <td className="py-2 px-2 tabular-nums">
                         <div className="text-emerald-400">
-                          Grid: {b.gridProfit >= 0 ? '+' : ''}${b.gridProfit.toFixed(3)}
+                          Grid: {Number(b.gridProfit || 0) >= 0 ? '+' : ''}${Number(b.gridProfit || 0).toFixed(3)}
                         </div>
                         <div className="text-zinc-400 text-[10px]">
-                          Float: {b.floatProfit >= 0 ? '+' : ''}${b.floatProfit.toFixed(3)}
+                          Float: {Number(b.floatProfit || 0) >= 0 ? '+' : ''}${Number(b.floatProfit || 0).toFixed(3)}
                         </div>
                       </td>
                       <td className="py-2 px-2 tabular-nums">
                         <div
                           className={`font-black ${
-                            b.totalPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            Number(b.totalPnl || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                           }`}
                         >
-                          {b.totalPnl >= 0 ? '+' : ''}${b.totalPnl.toFixed(3)}
+                          {Number(b.totalPnl || 0) >= 0 ? '+' : ''}${Number(b.totalPnl || 0).toFixed(3)}
                         </div>
                         <div
                           className={`text-[10px] ${
-                            b.totalPnlPct >= 0 ? 'text-emerald-300' : 'text-rose-300'
+                            Number(b.totalPnlPct || 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'
                           }`}
                         >
-                          ({b.totalPnlPct >= 0 ? '+' : ''}
-                          {b.totalPnlPct.toFixed(2)}%)
+                          ({Number(b.totalPnlPct || 0) >= 0 ? '+' : ''}
+                          {Number(b.totalPnlPct || 0).toFixed(2)}%)
                         </div>
                       </td>
                       <td className="py-2 px-2 tabular-nums text-[10px]">
