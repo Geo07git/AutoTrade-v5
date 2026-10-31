@@ -16,3 +16,9 @@ coverage/
 *.tar.gz
 public/*.zip
 .aistudio/
+# Never commit compiled binaries / installers (desktop releases live only in release/, untracked)
+*.exe
+*.msi
+*.dll
+*.blockmap
+win-unpacked/
