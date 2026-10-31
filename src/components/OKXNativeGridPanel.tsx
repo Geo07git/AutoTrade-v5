@@ -116,6 +116,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   // TB5 GridBotAnalyzer & Autonomous Supervisor state
   const [showAnalyzerThresholds, setShowAnalyzerThresholds] = useState<boolean>(false);
   const [showAnalyzerStopLog, setShowAnalyzerStopLog] = useState<boolean>(false);
+  const [showStagnationAnalyzer, setShowStagnationAnalyzer] = useState<boolean>(false);
   const [isEvaluatingAnalyzer, setIsEvaluatingAnalyzer] = useState<boolean>(false);
   const [isSavingThresholds, setIsSavingThresholds] = useState<boolean>(false);
   const [analyzerThresholds, setAnalyzerThresholds] = useState<GridAnalyzerThresholds>({
@@ -828,6 +829,22 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
 
               <button
                 type="button"
+                onClick={() => setShowStagnationAnalyzer(!showStagnationAnalyzer)}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer border flex items-center space-x-1 ${
+                  showStagnationAnalyzer
+                    ? 'bg-cyan-400 text-black border-cyan-200'
+                    : 'bg-zinc-900 text-cyan-300 border-cyan-500/40 hover:bg-zinc-800'
+                }`}
+              >
+                <Activity className="w-3 h-3" />
+                <span>
+                  {showStagnationAnalyzer ? '▲ Stagnare' : '▼ Stagnare'} (
+                  {gridAnalyzer?.botSnapshots?.length || 0})
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowAnalyzerThresholds(!showAnalyzerThresholds)}
                 className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer border flex items-center space-x-1 ${
                   showAnalyzerThresholds
@@ -1296,34 +1313,19 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             </div>
           )}
 
-          {/* Stagnation & Capital Productivity Live Monitor Table */}
+          {/* Compact & Collapsible Stagnation & Capital Productivity Live Monitor */}
           {gridAnalyzer?.botSnapshots && gridAnalyzer.botSnapshots.length > 0 && (
-            <div className="bg-zinc-950 border border-cyan-500/30 rounded p-2.5 space-y-1.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-1">
-                <span className="text-[10px] font-black text-cyan-300">
-                  STAGNATION &amp; CAPITAL PRODUCTIVITY ANALYZER (REEVALUARE 15M • SEPARAT DE FLOATING PNL &amp; RISC DIRECȚIONAL)
-                </span>
-                <span className="text-[9px] text-zinc-400">
-                  30m fără fill → MONITOR • 60m fără fill &amp; progres → WARNING • 120m → Reevaluare Oportunitate • 180m fără perspectivă → STOP
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-[10px]">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-zinc-400">
-                      <th className="py-1 px-2">Bot / Status</th>
-                      <th className="py-1 px-2">Nivel Stagnare</th>
-                      <th className="py-1 px-2">Minute fără Fill</th>
-                      <th className="py-1 px-2">Ultima Închidere Grid</th>
-                      <th className="py-1 px-2">Execuții (30m / 60m / 120m)</th>
-                      <th className="py-1 px-2">PnL Realizat &amp; Net (după Fee/Fund)</th>
-                      <th className="py-1 px-2">Evoluție PnL Realizat (Δ30m / Δ60m / Δ120m)</th>
-                      <th className="py-1 px-2">Oscilație vs Pas Grilă</th>
-                      <th className="py-1 px-2">Capital Blocat / Verdict Oportunitate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-900">
-                    {gridAnalyzer.botSnapshots.map((s) => {
+            <div className="bg-zinc-950 border border-cyan-500/30 rounded px-2.5 py-1.5 space-y-1.5">
+              <div
+                onClick={() => setShowStagnationAnalyzer(!showStagnationAnalyzer)}
+                className="flex flex-wrap items-center justify-between gap-2 cursor-pointer select-none"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black text-cyan-300">
+                    STAGNATION &amp; CAPITAL PRODUCTIVITY ANALYZER (REEVALUARE 15M • SEPARAT DE FLOATING PNL &amp; RISC DIRECȚIONAL)
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {gridAnalyzer.botSnapshots.slice(0, 6).map((s) => {
                       const st = s.stagnation;
                       const levelBadge =
                         st?.level === 'STOP_180M' || st?.level === 'EARLY_STOP_MARKET'
@@ -1334,122 +1336,183 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                           : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
                       return (
-                        <tr key={s.algoId} className="hover:bg-zinc-900/60 tabular-nums">
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <span className="font-bold text-white">{s.instId}</span>{' '}
-                            <span className="text-[9px] text-zinc-400">({s.state})</span>
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <span className={`px-1.5 py-0.5 rounded font-black text-[9px] ${levelBadge}`}>
-                              {st?.level || 'ACTIVE'}
-                            </span>
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <span
-                              className={`font-bold ${
-                                Number(st?.minutesSinceLastFill || 0) >=
-                                (analyzerThresholds.stagnationWarningNoFillMinutes ?? 60)
-                                  ? 'text-amber-300'
-                                  : 'text-zinc-200'
-                              }`}
-                            >
-                              {Number(st?.minutesSinceLastFill || 0).toFixed(1)} min
-                            </span>
-                            {st?.lastFillAt ? (
-                              <span className="text-[9px] text-zinc-500 block">
-                                {new Date(st.lastFillAt).toLocaleTimeString()}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <span
-                              className={`font-bold ${
-                                Number(st?.minutesSinceLastGridClose || 0) >=
-                                (analyzerThresholds.stagnationReviewMinutes ?? 120)
-                                  ? 'text-rose-300'
-                                  : 'text-zinc-200'
-                              }`}
-                            >
-                              {Number(st?.minutesSinceLastGridClose || 0).toFixed(1)} min
-                            </span>
-                            {st?.lastGridCycleCloseAt ? (
-                              <span className="text-[9px] text-zinc-500 block">
-                                {new Date(st.lastGridCycleCloseAt).toLocaleTimeString()}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap text-zinc-200">
-                            <div>
-                              Fills: <strong>{st?.fillsCount30m ?? 0}</strong> /{' '}
-                              <strong>{st?.fillsCount60m ?? 0}</strong> /{' '}
-                              <strong>{st?.fillsCount120m ?? 0}</strong>
-                            </div>
-                            <div className="text-[9px] text-zinc-400">
-                              Cicluri Grid: {st?.gridCyclesCount30m ?? 0} / {st?.gridCyclesCount60m ?? 0} /{' '}
-                              {st?.gridCyclesCount120m ?? 0} • Ordine active: {st?.activeOrdersCount ?? 0}
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <div className="text-emerald-400 font-bold">
-                              Realizat: ${Number(st?.realizedPnlUSDT ?? s.performance.gridProfitUSDT ?? 0).toFixed(3)}
-                            </div>
-                            <div className="text-[9px] text-zinc-400">
-                              Net realizat: $
-                              {Number(
-                                st?.netRealizedProfitAfterCostsUSDT ??
-                                  s.performance.netProfitAfterCostsUSDT ??
-                                  0
-                              ).toFixed(3)}{' '}
-                              | Float: ${Number(st?.floatPnlUSDT ?? s.performance.floatProfitUSDT ?? 0).toFixed(3)}
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <div className="text-zinc-200">
-                              Δ30m: ${Number(st?.realizedPnlDelta30mUSDT || 0).toFixed(4)} | Δ60m: $
-                              {Number(st?.realizedPnlDelta60mUSDT || 0).toFixed(4)}
-                            </div>
-                            <div className="text-[9px] text-zinc-400">
-                              Δ120m: ${Number(st?.realizedPnlDelta120mUSDT || 0).toFixed(4)} | Float Δ60m: $
-                              {Number(st?.floatPnlDelta60mUSDT || 0).toFixed(4)}
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 whitespace-nowrap">
-                            <div
-                              className={`font-bold ${
-                                Number(st?.oscillationToGridStepRatio ?? 1) <
-                                (analyzerThresholds.minOscillationToGridStepRatio ?? 0.85)
-                                  ? 'text-amber-300'
-                                  : 'text-emerald-300'
-                              }`}
-                            >
-                              {Number(st?.oscillationToGridStepRatio ?? 1).toFixed(2)}x pas (
-                              {Number(st?.priceOscillationAmplitude60mPct || 0).toFixed(2)}% /{' '}
-                              {Number(st?.gridStepPct || 0).toFixed(2)}%)
-                            </div>
-                            <div className="text-[9px] text-zinc-400">
-                              Perspectivă: <strong>{st?.recoveryProspect || 'HIGH'}</strong> • Dist. ordin:{' '}
-                              {Number(st?.nearestOrderDistancePct || 0).toFixed(2)}%
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-2 max-w-xs">
-                            <div className="text-amber-300 font-bold">
-                              ${Number(st?.lockedCapitalUSDT ?? s.risk.marginUsedUSDT ?? 0).toFixed(2)} blocat •
-                              Rulaj 120m: {Number(st?.capitalTurnover120mRatio || 0).toFixed(2)}x (Scor{' '}
-                              {st?.capitalEfficiencyScore ?? 70}/100)
-                            </div>
-                            <div
-                              className="text-[9px] text-zinc-300 truncate"
-                              title={st?.continueOpportunityVerdict}
-                            >
-                              {st?.continueOpportunityVerdict || 'Activitate normală'}
-                            </div>
-                          </td>
-                        </tr>
+                        <span
+                          key={s.algoId}
+                          className={`px-1.5 py-0.5 rounded font-bold text-[9px] tabular-nums ${levelBadge}`}
+                          title={`${s.instId}: ${st?.level || 'ACTIVE'} • ${Number(st?.minutesSinceLastFill || 0).toFixed(1)}m fără fill`}
+                        >
+                          {(s.instId || '').split('-')[0]}: {st?.level || 'ACTIVE'} (
+                          {Number(st?.minutesSinceLastFill || 0).toFixed(0)}m)
+                        </span>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] text-zinc-400 hidden xl:inline">
+                    30m → MONITOR • 60m → WARNING • 120m → Reevaluare • 180m → STOP
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowStagnationAnalyzer(!showStagnationAnalyzer);
+                    }}
+                    className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-cyan-500/40 text-cyan-300 font-black text-[10px] cursor-pointer"
+                  >
+                    {showStagnationAnalyzer
+                      ? '▲ Restrânge Tabel Stagnare'
+                      : `▼ Extinde Tabel Stagnare (${gridAnalyzer.botSnapshots.length})`}
+                  </button>
+                </div>
               </div>
+
+              {showStagnationAnalyzer && (
+                <div className="overflow-x-auto border-t border-zinc-800 pt-1.5">
+                  <table className="w-full text-left border-collapse text-[10px]">
+                    <thead>
+                      <tr className="border-b border-zinc-800 text-zinc-400">
+                        <th className="py-1 px-2">Bot / Status</th>
+                        <th className="py-1 px-2">Nivel Stagnare</th>
+                        <th className="py-1 px-2">Minute fără Fill</th>
+                        <th className="py-1 px-2">Ultima Închidere Grid</th>
+                        <th className="py-1 px-2">Execuții (30m / 60m / 120m)</th>
+                        <th className="py-1 px-2">PnL Realizat &amp; Net (după Fee/Fund)</th>
+                        <th className="py-1 px-2">Evoluție PnL Realizat (Δ30m / Δ60m / Δ120m)</th>
+                        <th className="py-1 px-2">Oscilație vs Pas Grilă</th>
+                        <th className="py-1 px-2">Capital Blocat / Verdict Oportunitate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-900">
+                      {gridAnalyzer.botSnapshots.map((s) => {
+                        const st = s.stagnation;
+                        const levelBadge =
+                          st?.level === 'STOP_180M' || st?.level === 'EARLY_STOP_MARKET'
+                            ? 'bg-rose-600 text-white'
+                            : st?.level === 'REVIEW_120M' || st?.level === 'WARNING_60M'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : st?.level === 'MONITOR_30M'
+                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                        return (
+                          <tr key={s.algoId} className="hover:bg-zinc-900/60 tabular-nums">
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span className="font-bold text-white">{s.instId}</span>{' '}
+                              <span className="text-[9px] text-zinc-400">({s.state})</span>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span className={`px-1.5 py-0.5 rounded font-black text-[9px] ${levelBadge}`}>
+                                {st?.level || 'ACTIVE'}
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span
+                                className={`font-bold ${
+                                  Number(st?.minutesSinceLastFill || 0) >=
+                                  (analyzerThresholds.stagnationWarningNoFillMinutes ?? 60)
+                                    ? 'text-amber-300'
+                                    : 'text-zinc-200'
+                                }`}
+                              >
+                                {Number(st?.minutesSinceLastFill || 0).toFixed(1)} min
+                              </span>
+                              {st?.lastFillAt ? (
+                                <span className="text-[9px] text-zinc-500 block">
+                                  {new Date(st.lastFillAt).toLocaleTimeString()}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span
+                                className={`font-bold ${
+                                  Number(st?.minutesSinceLastGridClose || 0) >=
+                                  (analyzerThresholds.stagnationReviewMinutes ?? 120)
+                                    ? 'text-rose-300'
+                                    : 'text-zinc-200'
+                                }`}
+                              >
+                                {Number(st?.minutesSinceLastGridClose || 0).toFixed(1)} min
+                              </span>
+                              {st?.lastGridCycleCloseAt ? (
+                                <span className="text-[9px] text-zinc-500 block">
+                                  {new Date(st.lastGridCycleCloseAt).toLocaleTimeString()}
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap text-zinc-200">
+                              <div>
+                                Fills: <strong>{st?.fillsCount30m ?? 0}</strong> /{' '}
+                                <strong>{st?.fillsCount60m ?? 0}</strong> /{' '}
+                                <strong>{st?.fillsCount120m ?? 0}</strong>
+                              </div>
+                              <div className="text-[9px] text-zinc-400">
+                                Cicluri Grid: {st?.gridCyclesCount30m ?? 0} / {st?.gridCyclesCount60m ?? 0} /{' '}
+                                {st?.gridCyclesCount120m ?? 0} • Ordine active: {st?.activeOrdersCount ?? 0}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <div className="text-emerald-400 font-bold">
+                                Realizat: ${Number(st?.realizedPnlUSDT ?? s.performance.gridProfitUSDT ?? 0).toFixed(3)}
+                              </div>
+                              <div className="text-[9px] text-zinc-400">
+                                Net realizat: $
+                                {Number(
+                                  st?.netRealizedProfitAfterCostsUSDT ??
+                                    s.performance.netProfitAfterCostsUSDT ??
+                                    0
+                                ).toFixed(3)}{' '}
+                                | Float: ${Number(st?.floatPnlUSDT ?? s.performance.floatProfitUSDT ?? 0).toFixed(3)}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <div className="text-zinc-200">
+                                Δ30m: ${Number(st?.realizedPnlDelta30mUSDT || 0).toFixed(4)} | Δ60m: $
+                                {Number(st?.realizedPnlDelta60mUSDT || 0).toFixed(4)}
+                              </div>
+                              <div className="text-[9px] text-zinc-400">
+                                Δ120m: ${Number(st?.realizedPnlDelta120mUSDT || 0).toFixed(4)} | Float Δ60m: $
+                                {Number(st?.floatPnlDelta60mUSDT || 0).toFixed(4)}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <div
+                                className={`font-bold ${
+                                  Number(st?.oscillationToGridStepRatio ?? 1) <
+                                  (analyzerThresholds.minOscillationToGridStepRatio ?? 0.85)
+                                    ? 'text-amber-300'
+                                    : 'text-emerald-300'
+                                }`}
+                              >
+                                {Number(st?.oscillationToGridStepRatio ?? 1).toFixed(2)}x pas (
+                                {Number(st?.priceOscillationAmplitude60mPct || 0).toFixed(2)}% /{' '}
+                                {Number(st?.gridStepPct || 0).toFixed(2)}%)
+                              </div>
+                              <div className="text-[9px] text-zinc-400">
+                                Perspectivă: <strong>{st?.recoveryProspect || 'HIGH'}</strong> • Dist. ordin:{' '}
+                                {Number(st?.nearestOrderDistancePct || 0).toFixed(2)}%
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 max-w-xs">
+                              <div className="text-amber-300 font-bold">
+                                ${Number(st?.lockedCapitalUSDT ?? s.risk.marginUsedUSDT ?? 0).toFixed(2)} blocat •
+                                Rulaj 120m: {Number(st?.capitalTurnover120mRatio || 0).toFixed(2)}x (Scor{' '}
+                                {st?.capitalEfficiencyScore ?? 70}/100)
+                              </div>
+                              <div
+                                className="text-[9px] text-zinc-300 truncate"
+                                title={st?.continueOpportunityVerdict}
+                              >
+                                {st?.continueOpportunityVerdict || 'Activitate normală'}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
