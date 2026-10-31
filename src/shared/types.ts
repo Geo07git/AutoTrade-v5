@@ -459,6 +459,7 @@ export interface GridAnalyzerThresholds {
   chopStopConsecutiveCount: number;
   atrSpikeMonitorPct: number;
   rangeEdgeWarningPct: number;
+  rangeBreakoutBufferPct?: number;
   warningDrawdownPct: number;
   stopDrawdownPct: number;
   minLiqSafetyPct: number;
@@ -478,6 +479,7 @@ export interface GridBotAnalysisSnapshot {
   reconciliationState:
     | 'CONFIRMED_RUNNING'
     | 'CONFIRMED_STOPPED'
+    | 'STOP_PENDING_CONFIRMATION'
     | 'PENDING_CONFIRMATION'
     | 'CONTRADICTORY'
     | 'API_UNREACHABLE';
@@ -579,11 +581,24 @@ export interface GridAnalyzerStopEvent {
   };
   executedDecision: GridAnalyzerDecision;
   stopType: '1' | '2';
-  stopResult: 'SUCCESS' | 'FAILED' | 'PENDING_CONFIRMATION';
+  stopHttpStatus?: 'HTTP_SUCCESS' | 'FAILED';
+  stopResult:
+    | 'CONFIRMED_STOPPED'
+    | 'STOP_PENDING_CONFIRMATION'
+    | 'HTTP_SUCCESS'
+    | 'SUCCESS'
+    | 'PENDING_CONFIRMATION'
+    | 'FAILED';
   okxFinalStateConfirmed: boolean;
   okxConfirmedState: string;
   closePositionRequested: boolean;
-  closePositionResult: 'SUCCESS' | 'FAILED' | 'NOT_REQUESTED';
+  closePositionResult:
+    | 'CLOSE_POSITION_CONFIRMED'
+    | 'STOP_PENDING_CONFIRMATION'
+    | 'HTTP_SUCCESS'
+    | 'SUCCESS'
+    | 'FAILED'
+    | 'NOT_REQUESTED';
 }
 
 export interface GridAnalyzerStatusSummary {

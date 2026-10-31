@@ -22,6 +22,7 @@ export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   chopStopConsecutiveCount: 2,
   atrSpikeMonitorPct: 50,
   rangeEdgeWarningPct: 10,
+  rangeBreakoutBufferPct: 0.15,
   warningDrawdownPct: 5,
   stopDrawdownPct: 8,
   minLiqSafetyPct: 4.0,
@@ -77,8 +78,8 @@ export class GridBotMonitor {
         this.okxAdapter.getNativeContractGridBots('history', false),
       ]);
 
-      for (const item of [...pending, ...history.slice(0, 20)]) {
-        if (item?.algoId) {
+      for (const item of [...pending, ...history.slice(0, 30)]) {
+        if (item?.algoId && !remoteMap.has(String(item.algoId))) {
           remoteMap.set(String(item.algoId), item);
         }
       }
@@ -110,6 +111,10 @@ export class GridBotMonitor {
         bot.state = 'stopped';
         snapshot.state = 'stopped';
         snapshot.reconciliationState = 'CONFIRMED_STOPPED';
+      } else if (remState === 'stopping') {
+        bot.state = 'stopping';
+        snapshot.state = 'stopping';
+        snapshot.reconciliationState = 'STOP_PENDING_CONFIRMATION';
       } else {
         bot.state = 'running';
         snapshot.state = 'running';
@@ -214,9 +219,12 @@ export class GridBotMonitor {
  * 2. GridMarketAnalyzer
  * 5-minute cadence: Computes ADX & trend persistence, Choppiness Index, current ATR vs initial ATR,
  * price direction, 24h volume, spread (bps), Order Book depth/imbalance, and funding rate.
+ * Enforces a minimum 4.5-minute spacing between consecutive counter increments so manual or
+ * accelerated refreshes never double-count the same 15m candle as "2 consecutive evaluations".
  */
 export class GridMarketAnalyzer {
   private okxAdapter: OKXAdapter;
+  private lastConsecutiveIncrementAt: Map<string, number> = new Map();
 
   constructor(okxAdapter: OKXAdapter) {
     this.okxAdapter = okxAdapter;
@@ -228,6 +236,7 @@ export class GridMarketAnalyzer {
     thresholds: GridAnalyzerThresholds
   ): Promise<void> {
     try {
+      const now = Date.now();
       const [baseAnalysis, extras] = await Promise.all([
         NeutralGridAnalyzer.analyzeSymbol(bot.instId, this.okxAdapter),
         this.okxAdapter.fetchMarketIntelligenceExtras(bot.instId),
@@ -244,15 +253,30 @@ export class GridMarketAnalyzer {
         const initAtr = snapshot.market.initialAtrPct || curAtr || 1;
         const atrChangePct = parseFloat((((curAtr - initAtr) / initAtr) * 100).toFixed(2));
 
-        // Update consecutive counters in memory
-        const adxConsecutiveAboveMonitor =
-          adx > thresholds.adxMonitorThreshold
-            ? snapshot.market.adxConsecutiveAboveMonitor + 1
-            : 0;
-        const adxConsecutiveAboveStop =
-          adx > thresholds.adxStopThreshold ? snapshot.market.adxConsecutiveAboveStop + 1 : 0;
-        const chopConsecutiveBelowStop =
-          chop < thresholds.chopStopThreshold ? snapshot.market.chopConsecutiveBelowStop + 1 : 0;
+        // Only advance consecutive evaluation counters once per real 5-minute window (>= 270s)
+        const prevCountAt = this.lastConsecutiveIncrementAt.get(bot.algoId) || 0;
+        const canIncrementConsecutive = prevCountAt === 0 || now - prevCountAt >= 270_000;
+
+        let adxConsecutiveAboveMonitor = snapshot.market.adxConsecutiveAboveMonitor;
+        let adxConsecutiveAboveStop = snapshot.market.adxConsecutiveAboveStop;
+        let chopConsecutiveBelowStop = snapshot.market.chopConsecutiveBelowStop;
+
+        if (canIncrementConsecutive) {
+          this.lastConsecutiveIncrementAt.set(bot.algoId, now);
+          adxConsecutiveAboveMonitor =
+            adx > thresholds.adxMonitorThreshold
+              ? snapshot.market.adxConsecutiveAboveMonitor + 1
+              : 0;
+          adxConsecutiveAboveStop =
+            adx > thresholds.adxStopThreshold ? snapshot.market.adxConsecutiveAboveStop + 1 : 0;
+          chopConsecutiveBelowStop =
+            chop < thresholds.chopStopThreshold ? snapshot.market.chopConsecutiveBelowStop + 1 : 0;
+        } else {
+          // If an indicator recovers within the window, reset its consecutive counter immediately
+          if (adx <= thresholds.adxMonitorThreshold) adxConsecutiveAboveMonitor = 0;
+          if (adx <= thresholds.adxStopThreshold) adxConsecutiveAboveStop = 0;
+          if (chop >= thresholds.chopStopThreshold) chopConsecutiveBelowStop = 0;
+        }
 
         const priceDirection: 'UP' | 'DOWN' | 'NEUTRAL' =
           baseAnalysis.priceChange24hPct > 1.2
@@ -266,8 +290,8 @@ export class GridMarketAnalyzer {
           adxConsecutiveAboveMonitor,
           adxConsecutiveAboveStop,
           trendPersistent:
-            adxConsecutiveAboveStop >= thresholds.adxStopConsecutiveCount ||
-            (adx > thresholds.adxStopThreshold && chop < thresholds.chopStopThreshold),
+            adxConsecutiveAboveStop >= thresholds.adxStopConsecutiveCount &&
+            adx > thresholds.adxStopThreshold,
           choppinessIndex: chop,
           chopConsecutiveBelowStop,
           initialAtrPct: initAtr,
@@ -281,7 +305,7 @@ export class GridMarketAnalyzer {
           fundingRatePct: extras.fundingRatePct,
         };
       }
-      snapshot.cadence.lastMarket5mAt = Date.now();
+      snapshot.cadence.lastMarket5mAt = now;
     } catch {
       // Silent in-memory handling per Section 7 (no telemetry spam on periodic checks)
     }
@@ -291,8 +315,10 @@ export class GridMarketAnalyzer {
 /**
  * 3. GridDecisionEngine
  * Evaluates configurable rules from Section 4 without hardcoded magic numbers:
- * - Immediate evaluation of critical risks (Liquidation proximity, Max Drawdown Stop, Range Breakout)
- * - Multi-indicator requirement for non-critical trend stops
+ * - Immediate evaluation of critical risks (Liquidation proximity, Max Drawdown Stop, Confirmed Range Breakout)
+ * - Strict Multi-indicator requirement for non-critical trend stops:
+ *   Never stops a bot based on Choppiness < 38 alone when ADX is weak (< adxMonitorThreshold) and Drawdown is 0%!
+ *   Near-boundary price (< 10% to limit) with 0% drawdown is a WARNING, not a trend corroborator for STOP.
  */
 export class GridDecisionEngine {
   public evaluate(
@@ -330,20 +356,39 @@ export class GridDecisionEngine {
       };
     }
 
-    // 3. CRITICAL STOP: Range Breakout outside [minPx, maxPx] when stopOnRangeBreakout is active
-    if (
-      bot.stopOnRangeBreakout &&
-      bot.currentPx > 0 &&
-      (bot.currentPx < bot.minPx || bot.currentPx > bot.maxPx)
-    ) {
-      return {
-        decision: 'STOP',
-        reason: `Preț curent ($${bot.currentPx}) a ieșit din intervalul grilei [$${bot.minPx} – $${bot.maxPx}]`,
-        riskLevel: 'CRITICAL',
-      };
+    // 3. CRITICAL STOP: Confirmed Range Breakout outside [minPx, maxPx] (with anti-wick buffer) when stopOnRangeBreakout is active
+    if (bot.stopOnRangeBreakout && bot.currentPx > 0 && bot.minPx > 0 && bot.maxPx > bot.minPx) {
+      const bufferPct =
+        typeof thresholds.rangeBreakoutBufferPct === 'number' && thresholds.rangeBreakoutBufferPct >= 0
+          ? thresholds.rangeBreakoutBufferPct
+          : 0.15;
+      const lowerBreakPx =
+        bot.slTriggerPx && bot.slTriggerPx > 0 && bot.slTriggerPx < bot.minPx
+          ? Math.max(bot.slTriggerPx, bot.minPx * (1 - bufferPct / 100))
+          : bot.minPx * (1 - bufferPct / 100);
+      const upperBreakPx =
+        bot.tpTriggerPx && bot.tpTriggerPx > bot.maxPx
+          ? Math.min(bot.tpTriggerPx, bot.maxPx * (1 + bufferPct / 100))
+          : bot.maxPx * (1 + bufferPct / 100);
+
+      if (bot.currentPx < lowerBreakPx || bot.currentPx > upperBreakPx) {
+        return {
+          decision: 'STOP',
+          reason: `Range Breakout confirmat: Preț curent ($${bot.currentPx}) a depășit intervalul grilei [$${bot.minPx} – $${bot.maxPx}] (peste bufferul de ${bufferPct}%)`,
+          riskLevel: 'CRITICAL',
+        };
+      }
+
+      if (bot.currentPx < bot.minPx || bot.currentPx > bot.maxPx) {
+        return {
+          decision: 'WARNING',
+          reason: `Preț curent ($${bot.currentPx}) la limita grilei [$${bot.minPx} – $${bot.maxPx}] — monitorizare în interiorul bufferului anti-wick (${bufferPct}%)`,
+          riskLevel: 'WARNING',
+        };
+      }
     }
 
-    // 4. TREND / CHOPPINESS STOP (Requires multi-indicator corroboration per Section 4)
+    // 4. TREND / CHOPPINESS STOP (Strict multi-indicator corroboration per Section 4)
     const adxStopTriggered =
       snapshot.market.adx > thresholds.adxStopThreshold &&
       snapshot.market.adxConsecutiveAboveStop >= thresholds.adxStopConsecutiveCount;
@@ -351,48 +396,52 @@ export class GridDecisionEngine {
       snapshot.market.choppinessIndex > 0 &&
       snapshot.market.choppinessIndex < thresholds.chopStopThreshold &&
       snapshot.market.chopConsecutiveBelowStop >= thresholds.chopStopConsecutiveCount;
-    const secondaryStressPresent =
-      chopStopTriggered ||
-      adxStopTriggered ||
-      snapshot.risk.minDistToEdgePct < thresholds.rangeEdgeWarningPct ||
-      snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct ||
-      snapshot.market.atrChangePct > thresholds.atrSpikeMonitorPct;
 
+    // A genuine trend requires ADX at least above adxMonitorThreshold (25); if ADX is 6.0 (like PUMP-USD),
+    // the market has no directional trend at all regardless of Choppiness.
+    const hasDirectionalAdxSupport = snapshot.market.adx >= thresholds.adxMonitorThreshold;
+    const hasVolatilityOrLossStress =
+      snapshot.market.atrChangePct > thresholds.atrSpikeMonitorPct ||
+      snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct;
+
+    // Case 4A: Both primary trend indicators confirm persistent directional trend (ADX > 30 x2 AND Chop < 38 x2)
     if (adxStopTriggered && chopStopTriggered) {
       return {
         decision: 'STOP',
-        reason: `Trend direcțional persistent confirmat multi-indicator: ADX ${snapshot.market.adx.toFixed(1)} (>${thresholds.adxStopThreshold}) + Choppiness ${snapshot.market.choppinessIndex.toFixed(1)} (<${thresholds.chopStopThreshold})`,
+        reason: `Trend direcțional persistent confirmat multi-indicator: ADX ${snapshot.market.adx.toFixed(1)} (>${thresholds.adxStopThreshold} la ${snapshot.market.adxConsecutiveAboveStop} eval.) + Choppiness ${snapshot.market.choppinessIndex.toFixed(1)} (<${thresholds.chopStopThreshold} la ${snapshot.market.chopConsecutiveBelowStop} eval.)`,
         riskLevel: 'CRITICAL',
       };
     }
 
+    // Case 4B: Single trend indicator + explicit Volatility Spike (>50% ATR) or Warning Drawdown (>=5% loss),
+    // AND directional ADX support (ADX >= 25) so low Choppiness with ADX=6 and 0% drawdown NEVER triggers STOP!
+    if (
+      thresholds.requireMultiIndicatorForTrendStop &&
+      ((adxStopTriggered && hasVolatilityOrLossStress) ||
+        (chopStopTriggered && hasDirectionalAdxSupport && hasVolatilityOrLossStress))
+    ) {
+      return {
+        decision: 'STOP',
+        reason: `Invalidare regim Neutral confirmată multi-indicator: ADX ${snapshot.market.adx.toFixed(1)}, Chop ${snapshot.market.choppinessIndex.toFixed(1)}, ATR Δ +${snapshot.market.atrChangePct.toFixed(1)}%, Drawdown -${snapshot.risk.drawdownPct.toFixed(2)}%`,
+        riskLevel: 'CRITICAL',
+      };
+    }
+
+    // Case 4C: Only if user explicitly disabled requireMultiIndicatorForTrendStop in settings
     if (
       !thresholds.requireMultiIndicatorForTrendStop &&
-      (adxStopTriggered || chopStopTriggered)
+      (adxStopTriggered || (chopStopTriggered && hasDirectionalAdxSupport))
     ) {
       return {
         decision: 'STOP',
         reason: adxStopTriggered
           ? `ADX persistent peste prag (${snapshot.market.adx.toFixed(1)} > ${thresholds.adxStopThreshold})`
-          : `Choppiness persistent sub prag (${snapshot.market.choppinessIndex.toFixed(1)} < ${thresholds.chopStopThreshold})`,
+          : `Choppiness persistent sub prag (${snapshot.market.choppinessIndex.toFixed(1)} < ${thresholds.chopStopThreshold}) cu ADX ${snapshot.market.adx.toFixed(1)}`,
         riskLevel: 'CRITICAL',
       };
     }
 
-    if (
-      thresholds.requireMultiIndicatorForTrendStop &&
-      (adxStopTriggered || chopStopTriggered) &&
-      (snapshot.risk.minDistToEdgePct < thresholds.rangeEdgeWarningPct ||
-        snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct)
-    ) {
-      return {
-        decision: 'STOP',
-        reason: `Invalidare regim Neutral + presiune risc: ADX ${snapshot.market.adx.toFixed(1)}, Chop ${snapshot.market.choppinessIndex.toFixed(1)}, Dist. limită ${snapshot.risk.minDistToEdgePct.toFixed(1)}%, Drawdown -${snapshot.risk.drawdownPct.toFixed(2)}%`,
-        riskLevel: 'CRITICAL',
-      };
-    }
-
-    // 5. WARNING CONDITIONS:
+    // 5. WARNING CONDITIONS (Section 4):
     // - Total PnL loss >= warningDrawdownPct (5%)
     // - Price < rangeEdgeWarningPct (10%) from range boundary
     if (snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct) {
@@ -409,15 +458,15 @@ export class GridDecisionEngine {
     ) {
       return {
         decision: 'WARNING',
-        reason: `Preț la ${snapshot.risk.minDistToEdgePct.toFixed(1)}% de limita intervalului (<${thresholds.rangeEdgeWarningPct}%)`,
+        reason: `Preț la ${snapshot.risk.minDistToEdgePct.toFixed(1)}% de limita intervalului (<${thresholds.rangeEdgeWarningPct}%) • ADX ${snapshot.market.adx.toFixed(1)} / Chop ${snapshot.market.choppinessIndex.toFixed(1)} (fără condiții de STOP)`,
         riskLevel: 'WARNING',
       };
     }
 
-    // 6. MONITOR CONDITIONS:
+    // 6. MONITOR CONDITIONS (Section 4):
     // - ADX > 25 for 2 consecutive evaluations
     // - ATR increase > 50% vs initial ATR
-    // - Single-indicator trend alert waiting for multi-indicator confirmation
+    // - Single-indicator trend alert (e.g. Chop < 38 with low ADX or ADX > 30 without secondary confirmation)
     if (snapshot.market.adxConsecutiveAboveMonitor >= thresholds.adxMonitorConsecutiveCount) {
       return {
         decision: 'MONITOR',
@@ -434,10 +483,10 @@ export class GridDecisionEngine {
       };
     }
 
-    if ((adxStopTriggered || chopStopTriggered) && secondaryStressPresent) {
+    if (adxStopTriggered || chopStopTriggered || snapshot.market.choppinessIndex < thresholds.chopStopThreshold) {
       return {
         decision: 'MONITOR',
-        reason: `Avertizare regim trend (ADX ${snapshot.market.adx.toFixed(1)} / Chop ${snapshot.market.choppinessIndex.toFixed(1)}) — monitorizare intensificată`,
+        reason: `Choppiness ${snapshot.market.choppinessIndex.toFixed(1)} (<${thresholds.chopStopThreshold}), dar ADX ${snapshot.market.adx.toFixed(1)} și Drawdown -${snapshot.risk.drawdownPct.toFixed(2)}% nu justifică oprirea — monitorizare activă`,
         riskLevel: 'ELEVATED',
       };
     }
@@ -459,8 +508,12 @@ export class GridDecisionEngine {
  * 4. GridBotSupervisor
  * Executes autonomous STOP / EMERGENCY decisions on OKX EEA:
  * - Treats STOP (stop-order-algo) and CLOSE POSITION (close-position) as distinct operations.
- * - Confirms final state on OKX via reconciliation before declaring the bot stopped.
- * - Logs a single complete idempotent event exclusively on STOP / EMERGENCY / OPERATIONAL_ERROR.
+ * - Differentiates explicitly:
+ *   - HTTP_SUCCESS
+ *   - STOP_PENDING_CONFIRMATION
+ *   - CONFIRMED_STOPPED
+ *   - CLOSE_POSITION_CONFIRMED
+ * - Polls OKX reconciliation after STOP and re-verifies any pending stop events on every 30s cycle.
  */
 export class GridBotSupervisor {
   private okxAdapter: OKXAdapter;
@@ -472,15 +525,145 @@ export class GridBotSupervisor {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
     this.eventsStore = new JsonStore<GridAnalyzerStopEvent[]>('grid_analyzer_events.json', []);
-    for (const ev of this.eventsStore.get() || []) {
+    const rawEvents = this.eventsStore.get() || [];
+    let migrated = false;
+    for (const ev of rawEvents) {
       if (ev?.idempotencyKey) {
         this.recordedIdempotencyKeys.add(ev.idempotencyKey);
       }
+      // Normalize any legacy stopType or unconfirmed states in persisted events
+      if (ev && ev.stopType !== '1' && ev.stopType !== '2') {
+        ev.stopType = '1';
+        migrated = true;
+      }
+      if (ev && !ev.okxFinalStateConfirmed && ev.closePositionResult === 'SUCCESS') {
+        ev.closePositionResult = 'STOP_PENDING_CONFIRMATION';
+        ev.stopResult = 'STOP_PENDING_CONFIRMATION';
+        ev.stopHttpStatus = 'HTTP_SUCCESS';
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      this.eventsStore.save(rawEvents);
     }
   }
 
   public getStopEvents(): GridAnalyzerStopEvent[] {
     return this.eventsStore.get() || [];
+  }
+
+  /**
+   * Verifies on OKX whether a bot is truly stopped and whether any position on its instId is closed.
+   */
+  private async verifyBotAndPositionStoppedOnOKX(
+    algoId: string,
+    instId: string,
+    closePositionRequested: boolean
+  ): Promise<{
+    botConfirmedStopped: boolean;
+    okxStateLabel: string;
+    positionConfirmedClosed: boolean;
+  }> {
+    let botConfirmedStopped = false;
+    let okxStateLabel = 'STOP_PENDING_CONFIRMATION';
+    let positionConfirmedClosed = !closePositionRequested;
+
+    try {
+      const details = await this.okxAdapter.getNativeContractGridDetails(algoId, false);
+      if (details) {
+        const remState = String(details.state || '').toLowerCase();
+        if (remState === 'stopped') {
+          botConfirmedStopped = true;
+          okxStateLabel = 'CONFIRMED_STOPPED';
+        } else if (remState === 'no_close_position') {
+          botConfirmedStopped = true;
+          okxStateLabel = 'CONFIRMED_STOPPED (no_close_position)';
+        } else if (remState === 'stopping') {
+          botConfirmedStopped = false;
+          okxStateLabel = 'STOP_PENDING_CONFIRMATION (OKX: stopping)';
+        } else {
+          okxStateLabel = `PENDING (${remState || 'running'})`;
+        }
+      } else {
+        const history = await this.okxAdapter.getNativeContractGridBots('history', false);
+        const foundInHist = history.find((h: any) => String(h?.algoId) === String(algoId));
+        if (foundInHist) {
+          botConfirmedStopped = true;
+          okxStateLabel = 'CONFIRMED_STOPPED';
+        }
+      }
+
+      if (closePositionRequested && botConfirmedStopped) {
+        const openPositions = await this.okxAdapter.getOpenPositions().catch(() => []);
+        const normTarget = this.okxAdapter.normalizeSymbol
+          ? this.okxAdapter.normalizeSymbol(instId)
+          : instId;
+        const hasOpenPos = openPositions.some((p) => {
+          const normP = this.okxAdapter.normalizeSymbol
+            ? this.okxAdapter.normalizeSymbol(p.symbol)
+            : p.symbol;
+          return (normP === normTarget || p.symbol === instId) && Math.abs(Number(p.size) || 0) > 0;
+        });
+        positionConfirmedClosed = !hasOpenPos;
+      }
+    } catch {
+      okxStateLabel = 'API_UNREACHABLE';
+    }
+
+    return {
+      botConfirmedStopped,
+      okxStateLabel,
+      positionConfirmedClosed,
+    };
+  }
+
+  /**
+   * Reconciles any previously logged stop events that were in STOP_PENDING_CONFIRMATION
+   * (e.g. when OKX was still in transient `stopping` state during the initial stop call).
+   */
+  public async reconcilePendingStopEvents(remoteMap: Map<string, any>): Promise<void> {
+    const events = this.eventsStore.get() || [];
+    let updated = false;
+
+    for (const ev of events) {
+      if (
+        !ev.okxFinalStateConfirmed ||
+        ev.stopResult === 'STOP_PENDING_CONFIRMATION' ||
+        ev.stopResult === 'PENDING_CONFIRMATION' ||
+        (ev.closePositionRequested &&
+          ev.closePositionResult !== 'CLOSE_POSITION_CONFIRMED' &&
+          ev.closePositionResult !== 'NOT_REQUESTED')
+      ) {
+        const rem = remoteMap.get(String(ev.algoId));
+        const remState = String(rem?.state || '').toLowerCase();
+
+        if (remState === 'stopped' || remState === 'no_close_position' || !rem) {
+          const check = await this.verifyBotAndPositionStoppedOnOKX(
+            ev.algoId,
+            ev.instId,
+            ev.closePositionRequested
+          );
+          if (check.botConfirmedStopped) {
+            ev.okxFinalStateConfirmed = true;
+            ev.okxConfirmedState = check.okxStateLabel;
+            ev.stopResult = 'CONFIRMED_STOPPED';
+            if (ev.eventType === 'OPERATIONAL_ERROR') {
+              ev.eventType = ev.executedDecision === 'EMERGENCY' ? 'EMERGENCY' : 'STOP';
+            }
+            if (ev.closePositionRequested) {
+              ev.closePositionResult = check.positionConfirmedClosed
+                ? 'CLOSE_POSITION_CONFIRMED'
+                : 'STOP_PENDING_CONFIRMATION';
+            }
+            updated = true;
+          }
+        }
+      }
+    }
+
+    if (updated) {
+      this.eventsStore.save(events);
+    }
   }
 
   public async executeDecision(
@@ -511,13 +694,14 @@ export class GridBotSupervisor {
 
     const isEmergency = snapshot.decision === 'EMERGENCY';
     const stopType: '1' | '2' =
-      isEmergency && thresholds.emergencyClosePosition ? '1' : bot.stopTypeOnRisk || '1';
+      isEmergency && thresholds.emergencyClosePosition
+        ? '1'
+        : bot.stopTypeOnRisk === '2'
+        ? '2'
+        : '1';
     const closePositionRequested = stopType === '1';
 
     let stopHttpOk = false;
-    let closePosResult: 'SUCCESS' | 'FAILED' | 'NOT_REQUESTED' = closePositionRequested
-      ? 'FAILED'
-      : 'NOT_REQUESTED';
     let operationalErrorMsg = '';
 
     // Step 1: Execute STOP on OKX (/api/v5/tradingBot/grid/stop-order-algo)
@@ -528,14 +712,11 @@ export class GridBotSupervisor {
         stopType,
         isDemo: false,
       });
-      if (stopHttpOk && closePositionRequested) {
-        closePosResult = 'SUCCESS';
-      }
     } catch (stopErr: any) {
       operationalErrorMsg = stopErr?.message || 'stop-order-algo error';
     }
 
-    // Step 2: Distinct CLOSE POSITION action (/api/v5/tradingBot/grid/close-position) if required for position protection
+    // Step 2: Distinct CLOSE POSITION action (/api/v5/tradingBot/grid/close-position) if stop-order-algo failed
     if (closePositionRequested && !stopHttpOk) {
       try {
         const closed = await this.okxAdapter.closeNativeContractGridPosition({
@@ -544,7 +725,6 @@ export class GridBotSupervisor {
           isDemo: false,
         });
         if (closed) {
-          closePosResult = 'SUCCESS';
           stopHttpOk = true;
         }
       } catch (closeErr: any) {
@@ -553,29 +733,62 @@ export class GridBotSupervisor {
       }
     }
 
-    // Step 3: Mandatory Final State Confirmation on OKX via reconciliation (Section 5)
+    // Step 3: Mandatory Final State Confirmation on OKX via controlled reconciliation polling (Section 5)
+    // OKX transitions through `stopping` for ~1-4 seconds before reaching `stopped` and settling the position close.
     let okxFinalStateConfirmed = false;
-    let okxConfirmedState = 'unconfirmed';
+    let okxConfirmedState = stopHttpOk ? 'STOP_PENDING_CONFIRMATION' : 'FAILED';
+    let positionConfirmedClosed = !closePositionRequested;
 
-    try {
-      const details = await this.okxAdapter.getNativeContractGridDetails(bot.algoId, false);
-      if (details) {
-        const remState = String(details.state || '').toLowerCase();
-        okxConfirmedState = remState || 'unknown';
-        if (remState === 'stopped' || remState === 'no_close_position') {
-          okxFinalStateConfirmed = true;
-        }
-      } else {
-        const history = await this.okxAdapter.getNativeContractGridBots('history', false);
-        const foundInHist = history.find((h: any) => String(h?.algoId) === String(bot.algoId));
-        if (foundInHist) {
-          okxFinalStateConfirmed = true;
-          okxConfirmedState = String(foundInHist.state || 'stopped').toLowerCase();
+    const maxVerifyAttempts = stopHttpOk ? 4 : 1;
+    for (let attempt = 0; attempt < maxVerifyAttempts; attempt++) {
+      if (attempt > 0 || stopHttpOk) {
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+      const check = await this.verifyBotAndPositionStoppedOnOKX(
+        bot.algoId,
+        bot.instId,
+        closePositionRequested
+      );
+      okxConfirmedState = check.okxStateLabel;
+      if (check.botConfirmedStopped) {
+        okxFinalStateConfirmed = true;
+        positionConfirmedClosed = check.positionConfirmedClosed;
+        // If position close was requested and bot is stopped but position not yet settled, retry once more
+        if (!closePositionRequested || positionConfirmedClosed || attempt === maxVerifyAttempts - 1) {
+          break;
         }
       }
-    } catch {
-      okxConfirmedState = 'api_unreachable';
     }
+
+    // If bot stopped with no_close_position despite stopType='1', invoke explicit close-position endpoint
+    if (okxFinalStateConfirmed && closePositionRequested && !positionConfirmedClosed) {
+      try {
+        const closedExplicit = await this.okxAdapter.closeNativeContractGridPosition({
+          algoId: bot.algoId,
+          mktClose: true,
+          isDemo: false,
+        });
+        if (closedExplicit) {
+          await new Promise((r) => setTimeout(r, 1000));
+          const recheck = await this.verifyBotAndPositionStoppedOnOKX(bot.algoId, bot.instId, true);
+          positionConfirmedClosed = recheck.positionConfirmedClosed;
+        }
+      } catch {}
+    }
+
+    const stopHttpStatus: 'HTTP_SUCCESS' | 'FAILED' = stopHttpOk ? 'HTTP_SUCCESS' : 'FAILED';
+    const stopResult: GridAnalyzerStopEvent['stopResult'] = okxFinalStateConfirmed
+      ? 'CONFIRMED_STOPPED'
+      : stopHttpOk
+      ? 'STOP_PENDING_CONFIRMATION'
+      : 'FAILED';
+    const closePosResult: GridAnalyzerStopEvent['closePositionResult'] = !closePositionRequested
+      ? 'NOT_REQUESTED'
+      : okxFinalStateConfirmed && positionConfirmedClosed
+      ? 'CLOSE_POSITION_CONFIRMED'
+      : stopHttpOk
+      ? 'STOP_PENDING_CONFIRMATION'
+      : 'FAILED';
 
     if (okxFinalStateConfirmed) {
       bot.state = 'stopped';
@@ -586,21 +799,26 @@ export class GridBotSupervisor {
       snapshot.lastStopReason = bot.stopReason;
     } else {
       // Do NOT declare the bot stopped until confirmed by OKX real state!
-      snapshot.reconciliationState = stopHttpOk ? 'PENDING_CONFIRMATION' : 'CONTRADICTORY';
+      bot.state = stopHttpOk ? 'stopping' : bot.state;
+      snapshot.state = stopHttpOk ? 'stopping' : snapshot.state;
+      snapshot.reconciliationState = stopHttpOk ? 'STOP_PENDING_CONFIRMATION' : 'CONTRADICTORY';
     }
 
     // Step 4: Record a single complete idempotent event (Section 7)
-    const eventKey = okxFinalStateConfirmed ? cycleKey : `${cycleKey}:ERR`;
+    const eventKey = okxFinalStateConfirmed ? cycleKey : `${cycleKey}:PENDING`;
     if (this.recordedIdempotencyKeys.has(eventKey)) {
       return;
     }
     this.recordedIdempotencyKeys.add(eventKey);
+    if (okxFinalStateConfirmed) {
+      this.recordedIdempotencyKeys.add(cycleKey);
+    }
 
     const stopEvent: GridAnalyzerStopEvent = {
       idempotencyKey: eventKey,
       timestamp: Date.now(),
-      algoId: bot.algoId,
-      instId: bot.instId,
+      algoId: String(bot.algoId),
+      instId: String(bot.instId),
       eventType: okxFinalStateConfirmed
         ? isEmergency
           ? 'EMERGENCY'
@@ -650,11 +868,8 @@ export class GridBotSupervisor {
       },
       executedDecision: snapshot.decision,
       stopType,
-      stopResult: okxFinalStateConfirmed
-        ? 'SUCCESS'
-        : stopHttpOk
-        ? 'PENDING_CONFIRMATION'
-        : 'FAILED',
+      stopHttpStatus,
+      stopResult,
       okxFinalStateConfirmed,
       okxConfirmedState,
       closePositionRequested,
@@ -666,7 +881,7 @@ export class GridBotSupervisor {
 
     this.journal.logAudit(
       isEmergency ? 'GRID_RISK_TRIGGERED' : 'GRID_STOPPED',
-      `[GRID BOT ANALYZER ${stopEvent.eventType}] ${bot.instId} (algoId: ${bot.algoId}) | Decizie: ${snapshot.decision} | Motiv: ${stopEvent.exactStopReason} | PnL Total: $${stopEvent.pnlBreakdown.totalPnlUSDT.toFixed(3)} (Grid: $${stopEvent.pnlBreakdown.gridProfitUSDT.toFixed(3)}, Float: $${stopEvent.pnlBreakdown.floatProfitUSDT.toFixed(3)}) | stopType: ${stopType} | Confirmat OKX: ${okxFinalStateConfirmed ? `DA (${okxConfirmedState})` : `NU (${okxConfirmedState})`}`,
+      `[GRID BOT ANALYZER ${stopEvent.eventType}] ${bot.instId} (algoId: ${bot.algoId}) | Decizie: ${snapshot.decision} | Motiv: ${stopEvent.exactStopReason} | PnL Total: $${stopEvent.pnlBreakdown.totalPnlUSDT.toFixed(3)} (Grid: $${stopEvent.pnlBreakdown.gridProfitUSDT.toFixed(3)}, Float: $${stopEvent.pnlBreakdown.floatProfitUSDT.toFixed(3)}) | stopType: ${stopType} | HTTP: ${stopHttpStatus} | Stop: ${stopResult} | ClosePos: ${closePosResult}`,
       stopEvent
     );
   }
@@ -744,7 +959,11 @@ export class GridBotAnalyzer {
           : bot.stopReason || 'Bot oprit pe OKX',
       riskLevel: 'LOW',
       reconciliationState:
-        bot.state === 'running' ? 'CONFIRMED_RUNNING' : 'CONFIRMED_STOPPED',
+        bot.state === 'running'
+          ? 'CONFIRMED_RUNNING'
+          : bot.state === 'stopping'
+          ? 'STOP_PENDING_CONFIRMATION'
+          : 'CONFIRMED_STOPPED',
       market: {
         adx: 20,
         adxConsecutiveAboveMonitor: 0,
@@ -812,21 +1031,41 @@ export class GridBotAnalyzer {
       const thresholds = this.getThresholds();
       const allBots = this.gridEngine.getAllBots();
 
-      // 30s Cadence: Reconcile native bots with OKX EEA
+      // 30s Cadence: Reconcile native bots and any pending stop events with OKX EEA
       const remoteMap = await this.monitor.reconcileWithOKX();
+      await this.supervisor.reconcilePendingStopEvents(remoteMap);
 
       for (const bot of allBots) {
         const snapshot = this.getOrCreateSnapshot(bot);
         snapshot.cadence.lastReconcile30sAt = now;
 
-        if (bot.state !== 'running') {
+        const remoteDetails = remoteMap.get(bot.algoId) || null;
+        if (remoteDetails) {
+          const remState = String(remoteDetails.state || '').toLowerCase();
+          if (remState === 'stopped' || remState === 'no_close_position') {
+            bot.state = 'stopped';
+            snapshot.state = 'stopped';
+            snapshot.reconciliationState = 'CONFIRMED_STOPPED';
+          } else if (remState === 'stopping') {
+            bot.state = 'stopping';
+            snapshot.state = 'stopping';
+            snapshot.reconciliationState = 'STOP_PENDING_CONFIRMATION';
+          }
+        }
+
+        if (bot.state === 'stopped') {
           snapshot.state = 'stopped';
           snapshot.reconciliationState = 'CONFIRMED_STOPPED';
           if (bot.stopReason) snapshot.lastStopReason = bot.stopReason;
           continue;
         }
 
-        const remoteDetails = remoteMap.get(bot.algoId) || null;
+        if (bot.state === 'stopping') {
+          snapshot.state = 'stopping';
+          snapshot.reconciliationState = 'STOP_PENDING_CONFIRMATION';
+          continue;
+        }
+
         const isAcceleratedMonitor =
           snapshot.decision === 'MONITOR' || snapshot.decision === 'WARNING';
 

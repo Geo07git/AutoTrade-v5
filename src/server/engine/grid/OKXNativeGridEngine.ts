@@ -743,10 +743,34 @@ export class OKXNativeGridEngine {
         ok = true;
       }
 
-      bot.state = 'stopped';
+      let confirmedStopped = isFallback;
+      if (!isFallback && ok) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          await new Promise((r) => setTimeout(r, 1100));
+          const det = await this.okxAdapter
+            .getNativeContractGridDetails(bot.algoId, false)
+            .catch(() => null);
+          const remState = String(det?.state || '').toLowerCase();
+          if (remState === 'stopped' || remState === 'no_close_position') {
+            confirmedStopped = true;
+            break;
+          }
+          if (!det) {
+            const hist = await this.okxAdapter
+              .getNativeContractGridBots('history', false)
+              .catch(() => []);
+            if (hist.some((h: any) => String(h?.algoId) === String(bot.algoId))) {
+              confirmedStopped = true;
+              break;
+            }
+          }
+        }
+      }
+
+      bot.state = confirmedStopped ? 'stopped' : ok ? 'stopping' : bot.state;
       bot.stopReason = `${reason} (stopType ${effectiveStopType}: ${
         effectiveStopType === '1' ? 'Poziție închisă la piață' : 'Poziție păstrată'
-      })`;
+      } | ${confirmedStopped ? 'CONFIRMED_STOPPED' : 'STOP_PENDING_CONFIRMATION'})`;
       bot.uTime = Date.now();
       this.persistBots();
 
@@ -754,8 +778,10 @@ export class OKXNativeGridEngine {
         reason.toLowerCase().includes('risc') || reason.toLowerCase().includes('stop')
           ? 'GRID_RISK_TRIGGERED'
           : 'GRID_STOPPED',
-        `[OKX NATIVE BOT OPRIT] ${bot.instId} (algoId: ${bot.algoId} | LIVE) | stopType: ${effectiveStopType} | Motiv: ${reason} | PnL Total: $${bot.totalPnl.toFixed(2)} (${bot.totalPnlPct >= 0 ? '+' : ''}${bot.totalPnlPct.toFixed(2)}%)`,
-        { algoId: bot.algoId, stopType: effectiveStopType, reason, ok }
+        `[OKX NATIVE BOT OPRIT] ${bot.instId} (algoId: ${bot.algoId} | LIVE) | stopType: ${effectiveStopType} | Stare OKX: ${
+          confirmedStopped ? 'CONFIRMED_STOPPED' : 'STOP_PENDING_CONFIRMATION'
+        } | Motiv: ${reason} | PnL Total: $${bot.totalPnl.toFixed(2)} (${bot.totalPnlPct >= 0 ? '+' : ''}${bot.totalPnlPct.toFixed(2)}%)`,
+        { algoId: bot.algoId, stopType: effectiveStopType, reason, ok, confirmedStopped }
       );
 
       return { success: true, bot };
@@ -1018,7 +1044,7 @@ export class OKXNativeGridEngine {
             slRatio: parseFloat(r.slRatio || '0') || undefined,
             stopLossPct: r.slRatio ? parseFloat((parseFloat(r.slRatio) * 100).toFixed(2)) : cfg.stopLossPct,
             takeProfitPct: r.tpRatio ? parseFloat((parseFloat(r.tpRatio) * 100).toFixed(2)) : cfg.takeProfitPct,
-            stopTypeOnRisk: r.stopType === '2' ? '2' : cfg.defaultStopType,
+            stopTypeOnRisk: r.stopType === '2' ? '2' : cfg.defaultStopType === '2' ? '2' : '1',
             stopOnRangeBreakout: cfg.stopOnRangeBreakout,
             stopOnTrendInvalidation: cfg.stopOnTrendInvalidation,
             stopReason: isStopped ? `Oprit pe OKX (cancelType ${r.cancelType || 'manual'})` : undefined,
@@ -1030,13 +1056,15 @@ export class OKXNativeGridEngine {
 
       let changed = true;
 
-      for (const bot of this.getRunningBots()) {
-        // Emergency Kill Switch stops all running native bots
-        if (killSwitchEngaged) {
+      for (const bot of this.getAllBots()) {
+        if (bot.state !== 'running' && bot.state !== 'stopping') continue;
+
+        // Emergency LIVE Kill Switch stops all running native bots
+        if (killSwitchEngaged && bot.state === 'running') {
           await this.stopNativeBot(
             bot.algoId,
             '1',
-            'Kill Switch de urgență activat în TB5'
+            'Kill Switch de urgență (LIVE) activat în TB5'
           );
           changed = true;
           continue;
@@ -1053,6 +1081,8 @@ export class OKXNativeGridEngine {
           if (remoteState === 'stopped' || remoteState === 'no_close_position') {
             bot.state = 'stopped';
             bot.stopReason = bot.stopReason || `Oprit pe OKX (${remote.cancelType || remoteState})`;
+          } else if (remoteState === 'stopping') {
+            bot.state = 'stopping';
           } else {
             bot.state = 'running';
           }
@@ -1077,74 +1107,6 @@ export class OKXNativeGridEngine {
             bot.currentPx = livePx;
             bot.uTime = Date.now();
             changed = true;
-          }
-        }
-
-        if (bot.state !== 'running') continue;
-
-        // Evaluate Autonomous Risk Conditions
-        // 1. Stop Loss % threshold
-        if (bot.stopLossPct > 0 && bot.totalPnlPct <= -Math.abs(bot.stopLossPct)) {
-          await this.stopNativeBot(
-            bot.algoId,
-            bot.stopTypeOnRisk,
-            `Risc Stop Loss atins: PnL ${bot.totalPnlPct.toFixed(2)}% <= -${bot.stopLossPct}%`
-          );
-          changed = true;
-          continue;
-        }
-
-        // 2. Take Profit % threshold
-        if (bot.takeProfitPct > 0 && bot.totalPnlPct >= Math.abs(bot.takeProfitPct)) {
-          await this.stopNativeBot(
-            bot.algoId,
-            bot.stopTypeOnRisk,
-            `Țintă Take Profit atinsă: PnL +${bot.totalPnlPct.toFixed(2)}% >= +${bot.takeProfitPct}%`
-          );
-          changed = true;
-          continue;
-        }
-
-        // 3. Liquidation proximity (< 3.5% distance to liqPx)
-        if (bot.liqPx > 0 && bot.currentPx > 0) {
-          const distToLiqPct = (Math.abs(bot.currentPx - bot.liqPx) / bot.currentPx) * 100;
-          if (distToLiqPct <= 3.5) {
-            await this.stopNativeBot(
-              bot.algoId,
-              '1', // Always close position on liquidation emergency
-              `Protecție Lichidare: Preț ($${bot.currentPx}) la ${distToLiqPct.toFixed(2)}% de prețul de lichidare OKX ($${bot.liqPx})`
-            );
-            changed = true;
-            continue;
-          }
-        }
-
-        // 4. Range Breakout beyond SL/TP triggers or 2% outside [minPx, maxPx]
-        if (bot.stopOnRangeBreakout && bot.currentPx > 0) {
-          const lowerBreak = bot.slTriggerPx || bot.minPx * 0.98;
-          const upperBreak = bot.tpTriggerPx || bot.maxPx * 1.02;
-          if (bot.currentPx <= lowerBreak || bot.currentPx >= upperBreak) {
-            await this.stopNativeBot(
-              bot.algoId,
-              bot.stopTypeOnRisk,
-              `Spargere interval (Range Breakout): Preț curent $${bot.currentPx} în afara limitelor [$${lowerBreak} – $${upperBreak}]`
-            );
-            changed = true;
-            continue;
-          }
-        }
-
-        // 5. Opportunity Invalidation (Strong Trend Regime detected by Market Intelligence)
-        if (bot.stopOnTrendInvalidation) {
-          const opp = this.opportunities.find((o) => o.instId === bot.instId);
-          if (opp && opp.regimeLabel === 'TRENDING_RISK' && opp.adxTrendStrength >= 36) {
-            await this.stopNativeBot(
-              bot.algoId,
-              bot.stopTypeOnRisk,
-              `Oportunitate invalidată: Regim piață comutat în TRENDING_RISK (ADX ${opp.adxTrendStrength.toFixed(1)})`
-            );
-            changed = true;
-            continue;
           }
         }
       }

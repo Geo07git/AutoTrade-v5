@@ -1163,65 +1163,107 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-900">
-                      {gridAnalyzer.stopEvents.map((ev) => (
-                        <tr key={ev.idempotencyKey} className="hover:bg-zinc-900/60">
-                          <td className="py-1.5 px-2 tabular-nums text-zinc-300">
-                            {new Date(ev.timestamp).toLocaleString()}
-                          </td>
-                          <td className="py-1.5 px-2">
-                            <div className="font-bold text-white">{ev.instId}</div>
-                            <div className="font-mono text-cyan-400">{ev.algoId}</div>
-                          </td>
-                          <td className="py-1.5 px-2">
-                            <span
-                              className={`px-1.5 py-0.5 rounded font-black ${
-                                ev.executedDecision === 'EMERGENCY'
-                                  ? 'bg-rose-600 text-white'
-                                  : ev.executedDecision === 'STOP'
-                                  ? 'bg-amber-500 text-black'
-                                  : 'bg-zinc-800 text-rose-300'
-                              }`}
-                            >
-                              {ev.executedDecision} (stopType={ev.stopType})
-                            </span>
-                          </td>
-                          <td className="py-1.5 px-2 text-rose-300 max-w-xs">
-                            {ev.exactStopReason}
-                          </td>
-                          <td className="py-1.5 px-2 tabular-nums text-zinc-300">
-                            ADX: {Number(ev.triggeringIndicators?.adx || 0).toFixed(1)} | Chop:{' '}
-                            {Number(ev.triggeringIndicators?.choppinessIndex || 0).toFixed(1)} | ATR
-                            Δ: {Number(ev.triggeringIndicators?.atrChangePct || 0).toFixed(1)}%
-                          </td>
-                          <td className="py-1.5 px-2 tabular-nums">
-                            G: ${Number(ev.pnlBreakdown?.gridProfitUSDT || 0).toFixed(2)} | F: $
-                            {Number(ev.pnlBreakdown?.floatProfitUSDT || 0).toFixed(2)} | T: $
-                            {Number(ev.pnlBreakdown?.totalPnlUSDT || 0).toFixed(2)}
-                          </td>
-                          <td className="py-1.5 px-2 tabular-nums text-rose-300">
-                            DD: {Number(ev.riskMetrics?.drawdownPct || 0).toFixed(2)}% | Liq:{' '}
-                            {ev.riskMetrics?.distToLiqPct !== undefined
-                              ? `${Number(ev.riskMetrics.distToLiqPct).toFixed(1)}%`
-                              : 'N/A'}
-                          </td>
-                          <td className="py-1.5 px-2">
-                            <div
-                              className={
-                                ev.okxFinalStateConfirmed
-                                  ? 'text-emerald-400 font-bold'
-                                  : 'text-amber-300'
-                              }
-                            >
-                              {ev.okxFinalStateConfirmed
-                                ? `✓ Confirmat (${ev.okxConfirmedState})`
-                                : `⚠ ${ev.okxConfirmedState}`}
-                            </div>
-                            <div className="text-zinc-400">
-                              Close Pos: {ev.closePositionResult}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {gridAnalyzer.stopEvents.map((ev) => {
+                        const httpStatus =
+                          ev.stopHttpStatus ||
+                          (ev.stopResult === 'FAILED' ? 'FAILED' : 'HTTP_SUCCESS');
+                        const stopStateLabel =
+                          ev.stopResult === 'CONFIRMED_STOPPED' || ev.okxFinalStateConfirmed
+                            ? 'CONFIRMED_STOPPED'
+                            : ev.stopResult === 'FAILED'
+                            ? 'FAILED'
+                            : 'STOP_PENDING_CONFIRMATION';
+                        const closePosLabel =
+                          ev.closePositionResult === 'CLOSE_POSITION_CONFIRMED' ||
+                          (ev.okxFinalStateConfirmed && ev.stopType !== '2')
+                            ? 'CLOSE_POSITION_CONFIRMED'
+                            : ev.closePositionResult === 'NOT_REQUESTED' || ev.stopType === '2'
+                            ? 'NOT_REQUESTED (stopType=2)'
+                            : ev.closePositionResult === 'FAILED'
+                            ? 'FAILED'
+                            : 'STOP_PENDING_CONFIRMATION';
+                        return (
+                          <tr key={ev.idempotencyKey} className="hover:bg-zinc-900/60">
+                            <td className="py-1.5 px-2 tabular-nums text-zinc-300 whitespace-nowrap">
+                              {new Date(ev.timestamp).toLocaleString()}
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span className="font-bold text-white">{ev.instId}</span>{' '}
+                              <span className="font-mono text-[9px] text-cyan-400">
+                                [algoId:{ev.algoId}]
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <span
+                                className={`px-1.5 py-0.5 rounded font-black ${
+                                  ev.executedDecision === 'EMERGENCY'
+                                    ? 'bg-rose-600 text-white'
+                                    : ev.executedDecision === 'STOP'
+                                    ? 'bg-amber-500 text-black'
+                                    : 'bg-zinc-800 text-rose-300'
+                                }`}
+                              >
+                                {ev.executedDecision} | stopType=
+                                {ev.stopType === '2' ? '2 (Păstrează Poz.)' : '1 (Închide Poz.)'}
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-2 text-rose-300 max-w-xs">
+                              {ev.exactStopReason}
+                            </td>
+                            <td className="py-1.5 px-2 tabular-nums text-zinc-300 whitespace-nowrap">
+                              ADX: {Number(ev.triggeringIndicators?.adx || 0).toFixed(1)} | Chop:{' '}
+                              {Number(ev.triggeringIndicators?.choppinessIndex || 0).toFixed(1)} | ATR
+                              Δ: {Number(ev.triggeringIndicators?.atrChangePct || 0).toFixed(1)}%
+                            </td>
+                            <td className="py-1.5 px-2 tabular-nums whitespace-nowrap">
+                              G: ${Number(ev.pnlBreakdown?.gridProfitUSDT || 0).toFixed(2)} | F: $
+                              {Number(ev.pnlBreakdown?.floatProfitUSDT || 0).toFixed(2)} | T: $
+                              {Number(ev.pnlBreakdown?.totalPnlUSDT || 0).toFixed(2)}
+                            </td>
+                            <td className="py-1.5 px-2 tabular-nums text-rose-300 whitespace-nowrap">
+                              DD: {Number(ev.riskMetrics?.drawdownPct || 0).toFixed(2)}% | Liq:{' '}
+                              {ev.riskMetrics?.distToLiqPct !== undefined
+                                ? `${Number(ev.riskMetrics.distToLiqPct).toFixed(1)}%`
+                                : 'N/A'}
+                            </td>
+                            <td className="py-1.5 px-2 whitespace-nowrap">
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={
+                                    httpStatus === 'HTTP_SUCCESS'
+                                      ? 'text-cyan-300 font-mono text-[9px]'
+                                      : 'text-rose-400 font-bold text-[9px]'
+                                  }
+                                >
+                                  API: {httpStatus}
+                                </span>
+                                <span
+                                  className={
+                                    stopStateLabel === 'CONFIRMED_STOPPED'
+                                      ? 'text-emerald-400 font-bold'
+                                      : stopStateLabel === 'FAILED'
+                                      ? 'text-rose-400 font-bold'
+                                      : 'text-amber-300 font-bold'
+                                  }
+                                >
+                                  Bot: {stopStateLabel} ({ev.okxConfirmedState})
+                                </span>
+                                <span
+                                  className={
+                                    closePosLabel === 'CLOSE_POSITION_CONFIRMED'
+                                      ? 'text-emerald-300 font-semibold'
+                                      : closePosLabel === 'FAILED'
+                                      ? 'text-rose-400 font-bold'
+                                      : 'text-amber-200'
+                                  }
+                                >
+                                  Pos: {closePosLabel}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
