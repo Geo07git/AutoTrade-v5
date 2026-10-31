@@ -12,9 +12,17 @@ import {
   ProfileType,
 } from './shared/types';
 import { BloombergTerminal } from './components/BloombergTerminal';
+import { BackendSetup } from './components/BackendSetup';
 import { useDynamicTaskbar } from './hooks/useDynamicTaskbar';
+import { Capacitor } from '@capacitor/core';
+import { apiFetch as fetch, getConfiguredApiBaseUrl } from './shared/api';
 
 export default function App() {
+  const isNativeApp = Capacitor.isNativePlatform();
+  const [backendUrl, setBackendUrl] = useState<string>(() => getConfiguredApiBaseUrl());
+  const [showBackendSetup, setShowBackendSetup] = useState<boolean>(
+    () => isNativeApp && !getConfiguredApiBaseUrl()
+  );
   const [status, setStatus] = useState<BotStatusResponse | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
@@ -133,6 +141,8 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (isNativeApp && !backendUrl) return;
+
     fetchStatus();
     fetchLogs();
 
@@ -173,7 +183,7 @@ export default function App() {
       if (worker) worker.terminate();
       document.removeEventListener('visibilitychange', onVisChange);
     };
-  }, []);
+  }, [backendUrl, isNativeApp]);
 
   const switchExecutionMode = async (mode: ExecutionMode) => {
     setErrorMessage(null);
@@ -512,8 +522,25 @@ export default function App() {
     }
   };
 
+  if (showBackendSetup) {
+    return (
+      <BackendSetup
+        initialUrl={backendUrl}
+        required={!backendUrl}
+        onClose={() => setShowBackendSetup(false)}
+        onConnected={(url) => {
+          setBackendUrl(url);
+          setShowBackendSetup(false);
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
   return (
     <BloombergTerminal
+      backendUrl={backendUrl}
+      onConfigureBackend={() => setShowBackendSetup(true)}
       status={status}
       logs={logs}
       orders={orders}

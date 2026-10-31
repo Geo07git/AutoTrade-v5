@@ -8,6 +8,7 @@ import {
   OKXNativeGridBot,
 } from '../shared/types';
 import { formatPrice } from '../shared/formatters';
+import { apiFetch as fetch } from '../shared/api';
 import {
   Activity,
   AlertTriangle,

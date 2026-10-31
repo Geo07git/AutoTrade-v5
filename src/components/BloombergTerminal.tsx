@@ -42,10 +42,13 @@ import {
   Download,
 } from 'lucide-react';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
+import { apiFetch as fetch } from '../shared/api';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
 
 interface BloombergTerminalProps {
+  backendUrl: string;
+  onConfigureBackend: () => void;
   status: BotStatusResponse | null;
   logs: AuditLog[];
   orders: OrderRecord[];
@@ -106,6 +109,8 @@ interface BloombergTerminalProps {
 }
 
 export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
+  backendUrl,
+  onConfigureBackend,
   status,
   logs,
   orders,
@@ -3385,6 +3390,29 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         {/* ================================================================= */}
         {activeTab === 'API' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-zinc-950 border border-amber-500/40 rounded p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 pb-2">
+                <h2 className="font-bold text-sm text-amber-400">SERVER LOCAL PENTRU APK</h2>
+                <button
+                  type="button"
+                  onClick={onConfigureBackend}
+                  className="shrink-0 rounded border border-amber-500/50 bg-black px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-zinc-900"
+                >
+                  Configurează
+                </button>
+              </div>
+              <div className="text-xs text-zinc-300">
+                Server conectat:{' '}
+                <strong className="break-all text-white">
+                  {backendUrl || 'aceeași adresă ca interfața'}
+                </strong>
+              </div>
+              <p className="text-xs leading-5 text-zinc-400">
+                Pentru APK, pornește aplicația desktop pe PC, conectează telefonul la aceeași
+                rețea Wi-Fi și configurează IP-ul local al PC-ului cu portul 3000.
+              </p>
+            </div>
+
             {/* OKX EEA API CREDENTIALS */}
             <div className="bg-zinc-950 border border-amber-500/40 rounded p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">

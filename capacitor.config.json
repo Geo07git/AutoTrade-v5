@@ -3,6 +3,6 @@
   "appName": "Bloomberg TradeBot Pro",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "http"
   }
 }
