@@ -603,10 +603,7 @@ export class TradeBot {
         `Scanare Grid Universe finalizată în ${this.lastScanDurationMs}ms: ${analyzed.length} instrumente analizate pentru Neutral Grid.`
       );
 
-      // Evaluate configurable Autopilot after every scan
-      await this.evaluateAutopilotLaunch();
-
-      // Also refresh OKX Native Futures Grid opportunities in parallel
+      // Refresh OKX Native & Auto-Limit Futures Grid opportunities and evaluate unified Autopilot (Ramura 1: Ordine Limit)
       this.nativeGridEngine
         .scanAndOptimizeOpportunities(cfg.scannerFilter, Math.min(10, ap.maxScannedSymbols || 10))
         .then(async () => {
@@ -615,7 +612,7 @@ export class TradeBot {
             await this.nativeGridEngine.evaluateAutopilot(
               st.freeBalance,
               this.isKillSwitchEngagedForMode('LIVE'),
-              (p) => this.createNativeGridBot(p)
+              (p) => this.createNativeGridBot({ ...p, executionVariant: 'AUTO_LIMIT' })
             );
           }
         })
@@ -694,24 +691,33 @@ export class TradeBot {
       `Setări Autopilot Grid actualizate: ${nextAutopilot.enabled ? 'ACTIVAT (ON)' : 'OPRIT (OFF)'} | Scanare la ${nextAutopilot.scanIntervalSec}s | Scor Min ≥ ${nextAutopilot.minSuitabilityScore} | Max ${nextAutopilot.maxConcurrentBots} boți × $${nextAutopilot.marginPerBotUSDT} USDT.`
     );
 
-    let launchedBots: GridBotInstance[] = [];
-    let decision = nextAutopilot.lastAutopilotAction || '';
+    // Sync unified Autopilot with OKXNativeGridEngine (Ramura 1: Ordine Limit)
+    const nativeRes = await this.updateNativeGridAutopilot({
+      enabled: nextAutopilot.enabled,
+      maxBudgetPerBotUSDT: nextAutopilot.marginPerBotUSDT,
+      minReserveUSDT: nextAutopilot.minReserveUSDT,
+      maxConcurrentNativeBots: nextAutopilot.maxConcurrentBots,
+      minSuitabilityScore: nextAutopilot.minSuitabilityScore,
+      maxLeverage: nextAutopilot.defaultLeverage,
+      defaultRunType: nextAutopilot.defaultGridType === 'GEOMETRIC' ? '2' : '1',
+      stopLossPct: nextAutopilot.stopLossPct,
+      takeProfitPct: nextAutopilot.takeProfitPct,
+      stopOnRangeBreakout: nextAutopilot.stopOnRangeBreakout,
+    });
 
-    // If Autopilot was just turned ON or is active, run an immediate evaluation cycle
-    if (nextAutopilot.enabled) {
-      if (this.gridCandidates.length === 0) {
-        await this.triggerManualScan();
-      } else {
-        const evalRes = await this.evaluateAutopilotLaunch();
-        launchedBots = evalRes.launchedBots;
-        decision = evalRes.decision;
-      }
-    } else if (prevEnabled && !nextAutopilot.enabled) {
-      decision = 'Autopilot dezactivat manual (boții deja deschiși continuă să ruleze)';
-      cfg.autopilot.lastAutopilotAction = decision;
-      cfg.autopilot.lastAutopilotCheckAt = Date.now();
-      this.configStore.save(cfg);
-    }
+    const decision =
+      nativeRes.decision ||
+      (prevEnabled && !nextAutopilot.enabled
+        ? 'Autopilot dezactivat manual (boții deja deschiși continuă să ruleze)'
+        : nextAutopilot.lastAutopilotAction || '');
+    cfg.autopilot.lastAutopilotAction = decision;
+    cfg.autopilot.lastAutopilotCheckAt = Date.now();
+    this.configStore.save(cfg);
+
+    const allBots = this.gridEngine.getAllBots();
+    const launchedBots = (nativeRes.launched || [])
+      .map((nb: any) => allBots.find((b) => b.botId === nb.algoId))
+      .filter(Boolean) as GridBotInstance[];
 
     return {
       success: true,
@@ -725,172 +731,44 @@ export class TradeBot {
     launchedBots: GridBotInstance[];
     decision: string;
   }> {
-    const cfg = this.configStore.get();
-    const ap = this.getAutopilotConfig();
-    const now = Date.now();
-
-    const saveDecision = (msg: string, addLaunches: number = 0) => {
-      const latestCfg = this.configStore.get();
-      latestCfg.autopilot = {
-        ...DEFAULT_AUTOPILOT_CONFIG,
-        ...(latestCfg.autopilot || {}),
-        lastAutopilotCheckAt: now,
-        lastAutopilotAction: msg,
-        totalAutopilotLaunches: ((latestCfg.autopilot?.totalAutopilotLaunches || 0) + addLaunches),
+    const nativeCfg = this.nativeGridEngine.getConfig();
+    if (!nativeCfg.enabled && !forceRunEvenIfDisabled) {
+      return {
+        launchedBots: [],
+        decision: nativeCfg.lastDecision || 'Autopilot OKX Native & Auto-Limit este OPRIT.',
       };
-      this.configStore.save(latestCfg);
-      return msg;
-    };
-
-    if (!ap.enabled && !forceRunEvenIfDisabled) {
-      return { launchedBots: [], decision: ap.lastAutopilotAction || 'Autopilot OPRIT (Mod Manual)' };
     }
 
-    if (this.isKillSwitchEngagedForMode(cfg.executionMode)) {
-      const msg = saveDecision(`Blocat: Kill Switch de urgență (${cfg.executionMode}) este activat.`);
-      return { launchedBots: [], decision: msg };
-    }
-
-    if (this.gridCandidates.length === 0) {
-      const msg = saveDecision('În așteptarea primei scanări Universe...');
-      return { launchedBots: [], decision: msg };
-    }
-
-    const allBots = this.gridEngine.getAllBots();
-    const runningBots = allBots.filter(
-      (b) => b.status === 'RUNNING' && b.executionMode === cfg.executionMode
-    );
-    if (runningBots.length >= ap.maxConcurrentBots) {
-      const msg = saveDecision(
-        `Sloturi ocupate: ${runningBots.length}/${ap.maxConcurrentBots} boți activi (${runningBots.map((b) => b.symbol.replace('-USDT-SWAP', '')).join(', ')}).`
-      );
-      return { launchedBots: [], decision: msg };
-    }
-
-    if (cfg.executionMode === 'LIVE') {
-      await this.refreshLiveAccountMetrics(true);
+    if (this.nativeGridEngine.getOpportunities().length === 0) {
+      await this.scanNativeGridOpportunities();
     }
 
     const status = this.getStatus();
-    let currentFreeBalance = Math.min(
-      status.freeBalance ?? 0,
-      status.unallocatedBalance ?? status.freeBalance ?? 0
+    const evalRes = await this.nativeGridEngine.evaluateAutopilot(
+      status.freeBalance,
+      this.isKillSwitchEngagedForMode('LIVE'),
+      (p) => this.createNativeGridBot({ ...p, executionVariant: 'AUTO_LIMIT' })
     );
 
-    if (currentFreeBalance - ap.marginPerBotUSDT < ap.minReserveUSDT) {
-      const msg = saveDecision(
-        `Marjă nealocată insuficientă pentru lansare nouă: nealocat $${currentFreeBalance.toFixed(2)} (Disponibil OKX: $${(status.freeBalance ?? 0).toFixed(2)}), necesar $${ap.marginPerBotUSDT.toFixed(2)} + rezervă $${ap.minReserveUSDT.toFixed(2)}.`
-      );
-      return { launchedBots: [], decision: msg };
-    }
+    const latestCfg = this.configStore.get();
+    latestCfg.autopilot = {
+      ...DEFAULT_AUTOPILOT_CONFIG,
+      ...(latestCfg.autopilot || {}),
+      enabled: nativeCfg.enabled,
+      lastAutopilotCheckAt: Date.now(),
+      lastAutopilotAction: evalRes.decision,
+    };
+    this.configStore.save(latestCfg);
 
-    const runningSymbols = new Set(runningBots.map((b) => b.symbol));
-    const cooldownMs = (ap.cooldownMinutesPerSymbol || 0) * 60 * 1000;
+    const allBots = this.gridEngine.getAllBots();
+    const launchedBots = (evalRes.launched || [])
+      .map((nb) => allBots.find((b) => b.botId === nb.algoId))
+      .filter(Boolean) as GridBotInstance[];
 
-    const launchedBots: GridBotInstance[] = [];
-    const skippedReasons: string[] = [];
-
-    for (const candidate of this.gridCandidates) {
-      if (runningBots.length + launchedBots.length >= ap.maxConcurrentBots) break;
-      if (currentFreeBalance - ap.marginPerBotUSDT < ap.minReserveUSDT) break;
-
-      if (runningSymbols.has(candidate.symbol)) {
-        continue;
-      }
-
-      // Check cooldown on recently stopped bots for the same symbol in the same execution mode
-      if (cooldownMs > 0) {
-        const recentStopped = allBots.find(
-          (b) =>
-            b.executionMode === cfg.executionMode &&
-            b.symbol === candidate.symbol &&
-            b.status !== 'RUNNING' &&
-            b.stoppedAt &&
-            now - b.stoppedAt < cooldownMs
-        );
-        if (recentStopped) {
-          skippedReasons.push(`${candidate.symbol.replace('-USDT-SWAP', '')} (Cooldown)`);
-          continue;
-        }
-      }
-
-      if (candidate.gridSuitabilityScore < ap.minSuitabilityScore) {
-        skippedReasons.push(
-          `${candidate.symbol.replace('-USDT-SWAP', '')} (Scor ${candidate.gridSuitabilityScore} < ${ap.minSuitabilityScore})`
-        );
-        continue;
-      }
-
-      if (ap.onlyIdealOrGoodRegime && candidate.regimeLabel === 'TRENDING_RISK') {
-        skippedReasons.push(`${candidate.symbol.replace('-USDT-SWAP', '')} (Regim TRENDING_RISK evitat)`);
-        continue;
-      }
-
-      const chosenLeverage = ap.useAnalyzerLeverage
-        ? candidate.recommendedLeverage
-        : ap.defaultLeverage;
-
-      const createRes = await this.createGridBot({
-        symbol: candidate.symbol,
-        platform: cfg.activePlatform || 'OKX_EEA',
-        mode: 'AUTO',
-        lowerPrice: candidate.recommendedLowerPrice,
-        upperPrice: candidate.recommendedUpperPrice,
-        gridCount: candidate.recommendedGridCount,
-        gridType: ap.defaultGridType,
-        marginInvestedUSDT: ap.marginPerBotUSDT,
-        leverage: chosenLeverage,
-        marginMode: ap.defaultMarginMode,
-        martingale: {
-          enabled: ap.martingaleEnabled,
-          sizeMultiplier: ap.martingaleEnabled ? ap.martingaleMultiplier : 1.0,
-          maxMultiplierSteps: ap.martingaleMaxSteps,
-          maxExposureUSDT: ap.marginPerBotUSDT * chosenLeverage,
-        },
-        risk: {
-          stopLossPct: ap.stopLossPct,
-          takeProfitPct: ap.takeProfitPct,
-          stopOnRangeBreakout: ap.stopOnRangeBreakout,
-          maxMarginUsagePct: 95,
-          maxActiveGridBots: Math.max(100, ap.maxConcurrentBots),
-        },
-      });
-
-      if (createRes.success && createRes.bot) {
-        launchedBots.push(createRes.bot);
-        runningSymbols.add(candidate.symbol);
-        if (cfg.executionMode === 'LIVE') {
-          await this.refreshLiveAccountMetrics(true);
-          const updatedStatus = this.getStatus();
-          currentFreeBalance = Math.min(
-            updatedStatus.freeBalance ?? 0,
-            updatedStatus.unallocatedBalance ?? updatedStatus.freeBalance ?? 0
-          );
-        } else {
-          currentFreeBalance = Math.max(0, currentFreeBalance - ap.marginPerBotUSDT);
-        }
-        this.logAudit(
-          'GRID_CREATED',
-          `[AUTOPILOT LAUNCH] Bot Neutral Grid lansat autonom pe ${candidate.symbol} (Scor ${candidate.gridSuitabilityScore}/100 | Range $${candidate.recommendedLowerPrice} - $${candidate.recommendedUpperPrice} | ${candidate.recommendedGridCount} trepte | Marjă $${ap.marginPerBotUSDT} la ${chosenLeverage}x).`
-        );
-      } else if (createRes.error) {
-        skippedReasons.push(`${candidate.symbol.replace('-USDT-SWAP', '')} (${createRes.error})`);
-      }
-    }
-
-    if (launchedBots.length > 0) {
-      const msg = saveDecision(
-        `Lansat autonom ${launchedBots.length} bot(i): ${launchedBots.map((b) => `${b.symbol.replace('-USDT-SWAP', '')} ($${b.config.marginInvestedUSDT} @ ${b.config.leverage}x)`).join(', ')}`,
-        launchedBots.length
-      );
-      return { launchedBots, decision: msg };
-    }
-
-    const topCand = this.gridCandidates[0];
-    const msg = saveDecision(
-      `Niciun candidat eligibil peste pragul ≥${ap.minSuitabilityScore}/100. Top curent: ${topCand ? `${topCand.symbol.replace('-USDT-SWAP', '')} (${topCand.gridSuitabilityScore}/100)` : 'N/A'}.`
-    );
-    return { launchedBots: [], decision: msg };
+    return {
+      launchedBots,
+      decision: evalRes.decision,
+    };
   }
 
   private rescheduleScannerInterval(intervalSec: number) {
@@ -1170,6 +1048,50 @@ export class TradeBot {
     );
 
     const feeTierInfo = this.okxAdapter.getCachedFeeTierInfo();
+    // Auto-adopt any LIVE Limit-Order bot from NeutralGridEngine into OKXNativeGridEngine (Ramura 1: Ordine Limit)
+    const existingNativeIds = new Set(this.nativeGridEngine.getAllBots().map((b) => b.algoId));
+    for (const lb of allBots) {
+      if (
+        lb.executionMode === 'LIVE' &&
+        !existingNativeIds.has(lb.botId) &&
+        !this.nativeGridEngine.isDismissed(lb.botId)
+      ) {
+        this.nativeGridEngine.registerFallbackBot({
+          algoId: lb.botId,
+          instId: lb.symbol,
+          algoOrdType: 'contract_grid',
+          direction: 'neutral',
+          environment: 'LIVE',
+          state: lb.status === 'RUNNING' ? 'running' : 'stopped',
+          minPx: lb.config.lowerPrice,
+          maxPx: lb.config.upperPrice,
+          gridNum: lb.config.gridCount,
+          runType: lb.config.gridType === 'GEOMETRIC' ? '2' : '1',
+          lever: lb.config.leverage,
+          sz: lb.config.marginInvestedUSDT,
+          singleAmt: 0,
+          currentPx: lb.currentPrice,
+          liqPx: lb.estimatedLiquidationPriceLong || 0,
+          gridProfit: lb.gridProfitUSDT || 0,
+          floatProfit: lb.floatingPnlUSDT || 0,
+          totalPnl: lb.totalNetPnlUSDT || 0,
+          totalPnlPct: lb.totalNetPnlPct || 0,
+          arbitrageNum: lb.completedArbitrages || 0,
+          tpTriggerPx: lb.upperStopPrice,
+          slTriggerPx: lb.lowerStopPrice,
+          stopLossPct: lb.config.risk.stopLossPct,
+          takeProfitPct: lb.config.risk.takeProfitPct,
+          stopTypeOnRisk: '1',
+          stopOnRangeBreakout: lb.config.risk.stopOnRangeBreakout,
+          stopOnTrendInvalidation: true,
+          stopReason: lb.stopReason,
+          cTime: lb.createdAt || Date.now(),
+          uTime: lb.stoppedAt || Date.now(),
+        });
+        existingNativeIds.add(lb.botId);
+      }
+    }
+
     const nativeGridBots = this.nativeGridEngine.getAllBots().map((nb) => {
       if (nb.algoId.toLowerCase().startsWith('grid')) {
         const match = allBots.find((b) => b.botId === nb.algoId);
@@ -1534,6 +1456,14 @@ export class TradeBot {
   }
 
   public async amendNativeGridBot(algoId: string, params: any) {
+    if (algoId.toLowerCase().startsWith('grid')) {
+      this.updateGridBotRisk(algoId, {
+        stopLossPct: params.stopLossPct,
+        takeProfitPct: params.takeProfitPct,
+        lowerStopPrice: params.slTriggerPx,
+        upperStopPrice: params.tpTriggerPx,
+      });
+    }
     return await this.nativeGridEngine.amendNativeBot({
       algoId,
       ...params,
@@ -1556,15 +1486,32 @@ export class TradeBot {
   }
 
   public deleteNativeGridBot(algoId: string) {
+    if (algoId.toLowerCase().startsWith('grid')) {
+      this.deleteStoppedGridBot(algoId);
+    }
     return this.nativeGridEngine.deleteNativeBot(algoId);
   }
 
   public clearStoppedNativeGridBots() {
+    for (const b of this.gridEngine.getAllBots()) {
+      if (b.status !== 'RUNNING') {
+        this.deleteStoppedGridBot(b.botId);
+      }
+    }
     return this.nativeGridEngine.clearStoppedNativeBots();
   }
 
   public async updateNativeGridAutopilot(updates: Partial<NativeGridAutopilotConfig>) {
     const nextCfg = this.nativeGridEngine.updateConfig(updates);
+    const cfg = this.configStore.get();
+    if (cfg.autopilot) {
+      cfg.autopilot.enabled = Boolean(nextCfg.enabled);
+      cfg.autopilot.marginPerBotUSDT = nextCfg.maxBudgetPerBotUSDT;
+      cfg.autopilot.minReserveUSDT = nextCfg.minReserveUSDT;
+      cfg.autopilot.maxConcurrentBots = nextCfg.maxConcurrentNativeBots;
+      cfg.autopilot.minSuitabilityScore = nextCfg.minSuitabilityScore;
+      this.configStore.save(cfg);
+    }
     let launched: any[] = [];
     let decision = nextCfg.lastDecision || '';
     if (nextCfg.enabled) {
@@ -1575,7 +1522,7 @@ export class TradeBot {
       const evalRes = await this.nativeGridEngine.evaluateAutopilot(
         status.freeBalance,
         this.isKillSwitchEngagedForMode('LIVE'),
-        (p) => this.createNativeGridBot(p)
+        (p) => this.createNativeGridBot({ ...p, executionVariant: 'AUTO_LIMIT' })
       );
       launched = evalRes.launched;
       decision = evalRes.decision;

@@ -130,7 +130,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<
     'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API'
-  >('DASHBOARD');
+  >('NATIVE_GRID');
   const [mobileDashView, setMobileDashView] = useState<'BOTS' | 'LAUNCH'>('BOTS');
   const [showFeeCalculatorModal, setShowFeeCalculatorModal] = useState<boolean>(false);
 
@@ -990,57 +990,51 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setGridCount(cand.recommendedGridCount);
     setLocalBanner({
       type: 'info',
-      text: `Moneda ${cand.symbol} (Scor Grid ${cand.gridSuitabilityScore}/100) a fost încărcată în Configurator cu limitele $${cand.recommendedLowerPrice} – $${cand.recommendedUpperPrice}.`,
+      text: `Moneda ${cand.symbol} (Scor Grid ${cand.gridSuitabilityScore}/100) — comutat în [1:OKX NATIVE & AUTO-LIMIT GRID] (Ramura 1: Ordine Limit).`,
     });
-    setMobileDashView('LAUNCH');
-    setActiveTab('DASHBOARD');
+    setActiveTab('NATIVE_GRID');
   };
 
-  // Direct 1-click Manual Launch from Scanner table
+  // Direct 1-click Manual Launch from Scanner table into Ramura 1: Ordine Limit (OKX Native & Auto-Limit Grid)
   const handleDirectLaunchCandidate = async (cand: GridCandidateAnalysis) => {
     setIsCreatingBot(true);
     setLocalBanner(null);
     try {
-      const res = await fetch('/api/bot/grid/create', {
+      const budget = Number(nativeGridAutopilot?.maxBudgetPerBotUSDT) || Number(apMarginPerBot) || 15;
+      const lev = Number(cand.recommendedLeverage) || Number(nativeGridAutopilot?.maxLeverage) || 3;
+      const res = await fetch('/api/bot/native-grid/create', {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
-          symbol: cand.symbol,
-          platform,
-          mode: 'AUTO',
-          lowerPrice: cand.recommendedLowerPrice,
-          upperPrice: cand.recommendedUpperPrice,
-          gridCount: cand.recommendedGridCount,
-          gridType: apGridType,
-          marginInvestedUSDT: Number(marginInvestedUSDT) || apMarginPerBot || 15,
-          leverage: Number(leverage) || cand.recommendedLeverage,
-          marginMode,
-          martingale: {
-            enabled: martingaleEnabled,
-            sizeMultiplier: Number(martingaleMultiplier),
-            maxMultiplierSteps: Number(martingaleMaxSteps),
-            maxExposureUSDT: Number(maxExposureUSDT),
-          },
-          risk: {
-            stopLossPct: Number(stopLossPct) || 8,
-            takeProfitPct: Number(takeProfitPct) || 15,
-            stopOnRangeBreakout,
-            maxMarginUsagePct: 95,
-            maxActiveGridBots: Math.max(100, Number(apMaxBots) || 100),
-          },
+          instId: cand.symbol,
+          minPx: cand.recommendedLowerPrice,
+          maxPx: cand.recommendedUpperPrice,
+          gridNum: cand.recommendedGridCount,
+          runType: nativeGridAutopilot?.defaultRunType || '1',
+          lever: lev,
+          sz: budget,
+          stopLossPct: Number(nativeGridAutopilot?.stopLossPct) || 8,
+          takeProfitPct: Number(nativeGridAutopilot?.takeProfitPct) || 15,
+          stopTypeOnRisk: nativeGridAutopilot?.defaultStopType || '1',
+          stopOnRangeBreakout: nativeGridAutopilot?.stopOnRangeBreakout ?? true,
+          stopOnTrendInvalidation: nativeGridAutopilot?.stopOnTrendInvalidation ?? true,
+          environment: 'LIVE',
+          explicitLiveConfirm: true,
+          executionVariant: 'AUTO_LIMIT',
         }),
       });
       const data = await safeJson(res);
       if (!res.ok || !data.success) {
         setLocalBanner({
           type: 'error',
-          text: data.error || `Eroare la lansarea botului pe ${cand.symbol}.`,
+          text: data.error || `Eroare la lansarea botului Ramura 1 (Ordine Limit) pe ${cand.symbol}.`,
         });
       } else {
         setLocalBanner({
           type: 'success',
-          text: `LANSARE MANUALĂ REUȘITĂ: Botul Neutral Grid pe ${cand.symbol} a pornit (${cand.recommendedGridCount} trepte între $${cand.recommendedLowerPrice} – $${cand.recommendedUpperPrice})!`,
+          text: `GRILĂ RAMURA 1 (ORDINE LIMIT OKX) LANSATĂ: ${cand.symbol} a pornit (${cand.recommendedGridCount} trepte între $${cand.recommendedLowerPrice} – $${cand.recommendedUpperPrice})!`,
         });
+        setActiveTab('NATIVE_GRID');
         onRefresh();
       }
     } catch (err: any) {
@@ -1315,22 +1309,22 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             </button>
           </div>
 
-          {/* Quick Autopilot Switch in Top Bar with Live Countdown */}
+          {/* Quick Unified Autopilot Switch in Top Bar with Live Countdown */}
           <button
             type="button"
-            onClick={() => handleSaveAutopilot(!apEnabled)}
+            onClick={() => handleSaveAutopilot(!Boolean(nativeGridAutopilot?.enabled ?? apEnabled))}
             disabled={isSavingAutopilot}
             className={`px-2 sm:px-2.5 py-1 rounded text-[11px] sm:text-xs font-black flex items-center space-x-1 cursor-pointer border transition-all ${
-              apEnabled
+              Boolean(nativeGridAutopilot?.enabled ?? apEnabled)
                 ? 'bg-cyan-500 text-black border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
                 : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-cyan-500/50'
             }`}
-            title="Comută între Lansare Autonomă (Autopilot) și Lansare Manuală"
+            title="Comută Autopilotul Unificat din [1:OKX NATIVE & AUTO-LIMIT GRID] (Ramura 1: Ordine Limit)"
           >
             <Zap className="w-3.5 h-3.5 shrink-0" />
             <span className="tabular-nums truncate">
-              {apEnabled
-                ? `AUTO: ON (${nextScanInSec}s | ≥${serverAutopilot?.minSuitabilityScore || apMinScore}p)`
+              {Boolean(nativeGridAutopilot?.enabled ?? apEnabled)
+                ? `AUTO: ON (${nextScanInSec}s | ≥${nativeGridAutopilot?.minSuitabilityScore || apMinScore}p)`
                 : `AUTO: OFF (${nextScanInSec}s)`}
             </span>
           </button>
@@ -1455,18 +1449,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       <nav className="hidden lg:flex bg-zinc-950 border-b border-amber-500/30 px-3 py-1 items-center justify-between gap-2 overflow-x-auto shrink-0">
         <div className="flex items-center space-x-1.5">
           <button
-            onClick={() => setActiveTab('DASHBOARD')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
-              activeTab === 'DASHBOARD'
-                ? 'bg-amber-500 text-black'
-                : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>[1:GRID BOTS &amp; LANSARE] ({runningBots.length})</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('NATIVE_GRID')}
             className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'NATIVE_GRID'
@@ -1475,19 +1457,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>[OKX NATIVE GRID] ({runningNativeBotsCount})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('CONFIG')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
-              activeTab === 'CONFIG'
-                ? 'bg-amber-500 text-black'
-                : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>[2:AUTOPILOT &amp; SIMULATOR TREPTE]</span>
+            <span>[1:OKX NATIVE &amp; AUTO-LIMIT GRID] ({runningNativeBotsCount})</span>
           </button>
 
           <button
@@ -1499,7 +1469,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <Search className="w-3.5 h-3.5" />
-            <span>[3:UNIVERS SCANNER GRID] ({gridCandidates.length})</span>
+            <span>[2:UNIVERS SCANNER GRID] ({gridCandidates.length})</span>
           </button>
 
           <button
@@ -1511,7 +1481,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
-            <span>[4:TREPTE GRILĂ &amp; ORDINE]</span>
+            <span>[3:TREPTE GRILĂ &amp; ORDINE]</span>
           </button>
 
           <button
@@ -1523,7 +1493,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <List className="w-3.5 h-3.5" />
-            <span>[5:GRID JOURNAL &amp; LOGURI] ({logs.length})</span>
+            <span>[4:GRID JOURNAL &amp; LOGURI] ({logs.length})</span>
           </button>
 
           <button
@@ -1535,7 +1505,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             }`}
           >
             <Key className="w-3.5 h-3.5" />
-            <span>[6:CONEXIUNE OKX EEA &amp; PLATFORME]</span>
+            <span>[5:CONEXIUNE OKX EEA &amp; PLATFORME]</span>
           </button>
         </div>
 
@@ -3146,7 +3116,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
                 {!selectedLadderBot ? (
                   <div className="text-center py-8 text-zinc-400 text-xs">
-                    Nu există niciun bot Grid pentru afișarea treptelor. Lansați un bot din tabul [1:GRID BOTS].
+                    Nu există niciun bot Grid cu ordine Limit pentru afișarea treptelor. Lansați un bot din tabul [1:OKX NATIVE &amp; AUTO-LIMIT GRID] (Ramura 1: Ordine Limit).
                   </div>
                 ) : (
                   <div className="overflow-y-auto max-h-[68vh]">
@@ -3655,7 +3625,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         )}
 
         {/* ================================================================= */}
-        {/* TAB DEDICAT: OKX NATIVE FUTURES GRID (contract_grid — neutral)    */}
+        {/* TAB 1 PRINCIPAL: OKX NATIVE & AUTO-LIMIT FUTURES GRID             */}
         {/* ================================================================= */}
         {activeTab === 'NATIVE_GRID' && (
           <OKXNativeGridPanel
@@ -3668,6 +3638,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             controlToken={controlToken}
             onRefresh={onRefresh}
             onNotify={(banner) => setLocalBanner(banner)}
+            onInspectLadder={(botId) => {
+              setSelectedBotIdForLadder(botId);
+              setActiveTab('LADDER');
+            }}
           />
         )}
       </main>
@@ -3956,21 +3930,8 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       <nav
         aria-label="Navigare mobilă"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-7 gap-0.5 px-1 py-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-5 gap-0.5 px-1 py-1"
       >
-        <button
-          type="button"
-          onClick={() => setActiveTab('DASHBOARD')}
-          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
-            activeTab === 'DASHBOARD'
-              ? 'bg-amber-500 text-black'
-              : 'text-amber-300 hover:bg-zinc-900'
-          }`}
-        >
-          <Layers className="w-4 h-4 mb-0.5" />
-          <span>Grilă ({runningBots.length})</span>
-        </button>
-
         <button
           type="button"
           onClick={() => setActiveTab('NATIVE_GRID')}
@@ -3981,20 +3942,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           }`}
         >
           <Zap className="w-4 h-4 mb-0.5" />
-          <span>Nativ ({runningNativeBotsCount})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('CONFIG')}
-          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
-            activeTab === 'CONFIG'
-              ? 'bg-amber-500 text-black'
-              : 'text-amber-300 hover:bg-zinc-900'
-          }`}
-        >
-          <Sliders className="w-4 h-4 mb-0.5" />
-          <span>Auto</span>
+          <span>Grid OKX ({runningNativeBotsCount})</span>
         </button>
 
         <button

@@ -526,6 +526,38 @@ export class OKXNativeGridEngine {
         ? Number(params.tpTriggerPx.toFixed(decimals))
         : Number((maxPx * (1 + Math.min(0.2, (takeProfitPct / 100) * 0.5))).toFixed(decimals));
 
+    const validatedParams = {
+      instId,
+      minPx,
+      maxPx,
+      gridNum,
+      runType,
+      lever,
+      sz: parseFloat(sz.toFixed(2)),
+      singleAmt: minInv.singleAmt || 0,
+      tpTriggerPx,
+      slTriggerPx,
+      stopLossPct,
+      takeProfitPct,
+      stopTypeOnRisk,
+      stopOnRangeBreakout:
+        params.stopOnRangeBreakout !== undefined
+          ? Boolean(params.stopOnRangeBreakout)
+          : cfg.stopOnRangeBreakout,
+      stopOnTrendInvalidation:
+        params.stopOnTrendInvalidation !== undefined
+          ? Boolean(params.stopOnTrendInvalidation)
+          : cfg.stopOnTrendInvalidation,
+    };
+
+    if ((params as any).executionVariant === 'AUTO_LIMIT') {
+      return {
+        success: false,
+        needsDirectOrderFallback: true,
+        validatedParams,
+      } as any;
+    }
+
     try {
       const created = await this.okxAdapter.createNativeContractGrid({
         instId,
@@ -569,14 +601,8 @@ export class OKXNativeGridEngine {
         stopLossPct,
         takeProfitPct,
         stopTypeOnRisk,
-        stopOnRangeBreakout:
-          params.stopOnRangeBreakout !== undefined
-            ? Boolean(params.stopOnRangeBreakout)
-            : cfg.stopOnRangeBreakout,
-        stopOnTrendInvalidation:
-          params.stopOnTrendInvalidation !== undefined
-            ? Boolean(params.stopOnTrendInvalidation)
-            : cfg.stopOnTrendInvalidation,
+        stopOnRangeBreakout: validatedParams.stopOnRangeBreakout,
+        stopOnTrendInvalidation: validatedParams.stopOnTrendInvalidation,
         cTime: now,
         uTime: now,
       };
@@ -607,36 +633,18 @@ export class OKXNativeGridEngine {
         success: false,
         error: errMsg,
         needsDirectOrderFallback: isOkxGatewayInstIdBug,
-        validatedParams: {
-          instId,
-          minPx,
-          maxPx,
-          gridNum,
-          runType,
-          lever,
-          sz: parseFloat(sz.toFixed(2)),
-          singleAmt: minInv.singleAmt || 0,
-          tpTriggerPx,
-          slTriggerPx,
-          stopLossPct,
-          takeProfitPct,
-          stopTypeOnRisk,
-          stopOnRangeBreakout:
-            params.stopOnRangeBreakout !== undefined
-              ? Boolean(params.stopOnRangeBreakout)
-              : cfg.stopOnRangeBreakout,
-          stopOnTrendInvalidation:
-            params.stopOnTrendInvalidation !== undefined
-              ? Boolean(params.stopOnTrendInvalidation)
-              : cfg.stopOnTrendInvalidation,
-        },
-      };
+        validatedParams,
+      } as any;
     }
   }
 
   public registerFallbackBot(bot: OKXNativeGridBot): void {
     this.bots.set(bot.algoId, bot);
     this.persistBots();
+  }
+
+  public isDismissed(algoId: string): boolean {
+    return this.dismissedAlgoIds.has(String(algoId));
   }
 
   /**
@@ -657,8 +665,10 @@ export class OKXNativeGridEngine {
       return { success: false, error: `Botul nativ OKX (${params.algoId}) nu a fost găsit.` };
     }
 
+    const isAutoLimit = bot.algoId.toLowerCase().startsWith('grid');
+
     try {
-      if (params.tpTriggerPx !== undefined || params.slTriggerPx !== undefined) {
+      if (!isAutoLimit && (params.tpTriggerPx !== undefined || params.slTriggerPx !== undefined)) {
         await this.okxAdapter.amendNativeContractGrid({
           algoId: bot.algoId,
           instId: bot.instId,
@@ -950,6 +960,7 @@ export class OKXNativeGridEngine {
         stopOnTrendInvalidation: cfg.stopOnTrendInvalidation,
         environment: 'LIVE' as const,
         explicitLiveConfirm: true,
+        executionVariant: 'AUTO_LIMIT' as const,
       };
 
       const res = customCreator

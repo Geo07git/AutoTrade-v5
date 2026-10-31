@@ -34,6 +34,7 @@ interface OKXNativeGridPanelProps {
   controlToken: string;
   onRefresh: () => void;
   onNotify: (banner: { type: 'success' | 'error' | 'info'; text: string }) => void;
+  onInspectLadder?: (botId: string) => void;
 }
 
 export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
@@ -46,6 +47,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   controlToken,
   onRefresh,
   onNotify,
+  onInspectLadder,
 }) => {
   // Autopilot & Governance state (Exclusively LIVE on OKX EEA)
   const [apEnabled, setApEnabled] = useState<boolean>(Boolean(autopilot?.enabled));
@@ -375,19 +377,20 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           stopOnTrendInvalidation,
           environment: 'LIVE',
           explicitLiveConfirm: true,
+          executionVariant: 'AUTO_LIMIT',
         }),
       });
       const data = await res.json();
       if (data.success && data.bot) {
         onNotify({
           type: 'success',
-          text: `BOT NATIV OKX CREAT CU SUCCES (LIVE): ${data.bot.instId} | algoId: ${data.bot.algoId} | Investiție: $${data.bot.sz} @ ${data.bot.lever}x!`,
+          text: `GRILĂ RAMURA 1 (ORDINE LIMIT OKX) LANSATĂ CU SUCCES: ${data.bot.instId} | ID: ${data.bot.algoId} | Investiție: $${data.bot.sz} @ ${data.bot.lever}x!`,
         });
         onRefresh();
       } else {
         onNotify({
           type: 'error',
-          text: data.error || 'Eroare la crearea botului nativ pe OKX.',
+          text: data.error || 'Eroare la lansarea grilei pe OKX.',
         });
       }
     } catch (err: any) {
@@ -608,7 +611,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-black text-amber-300 uppercase tracking-wide">
-              ALEGE MODUL DE LANSARE (_UM_XPERP):
+              COMANDĂ CENTRALĂ GRID OKX (_UM_XPERP):
             </span>
             <div className="flex flex-wrap items-center bg-black border border-zinc-700 rounded p-1 gap-1">
               <button
@@ -620,7 +623,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     : 'bg-zinc-900 text-zinc-400 hover:text-white'
                 }`}
               >
-                ⚡ VARIANTA 1: EXECUȚIE 100% AUTOMATĂ (ORDINE LIMIT OKX)
+                ⚡ RAMURA 1: ORDINE LIMIT OKX (100% AUTOMAT + AUTOPILOT)
               </button>
               <button
                 type="button"
@@ -631,7 +634,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     : 'bg-zinc-900 text-zinc-400 hover:text-white'
                 }`}
               >
-                🤖 VARIANTA 2: BOT NATIV ÎN TABUL &quot;TRADING BOTS&quot; OKX (COPY + SUPRAVEGHERE API)
+                🤖 RAMURA 2: BOT NATIV ÎN TABUL &quot;TRADING BOTS&quot; OKX (COPY + SUPRAVEGHERE API)
               </button>
             </div>
           </div>
@@ -643,7 +646,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           >
             {showInstructions
               ? '▲ Ascunde Instrucțiunile de Folosire'
-              : '📖 Instrucțiuni de Folosire (Varianta 1 & Varianta 2)'}
+              : '📖 Instrucțiuni de Folosire (Ramura 1 & Ramura 2)'}
           </button>
         </div>
 
@@ -1775,7 +1778,9 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <div className="flex items-center space-x-1.5">
               <Settings className="w-4 h-4 text-amber-400" />
               <h3 className="font-bold text-xs text-amber-400">
-                CREARE BOT NATIV OKX (contract_grid — neutral)
+                {executionVariant === 'AUTO_LIMIT'
+                  ? '⚡ RAMURA 1: LANSARE GRILĂ ORDINE LIMIT OKX'
+                  : '🤖 RAMURA 2: BUILDER BOT NATIV OKX (COPY 1-CLICK)'}
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">
@@ -1785,9 +1790,21 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
 
           <div className="space-y-2">
             <div>
-              <label className="text-[10px] text-zinc-400 block mb-0.5">
-                Instrument OKX EEA (Exclusiv _UM_XPERP)
-              </label>
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="text-[10px] text-zinc-400 block">
+                  Instrument OKX EEA (Exclusiv _UM_XPERP)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const found = opportunities.find((o) => o.instId === instId);
+                    if (found) handleLoadOpportunity(found);
+                  }}
+                  className="text-[10px] text-cyan-300 hover:text-cyan-200 font-bold cursor-pointer"
+                >
+                  ⚡ Auto-Optimizează ATR
+                </button>
+              </div>
               <select
                 value={instId}
                 onChange={(e) => {
@@ -1807,6 +1824,30 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <option value={instId}>{instId}</option>
                 )}
               </select>
+            </div>
+
+            <div className="flex items-center justify-between gap-1 text-[10px]">
+              <span className="text-zinc-500">Range Rapid:</span>
+              <div className="flex items-center gap-1">
+                {[2, 3.5, 5, 8].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => {
+                      const found = opportunities.find((o) => o.instId === instId);
+                      const refPx = found?.price || (minPx > 0 && maxPx > 0 ? (minPx + maxPx) / 2 : 0);
+                      if (refPx > 0) {
+                        const dec = refPx >= 1000 ? 1 : refPx >= 10 ? 2 : refPx >= 1 ? 3 : 5;
+                        setMinPx(parseFloat((refPx * (1 - pct / 100)).toFixed(dec)));
+                        setMaxPx(parseFloat((refPx * (1 + pct / 100)).toFixed(dec)));
+                      }
+                    }}
+                    className="px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-300 font-bold cursor-pointer"
+                  >
+                    ±{pct}%
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -2358,6 +2399,16 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       <td className="py-2 px-2 text-right">
                         {b.state === 'running' ? (
                           <div className="flex flex-wrap items-center justify-end gap-1">
+                            {b.algoId.toLowerCase().startsWith('grid') && onInspectLadder && (
+                              <button
+                                type="button"
+                                onClick={() => onInspectLadder(b.algoId)}
+                                className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold cursor-pointer"
+                                title="Vezi scara treptelor grilei și ordinele Limit active"
+                              >
+                                Trepte Grilă
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -2398,6 +2449,16 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           </div>
                         ) : (
                           <div className="flex flex-wrap items-center justify-end gap-1">
+                            {b.algoId.toLowerCase().startsWith('grid') && onInspectLadder && (
+                              <button
+                                type="button"
+                                onClick={() => onInspectLadder(b.algoId)}
+                                className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold cursor-pointer"
+                                title="Vezi scara treptelor grilei"
+                              >
+                                Trepte Grilă
+                              </button>
+                            )}
                             <button
                               type="button"
                               disabled={isCreating}
