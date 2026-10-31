@@ -4,6 +4,8 @@ import {
   GridAnalyzerStopEvent,
   GridAnalyzerThresholds,
   GridBotAnalysisSnapshot,
+  GridStagnationLevel,
+  GridStagnationMetrics,
   OKXNativeGridBot,
 } from '../../../shared/types';
 import { getLiveFeeRates } from '../../../shared/fees';
@@ -28,7 +30,564 @@ export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   minLiqSafetyPct: 4.0,
   requireMultiIndicatorForTrendStop: true,
   emergencyClosePosition: true,
+  // Stagnation Analyzer configurable thresholds
+  stagnationMonitorNoFillMinutes: 30,
+  stagnationWarningNoFillMinutes: 60,
+  stagnationReviewMinutes: 120,
+  stagnationStopMinutes: 180,
+  minRealizedPnlProgressUSDT: 0.005,
+  minProductiveHourlyYieldPct: 0.015,
+  minOscillationToGridStepRatio: 0.85,
+  minCapitalTurnover120mRatio: 0.25,
+  enableEarlyStopOnMarketDeterioration: true,
 };
+
+export function createDefaultStagnationMetrics(bot: OKXNativeGridBot): GridStagnationMetrics {
+  const now = Date.now();
+  const baseTs = bot.uTime && bot.uTime > bot.cTime ? bot.uTime : bot.cTime || now;
+  const minsSinceStart = parseFloat(Math.max(0, (now - baseTs) / 60_000).toFixed(1));
+  const rangeWidth = Math.max(1e-8, bot.maxPx - bot.minPx);
+  const gridStepUSDT = rangeWidth / Math.max(1, bot.gridNum);
+  const gridStepPct =
+    bot.currentPx > 0 ? parseFloat(((gridStepUSDT / bot.currentPx) * 100).toFixed(3)) : 0.5;
+
+  return {
+    level: 'ACTIVE',
+    isStagnant: false,
+    lastFillAt: baseTs,
+    minutesSinceLastFill: minsSinceStart,
+    lastGridCycleCloseAt: baseTs,
+    minutesSinceLastGridClose: minsSinceStart,
+    realizedPnlUSDT: bot.gridProfit || 0,
+    realizedPnlDelta30mUSDT: 0,
+    realizedPnlDelta60mUSDT: 0,
+    realizedPnlDelta120mUSDT: 0,
+    floatPnlUSDT: bot.floatProfit || 0,
+    floatPnlDelta30mUSDT: 0,
+    floatPnlDelta60mUSDT: 0,
+    netRealizedProfitAfterCostsUSDT: bot.gridProfit || 0,
+    netTotalProfitAfterCostsUSDT: bot.totalPnl || 0,
+    realizedNetHourlyYieldPct: 0,
+    fillsCount30m: 0,
+    fillsCount60m: 0,
+    fillsCount120m: 0,
+    gridCyclesCount30m: 0,
+    gridCyclesCount60m: 0,
+    gridCyclesCount120m: 0,
+    activeOrdersCount: bot.state === 'running' ? bot.gridNum : 0,
+    gridStepPct,
+    nearestOrderDistancePct: parseFloat((gridStepPct * 0.5).toFixed(3)),
+    priceOscillationAmplitude60mPct: gridStepPct,
+    priceOscillationAmplitude120mPct: gridStepPct,
+    oscillationToGridStepRatio: 1.0,
+    lockedCapitalUSDT: bot.sz || 0,
+    capitalTurnover120mRatio: 0,
+    capitalEfficiencyScore: 70,
+    recoveryProspect: 'HIGH',
+    continueOpportunityVerdict: 'Activitate normală în interval',
+  };
+}
+
+interface BotStagnationTracker {
+  samples: Array<{
+    ts: number;
+    price: number;
+    realizedPnl: number;
+    floatPnl: number;
+    arbitrageNum: number;
+  }>;
+  fillTimestamps: number[];
+  gridCycleCloseTimestamps: Array<{ ts: number; count: number }>;
+  seenTradeIds: Set<string>;
+  lastFillAt: number;
+  lastGridCycleCloseAt: number;
+  prevArbitrageNum: number;
+  prevRealizedPnl: number;
+  prevRemoteUTime: number;
+}
+
+/**
+ * GridStagnationAnalyzer
+ * Tracks and evaluates the 9 Stagnation & Capital Productivity indicators in memory,
+ * reusing existing data from GridBotMonitor (remoteDetails) and OKXAdapter (cached fills & klines)
+ * without opening duplicate OKX connections or generating telemetry spam.
+ */
+export class GridStagnationAnalyzer {
+  private okxAdapter: OKXAdapter;
+  private trackers: Map<string, BotStagnationTracker> = new Map();
+
+  constructor(okxAdapter: OKXAdapter) {
+    this.okxAdapter = okxAdapter;
+  }
+
+  private getOrCreateTracker(bot: OKXNativeGridBot, remoteDetails: any | null): BotStagnationTracker {
+    let tracker = this.trackers.get(bot.algoId);
+    if (!tracker) {
+      const now = Date.now();
+      const remUTime = parseInt(remoteDetails?.uTime || String(bot.uTime || bot.cTime || now), 10) || now;
+      const initialActivityTs =
+        bot.arbitrageNum > 0 && remUTime >= bot.cTime ? remUTime : bot.cTime || now;
+      tracker = {
+        samples: [
+          {
+            ts: now,
+            price: bot.currentPx || 0,
+            realizedPnl: bot.gridProfit || 0,
+            floatPnl: bot.floatProfit || 0,
+            arbitrageNum: bot.arbitrageNum || 0,
+          },
+        ],
+        fillTimestamps: bot.arbitrageNum > 0 ? [initialActivityTs] : [],
+        gridCycleCloseTimestamps:
+          bot.arbitrageNum > 0 ? [{ ts: initialActivityTs, count: 1 }] : [],
+        seenTradeIds: new Set<string>(),
+        lastFillAt: initialActivityTs,
+        lastGridCycleCloseAt: initialActivityTs,
+        prevArbitrageNum: bot.arbitrageNum || 0,
+        prevRealizedPnl: bot.gridProfit || 0,
+        prevRemoteUTime: remUTime,
+      };
+      this.trackers.set(bot.algoId, tracker);
+    }
+    return tracker;
+  }
+
+  /**
+   * Updates all 9 activity & stagnation metrics using existing GridBotMonitor & OKXAdapter data.
+   */
+  public updateActivityMetrics(
+    bot: OKXNativeGridBot,
+    remoteDetails: any | null,
+    snapshot: GridBotAnalysisSnapshot,
+    thresholds: GridAnalyzerThresholds
+  ): void {
+    const now = Date.now();
+    const tracker = this.getOrCreateTracker(bot, remoteDetails);
+    const window210mCutoff = now - 210 * 60_000;
+
+    // 1. Re-use cached fills from OKXAdapter (no extra HTTP requests)
+    const cachedFills = (this.okxAdapter.getCachedExchangeFillsSummary() as any)?.recentFills;
+    if (Array.isArray(cachedFills) && cachedFills.length > 0) {
+      const normBotInst = this.okxAdapter.normalizeSymbol
+        ? this.okxAdapter.normalizeSymbol(bot.instId)
+        : bot.instId;
+      for (const f of cachedFills) {
+        const fInst = this.okxAdapter.normalizeSymbol
+          ? this.okxAdapter.normalizeSymbol(String(f.instId || ''))
+          : String(f.instId || '');
+        const fAlgo = String(f.algoId || '');
+        const fTs = parseInt(String(f.ts || f.fillTime || '0'), 10) || 0;
+        const tradeKey = String(f.tradeId || f.billId || `${f.ordId}_${fTs}`);
+        const matchesBot =
+          (fAlgo && fAlgo === String(bot.algoId)) ||
+          (!fAlgo && (fInst === normBotInst || f.instId === bot.instId) && fTs >= bot.cTime);
+
+        if (matchesBot && fTs >= bot.cTime && !tracker.seenTradeIds.has(tradeKey)) {
+          tracker.seenTradeIds.add(tradeKey);
+          tracker.fillTimestamps.push(fTs);
+          if (fTs > tracker.lastFillAt) {
+            tracker.lastFillAt = fTs;
+          }
+          const fillPnl = parseFloat(String(f.fillPnl || f.pnl || '0')) || 0;
+          if (fillPnl > 0 && fTs > tracker.lastGridCycleCloseAt) {
+            tracker.lastGridCycleCloseAt = fTs;
+          }
+        }
+      }
+    }
+
+    // 2. Detect new completed Grid arbitrage cycles and sub-order fills from remoteDetails
+    const currentArb = bot.arbitrageNum || 0;
+    const currentRealized = bot.gridProfit || 0;
+    const remUTime = parseInt(String(remoteDetails?.uTime || '0'), 10) || 0;
+
+    const deltaArb = currentArb - tracker.prevArbitrageNum;
+    const deltaRealized = currentRealized - tracker.prevRealizedPnl;
+
+    if (deltaArb > 0 || deltaRealized > 0.0005) {
+      const eventTs = remUTime > tracker.lastGridCycleCloseAt && remUTime <= now ? remUTime : now;
+      const cyclesAdded = Math.max(1, deltaArb);
+      tracker.gridCycleCloseTimestamps.push({ ts: eventTs, count: cyclesAdded });
+      tracker.lastGridCycleCloseAt = Math.max(tracker.lastGridCycleCloseAt, eventTs);
+      // Every closed grid cycle implies at least 1 closing fill (and entry fill)
+      for (let i = 0; i < cyclesAdded; i++) {
+        tracker.fillTimestamps.push(eventTs);
+      }
+      tracker.lastFillAt = Math.max(tracker.lastFillAt, eventTs);
+    } else if (remUTime > tracker.prevRemoteUTime && remUTime >= bot.cTime) {
+      // OKX updated uTime on the contract_grid algo order (e.g. an entry leg filled)
+      tracker.fillTimestamps.push(remUTime);
+      tracker.lastFillAt = Math.max(tracker.lastFillAt, remUTime);
+    }
+
+    tracker.prevArbitrageNum = currentArb;
+    tracker.prevRealizedPnl = currentRealized;
+    if (remUTime > 0) tracker.prevRemoteUTime = remUTime;
+
+    // 3. Record 1-minute sample in rolling ring buffer (keep 210 minutes max)
+    const lastSample = tracker.samples[tracker.samples.length - 1];
+    if (!lastSample || now - lastSample.ts >= 45_000) {
+      tracker.samples.push({
+        ts: now,
+        price: bot.currentPx || 0,
+        realizedPnl: currentRealized,
+        floatPnl: bot.floatProfit || 0,
+        arbitrageNum: currentArb,
+      });
+    } else {
+      lastSample.price = bot.currentPx || lastSample.price;
+      lastSample.realizedPnl = currentRealized;
+      lastSample.floatPnl = bot.floatProfit || 0;
+      lastSample.arbitrageNum = currentArb;
+    }
+
+    tracker.samples = tracker.samples.filter((s) => s.ts >= window210mCutoff);
+    tracker.fillTimestamps = tracker.fillTimestamps.filter((ts) => ts >= window210mCutoff);
+    tracker.gridCycleCloseTimestamps = tracker.gridCycleCloseTimestamps.filter(
+      (c) => c.ts >= window210mCutoff
+    );
+
+    // Helper to find sample closest to (now - windowMs)
+    const getSampleAtLookback = (windowMs: number) => {
+      const targetTs = now - windowMs;
+      let candidate = tracker.samples[0];
+      for (const s of tracker.samples) {
+        if (s.ts <= targetTs) {
+          candidate = s;
+        } else {
+          break;
+        }
+      }
+      return candidate || tracker.samples[0];
+    };
+
+    const sample30m = getSampleAtLookback(30 * 60_000);
+    const sample60m = getSampleAtLookback(60 * 60_000);
+    const sample120m = getSampleAtLookback(120 * 60_000);
+
+    // Indicator 1 & 2: Minutes since Last Fill and Last Grid Cycle Close
+    const effectiveLastFillAt = Math.max(bot.cTime || now, tracker.lastFillAt || bot.cTime || now);
+    const effectiveLastCloseAt = Math.max(
+      bot.cTime || now,
+      tracker.lastGridCycleCloseAt || bot.cTime || now
+    );
+    const minutesSinceLastFill = parseFloat(
+      Math.max(0, (now - effectiveLastFillAt) / 60_000).toFixed(1)
+    );
+    const minutesSinceLastGridClose = parseFloat(
+      Math.max(0, (now - effectiveLastCloseAt) / 60_000).toFixed(1)
+    );
+
+    // Indicator 3 & 4: Evolution of Realized Grid PnL vs Floating PnL over 30m, 60m, 120m
+    const realizedPnlDelta30mUSDT = parseFloat(
+      (currentRealized - (sample30m?.realizedPnl ?? currentRealized)).toFixed(4)
+    );
+    const realizedPnlDelta60mUSDT = parseFloat(
+      (currentRealized - (sample60m?.realizedPnl ?? currentRealized)).toFixed(4)
+    );
+    const realizedPnlDelta120mUSDT = parseFloat(
+      (currentRealized - (sample120m?.realizedPnl ?? currentRealized)).toFixed(4)
+    );
+
+    const currentFloat = bot.floatProfit || 0;
+    const floatPnlDelta30mUSDT = parseFloat(
+      (currentFloat - (sample30m?.floatPnl ?? currentFloat)).toFixed(4)
+    );
+    const floatPnlDelta60mUSDT = parseFloat(
+      (currentFloat - (sample60m?.floatPnl ?? currentFloat)).toFixed(4)
+    );
+
+    // Indicator 5: Net Realized Profit & Net Total Profit after fees and funding (strictly separating Floating PnL from Realized PnL)
+    const feesAndFundingUSDT =
+      (snapshot.performance.estimatedFeesUSDT || 0) +
+      (snapshot.performance.estimatedFundingCostUSDT || 0);
+    const netRealizedProfitAfterCostsUSDT = parseFloat(
+      (currentRealized - feesAndFundingUSDT).toFixed(4)
+    );
+    const netTotalProfitAfterCostsUSDT = snapshot.performance.netProfitAfterCostsUSDT;
+    const uptimeHours = Math.max(0.25, (now - (bot.cTime || now)) / 3_600_000);
+    const realizedNetHourlyYieldPct =
+      bot.sz > 0
+        ? parseFloat(
+            (((netRealizedProfitAfterCostsUSDT / bot.sz) * 100) / uptimeHours).toFixed(4)
+          )
+        : 0;
+
+    // Indicator 6: Executions & Grid cycle closes in last 30, 60, and 120 minutes
+    const cutoff30m = now - 30 * 60_000;
+    const cutoff60m = now - 60 * 60_000;
+    const cutoff120m = now - 120 * 60_000;
+
+    const gridCyclesCount30m = Math.max(
+      0,
+      currentArb - (sample30m?.arbitrageNum ?? currentArb),
+      tracker.gridCycleCloseTimestamps
+        .filter((c) => c.ts >= cutoff30m)
+        .reduce((s, c) => s + c.count, 0)
+    );
+    const gridCyclesCount60m = Math.max(
+      0,
+      currentArb - (sample60m?.arbitrageNum ?? currentArb),
+      tracker.gridCycleCloseTimestamps
+        .filter((c) => c.ts >= cutoff60m)
+        .reduce((s, c) => s + c.count, 0)
+    );
+    const gridCyclesCount120m = Math.max(
+      0,
+      currentArb - (sample120m?.arbitrageNum ?? currentArb),
+      tracker.gridCycleCloseTimestamps
+        .filter((c) => c.ts >= cutoff120m)
+        .reduce((s, c) => s + c.count, 0)
+    );
+
+    const fillsCount30m = Math.max(
+      gridCyclesCount30m,
+      tracker.fillTimestamps.filter((ts) => ts >= cutoff30m).length
+    );
+    const fillsCount60m = Math.max(
+      gridCyclesCount60m,
+      tracker.fillTimestamps.filter((ts) => ts >= cutoff60m).length
+    );
+    const fillsCount120m = Math.max(
+      gridCyclesCount120m,
+      tracker.fillTimestamps.filter((ts) => ts >= cutoff120m).length
+    );
+
+    // Indicator 7: Active orders activity & distance to nearest grid level
+    const activeOrdersCount =
+      parseInt(String(remoteDetails?.activeOrdNum || remoteDetails?.pendingOrdNum || '0'), 10) ||
+      (bot.state === 'running' ? bot.gridNum : 0);
+    const rangeWidth = Math.max(1e-8, bot.maxPx - bot.minPx);
+    const gridStepUSDT = rangeWidth / Math.max(1, bot.gridNum);
+    const gridStepPct =
+      bot.currentPx > 0
+        ? parseFloat(((gridStepUSDT / bot.currentPx) * 100).toFixed(3))
+        : 0.5;
+
+    let nearestOrderDistancePct = parseFloat((gridStepPct * 0.5).toFixed(3));
+    if (bot.currentPx >= bot.minPx && bot.currentPx <= bot.maxPx && gridStepUSDT > 0) {
+      const stepsFromMin = (bot.currentPx - bot.minPx) / gridStepUSDT;
+      const fracToNearestGrid = Math.min(
+        stepsFromMin - Math.floor(stepsFromMin),
+        Math.ceil(stepsFromMin) - stepsFromMin
+      );
+      nearestOrderDistancePct = parseFloat(
+        (((fracToNearestGrid * gridStepUSDT) / bot.currentPx) * 100).toFixed(3)
+      );
+    } else if (bot.currentPx > 0) {
+      const distOut =
+        bot.currentPx < bot.minPx ? bot.minPx - bot.currentPx : bot.currentPx - bot.maxPx;
+      nearestOrderDistancePct = parseFloat(((distOut / bot.currentPx) * 100).toFixed(3));
+    }
+
+    // Indicator 8: Price oscillation amplitude (60m & 120m) vs Grid Step and ATR volatility
+    const prices60m = tracker.samples
+      .filter((s) => s.ts >= cutoff60m && s.price > 0)
+      .map((s) => s.price);
+    const prices120m = tracker.samples
+      .filter((s) => s.ts >= cutoff120m && s.price > 0)
+      .map((s) => s.price);
+
+    let priceOscillationAmplitude60mPct =
+      snapshot.market.currentAtrPct > 0
+        ? parseFloat((snapshot.market.currentAtrPct * 1.6).toFixed(3))
+        : gridStepPct;
+    if (prices60m.length >= 2 && bot.currentPx > 0) {
+      const maxP60 = Math.max(...prices60m);
+      const minP60 = Math.min(...prices60m);
+      const observedAmp60 = ((maxP60 - minP60) / bot.currentPx) * 100;
+      priceOscillationAmplitude60mPct = parseFloat(
+        Math.max(observedAmp60, snapshot.market.currentAtrPct * 0.9).toFixed(3)
+      );
+    }
+
+    let priceOscillationAmplitude120mPct = priceOscillationAmplitude60mPct;
+    if (prices120m.length >= 2 && bot.currentPx > 0) {
+      const maxP120 = Math.max(...prices120m);
+      const minP120 = Math.min(...prices120m);
+      const observedAmp120 = ((maxP120 - minP120) / bot.currentPx) * 100;
+      priceOscillationAmplitude120mPct = parseFloat(
+        Math.max(observedAmp120, priceOscillationAmplitude60mPct).toFixed(3)
+      );
+    }
+
+    const oscillationToGridStepRatio = parseFloat(
+      (priceOscillationAmplitude60mPct / Math.max(0.05, gridStepPct)).toFixed(2)
+    );
+
+    // Indicator 9: Locked capital vs productive activity
+    const lockedCapitalUSDT = bot.sz || 0;
+    const singleOrderNotional =
+      bot.singleAmt > 0
+        ? bot.singleAmt
+        : (lockedCapitalUSDT * Math.max(1, bot.lever)) / Math.max(1, bot.gridNum);
+    const productiveVolume120mUSDT = fillsCount120m * singleOrderNotional;
+    const capitalTurnover120mRatio =
+      lockedCapitalUSDT > 0
+        ? parseFloat((productiveVolume120mUSDT / lockedCapitalUSDT).toFixed(2))
+        : 0;
+
+    // Composite Capital Efficiency Score (0..100)
+    const turnoverScore = Math.min(50, capitalTurnover120mRatio * 40);
+    const yieldScore =
+      realizedNetHourlyYieldPct > 0
+        ? Math.min(35, (realizedNetHourlyYieldPct / Math.max(0.005, thresholds.minProductiveHourlyYieldPct)) * 20)
+        : 0;
+    const oscScore = Math.min(15, oscillationToGridStepRatio * 10);
+    const capitalEfficiencyScore = Math.max(
+      0,
+      Math.min(100, Math.round(turnoverScore + yieldScore + oscScore))
+    );
+
+    // Evaluate Recovery Prospect & Stagnation Level
+    const marketAllowsContinuation =
+      snapshot.market.adx < thresholds.adxStopThreshold &&
+      snapshot.market.choppinessIndex >= thresholds.chopStopThreshold &&
+      snapshot.risk.minDistToEdgePct >= thresholds.rangeEdgeWarningPct &&
+      !snapshot.risk.liquidityDegraded;
+
+    const producesNetRealizedProfit =
+      netRealizedProfitAfterCostsUSDT > 0 &&
+      (realizedNetHourlyYieldPct >= thresholds.minProductiveHourlyYieldPct ||
+        realizedPnlDelta120mUSDT >= thresholds.minRealizedPnlProgressUSDT);
+
+    let recoveryProspect: 'HIGH' | 'MODERATE' | 'LOW' = 'HIGH';
+    if (
+      oscillationToGridStepRatio >= thresholds.minOscillationToGridStepRatio &&
+      marketAllowsContinuation
+    ) {
+      recoveryProspect = 'HIGH';
+    } else if (
+      oscillationToGridStepRatio >= thresholds.minOscillationToGridStepRatio * 0.65 &&
+      snapshot.risk.minDistToEdgePct >= thresholds.rangeEdgeWarningPct * 0.6
+    ) {
+      recoveryProspect = 'MODERATE';
+    } else {
+      recoveryProspect = 'LOW';
+    }
+
+    // Determine Stagnation Level & Continue Opportunity Verdict
+    let level: GridStagnationLevel = 'ACTIVE';
+    let isStagnant = false;
+    let continueOpportunityVerdict = 'Activitate productivă normală în grilă';
+
+    // Rule: Do not consider a bot stagnant if it produces net realized profit and the market allows continuation
+    if (producesNetRealizedProfit && marketAllowsContinuation && minutesSinceLastFill < thresholds.stagnationReviewMinutes) {
+      level = 'ACTIVE';
+      isStagnant = false;
+      continueOpportunityVerdict = `Productiv (+$${netRealizedProfitAfterCostsUSDT.toFixed(3)} realizat net) • Piață laterală favorabilă`;
+    } else {
+      const noProgress60m =
+        fillsCount60m === 0 && realizedPnlDelta60mUSDT <= thresholds.minRealizedPnlProgressUSDT;
+      const noProductiveActivity120m =
+        minutesSinceLastGridClose >= thresholds.stagnationReviewMinutes &&
+        realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
+      const noProductiveActivity180m =
+        minutesSinceLastGridClose >= thresholds.stagnationStopMinutes &&
+        fillsCount120m === 0 &&
+        realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
+
+      // Market deterioration signals accompanying stagnation
+      let marketDeteriorationSignals = 0;
+      if (snapshot.market.adx >= thresholds.adxMonitorThreshold) marketDeteriorationSignals++;
+      if (
+        snapshot.market.choppinessIndex > 0 &&
+        snapshot.market.choppinessIndex < thresholds.chopStopThreshold
+      ) {
+        marketDeteriorationSignals++;
+      }
+      if (snapshot.risk.minDistToEdgePct < thresholds.rangeEdgeWarningPct) {
+        marketDeteriorationSignals++;
+      }
+      if (snapshot.risk.liquidityDegraded) marketDeteriorationSignals++;
+      if (
+        oscillationToGridStepRatio < thresholds.minOscillationToGridStepRatio * 0.7 &&
+        snapshot.risk.drawdownPct > 0
+      ) {
+        marketDeteriorationSignals++;
+      }
+
+      if (
+        noProductiveActivity180m &&
+        recoveryProspect === 'LOW' &&
+        !producesNetRealizedProfit &&
+        (oscillationToGridStepRatio < thresholds.minOscillationToGridStepRatio ||
+          capitalTurnover120mRatio < thresholds.minCapitalTurnover120mRatio)
+      ) {
+        level = 'STOP_180M';
+        isStagnant = true;
+        continueOpportunityVerdict = `Stagnare confirmată ≥${thresholds.stagnationStopMinutes}m (${minutesSinceLastGridClose.toFixed(0)}m fără ciclu Grid) + lipsă perspectivă revenire (Osc/Pas=${oscillationToGridStepRatio.toFixed(2)}x, Rulaj=${capitalTurnover120mRatio.toFixed(2)}x)`;
+      } else if (
+        thresholds.enableEarlyStopOnMarketDeterioration &&
+        noProductiveActivity120m &&
+        noProgress60m &&
+        !producesNetRealizedProfit &&
+        marketDeteriorationSignals >= 2
+      ) {
+        level = 'EARLY_STOP_MARKET';
+        isStagnant = true;
+        continueOpportunityVerdict = `Stagnare ≥${thresholds.stagnationReviewMinutes}m (${minutesSinceLastGridClose.toFixed(0)}m) asociată cu deteriorarea condițiilor de piață (${marketDeteriorationSignals} semnale risc)`;
+      } else if (noProductiveActivity120m) {
+        level = 'REVIEW_120M';
+        isStagnant = !producesNetRealizedProfit;
+        continueOpportunityVerdict =
+          producesNetRealizedProfit && marketAllowsContinuation
+            ? `Reevaluare 120m: Fără ciclu recent, dar profit realizat net pozitiv (+$${netRealizedProfitAfterCostsUSDT.toFixed(3)}) și piață stabilă — continuare permisă`
+            : `Reevaluare specială 120m: ${minutesSinceLastGridClose.toFixed(0)}m fără ciclu închis, Perspectivă=${recoveryProspect}, Osc/Pas=${oscillationToGridStepRatio.toFixed(2)}x`;
+      } else if (
+        minutesSinceLastFill >= thresholds.stagnationWarningNoFillMinutes &&
+        noProgress60m
+      ) {
+        level = 'WARNING_60M';
+        isStagnant = true;
+        continueOpportunityVerdict = `${minutesSinceLastFill.toFixed(0)}m fără execuții și fără progres Realized PnL (Δ60m: $${realizedPnlDelta60mUSDT.toFixed(4)})`;
+      } else if (
+        minutesSinceLastFill >= thresholds.stagnationMonitorNoFillMinutes &&
+        fillsCount30m === 0
+      ) {
+        level = 'MONITOR_30M';
+        isStagnant = false;
+        continueOpportunityVerdict = `${minutesSinceLastFill.toFixed(0)}m fără execuții (0 fill-uri în 30m) — monitorizare intensificată`;
+      }
+    }
+
+    snapshot.stagnation = {
+      level,
+      isStagnant,
+      lastFillAt: effectiveLastFillAt,
+      minutesSinceLastFill,
+      lastGridCycleCloseAt: effectiveLastCloseAt,
+      minutesSinceLastGridClose,
+      realizedPnlUSDT: currentRealized,
+      realizedPnlDelta30mUSDT,
+      realizedPnlDelta60mUSDT,
+      realizedPnlDelta120mUSDT,
+      floatPnlUSDT: currentFloat,
+      floatPnlDelta30mUSDT,
+      floatPnlDelta60mUSDT,
+      netRealizedProfitAfterCostsUSDT,
+      netTotalProfitAfterCostsUSDT,
+      realizedNetHourlyYieldPct,
+      fillsCount30m,
+      fillsCount60m,
+      fillsCount120m,
+      gridCyclesCount30m,
+      gridCyclesCount60m,
+      gridCyclesCount120m,
+      activeOrdersCount,
+      gridStepPct,
+      nearestOrderDistancePct,
+      priceOscillationAmplitude60mPct,
+      priceOscillationAmplitude120mPct,
+      oscillationToGridStepRatio,
+      lockedCapitalUSDT,
+      capitalTurnover120mRatio,
+      capitalEfficiencyScore,
+      recoveryProspect,
+      continueOpportunityVerdict,
+    };
+  }
+}
 
 /**
  * 1. GridBotMonitor
@@ -314,23 +873,25 @@ export class GridMarketAnalyzer {
 
 /**
  * 3. GridDecisionEngine
- * Evaluates configurable rules from Section 4 without hardcoded magic numbers:
- * - Immediate evaluation of critical risks (Liquidation proximity, Max Drawdown Stop, Confirmed Range Breakout)
- * - Strict Multi-indicator requirement for non-critical trend stops:
- *   Never stops a bot based on Choppiness < 38 alone when ADX is weak (< adxMonitorThreshold) and Drawdown is 0%!
- *   Near-boundary price (< 10% to limit) with 0% drawdown is a WARNING, not a trend corroborator for STOP.
+ * Evaluates configurable rules from Section 4 + Stagnation Analyzer rules:
+ * - Immediate evaluation of critical risks (Liquidation proximity -> EMERGENCY, Max Drawdown Stop, Confirmed Range Breakout)
+ * - Strict Multi-indicator requirement for non-critical trend stops
+ * - Independent Stagnation evaluation (30m MONITOR, 60m WARNING, 120m Special Opportunity Review / Early Market Deterioration STOP, 180m Confirmed Stagnation STOP):
+ *   Never stops a bot solely because it had 0 fills, never confuses Floating PnL with Realized PnL,
+ *   and never treats a bot as stagnant if it produces net realized profit and the market allows continuation.
  */
 export class GridDecisionEngine {
   public evaluate(
     bot: OKXNativeGridBot,
     snapshot: GridBotAnalysisSnapshot,
-    thresholds: GridAnalyzerThresholds
+    thresholds: GridAnalyzerThresholds,
+    allowStagnationStop: boolean = true
   ): {
     decision: GridAnalyzerDecision;
     reason: string;
     riskLevel: 'LOW' | 'ELEVATED' | 'WARNING' | 'CRITICAL';
   } {
-    // 1. CRITICAL EMERGENCY: LiqPx distance below minimum safety threshold
+    // 1. CRITICAL EMERGENCY (independent of 15m reevaluation intervals): LiqPx distance below minimum safety threshold
     if (
       snapshot.risk.liqPx > 0 &&
       snapshot.risk.distToLiqPct > 0 &&
@@ -397,14 +958,11 @@ export class GridDecisionEngine {
       snapshot.market.choppinessIndex < thresholds.chopStopThreshold &&
       snapshot.market.chopConsecutiveBelowStop >= thresholds.chopStopConsecutiveCount;
 
-    // A genuine trend requires ADX at least above adxMonitorThreshold (25); if ADX is 6.0 (like PUMP-USD),
-    // the market has no directional trend at all regardless of Choppiness.
     const hasDirectionalAdxSupport = snapshot.market.adx >= thresholds.adxMonitorThreshold;
     const hasVolatilityOrLossStress =
       snapshot.market.atrChangePct > thresholds.atrSpikeMonitorPct ||
       snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct;
 
-    // Case 4A: Both primary trend indicators confirm persistent directional trend (ADX > 30 x2 AND Chop < 38 x2)
     if (adxStopTriggered && chopStopTriggered) {
       return {
         decision: 'STOP',
@@ -413,8 +971,6 @@ export class GridDecisionEngine {
       };
     }
 
-    // Case 4B: Single trend indicator + explicit Volatility Spike (>50% ATR) or Warning Drawdown (>=5% loss),
-    // AND directional ADX support (ADX >= 25) so low Choppiness with ADX=6 and 0% drawdown NEVER triggers STOP!
     if (
       thresholds.requireMultiIndicatorForTrendStop &&
       ((adxStopTriggered && hasVolatilityOrLossStress) ||
@@ -427,7 +983,6 @@ export class GridDecisionEngine {
       };
     }
 
-    // Case 4C: Only if user explicitly disabled requireMultiIndicatorForTrendStop in settings
     if (
       !thresholds.requireMultiIndicatorForTrendStop &&
       (adxStopTriggered || (chopStopTriggered && hasDirectionalAdxSupport))
@@ -441,9 +996,27 @@ export class GridDecisionEngine {
       };
     }
 
-    // 5. WARNING CONDITIONS (Section 4):
-    // - Total PnL loss >= warningDrawdownPct (5%)
-    // - Price < rangeEdgeWarningPct (10%) from range boundary
+    // 5. STAGNATION STOP CONDITIONS (Evaluated on 15m reevaluation cadence, separated from directional risk & Floating PnL)
+    const stag = snapshot.stagnation;
+    if (stag && allowStagnationStop) {
+      if (stag.level === 'STOP_180M') {
+        return {
+          decision: 'STOP',
+          reason: `[Stagnation STOP ≥${thresholds.stagnationStopMinutes}m] ${stag.minutesSinceLastGridClose.toFixed(0)}m fără închidere Grid (${stag.minutesSinceLastFill.toFixed(0)}m fără fill, ΔRealized 120m: $${stag.realizedPnlDelta120mUSDT.toFixed(4)}) + perspectivă scăzută de revenire (Osc/Pas=${stag.oscillationToGridStepRatio.toFixed(2)}x < ${thresholds.minOscillationToGridStepRatio}x, Rulaj 120m=${stag.capitalTurnover120mRatio.toFixed(2)}x, Capital blocat=$${stag.lockedCapitalUSDT.toFixed(2)})`,
+          riskLevel: 'CRITICAL',
+        };
+      }
+
+      if (stag.level === 'EARLY_STOP_MARKET') {
+        return {
+          decision: 'STOP',
+          reason: `[Stagnation STOP Anticipat ≥${thresholds.stagnationReviewMinutes}m] ${stag.minutesSinceLastGridClose.toFixed(0)}m fără activitate productivă (ΔRealized 60m: $${stag.realizedPnlDelta60mUSDT.toFixed(4)}) asociată cu deteriorarea condițiilor de piață (ADX ${snapshot.market.adx.toFixed(1)}, Chop ${snapshot.market.choppinessIndex.toFixed(1)}, Dist. Limită ${snapshot.risk.minDistToEdgePct.toFixed(1)}%)`,
+          riskLevel: 'CRITICAL',
+        };
+      }
+    }
+
+    // 6. WARNING CONDITIONS (Market Risk + Stagnation 60m / 120m Review):
     if (snapshot.risk.drawdownPct >= thresholds.warningDrawdownPct) {
       return {
         decision: 'WARNING',
@@ -463,10 +1036,18 @@ export class GridDecisionEngine {
       };
     }
 
-    // 6. MONITOR CONDITIONS (Section 4):
-    // - ADX > 25 for 2 consecutive evaluations
-    // - ATR increase > 50% vs initial ATR
-    // - Single-indicator trend alert (e.g. Chop < 38 with low ADX or ADX > 30 without secondary confirmation)
+    if (stag && (stag.level === 'REVIEW_120M' || stag.level === 'WARNING_60M') && stag.isStagnant) {
+      return {
+        decision: 'WARNING',
+        reason:
+          stag.level === 'REVIEW_120M'
+            ? `[Stagnare 120m — Reevaluare Oportunitate] ${stag.continueOpportunityVerdict}`
+            : `[Stagnare ≥${thresholds.stagnationWarningNoFillMinutes}m] ${stag.minutesSinceLastFill.toFixed(0)}m fără execuții și fără progres Realized PnL (Δ60m: $${stag.realizedPnlDelta60mUSDT.toFixed(4)} | Float: $${stag.floatPnlUSDT.toFixed(3)})`,
+        riskLevel: 'WARNING',
+      };
+    }
+
+    // 7. MONITOR CONDITIONS (Market Monitor + Stagnation 30m / Productive 120m Review):
     if (snapshot.market.adxConsecutiveAboveMonitor >= thresholds.adxMonitorConsecutiveCount) {
       return {
         decision: 'MONITOR',
@@ -491,14 +1072,24 @@ export class GridDecisionEngine {
       };
     }
 
-    // 7. CONTINUE: Net profit positive after real costs or normal neutral range operation
-    const netAfterCosts = snapshot.performance.netProfitAfterCostsUSDT;
+    if (stag && (stag.level === 'MONITOR_30M' || stag.level === 'REVIEW_120M')) {
+      return {
+        decision: 'MONITOR',
+        reason: `[Stagnation Monitor] ${stag.continueOpportunityVerdict}`,
+        riskLevel: 'ELEVATED',
+      };
+    }
+
+    // 8. CONTINUE: Net realized profit positive after real costs or normal neutral range operation
+    const netRealizedAfterCosts = stag
+      ? stag.netRealizedProfitAfterCostsUSDT
+      : snapshot.performance.netProfitAfterCostsUSDT;
     return {
       decision: 'CONTINUE',
       reason:
-        netAfterCosts > 0
-          ? `Profit net pozitiv după costuri (+$${netAfterCosts.toFixed(3)}) • Regim Neutral stabil`
-          : `Operare normală în interval (${snapshot.risk.minDistToEdgePct.toFixed(1)}% față de limite)`,
+        netRealizedAfterCosts > 0
+          ? `Profit realizat net pozitiv (+$${netRealizedAfterCosts.toFixed(3)}) • Ultimul fill acum ${stag ? stag.minutesSinceLastFill.toFixed(0) : 0}m • Regim Neutral stabil`
+          : `Operare normală în interval (${snapshot.risk.minDistToEdgePct.toFixed(1)}% față de limite • Ultimul fill acum ${stag ? stag.minutesSinceLastFill.toFixed(0) : 0}m)`,
       riskLevel: 'LOW',
     };
   }
@@ -866,6 +1457,7 @@ export class GridBotSupervisor {
         liqPx: snapshot.risk.liqPx,
         minDistToEdgePct: snapshot.risk.minDistToEdgePct,
       },
+      stagnationMetrics: snapshot.stagnation,
       executedDecision: snapshot.decision,
       stopType,
       stopHttpStatus,
@@ -899,6 +1491,7 @@ export class GridBotAnalyzer {
 
   private monitor: GridBotMonitor;
   private marketAnalyzer: GridMarketAnalyzer;
+  private stagnationAnalyzer: GridStagnationAnalyzer;
   private decisionEngine: GridDecisionEngine;
   private supervisor: GridBotSupervisor;
 
@@ -916,6 +1509,7 @@ export class GridBotAnalyzer {
 
     this.monitor = new GridBotMonitor(okxAdapter, gridEngine);
     this.marketAnalyzer = new GridMarketAnalyzer(okxAdapter);
+    this.stagnationAnalyzer = new GridStagnationAnalyzer(okxAdapter);
     this.decisionEngine = new GridDecisionEngine();
     this.supervisor = new GridBotSupervisor(okxAdapter, journal);
   }
@@ -941,6 +1535,9 @@ export class GridBotAnalyzer {
     const existing = this.snapshots.get(bot.algoId);
     if (existing) {
       existing.state = bot.state;
+      if (!existing.stagnation) {
+        existing.stagnation = createDefaultStagnationMetrics(bot);
+      }
       if (bot.stopReason) existing.lastStopReason = bot.stopReason;
       return existing;
     }
@@ -1004,6 +1601,7 @@ export class GridBotAnalyzer {
         drawdownPct: bot.totalPnlPct < 0 ? Math.abs(bot.totalPnlPct) : 0,
         liquidityDegraded: false,
       },
+      stagnation: createDefaultStagnationMetrics(bot),
       cadence: {
         lastReconcile30sAt: 0,
         lastPrice1mAt: 0,
@@ -1088,16 +1686,20 @@ export class GridBotAnalyzer {
           await this.marketAnalyzer.refreshMarketIndicators(bot, snapshot, thresholds);
         }
 
-        // Immediate Critical Risk Evaluation on every cycle + 15m Full Re-evaluation
-        const evalRes = this.decisionEngine.evaluate(bot, snapshot, thresholds);
-        const isCritical =
-          evalRes.decision === 'EMERGENCY' ||
-          evalRes.decision === 'STOP' ||
-          evalRes.riskLevel === 'CRITICAL';
+        // Activity & Stagnation indicators updated via existing monitoring loop (no extra OKX requests)
+        this.stagnationAnalyzer.updateActivityMetrics(bot, remoteDetails, snapshot, thresholds);
+
+        // 15m Full Re-evaluation cadence (or manual forceFullEvaluation); EMERGENCY & critical risks are evaluated immediately on every cycle
         const dueFull15m =
           forceFullEvaluation ||
           snapshot.cadence.lastFullEval15mAt === 0 ||
           now - snapshot.cadence.lastFullEval15mAt >= 890_000;
+
+        const evalRes = this.decisionEngine.evaluate(bot, snapshot, thresholds, dueFull15m);
+        const isCritical =
+          evalRes.decision === 'EMERGENCY' ||
+          evalRes.decision === 'STOP' ||
+          evalRes.riskLevel === 'CRITICAL';
 
         if (isCritical || dueFull15m || dueMarket5m || duePrice1m) {
           snapshot.decision = evalRes.decision;

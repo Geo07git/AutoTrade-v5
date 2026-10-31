@@ -450,6 +450,50 @@ export type GridAnalyzerDecision =
   | 'STOP'
   | 'EMERGENCY';
 
+export type GridStagnationLevel =
+  | 'ACTIVE'
+  | 'MONITOR_30M'
+  | 'WARNING_60M'
+  | 'REVIEW_120M'
+  | 'EARLY_STOP_MARKET'
+  | 'STOP_180M';
+
+export interface GridStagnationMetrics {
+  level: GridStagnationLevel;
+  isStagnant: boolean;
+  lastFillAt: number;
+  minutesSinceLastFill: number;
+  lastGridCycleCloseAt: number;
+  minutesSinceLastGridClose: number;
+  realizedPnlUSDT: number;
+  realizedPnlDelta30mUSDT: number;
+  realizedPnlDelta60mUSDT: number;
+  realizedPnlDelta120mUSDT: number;
+  floatPnlUSDT: number;
+  floatPnlDelta30mUSDT: number;
+  floatPnlDelta60mUSDT: number;
+  netRealizedProfitAfterCostsUSDT: number;
+  netTotalProfitAfterCostsUSDT: number;
+  realizedNetHourlyYieldPct: number;
+  fillsCount30m: number;
+  fillsCount60m: number;
+  fillsCount120m: number;
+  gridCyclesCount30m: number;
+  gridCyclesCount60m: number;
+  gridCyclesCount120m: number;
+  activeOrdersCount: number;
+  gridStepPct: number;
+  nearestOrderDistancePct: number;
+  priceOscillationAmplitude60mPct: number;
+  priceOscillationAmplitude120mPct: number;
+  oscillationToGridStepRatio: number;
+  lockedCapitalUSDT: number;
+  capitalTurnover120mRatio: number;
+  capitalEfficiencyScore: number;
+  recoveryProspect: 'HIGH' | 'MODERATE' | 'LOW';
+  continueOpportunityVerdict: string;
+}
+
 export interface GridAnalyzerThresholds {
   adxMonitorThreshold: number;
   adxMonitorConsecutiveCount: number;
@@ -465,6 +509,16 @@ export interface GridAnalyzerThresholds {
   minLiqSafetyPct: number;
   requireMultiIndicatorForTrendStop: boolean;
   emergencyClosePosition: boolean;
+  // Stagnation Analyzer configurable thresholds
+  stagnationMonitorNoFillMinutes: number;
+  stagnationWarningNoFillMinutes: number;
+  stagnationReviewMinutes: number;
+  stagnationStopMinutes: number;
+  minRealizedPnlProgressUSDT: number;
+  minProductiveHourlyYieldPct: number;
+  minOscillationToGridStepRatio: number;
+  minCapitalTurnover120mRatio: number;
+  enableEarlyStopOnMarketDeterioration: boolean;
 }
 
 export interface GridBotAnalysisSnapshot {
@@ -523,6 +577,7 @@ export interface GridBotAnalysisSnapshot {
     drawdownPct: number;
     liquidityDegraded: boolean;
   };
+  stagnation: GridStagnationMetrics;
   cadence: {
     lastReconcile30sAt: number;
     lastPrice1mAt: number;
@@ -579,6 +634,7 @@ export interface GridAnalyzerStopEvent {
     liqPx: number;
     minDistToEdgePct: number;
   };
+  stagnationMetrics?: GridStagnationMetrics;
   executedDecision: GridAnalyzerDecision;
   stopType: '1' | '2';
   stopHttpStatus?: 'HTTP_SUCCESS' | 'FAILED';

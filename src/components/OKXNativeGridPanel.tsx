@@ -125,12 +125,29 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     chopStopConsecutiveCount: gridAnalyzer?.thresholds?.chopStopConsecutiveCount ?? 2,
     atrSpikeMonitorPct: gridAnalyzer?.thresholds?.atrSpikeMonitorPct ?? 50,
     rangeEdgeWarningPct: gridAnalyzer?.thresholds?.rangeEdgeWarningPct ?? 10,
+    rangeBreakoutBufferPct: gridAnalyzer?.thresholds?.rangeBreakoutBufferPct ?? 0.15,
     warningDrawdownPct: gridAnalyzer?.thresholds?.warningDrawdownPct ?? 5,
     stopDrawdownPct: gridAnalyzer?.thresholds?.stopDrawdownPct ?? 8,
     minLiqSafetyPct: gridAnalyzer?.thresholds?.minLiqSafetyPct ?? 4.0,
     requireMultiIndicatorForTrendStop:
       gridAnalyzer?.thresholds?.requireMultiIndicatorForTrendStop ?? true,
     emergencyClosePosition: gridAnalyzer?.thresholds?.emergencyClosePosition ?? true,
+    stagnationMonitorNoFillMinutes:
+      gridAnalyzer?.thresholds?.stagnationMonitorNoFillMinutes ?? 30,
+    stagnationWarningNoFillMinutes:
+      gridAnalyzer?.thresholds?.stagnationWarningNoFillMinutes ?? 60,
+    stagnationReviewMinutes: gridAnalyzer?.thresholds?.stagnationReviewMinutes ?? 120,
+    stagnationStopMinutes: gridAnalyzer?.thresholds?.stagnationStopMinutes ?? 180,
+    minRealizedPnlProgressUSDT:
+      gridAnalyzer?.thresholds?.minRealizedPnlProgressUSDT ?? 0.005,
+    minProductiveHourlyYieldPct:
+      gridAnalyzer?.thresholds?.minProductiveHourlyYieldPct ?? 0.015,
+    minOscillationToGridStepRatio:
+      gridAnalyzer?.thresholds?.minOscillationToGridStepRatio ?? 0.85,
+    minCapitalTurnover120mRatio:
+      gridAnalyzer?.thresholds?.minCapitalTurnover120mRatio ?? 0.25,
+    enableEarlyStopOnMarketDeterioration:
+      gridAnalyzer?.thresholds?.enableEarlyStopOnMarketDeterioration ?? true,
   });
 
   const hasHydratedAutopilot = useRef<boolean>(false);
@@ -1127,6 +1144,308 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     className="w-full bg-zinc-900 border border-rose-500/40 rounded px-2 py-1 text-rose-300 font-bold mt-0.5"
                   />
                 </div>
+              </div>
+
+              {/* Stagnation Analyzer Configurable Thresholds (.data/grid_analyzer_thresholds.json) */}
+              <div className="border-t border-zinc-800 pt-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] font-black text-cyan-300">
+                    PRAGURI STAGNATION ANALYZER (SEPARAT DE PROFITABILITATE &amp; RISC DIRECȚIONAL — PERSISTATE ÎN .data)
+                  </span>
+                  <label className="flex items-center space-x-1.5 text-[10px] text-amber-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={analyzerThresholds.enableEarlyStopOnMarketDeterioration ?? true}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          enableEarlyStopOnMarketDeterioration: e.target.checked,
+                        })
+                      }
+                      className="accent-amber-400"
+                    />
+                    <span>STOP Anticipat (≥120m) la Stagnare + Deteriorare Piață</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Fără Fill MONITOR (m)</span>
+                    <input
+                      type="number"
+                      step="5"
+                      value={analyzerThresholds.stagnationMonitorNoFillMinutes ?? 30}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          stagnationMonitorNoFillMinutes: parseFloat(e.target.value) || 30,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-cyan-500/40 rounded px-2 py-1 text-cyan-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Fără Fill WARN (m)</span>
+                    <input
+                      type="number"
+                      step="5"
+                      value={analyzerThresholds.stagnationWarningNoFillMinutes ?? 60}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          stagnationWarningNoFillMinutes: parseFloat(e.target.value) || 60,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Reevaluare Spec. (m)</span>
+                    <input
+                      type="number"
+                      step="10"
+                      value={analyzerThresholds.stagnationReviewMinutes ?? 120}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          stagnationReviewMinutes: parseFloat(e.target.value) || 120,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Stagnare STOP (m)</span>
+                    <input
+                      type="number"
+                      step="15"
+                      value={analyzerThresholds.stagnationStopMinutes ?? 180}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          stagnationStopMinutes: parseFloat(e.target.value) || 180,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-rose-500/40 rounded px-2 py-1 text-rose-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Progres Min PnL ($)</span>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={analyzerThresholds.minRealizedPnlProgressUSDT ?? 0.005}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          minRealizedPnlProgressUSDT: parseFloat(e.target.value) || 0.005,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-emerald-500/40 rounded px-2 py-1 text-emerald-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Randament Net/h (%)</span>
+                    <input
+                      type="number"
+                      step="0.005"
+                      value={analyzerThresholds.minProductiveHourlyYieldPct ?? 0.015}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          minProductiveHourlyYieldPct: parseFloat(e.target.value) || 0.015,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-emerald-500/40 rounded px-2 py-1 text-emerald-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Min Osc / Pas Grilă</span>
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={analyzerThresholds.minOscillationToGridStepRatio ?? 0.85}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          minOscillationToGridStepRatio: parseFloat(e.target.value) || 0.85,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-cyan-500/40 rounded px-2 py-1 text-cyan-300 font-bold mt-0.5"
+                    />
+                  </div>
+                  <div className="bg-black border border-zinc-800 rounded p-2">
+                    <span className="text-[10px] text-zinc-400 block">Min Rulaj 120m (x)</span>
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={analyzerThresholds.minCapitalTurnover120mRatio ?? 0.25}
+                      onChange={(e) =>
+                        setAnalyzerThresholds({
+                          ...analyzerThresholds,
+                          minCapitalTurnover120mRatio: parseFloat(e.target.value) || 0.25,
+                        })
+                      }
+                      className="w-full bg-zinc-900 border border-cyan-500/40 rounded px-2 py-1 text-cyan-300 font-bold mt-0.5"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stagnation & Capital Productivity Live Monitor Table */}
+          {gridAnalyzer?.botSnapshots && gridAnalyzer.botSnapshots.length > 0 && (
+            <div className="bg-zinc-950 border border-cyan-500/30 rounded p-2.5 space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-1">
+                <span className="text-[10px] font-black text-cyan-300">
+                  STAGNATION &amp; CAPITAL PRODUCTIVITY ANALYZER (REEVALUARE 15M • SEPARAT DE FLOATING PNL &amp; RISC DIRECȚIONAL)
+                </span>
+                <span className="text-[9px] text-zinc-400">
+                  30m fără fill → MONITOR • 60m fără fill &amp; progres → WARNING • 120m → Reevaluare Oportunitate • 180m fără perspectivă → STOP
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[10px]">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-zinc-400">
+                      <th className="py-1 px-2">Bot / Status</th>
+                      <th className="py-1 px-2">Nivel Stagnare</th>
+                      <th className="py-1 px-2">Minute fără Fill</th>
+                      <th className="py-1 px-2">Ultima Închidere Grid</th>
+                      <th className="py-1 px-2">Execuții (30m / 60m / 120m)</th>
+                      <th className="py-1 px-2">PnL Realizat &amp; Net (după Fee/Fund)</th>
+                      <th className="py-1 px-2">Evoluție PnL Realizat (Δ30m / Δ60m / Δ120m)</th>
+                      <th className="py-1 px-2">Oscilație vs Pas Grilă</th>
+                      <th className="py-1 px-2">Capital Blocat / Verdict Oportunitate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-900">
+                    {gridAnalyzer.botSnapshots.map((s) => {
+                      const st = s.stagnation;
+                      const levelBadge =
+                        st?.level === 'STOP_180M' || st?.level === 'EARLY_STOP_MARKET'
+                          ? 'bg-rose-600 text-white'
+                          : st?.level === 'REVIEW_120M' || st?.level === 'WARNING_60M'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : st?.level === 'MONITOR_30M'
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                      return (
+                        <tr key={s.algoId} className="hover:bg-zinc-900/60 tabular-nums">
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <span className="font-bold text-white">{s.instId}</span>{' '}
+                            <span className="text-[9px] text-zinc-400">({s.state})</span>
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <span className={`px-1.5 py-0.5 rounded font-black text-[9px] ${levelBadge}`}>
+                              {st?.level || 'ACTIVE'}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <span
+                              className={`font-bold ${
+                                Number(st?.minutesSinceLastFill || 0) >=
+                                (analyzerThresholds.stagnationWarningNoFillMinutes ?? 60)
+                                  ? 'text-amber-300'
+                                  : 'text-zinc-200'
+                              }`}
+                            >
+                              {Number(st?.minutesSinceLastFill || 0).toFixed(1)} min
+                            </span>
+                            {st?.lastFillAt ? (
+                              <span className="text-[9px] text-zinc-500 block">
+                                {new Date(st.lastFillAt).toLocaleTimeString()}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <span
+                              className={`font-bold ${
+                                Number(st?.minutesSinceLastGridClose || 0) >=
+                                (analyzerThresholds.stagnationReviewMinutes ?? 120)
+                                  ? 'text-rose-300'
+                                  : 'text-zinc-200'
+                              }`}
+                            >
+                              {Number(st?.minutesSinceLastGridClose || 0).toFixed(1)} min
+                            </span>
+                            {st?.lastGridCycleCloseAt ? (
+                              <span className="text-[9px] text-zinc-500 block">
+                                {new Date(st.lastGridCycleCloseAt).toLocaleTimeString()}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap text-zinc-200">
+                            <div>
+                              Fills: <strong>{st?.fillsCount30m ?? 0}</strong> /{' '}
+                              <strong>{st?.fillsCount60m ?? 0}</strong> /{' '}
+                              <strong>{st?.fillsCount120m ?? 0}</strong>
+                            </div>
+                            <div className="text-[9px] text-zinc-400">
+                              Cicluri Grid: {st?.gridCyclesCount30m ?? 0} / {st?.gridCyclesCount60m ?? 0} /{' '}
+                              {st?.gridCyclesCount120m ?? 0} • Ordine active: {st?.activeOrdersCount ?? 0}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <div className="text-emerald-400 font-bold">
+                              Realizat: ${Number(st?.realizedPnlUSDT ?? s.performance.gridProfitUSDT ?? 0).toFixed(3)}
+                            </div>
+                            <div className="text-[9px] text-zinc-400">
+                              Net realizat: $
+                              {Number(
+                                st?.netRealizedProfitAfterCostsUSDT ??
+                                  s.performance.netProfitAfterCostsUSDT ??
+                                  0
+                              ).toFixed(3)}{' '}
+                              | Float: ${Number(st?.floatPnlUSDT ?? s.performance.floatProfitUSDT ?? 0).toFixed(3)}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <div className="text-zinc-200">
+                              Δ30m: ${Number(st?.realizedPnlDelta30mUSDT || 0).toFixed(4)} | Δ60m: $
+                              {Number(st?.realizedPnlDelta60mUSDT || 0).toFixed(4)}
+                            </div>
+                            <div className="text-[9px] text-zinc-400">
+                              Δ120m: ${Number(st?.realizedPnlDelta120mUSDT || 0).toFixed(4)} | Float Δ60m: $
+                              {Number(st?.floatPnlDelta60mUSDT || 0).toFixed(4)}
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 whitespace-nowrap">
+                            <div
+                              className={`font-bold ${
+                                Number(st?.oscillationToGridStepRatio ?? 1) <
+                                (analyzerThresholds.minOscillationToGridStepRatio ?? 0.85)
+                                  ? 'text-amber-300'
+                                  : 'text-emerald-300'
+                              }`}
+                            >
+                              {Number(st?.oscillationToGridStepRatio ?? 1).toFixed(2)}x pas (
+                              {Number(st?.priceOscillationAmplitude60mPct || 0).toFixed(2)}% /{' '}
+                              {Number(st?.gridStepPct || 0).toFixed(2)}%)
+                            </div>
+                            <div className="text-[9px] text-zinc-400">
+                              Perspectivă: <strong>{st?.recoveryProspect || 'HIGH'}</strong> • Dist. ordin:{' '}
+                              {Number(st?.nearestOrderDistancePct || 0).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 max-w-xs">
+                            <div className="text-amber-300 font-bold">
+                              ${Number(st?.lockedCapitalUSDT ?? s.risk.marginUsedUSDT ?? 0).toFixed(2)} blocat •
+                              Rulaj 120m: {Number(st?.capitalTurnover120mRatio || 0).toFixed(2)}x (Scor{' '}
+                              {st?.capitalEfficiencyScore ?? 70}/100)
+                            </div>
+                            <div
+                              className="text-[9px] text-zinc-300 truncate"
+                              title={st?.continueOpportunityVerdict}
+                            >
+                              {st?.continueOpportunityVerdict || 'Activitate normală'}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
