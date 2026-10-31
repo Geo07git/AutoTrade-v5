@@ -42,13 +42,10 @@ import {
   Download,
 } from 'lucide-react';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
-import { apiFetch as fetch } from '../shared/api';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
 
 interface BloombergTerminalProps {
-  backendUrl: string;
-  onConfigureBackend: () => void;
   status: BotStatusResponse | null;
   logs: AuditLog[];
   orders: OrderRecord[];
@@ -109,8 +106,6 @@ interface BloombergTerminalProps {
 }
 
 export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
-  backendUrl,
-  onConfigureBackend,
   status,
   logs,
   orders,
@@ -3390,29 +3385,6 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         {/* ================================================================= */}
         {activeTab === 'API' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-zinc-950 border border-amber-500/40 rounded p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 pb-2">
-                <h2 className="font-bold text-sm text-amber-400">SERVER LOCAL PENTRU APK</h2>
-                <button
-                  type="button"
-                  onClick={onConfigureBackend}
-                  className="shrink-0 rounded border border-amber-500/50 bg-black px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-zinc-900"
-                >
-                  Configurează
-                </button>
-              </div>
-              <div className="text-xs text-zinc-300">
-                Server conectat:{' '}
-                <strong className="break-all text-white">
-                  {backendUrl || 'aceeași adresă ca interfața'}
-                </strong>
-              </div>
-              <p className="text-xs leading-5 text-zinc-400">
-                Pentru APK, pornește aplicația desktop pe PC, conectează telefonul la aceeași
-                rețea Wi-Fi și configurează IP-ul local al PC-ului cu portul 3000.
-              </p>
-            </div>
-
             {/* OKX EEA API CREDENTIALS */}
             <div className="bg-zinc-950 border border-amber-500/40 rounded p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
@@ -3857,16 +3829,24 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 <div className="bg-rose-950/30 border border-rose-500/40 rounded p-3 space-y-1.5 text-zinc-200">
                   <div className="font-bold text-rose-300 flex items-center space-x-1.5">
                     <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                    <span>ATENȚIE: Această acțiune va executa imediat următoarele operațiuni:</span>
+                    <span>
+                      ATENȚIE ({execMode}): Această acțiune se aplică EXCLUSIV modului {execMode}:
+                    </span>
                   </div>
                   <ul className="list-disc list-inside space-y-1 text-zinc-300 pl-1">
                     <li>
-                      Oprește forțat toți cei{' '}
-                      <span className="font-black text-white">{runningBots.length} boți Grid activi</span>{' '}
-                      și anulează toate ordinele limită de pe grilă.
+                      Oprește forțat{' '}
+                      <span className="font-black text-white">
+                        {runningBots.filter((b) => b.executionMode === execMode).length} boți Grid{' '}
+                        {execMode}
+                        {execMode === 'LIVE' && runningNativeBotsCount > 0
+                          ? ` + ${runningNativeBotsCount} boți OKX Native Grid LIVE`
+                          : ''}
+                      </span>{' '}
+                      și anulează ordinele limită aferente modului {execMode}.
                     </li>
                     <li>
-                      Lichidează imediat la prețul pieței (Market Close) toate pozițiile deschise în modul{' '}
+                      Lichidează imediat la prețul pieței (Market Close) pozițiile deschise în modul{' '}
                       <span
                         className={`font-black px-1.5 py-0.5 rounded ${
                           execMode === 'LIVE'
@@ -3878,28 +3858,35 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                       </span>
                       .
                     </li>
-                    <li>
-                      Blochează Autopilotul și orice lansare de bot nou până când dezactivezi manual Kill Switch-ul.
-                    </li>
+                    {execMode === 'PAPER' ? (
+                      <li className="text-emerald-300 font-bold">
+                        PROTECȚIE IZOLATĂ: Boții LIVE și pozițiile reale de pe OKX EEA NU sunt atinse de Kill Switch-ul din PAPER!
+                      </li>
+                    ) : (
+                      <li>
+                        Blochează Autopilotul LIVE și orice lansare de bot LIVE nou până la dezactivarea manuală.
+                      </li>
+                    )}
                   </ul>
                 </div>
 
                 {/* Live Impact Summary */}
                 <div className="grid grid-cols-3 gap-2 bg-black border border-zinc-800 rounded p-2.5 text-center">
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">BOȚI ACTIVI AFECTAȚI</span>
+                    <span className="text-[10px] text-zinc-500 block">BOȚI {execMode} AFECTAȚI</span>
                     <span className="text-sm font-black text-white tabular-nums">
-                      {runningBots.length}
+                      {runningBots.filter((b) => b.executionMode === execMode).length +
+                        (execMode === 'LIVE' ? runningNativeBotsCount : 0)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">MARJĂ ÎN GRILE</span>
+                    <span className="text-[10px] text-zinc-500 block">MARJĂ ÎN GRILE ({execMode})</span>
                     <span className="text-sm font-black text-amber-400 tabular-nums">
                       ${marginInvested.toFixed(2)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block">PNL NET CURENT</span>
+                    <span className="text-[10px] text-zinc-500 block">PNL NET CURENT ({execMode})</span>
                     <span
                       className={`text-sm font-black tabular-nums ${
                         totalProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -3914,10 +3901,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               <div className="space-y-3 text-xs">
                 <div className="bg-amber-950/30 border border-amber-500/40 rounded p-3 space-y-1.5 text-zinc-200">
                   <p className="font-bold text-amber-300">
-                    Ești sigur că vrei să dezactivezi starea de urgență (Kill Switch)?
+                    Ești sigur că vrei să dezactivezi starea de urgență (Kill Switch {execMode})?
                   </p>
                   <p className="text-zinc-300">
-                    După dezactivare, motorul TB5 va permite din nou lansarea de boți Grid (manual și/sau prin Autopilot dacă acesta este pornit). Boții opriți anterior nu repornesc singuri fără o nouă lansare.
+                    După dezactivare, motorul TB5 va permite din nou lansarea de boți Grid în modul {execMode} (manual și/sau prin Autopilot dacă acesta este pornit). Boții opriți anterior nu repornesc singuri fără o nouă lansare.
                   </p>
                 </div>
               </div>

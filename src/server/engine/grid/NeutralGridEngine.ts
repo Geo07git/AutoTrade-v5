@@ -1116,7 +1116,7 @@ export class NeutralGridEngine {
    * 3. Closes any lingering open positions on OKX for symbols whose bots are stopped.
    * 4. Syncs running bots' netPositionContracts and avgHoldPrice with real OKX positions.
    */
-  public async reconcileWithExchange(): Promise<void> {
+  public async reconcileWithExchange(protectedLiveSymbols?: Set<string>): Promise<void> {
     if (this.isReconciling || !this.adapter.hasCredentials()) return;
     this.isReconciling = true;
 
@@ -1131,9 +1131,10 @@ export class NeutralGridEngine {
       const stoppedBotsBySymbol = new Map<string, GridBotInstance>();
 
       for (const b of allBots) {
-        if (b.status === 'RUNNING' && b.executionMode === 'LIVE') {
+        if (b.executionMode !== 'LIVE') continue;
+        if (b.status === 'RUNNING') {
           runningBotsBySymbol.set(b.symbol, b);
-        } else if (b.status !== 'RUNNING') {
+        } else {
           if (!stoppedBotsBySymbol.has(b.symbol)) {
             stoppedBotsBySymbol.set(b.symbol, b);
           }
@@ -1150,10 +1151,11 @@ export class NeutralGridEngine {
         const ordId = String(rawOrd.ordId || '');
         const clOrdId = String(rawOrd.clOrdId || '');
         if (!instId || !ordId) continue;
+        if (protectedLiveSymbols?.has(instId)) continue;
 
         const runningBot = runningBotsBySymbol.get(instId);
         if (!runningBot) {
-          // No running bot on this symbol! If it belongs to a stopped bot or is a grid order, cancel it immediately
+          // No running LIVE bot on this symbol! If it belongs to a stopped LIVE bot or is a local grid order, cancel it immediately
           if (stoppedBotsBySymbol.has(instId) || clOrdId.toLowerCase().startsWith('grid')) {
             const cancelled = await this.adapter.cancelOrder(instId, ordId, clOrdId).catch(() => false);
             if (cancelled) {
@@ -1222,6 +1224,7 @@ export class NeutralGridEngine {
           : String(pos.symbol || '');
         const contracts = Math.abs(Number(pos.size) || 0);
         if (!instId || contracts <= 0) continue;
+        if (protectedLiveSymbols?.has(instId)) continue;
 
         const isShortPos = pos.posSide === 'short' || pos.side === 'Sell';
         const posSideTarget: 'long' | 'short' = isShortPos ? 'short' : 'long';
@@ -1296,8 +1299,16 @@ export class NeutralGridEngine {
     return true;
   }
 
-  public clearAllBots() {
-    this.bots.clear();
+  public clearAllBots(onlyExecutionMode?: ExecutionMode) {
+    if (!onlyExecutionMode) {
+      this.bots.clear();
+    } else {
+      for (const [id, bot] of this.bots.entries()) {
+        if (bot.executionMode === onlyExecutionMode) {
+          this.bots.delete(id);
+        }
+      }
+    }
     this.persist();
   }
 

@@ -82,6 +82,8 @@ const DEFAULT_CONFIG: AppConfig = {
   activePlatform: 'OKX_EEA',
   testnet: false,
   killSwitchEngaged: false,
+  paperKillSwitchEngaged: false,
+  liveKillSwitchEngaged: false,
   okxApiKey: process.env.OKX_API_KEY || '',
   okxSecretKey: process.env.OKX_SECRET_KEY || '',
   okxPassphrase: process.env.OKX_PASSPHRASE || '',
@@ -202,6 +204,18 @@ export class TradeBot {
       ...DEFAULT_AUTOPILOT_CONFIG,
       ...(appConfig.autopilot || {}),
     };
+    if (typeof appConfig.paperKillSwitchEngaged !== 'boolean') {
+      appConfig.paperKillSwitchEngaged =
+        appConfig.executionMode === 'PAPER' ? Boolean(appConfig.killSwitchEngaged) : false;
+    }
+    if (typeof appConfig.liveKillSwitchEngaged !== 'boolean') {
+      appConfig.liveKillSwitchEngaged =
+        appConfig.executionMode === 'LIVE' ? Boolean(appConfig.killSwitchEngaged) : false;
+    }
+    appConfig.killSwitchEngaged =
+      appConfig.executionMode === 'LIVE'
+        ? appConfig.liveKillSwitchEngaged
+        : appConfig.paperKillSwitchEngaged;
     this.configStore.save(appConfig);
     this.configStore.flushSync();
 
@@ -318,6 +332,33 @@ export class TradeBot {
     );
   }
 
+  public isKillSwitchEngagedForMode(mode?: ExecutionMode): boolean {
+    const cfg = this.configStore.get();
+    const targetMode = mode || cfg.executionMode;
+    if (targetMode === 'LIVE') {
+      return typeof cfg.liveKillSwitchEngaged === 'boolean'
+        ? cfg.liveKillSwitchEngaged
+        : cfg.executionMode === 'LIVE' && Boolean(cfg.killSwitchEngaged);
+    }
+    return typeof cfg.paperKillSwitchEngaged === 'boolean'
+      ? cfg.paperKillSwitchEngaged
+      : cfg.executionMode === 'PAPER' && Boolean(cfg.killSwitchEngaged);
+  }
+
+  private getProtectedNativeSymbols(): Set<string> {
+    const set = new Set<string>();
+    for (const nb of this.nativeGridEngine.getAllBots()) {
+      if (nb.state === 'running' && !nb.algoId.toLowerCase().startsWith('grid')) {
+        const norm = this.okxAdapter.normalizeSymbol
+          ? this.okxAdapter.normalizeSymbol(nb.instId)
+          : nb.instId;
+        set.add(norm);
+        set.add(nb.instId);
+      }
+    }
+    return set;
+  }
+
   public async setExecutionMode(
     mode: ExecutionMode
   ): Promise<{ success: boolean; error?: string }> {
@@ -349,6 +390,9 @@ export class TradeBot {
     }
 
     cfg.executionMode = mode;
+    cfg.killSwitchEngaged =
+      mode === 'LIVE' ? Boolean(cfg.liveKillSwitchEngaged) : Boolean(cfg.paperKillSwitchEngaged);
+    this.state = cfg.killSwitchEngaged ? 'STOPPED' : 'TRADING';
     this.configStore.save(cfg);
     this.configStore.flushSync();
 
@@ -380,12 +424,12 @@ export class TradeBot {
 
   public resetPaperAccount(): { success: boolean; error?: string } {
     this.paperAdapter.resetAccount(200.0);
-    this.gridEngine.clearAllBots();
+    this.gridEngine.clearAllBots('PAPER');
     this.journal.clearArbitrages();
     this.journal.clearOrders();
     this.logAudit(
       'PAPER_RESET',
-      'Contul de simulare Paper Trading a fost resetat la $200.00 USDT și toți boții Grid au fost resetați.'
+      'Contul de simulare Paper Trading a fost resetat la $200.00 USDT și boții Grid din modul PAPER au fost resetați (boții LIVE nu sunt afectați).'
     );
     return { success: true };
   }
@@ -570,7 +614,7 @@ export class TradeBot {
             const st = this.getStatus();
             await this.nativeGridEngine.evaluateAutopilot(
               st.freeBalance,
-              st.config.killSwitchEngaged,
+              this.isKillSwitchEngagedForMode('LIVE'),
               (p) => this.createNativeGridBot(p)
             );
           }
@@ -702,8 +746,8 @@ export class TradeBot {
       return { launchedBots: [], decision: ap.lastAutopilotAction || 'Autopilot OPRIT (Mod Manual)' };
     }
 
-    if (cfg.killSwitchEngaged) {
-      const msg = saveDecision('Blocat: Kill Switch de urgență este activat.');
+    if (this.isKillSwitchEngagedForMode(cfg.executionMode)) {
+      const msg = saveDecision(`Blocat: Kill Switch de urgență (${cfg.executionMode}) este activat.`);
       return { launchedBots: [], decision: msg };
     }
 
@@ -713,7 +757,9 @@ export class TradeBot {
     }
 
     const allBots = this.gridEngine.getAllBots();
-    const runningBots = allBots.filter((b) => b.status === 'RUNNING');
+    const runningBots = allBots.filter(
+      (b) => b.status === 'RUNNING' && b.executionMode === cfg.executionMode
+    );
     if (runningBots.length >= ap.maxConcurrentBots) {
       const msg = saveDecision(
         `Sloturi ocupate: ${runningBots.length}/${ap.maxConcurrentBots} boți activi (${runningBots.map((b) => b.symbol.replace('-USDT-SWAP', '')).join(', ')}).`
@@ -752,10 +798,11 @@ export class TradeBot {
         continue;
       }
 
-      // Check cooldown on recently stopped bots for the same symbol
+      // Check cooldown on recently stopped bots for the same symbol in the same execution mode
       if (cooldownMs > 0) {
         const recentStopped = allBots.find(
           (b) =>
+            b.executionMode === cfg.executionMode &&
             b.symbol === candidate.symbol &&
             b.status !== 'RUNNING' &&
             b.stoppedAt &&
@@ -940,7 +987,7 @@ export class TradeBot {
 
   public async forceSyncPositions(): Promise<{ count: number }> {
     if (this.configStore.get().executionMode === 'LIVE' && this.hasOKXCredentials()) {
-      await this.gridEngine.reconcileWithExchange();
+      await this.gridEngine.reconcileWithExchange(this.getProtectedNativeSymbols());
       await this.refreshLiveAccountMetrics(true);
     }
     const running = this.gridEngine.getRunningBots();
@@ -960,22 +1007,52 @@ export class TradeBot {
 
   public async toggleKillSwitch(): Promise<boolean> {
     const cfg = this.configStore.get();
-    cfg.killSwitchEngaged = !cfg.killSwitchEngaged;
+    const activeMode = cfg.executionMode;
+
+    if (activeMode === 'LIVE') {
+      const nextLive = !this.isKillSwitchEngagedForMode('LIVE');
+      cfg.liveKillSwitchEngaged = nextLive;
+      cfg.killSwitchEngaged = nextLive;
+    } else {
+      const nextPaper = !this.isKillSwitchEngagedForMode('PAPER');
+      cfg.paperKillSwitchEngaged = nextPaper;
+      cfg.killSwitchEngaged = nextPaper;
+    }
+
     this.configStore.save(cfg);
+    this.configStore.flushSync();
 
     if (cfg.killSwitchEngaged) {
       this.state = 'STOPPED';
+      const runningInMode = this.gridEngine
+        .getRunningBots()
+        .filter((b) => b.executionMode === activeMode);
+
       this.logAudit(
         'KILL_SWITCH_ENGAGED',
-        'KILL SWITCH DE URGENȚĂ ACTIVAT! Toți boții Neutral Grid activi au fost opriți.'
+        activeMode === 'LIVE'
+          ? `KILL SWITCH DE URGENȚĂ [LIVE] ACTIVAT! Toți boții Neutral Grid LIVE (${runningInMode.length}) și boții OKX Native Grid LIVE sunt opriți.`
+          : `KILL SWITCH DE URGENȚĂ [PAPER] ACTIVAT! Au fost opriți exclusiv boții din modul PAPER (${runningInMode.length}). Boții LIVE pe OKX EEA NU sunt afectați.`
       );
-      const running = this.gridEngine.getRunningBots();
-      for (const bot of running) {
-        await this.gridEngine.stopBot(bot.botId, 'Kill Switch de urgență activat', 'STOPPED', false);
+
+      for (const bot of runningInMode) {
+        await this.gridEngine.stopBot(
+          bot.botId,
+          `Kill Switch de urgență (${activeMode}) activat`,
+          'STOPPED',
+          false
+        );
+      }
+
+      if (activeMode === 'LIVE') {
+        await this.nativeGridEngine.syncAndMonitorActiveBots(true).catch(() => {});
       }
     } else {
       this.state = 'TRADING';
-      this.logAudit('KILL_SWITCH_DISENGAGED', 'Kill Switch dezactivat. Sistemul este pregătit.');
+      this.logAudit(
+        'KILL_SWITCH_DISENGAGED',
+        `Kill Switch [${activeMode}] dezactivat. Sistemul ${activeMode} este pregătit.`
+      );
     }
     return cfg.killSwitchEngaged;
   }
@@ -1068,6 +1145,7 @@ export class TradeBot {
 
   public getStatus(): BotStatusResponse {
     const cfg = this.configStore.get();
+    cfg.killSwitchEngaged = this.isKillSwitchEngagedForMode(cfg.executionMode);
     const profileConfig = cfg.profiles?.NEUTRAL_GRID || DEFAULT_GRID_PROFILE;
     const allBots = this.gridEngine.getAllBots();
     // Filter bots by active executionMode for accounting so old PAPER bots never pollute LIVE fees/PnL
@@ -1358,8 +1436,7 @@ export class TradeBot {
   }
 
   public async syncNativeGridBots() {
-    const cfg = this.configStore.get();
-    await this.nativeGridEngine.syncAndMonitorActiveBots(cfg.killSwitchEngaged);
+    await this.nativeGridEngine.syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'));
     return this.nativeGridEngine.getAllBots();
   }
 
@@ -1367,7 +1444,7 @@ export class TradeBot {
     const cfg = this.configStore.get();
     const res: any = await this.nativeGridEngine.createNativeBot({
       ...params,
-      killSwitchEngaged: cfg.killSwitchEngaged,
+      killSwitchEngaged: this.isKillSwitchEngagedForMode('LIVE'),
     });
 
     // If OKX EEA's public REST gateway on /api/v5/tradingBot/grid/order-algo blocks the -USD_UM suffix (Error 51000),
@@ -1497,7 +1574,7 @@ export class TradeBot {
       const status = this.getStatus();
       const evalRes = await this.nativeGridEngine.evaluateAutopilot(
         status.freeBalance,
-        status.config.killSwitchEngaged,
+        this.isKillSwitchEngagedForMode('LIVE'),
         (p) => this.createNativeGridBot(p)
       );
       launched = evalRes.launched;
@@ -1512,7 +1589,7 @@ export class TradeBot {
   }
 
   public async start(): Promise<void> {
-    this.state = this.configStore.get().killSwitchEngaged ? 'STOPPED' : 'TRADING';
+    this.state = this.isKillSwitchEngagedForMode() ? 'STOPPED' : 'TRADING';
     const runningSymbols = this.gridEngine.getRunningBots().map((b) => b.symbol);
     this.activeAdapter.initWebSocket(runningSymbols);
 
@@ -1520,11 +1597,11 @@ export class TradeBot {
       await this.refreshLiveAccountMetrics(true);
       await this.okxAdapter.fetchTradeFeeTier('FUTURES', true).catch(() => {});
       await this.nativeGridEngine
-        .syncAndMonitorActiveBots(this.configStore.get().killSwitchEngaged)
+        .syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'))
         .catch(() => {});
       await this.gridBotAnalyzer.analyzeAll(true).catch(() => {});
       if (this.configStore.get().executionMode === 'LIVE') {
-        await this.gridEngine.reconcileWithExchange();
+        await this.gridEngine.reconcileWithExchange(this.getProtectedNativeSymbols());
         await this.refreshLiveAccountMetrics(true);
       }
     }
@@ -1547,11 +1624,13 @@ export class TradeBot {
         }
         if (this.hasOKXCredentials()) {
           if (monitorTickCount % 4 === 0 && this.configStore.get().executionMode === 'LIVE') {
-            await this.gridEngine.reconcileWithExchange().catch(() => {});
+            await this.gridEngine
+              .reconcileWithExchange(this.getProtectedNativeSymbols())
+              .catch(() => {});
           }
           if (monitorTickCount % 3 === 0) {
             await this.nativeGridEngine
-              .syncAndMonitorActiveBots(this.configStore.get().killSwitchEngaged)
+              .syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'))
               .catch(() => {});
           }
           // GridBotAnalyzer periodic analysis (enforces 30s/1m/5m/15m cadences & immediate critical risk checks)

@@ -70,19 +70,6 @@
    npm start
    ```
 
-## Android APK (local network)
-
-The Android APK contains the interface; it does not run the Node.js trading
-backend on the phone. Start TradeBot Pro Terminal on a Windows PC, connect the
-phone and PC to the same trusted private Wi-Fi network, then configure the APK
-with `http://<PC-LAN-IPv4>:3000` from **OKX -> Server local pentru APK**
-(F6 on desktop).
-Find the PC address with `ipconfig`. Allow the Windows Firewall prompt only on
-private networks. The app verifies `/api/health` before saving the address.
-
-The local HTTP connection is not encrypted. Do not expose port 3000 to the
-internet or use the APK on public Wi-Fi while entering API credentials.
-
 ---
 
 ## 📄 License

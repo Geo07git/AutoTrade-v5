@@ -259,6 +259,8 @@ export interface AppConfig {
   activePlatform?: ExchangePlatformId;
   testnet: boolean;
   killSwitchEngaged: boolean;
+  paperKillSwitchEngaged?: boolean;
+  liveKillSwitchEngaged?: boolean;
   okxApiKey?: string;
   okxSecretKey?: string;
   okxPassphrase?: string;
