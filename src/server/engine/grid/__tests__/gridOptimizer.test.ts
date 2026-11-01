@@ -14,10 +14,20 @@
  */
 
 import { GridOptimizer } from '../GridOptimizer';
+import {
+  buildGridRangeVariants,
+  selectActiveRangeVariant,
+  type GridRangeVariantContext,
+} from '../GridRangeVariants';
 import { MartingaleEngine } from '../MartingaleEngine';
 import { NeutralGridAnalyzer } from '../NeutralGridAnalyzer';
 import type { InstrumentLotFilter } from '../../../exchange/IExecutionAdapter';
-import type { Kline, MartingaleConfig, NeutralGridBotConfig } from '../../../../shared/types';
+import type {
+  GridRangeVariantId,
+  Kline,
+  MartingaleConfig,
+  NeutralGridBotConfig,
+} from '../../../../shared/types';
 
 // ---------------------------------------------------------------------------
 // GridOptimizer.MAKER_FEE_PCT is 0.02 per leg -> 0.04% round trip.
@@ -393,6 +403,123 @@ test('adx: a clean uptrend saturates high, a flat tape collapses low', () => {
   // Identical candles -> zero directional movement -> ADX pinned to the 5 floor.
   const flat = Array.from({ length: 40 }, (_, i) => kline(101, 99, i, 100));
   eq(NeutralGridAnalyzer.computeWilderAdx14(flat, 14), 5, 'a flat tape must hit the ADX floor');
+});
+
+// ===========================================================================
+// 7. GridRangeVariants (CONSERVATIVE / BALANCED / COMPACT & active selection)
+// ===========================================================================
+
+const variantCtx = (over: Partial<GridRangeVariantContext> = {}): GridRangeVariantContext => ({
+  price: 2000,
+  decimals: 2,
+  volFactor: 1.0,
+  range24hPct: 4,
+  chosenLever: 5,
+  minLotNotionalUSD: 20,
+  probeMinInvestmentUSDT: 0,
+  totalCostPerGridPct: 0.055,
+  roundTripMakerFeePct: 0.04,
+  maxBudgetPerBotUSDT: 25,
+  minNetProfitPerGridPct: 0.12,
+  ...over,
+});
+
+test('variants (a): normal cost 0.055% computes geometry, spacing order, fee gates, and budget fit', () => {
+  const v = buildGridRangeVariants(variantCtx({ totalCostPerGridPct: 0.055 }));
+
+  eq(v.CONSERVATIVE.gridNum, 4, 'CONSERVATIVE gridNum must be 4');
+  eq(v.BALANCED.gridNum, 8, 'BALANCED gridNum must be 8');
+  eq(v.COMPACT.gridNum, 10, 'COMPACT gridNum must be 10');
+
+  eq(v.CONSERVATIVE.halfRangePct, 2.05, 'CONSERVATIVE halfRangePct must be 2.05');
+  eq(v.BALANCED.halfRangePct, 1.25, 'BALANCED halfRangePct must be 1.25');
+  eq(v.COMPACT.halfRangePct, 0.75, 'COMPACT halfRangePct must be 0.75');
+
+  ok(
+    v.CONSERVATIVE.gridSpacingPct > v.BALANCED.gridSpacingPct &&
+      v.BALANCED.gridSpacingPct > v.COMPACT.gridSpacingPct &&
+      v.COMPACT.gridSpacingPct > 0,
+    'spacing must be strictly ordered: CONSERVATIVE > BALANCED > COMPACT > 0'
+  );
+
+  eq(v.CONSERVATIVE.feeCheckPassed, true, 'CONSERVATIVE must pass fee check at 0.055% cost');
+  eq(v.BALANCED.feeCheckPassed, true, 'BALANCED must pass fee check at 0.055% cost');
+  eq(v.COMPACT.feeCheckPassed, true, 'COMPACT must pass fee check at 0.055% cost');
+
+  eq(v.CONSERVATIVE.minInvestmentUSDT, 17.28, 'CONSERVATIVE minInvestmentUSDT must be 17.28');
+  eq(v.BALANCED.minInvestmentUSDT, 34.56, 'BALANCED minInvestmentUSDT must be 34.56');
+  eq(v.COMPACT.minInvestmentUSDT, 43.2, 'COMPACT minInvestmentUSDT must be 43.2');
+
+  eq(v.CONSERVATIVE.fitsMaxBudget, true, 'CONSERVATIVE must fit maxBudgetPerBotUSDT=25');
+  eq(v.BALANCED.fitsMaxBudget, false, 'BALANCED must exceed maxBudgetPerBotUSDT=25');
+  eq(v.COMPACT.fitsMaxBudget, false, 'COMPACT must exceed maxBudgetPerBotUSDT=25');
+
+  eq(
+    v.CONSERVATIVE.recommendedInvestmentUSDT,
+    18.14,
+    'CONSERVATIVE recommendedInvestmentUSDT must be 18.14'
+  );
+});
+
+test('variants (b): elevated cost 0.09% rejects COMPACT on fee gate while BALANCED passes', () => {
+  const v = buildGridRangeVariants(variantCtx({ totalCostPerGridPct: 0.09 }));
+
+  eq(v.COMPACT.feeCheckPassed, false, 'COMPACT must fail fee check at 0.09% cost');
+  ok(
+    typeof v.COMPACT.feeWarning === 'string' && v.COMPACT.feeWarning.length > 0,
+    'COMPACT must emit a non-empty feeWarning when feeCheckPassed is false'
+  );
+  eq(v.BALANCED.feeCheckPassed, true, 'BALANCED must still pass fee check at 0.09% cost');
+});
+
+test('variants (c): selectActiveRangeVariant enforces fee safety, budget fallback, and unknown ID fallback', () => {
+  // High cost (0.09%) + budget large enough so budget fallback does not mask the fee fallback
+  const vHighCostWideBudget = buildGridRangeVariants(
+    variantCtx({ totalCostPerGridPct: 0.09, maxBudgetPerBotUSDT: 100 })
+  );
+  const pickedFromCompact = selectActiveRangeVariant(vHighCostWideBudget, 'COMPACT');
+  eq(
+    pickedFromCompact.id,
+    'BALANCED',
+    'COMPACT failing fee check must fall back to BALANCED'
+  );
+
+  // At 0.055% cost with maxBudget=25, BALANCED (34.56) exceeds budget while CONSERVATIVE (17.28) fits
+  const vDefaultBudget = buildGridRangeVariants(variantCtx({ totalCostPerGridPct: 0.055 }));
+  const pickedFromBalanced = selectActiveRangeVariant(vDefaultBudget, 'BALANCED');
+  eq(
+    pickedFromBalanced.id,
+    'CONSERVATIVE',
+    'BALANCED exceeding budget must fall back to CONSERVATIVE when CONSERVATIVE fits'
+  );
+
+  // Unknown requestedId falls back to BALANCED without throwing (when BALANCED fits budget)
+  const vWideBudget = buildGridRangeVariants(
+    variantCtx({ totalCostPerGridPct: 0.055, maxBudgetPerBotUSDT: 100 })
+  );
+  const pickedUnknown = selectActiveRangeVariant(
+    vWideBudget,
+    'UNKNOWN_VARIANT' as unknown as GridRangeVariantId
+  );
+  eq(pickedUnknown.id, 'BALANCED', 'unknown requestedId must fall back to BALANCED without throwing');
+});
+
+test('variants (d): geometry invariants hold across all three profiles', () => {
+  const v = buildGridRangeVariants(variantCtx({ totalCostPerGridPct: 0.055 }));
+  const all = [v.CONSERVATIVE, v.BALANCED, v.COMPACT];
+
+  for (const p of all) {
+    ok(p.minPx < 2000 && 2000 < p.maxPx, `${p.id} must bracket price (minPx < price < maxPx)`);
+    close(
+      p.totalRangePct,
+      2 * p.halfRangePct,
+      0.01,
+      `${p.id} totalRangePct must equal 2 * halfRangePct`
+    );
+  }
+
+  eq(v.BALANCED.gridNum % 2, 0, 'BALANCED gridNum must be even');
+  eq(v.COMPACT.gridNum % 2, 0, 'COMPACT gridNum must be even');
 });
 
 // ---------------------------------------------------------------------------

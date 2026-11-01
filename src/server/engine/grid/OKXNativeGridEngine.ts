@@ -1,6 +1,5 @@
 import {
   GridRangeVariantId,
-  GridRangeVariantProfile,
   NativeGridAutopilotConfig,
   NativeGridOpportunity,
   NativeGridScanDiagnostics,
@@ -13,6 +12,11 @@ import { UniverseManager } from '../../scanner/UniverseManager';
 import { JsonStore } from '../../store';
 import { GridJournal } from './GridJournal';
 import { GridOptimizer } from './GridOptimizer';
+import {
+  buildGridRangeVariants,
+  GridRangeVariantContext,
+  selectActiveRangeVariant,
+} from './GridRangeVariants';
 import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
 
 export const DEFAULT_NATIVE_GRID_AUTOPILOT: NativeGridAutopilotConfig = {
@@ -297,146 +301,22 @@ export class OKXNativeGridEngine {
             }
           }
 
-          const buildVariant = (
-            id: GridRangeVariantId,
-            label: string,
-            subtitle: string,
-            targetHalfBasePct: number,
-            minGrids: number,
-            maxGrids: number,
-            targetStepPct: number
-          ): GridRangeVariantProfile => {
-            const halfRangePct = parseFloat((targetHalfBasePct * volFactor).toFixed(2));
-            const totalRangePct = parseFloat((halfRangePct * 2).toFixed(2));
-            const vMinPx = parseFloat((price * (1 - halfRangePct / 100)).toFixed(decimals));
-            const vMaxPx = parseFloat((price * (1 + halfRangePct / 100)).toFixed(decimals));
-
-            let gridNum = Math.round(totalRangePct / Math.max(0.1, targetStepPct));
-            gridNum = Math.max(minGrids, Math.min(maxGrids, gridNum));
-            if (id !== 'CONSERVATIVE' && gridNum % 2 !== 0 && gridNum < maxGrids) {
-              gridNum += 1;
-            }
-
-            const gridSpacingUSDT = (vMaxPx - vMinPx) / Math.max(1, gridNum);
-            const gridSpacingPct = parseFloat(((gridSpacingUSDT / price) * 100).toFixed(2));
-            const estimatedGrossProfitPerGridPct = gridSpacingPct;
-            const estimatedNetProfitPerGridPct = parseFloat(
-              (estimatedGrossProfitPerGridPct - totalCostPerGridPct).toFixed(3)
-            );
-
-            // Estimate min investment required for this variant's gridNum at chosenLever
-            const basePerGridMargin =
-              probeMinInv.minInvestmentUSDT > 0
-                ? probeMinInv.minInvestmentUSDT / 6
-                : Math.max(0.8, (minLotNotionalUSD * 1.08) / Math.max(1, chosenLever));
-            const minInvestmentUSDT = parseFloat(
-              Math.max(2.0, basePerGridMargin * gridNum).toFixed(2)
-            );
-            const fitsMaxBudget =
-              minInvestmentUSDT > 0 && minInvestmentUSDT <= cfg.maxBudgetPerBotUSDT;
-            const recommendedInvestmentUSDT = fitsMaxBudget
-              ? parseFloat(
-                  Math.min(
-                    cfg.maxBudgetPerBotUSDT,
-                    Math.max(minInvestmentUSDT * 1.05, minInvestmentUSDT + 0.5)
-                  ).toFixed(2)
-                )
-              : minInvestmentUSDT;
-
-            const estDailyCrossings = Math.max(
-              1,
-              Math.min(32, (baseAnalysis.range24hPct / Math.max(0.12, gridSpacingPct)) * 1.35)
-            );
-            const estimatedDailyNetYieldPct = parseFloat(
-              (
-                Math.max(0, estimatedNetProfitPerGridPct) *
-                estDailyCrossings *
-                0.35 *
-                chosenLever
-              ).toFixed(2)
-            );
-
-            const feeLoadPctOfStep = parseFloat(
-              ((totalCostPerGridPct / Math.max(0.01, gridSpacingPct)) * 100).toFixed(1)
-            );
-            const minRequiredNetPct =
-              id === 'COMPACT'
-                ? Math.max(0.06, roundTripMakerFeePct * 1.75)
-                : Math.max(0.08, cfg.minNetProfitPerGridPct * 0.8);
-            const feeCheckPassed =
-              estimatedNetProfitPerGridPct >= minRequiredNetPct && feeLoadPctOfStep <= 42;
-
-            const feeWarning = !feeCheckPassed
-              ? `Atenție comisioane: costul total (${totalCostPerGridPct.toFixed(3)}%) consumă ${feeLoadPctOfStep}% din pasul grilei (${gridSpacingPct.toFixed(2)}%).`
-              : id === 'COMPACT'
-              ? `Comisioane verificate: cost ${totalCostPerGridPct.toFixed(3)}% (${feeLoadPctOfStep}% din pas), net +${estimatedNetProfitPerGridPct.toFixed(2)}%/grilă.`
-              : undefined;
-
-            return {
-              id,
-              label,
-              subtitle,
-              halfRangePct,
-              totalRangePct,
-              minPx: vMinPx,
-              maxPx: vMaxPx,
-              gridNum,
-              gridSpacingPct,
-              lever: chosenLever,
-              minInvestmentUSDT,
-              recommendedInvestmentUSDT,
-              fitsMaxBudget,
-              estimatedGrossProfitPerGridPct,
-              estimatedNetProfitPerGridPct,
-              estimatedDailyNetYieldPct,
-              feeCheckPassed,
-              feeLoadPctOfStep,
-              feeWarning,
-            };
+          const variantCtx: GridRangeVariantContext = {
+            price,
+            decimals,
+            volFactor,
+            range24hPct: baseAnalysis.range24hPct,
+            chosenLever,
+            minLotNotionalUSD,
+            probeMinInvestmentUSDT: probeMinInv.minInvestmentUSDT,
+            totalCostPerGridPct,
+            roundTripMakerFeePct,
+            maxBudgetPerBotUSDT: cfg.maxBudgetPerBotUSDT,
+            minNetProfitPerGridPct: cfg.minNetProfitPerGridPct,
           };
 
-          const conservativeVariant = buildVariant(
-            'CONSERVATIVE',
-            'Range Conservator (Larg)',
-            'Mai puține execuții • Risc redus de ieșire din range',
-            2.05,
-            4,
-            5,
-            1.02
-          );
-          const balancedVariant = buildVariant(
-            'BALANCED',
-            'Range Echilibrat (Recomandat)',
-            'Varianta de testat • Mai multe oportunități',
-            1.25,
-            6,
-            8,
-            0.38
-          );
-          const compactVariant = buildVariant(
-            'COMPACT',
-            'Range Compact (Frecvență Mare)',
-            'Risc de supra-tranzacționare • Necesită verificarea strictă a comisioanelor',
-            0.75,
-            8,
-            10,
-            0.17
-          );
-
-          const rangeVariants = {
-            CONSERVATIVE: conservativeVariant,
-            BALANCED: balancedVariant,
-            COMPACT: compactVariant,
-          };
-
-          // Select active variant (fallback to BALANCED or CONSERVATIVE if COMPACT fails strict fee check)
-          let activeVar = rangeVariants[activeVariantId] || balancedVariant;
-          if (activeVariantId === 'COMPACT' && !compactVariant.feeCheckPassed) {
-            activeVar = balancedVariant;
-          }
-          if (!activeVar.fitsMaxBudget && conservativeVariant.fitsMaxBudget) {
-            activeVar = conservativeVariant;
-          }
+          const rangeVariants = buildGridRangeVariants(variantCtx);
+          const activeVar = selectActiveRangeVariant(rangeVariants, activeVariantId);
 
           // Composite Market Intelligence Score (high-sensitivity continuous scoring with OI, OrderBook, Spread, Funding, Net Yield)
           let score = baseAnalysis.gridSuitabilityScore;
