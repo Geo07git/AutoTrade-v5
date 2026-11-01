@@ -2756,7 +2756,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 MARKET INTELLIGENCE &amp; OPTIMIZATOR INVESTIȚIE MINIMĂ OKX (_UM_XPERP — {eligibleOpportunities.length} ELIGIBILE / {opportunities.length} ANALIZATE PROFUND)
               </h3>
               <p className="text-[10px] text-zinc-400">
-                Pre-scorează toate cele {autopilot?.scanDiagnostics?.totalUniverseSwapCount ?? 257} contracte _UM_XPERP după consolidare laterală 24h, spread live, lichiditate și buget per 1 lot, apoi analizează profund (Klines 15m, Wilder ADX(14), Choppiness, ATR, OrderBook, Funding 8h, Min-Investment OKX) top {opportunities.length} candidați ({feeTierInfo?.roundTripMakerFeePct ?? 0.04}% round-trip).
+                Pre-scorează toate cele {autopilot?.scanDiagnostics?.totalUniverseXPerpCount ?? 257} contracte _UM_XPERP după consolidare laterală 24h, spread live, lichiditate și buget per 1 lot, apoi analizează profund (Klines 15m, Wilder ADX(14), Choppiness, ATR, OrderBook, Funding 8h, Min-Investment OKX) top {opportunities.length} candidați ({feeTierInfo?.roundTripMakerFeePct ?? 0.04}% round-trip).
               </p>
             </div>
           </div>
@@ -2767,7 +2767,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 <strong className="text-cyan-300">
                   {new Date(autopilot.scanDiagnostics.lastScanAt).toLocaleTimeString()}
                 </strong>{' '}
-                ({autopilot.scanDiagnostics.scanDurationMs}ms)
+                ({autopilot.scanDiagnostics.lastScanDurationMs}ms)
               </div>
               <div>
                 Schimbări poziție în clasament:{' '}
@@ -2784,11 +2784,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-zinc-900/70 border border-zinc-800 rounded p-2 text-[10px]">
             <div className="space-y-0.5">
               <div className="font-bold text-cyan-300 uppercase">
-                1. Pâlnie Selecție Univers ({autopilot.scanDiagnostics.totalUniverseSwapCount} _UM_XPERP)
+                1. Pâlnie Selecție Univers ({autopilot.scanDiagnostics.totalUniverseXPerpCount} _UM_XPERP)
               </div>
               <div className="text-zinc-300">
-                Total: <strong className="text-white">{autopilot.scanDiagnostics.totalUniverseSwapCount}</strong> → Lichide/Spread:{' '}
-                <strong className="text-white">{autopilot.scanDiagnostics.passedVolumeAndSpreadCount}</strong> → Eligibile 1-Lot (≤${maxBudgetPerBot}):{' '}
+                Total: <strong className="text-white">{autopilot.scanDiagnostics.totalUniverseXPerpCount}</strong> → Lichide/Spread:{' '}
+                <strong className="text-white">{autopilot.scanDiagnostics.liquidSpreadFilteredCount}</strong> → Eligibile 1-Lot (≤${maxBudgetPerBot}):{' '}
                 <strong className="text-emerald-300">{autopilot.scanDiagnostics.budgetFeasibleCount}</strong> → Analizate Klines+OB:{' '}
                 <strong className="text-cyan-300">{autopilot.scanDiagnostics.deepAnalyzedCount}</strong>
               </div>

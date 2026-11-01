@@ -534,13 +534,16 @@ export class OKXNativeGridEngine {
         }
       };
 
-      // Execute deep candidate analysis in parallel batches of 6 for speed without hitting OKX rate limits
-      const batchSize = 6;
+      // Execute deep candidate analysis in paced batches of 4 to avoid OKX 50011 rate limits
+      const batchSize = 4;
       for (let i = 0; i < xperpSymbols.length; i += batchSize) {
         const batch = xperpSymbols.slice(i, i + batchSize);
         const batchResults = await Promise.all(batch.map((sym) => analyzeSingleContract(sym)));
         for (const r of batchResults) {
           if (r) analyzed.push(r);
+        }
+        if (i + batchSize < xperpSymbols.length) {
+          await new Promise((r) => setTimeout(r, 120));
         }
       }
 
