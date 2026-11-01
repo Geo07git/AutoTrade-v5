@@ -22,3 +22,5 @@ public/*.zip
 *.dll
 *.blockmap
 win-unpacked/
+# Editor/workspace config is personal (can trigger tasks on folder open) - never commit
+.vscode/
