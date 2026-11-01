@@ -65,34 +65,31 @@ export class GridOptimizer {
     const atrPct = (atr / currentPrice) * 100;
     const rawRangePct = ((high - low) / currentPrice) * 100;
 
-    // Ideal 3-day / 24h neutral channel width: between 3.5% and 14% around currentPrice
-    const halfBandPct = Math.min(8.0, Math.max(2.0, Math.max(rawRangePct * 0.65, atrPct * 3.2)));
+    // Balanced Neutral Grid channel width (Range Echilibrat): ~±0.95% to ±1.75% around currentPrice (typical ±1.25%)
+    const balancedHalfPct = Math.max(atrPct * 1.45, rawRangePct * 0.24);
+    const halfBandPct = parseFloat(Math.min(1.75, Math.max(0.95, balancedHalfPct)).toFixed(2));
     const decimals = this.getDecimalsFromTick(tickSize, currentPrice);
 
     const lowerPrice = parseFloat((currentPrice * (1 - halfBandPct / 100)).toFixed(decimals));
     const upperPrice = parseFloat((currentPrice * (1 + halfBandPct / 100)).toFixed(decimals));
 
-    // Target spacing ~0.35% - 0.60% per grid so net profit after 0.04% maker round-trip is ~0.30% - 0.55%
+    // Target spacing ~0.35% - 0.42% per grid (6 to 8 grids across the ±1.25% balanced band)
     const totalBandPct = halfBandPct * 2;
-    const idealStepPct = Math.max(0.32, Math.min(0.75, atrPct * 0.45));
+    const idealStepPct = Math.max(0.34, Math.min(0.42, totalBandPct / 7));
     let gridCount = Math.round(totalBandPct / idealStepPct);
-    gridCount = Math.max(6, Math.min(40, gridCount));
+    gridCount = Math.max(6, Math.min(8, gridCount));
 
-    // Ensure margin can support the number of grids (at least $4 notional per grid with leverage)
-    const recommendedLeverage = atrPct > 2.2 ? 2 : atrPct > 1.2 ? 3 : 5;
-    const totalBuyingPower = marginInvestedUSDT * recommendedLeverage;
-    const maxAffordableGrids = Math.max(4, Math.floor(totalBuyingPower / 5.5));
-    gridCount = Math.min(gridCount, maxAffordableGrids);
-    if (gridCount % 2 !== 0) gridCount += 1; // Even grid count for symmetrical Neutral Grid
+    const recommendedLeverage = atrPct > 2.2 ? 3 : atrPct > 1.2 ? 4 : 5;
+    if (gridCount % 2 !== 0) gridCount = Math.min(8, gridCount + 1); // Prefer 6 or 8 grids for balanced profile
 
     return {
       lowerPrice,
       upperPrice,
-      gridCount: Math.max(4, gridCount),
-      gridType: totalBandPct > 10 ? 'GEOMETRIC' : 'ARITHMETIC',
+      gridCount: Math.max(6, gridCount),
+      gridType: totalBandPct > 8 ? 'GEOMETRIC' : 'ARITHMETIC',
       recommendedLeverage,
-      stopLossPct: parseFloat(Math.min(15, Math.max(4, halfBandPct * 1.15)).toFixed(1)),
-      takeProfitPct: parseFloat(Math.min(30, Math.max(6, halfBandPct * 1.8)).toFixed(1)),
+      stopLossPct: parseFloat(Math.min(12, Math.max(4, halfBandPct * 2.2)).toFixed(1)),
+      takeProfitPct: parseFloat(Math.min(24, Math.max(6, halfBandPct * 3.5)).toFixed(1)),
       atrPct: parseFloat(atrPct.toFixed(2)),
       range24hPct: parseFloat(rawRangePct.toFixed(2)),
     };

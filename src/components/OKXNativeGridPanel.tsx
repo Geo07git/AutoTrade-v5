@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   GridAnalyzerStatusSummary,
   GridAnalyzerThresholds,
+  GridRangeVariantId,
+  GridRangeVariantProfile,
   NativeGridAutopilotConfig,
   NativeGridOpportunity,
   OKXFeeTierInfo,
@@ -76,6 +78,13 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   );
   const [stopOnTrendInvalidation, setStopOnTrendInvalidation] = useState<boolean>(
     autopilot?.stopOnTrendInvalidation ?? true
+  );
+  const [defaultRangeVariant, setDefaultRangeVariant] = useState<GridRangeVariantId>(
+    autopilot?.defaultRangeVariant || 'BALANCED'
+  );
+  const [rowVariants, setRowVariants] = useState<Record<string, GridRangeVariantId>>({});
+  const [builderVariant, setBuilderVariant] = useState<GridRangeVariantId>(
+    autopilot?.defaultRangeVariant || 'BALANCED'
   );
 
   // Manual / Custom Native Bot Builder state
@@ -182,6 +191,10 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       setTakeProfitPct(autopilot.takeProfitPct);
       setStopOnBreakout(Boolean(autopilot.stopOnRangeBreakout));
       setStopOnTrendInvalidation(Boolean(autopilot.stopOnTrendInvalidation));
+      if (autopilot.defaultRangeVariant) {
+        setDefaultRangeVariant(autopilot.defaultRangeVariant);
+        setBuilderVariant(autopilot.defaultRangeVariant);
+      }
     }
   }, [autopilot]);
 
@@ -231,6 +244,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           takeProfitPct: Number(takeProfitPct) || 15,
           stopOnRangeBreakout: stopOnBreakout,
           stopOnTrendInvalidation,
+          defaultRangeVariant,
         }),
       });
       const data = await res.json();
@@ -318,22 +332,85 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     }
   };
 
-  const handleLoadOpportunity = (opp: NativeGridOpportunity) => {
-    setInstId(opp.instId);
-    setMinPx(opp.minPx);
-    setMaxPx(opp.maxPx);
-    setGridNum(opp.gridNum);
-    setRunType(opp.runType);
-    setLever(opp.lever);
-    setSz(opp.recommendedInvestmentUSDT);
-    setMinInvCheck({
+  const getVariantProfileForOpp = (
+    opp: NativeGridOpportunity,
+    variantId?: GridRangeVariantId
+  ): GridRangeVariantProfile => {
+    const targetId: GridRangeVariantId =
+      variantId || rowVariants[opp.instId] || opp.selectedVariant || defaultRangeVariant || 'BALANCED';
+    if (opp.rangeVariants && opp.rangeVariants[targetId]) {
+      return opp.rangeVariants[targetId];
+    }
+    const halfPct =
+      opp.halfRangePct ??
+      (opp.price > 0 ? parseFloat((((opp.maxPx - opp.minPx) / 2 / opp.price) * 100).toFixed(2)) : 1.25);
+    return {
+      id: targetId,
+      label:
+        targetId === 'CONSERVATIVE'
+          ? 'Range conservator'
+          : targetId === 'COMPACT'
+          ? 'Range compact'
+          : 'Range echilibrat',
+      subtitle:
+        targetId === 'CONSERVATIVE'
+          ? 'Range larg • Mai puține execuții'
+          : targetId === 'COMPACT'
+          ? 'Risc de supra-tranzacționare • Verificare comisioane'
+          : 'Varianta de testat • Mai multe oportunități',
+      halfRangePct: halfPct,
+      totalRangePct: parseFloat((halfPct * 2).toFixed(2)),
+      minPx: opp.minPx,
+      maxPx: opp.maxPx,
+      gridNum: opp.gridNum,
+      gridSpacingPct: opp.gridSpacingPct,
+      lever: opp.lever,
       minInvestmentUSDT: opp.minInvestmentUSDT,
+      recommendedInvestmentUSDT: opp.recommendedInvestmentUSDT,
+      fitsMaxBudget: opp.fitsMaxBudget,
+      estimatedGrossProfitPerGridPct: opp.estimatedGrossProfitPerGridPct,
+      estimatedNetProfitPerGridPct: opp.estimatedNetProfitPerGridPct,
+      estimatedDailyNetYieldPct: opp.estimatedDailyNetYieldPct,
+      feeCheckPassed: opp.estimatedNetProfitPerGridPct >= minNetProfitPct,
+      feeLoadPctOfStep:
+        opp.estimatedGrossProfitPerGridPct > 0
+          ? parseFloat(
+              (
+                ((opp.estimatedGrossProfitPerGridPct - opp.estimatedNetProfitPerGridPct) /
+                  opp.estimatedGrossProfitPerGridPct) *
+                100
+              ).toFixed(1)
+            )
+          : 25,
+    };
+  };
+
+  const handleLoadOpportunity = (
+    opp: NativeGridOpportunity,
+    variantOverride?: GridRangeVariantId
+  ) => {
+    const chosenVariantId =
+      variantOverride || rowVariants[opp.instId] || opp.selectedVariant || defaultRangeVariant || 'BALANCED';
+    const v = getVariantProfileForOpp(opp, chosenVariantId);
+    setInstId(opp.instId);
+    setBuilderVariant(chosenVariantId);
+    setRowVariants((prev) => ({ ...prev, [opp.instId]: chosenVariantId }));
+    setMinPx(v.minPx);
+    setMaxPx(v.maxPx);
+    setGridNum(v.gridNum);
+    setRunType(opp.runType);
+    setLever(v.lever);
+    setSz(v.recommendedInvestmentUSDT);
+    setMinInvCheck({
+      minInvestmentUSDT: v.minInvestmentUSDT,
       ccy: opp.minInvestmentCcy,
       singleAmt: 0,
     });
     onNotify({
-      type: 'info',
-      text: `Parametrii optimizați pentru ${opp.instId} (Min-Inv OKX: $${opp.minInvestmentUSDT.toFixed(2)}) au fost încărcați în Builder.`,
+      type: v.feeWarning ? 'error' : 'info',
+      text: `${opp.instId} [${v.label} ±${v.halfRangePct.toFixed(2)}% • ${v.gridNum} grile • Distanță ${v.gridSpacingPct.toFixed(2)}% • Net +${v.estimatedNetProfitPerGridPct.toFixed(2)}%/grilă] încărcat în Builder.${
+        v.feeWarning ? ` ⚠ ${v.feeWarning}` : ''
+      }`,
     });
   };
 
@@ -1777,6 +1854,30 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               <option value="2">stopType 2: Păstrează Poziția</option>
             </select>
           </div>
+          <div className="bg-black border border-cyan-500/40 rounded p-2 col-span-2 md:col-span-2">
+            <span className="text-[10px] text-cyan-300 font-bold block">
+              Variantă Range TB5 (Autopilot &amp; Default)
+            </span>
+            <select
+              value={defaultRangeVariant}
+              onChange={(e) => {
+                const nextVar = (e.target.value as GridRangeVariantId) || 'BALANCED';
+                setDefaultRangeVariant(nextVar);
+                setBuilderVariant(nextVar);
+              }}
+              className="w-full bg-zinc-900 border border-cyan-500/50 rounded px-1.5 py-1 text-cyan-200 font-bold mt-0.5"
+            >
+              <option value="CONSERVATIVE">
+                1. Range conservator (±2.05% • 4 grile • Dist ~1.0%)
+              </option>
+              <option value="BALANCED">
+                2. Range echilibrat (±1.25% • 6–8 grile • Dist ~0.35–0.42%) ★ Recomandat
+              </option>
+              <option value="COMPACT">
+                3. Range compact (±0.75% • 8–10 grile • Dist ~0.15–0.19% • Verificare Fee)
+              </option>
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
@@ -1889,10 +1990,102 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </select>
             </div>
 
+            {/* TB5 3-VARIANT RANGE SELECTOR FOR CURRENT CONTRACT */}
+            {(() => {
+              const currentOpp = opportunities.find((o) => o.instId === instId);
+              if (currentOpp?.rangeVariants) {
+                const variantOrder: GridRangeVariantId[] = ['CONSERVATIVE', 'BALANCED', 'COMPACT'];
+                return (
+                  <div className="bg-black/80 border border-cyan-500/30 rounded p-2 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-cyan-300 font-black">
+                        TB5 — 3 VARIANTE RANGE CALCULATE ({currentOpp.instId}):
+                      </span>
+                      <span className="text-zinc-400">
+                        ATR 15m: {currentOpp.atrPct.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {variantOrder.map((vId) => {
+                        const vp = currentOpp.rangeVariants![vId];
+                        const isSelected = builderVariant === vId;
+                        return (
+                          <button
+                            key={vId}
+                            type="button"
+                            onClick={() => handleLoadOpportunity(currentOpp, vId)}
+                            className={`text-left p-1.5 rounded border transition cursor-pointer ${
+                              isSelected
+                                ? vId === 'BALANCED'
+                                  ? 'bg-emerald-950/60 border-emerald-400 text-white'
+                                  : vId === 'COMPACT'
+                                  ? 'bg-amber-950/60 border-amber-400 text-white'
+                                  : 'bg-cyan-950/60 border-cyan-400 text-white'
+                                : 'bg-zinc-900/70 hover:bg-zinc-900 border-zinc-800 text-zinc-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black leading-tight">
+                                {vId === 'CONSERVATIVE'
+                                  ? 'Conservator'
+                                  : vId === 'BALANCED'
+                                  ? 'Echilibrat ★'
+                                  : 'Compact'}
+                              </span>
+                              <span
+                                className={`text-[9px] font-black px-1 rounded ${
+                                  vp.feeCheckPassed
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-rose-500/20 text-rose-300'
+                                }`}
+                              >
+                                ±{vp.halfRangePct.toFixed(2)}%
+                              </span>
+                            </div>
+                            <div className="text-[10px] font-bold text-amber-300 mt-0.5">
+                              {vp.gridNum} grile • Dist {vp.gridSpacingPct.toFixed(2)}%
+                            </div>
+                            <div className="text-[9px] text-zinc-400">
+                              Net:{' '}
+                              <strong
+                                className={
+                                  vp.feeCheckPassed ? 'text-emerald-300' : 'text-rose-400'
+                                }
+                              >
+                                +{vp.estimatedNetProfitPerGridPct.toFixed(2)}%
+                              </strong>{' '}
+                              • Min ${vp.minInvestmentUSDT.toFixed(1)}
+                            </div>
+                            {vp.feeWarning ? (
+                              <div
+                                className="text-[8px] text-rose-400 leading-tight mt-0.5 truncate"
+                                title={vp.feeWarning}
+                              >
+                                ⚠ Comisioane {vp.feeLoadPctOfStep}% din pas
+                              </div>
+                            ) : (
+                              <div className="text-[8px] text-zinc-500 leading-tight mt-0.5 truncate">
+                                {vId === 'CONSERVATIVE'
+                                  ? 'Mai puține execuții'
+                                  : vId === 'BALANCED'
+                                  ? 'Mai multe oportunități'
+                                  : 'Fee OK (Verificat)'}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div className="flex items-center justify-between gap-1 text-[10px]">
-              <span className="text-zinc-500">Range Rapid:</span>
+              <span className="text-zinc-500">Range Rapid Manual:</span>
               <div className="flex items-center gap-1">
-                {[2, 3.5, 5, 8].map((pct) => (
+                {[0.75, 1.25, 2.05, 3.5].map((pct) => (
                   <button
                     key={pct}
                     type="button"
@@ -2589,14 +2782,21 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 <th className="py-1.5 px-2">Open Interest / Vol 24h</th>
                 <th className="py-1.5 px-2">Funding 8h / Spread</th>
                 <th className="py-1.5 px-2">OrderBook Depth / Imb</th>
-                <th className="py-1.5 px-2">Range Optimizat / Grile</th>
+                <th className="py-1.5 px-2">3 Variante Range TB5 / Grile / Distanță</th>
                 <th className="py-1.5 px-2">OKX Min-Investment</th>
-                <th className="py-1.5 px-2">Profit Net/Grilă</th>
+                <th className="py-1.5 px-2">Profit Net &amp; Verificare Comisioane</th>
                 <th className="py-1.5 px-2 text-right">Acțiune</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
-              {opportunities.map((opp) => (
+              {opportunities.map((opp) => {
+                const activeVarId: GridRangeVariantId =
+                  rowVariants[opp.instId] ||
+                  opp.selectedVariant ||
+                  defaultRangeVariant ||
+                  'BALANCED';
+                const activeVar = getVariantProfileForOpp(opp, activeVarId);
+                return (
                 <tr
                   key={opp.instId}
                   className={`hover:bg-zinc-900/60 ${
@@ -2671,33 +2871,73 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </div>
                   </td>
                   <td className="py-2 px-2 tabular-nums">
-                    <div className="font-bold text-white">
-                      ${formatPrice(opp.minPx)} – ${formatPrice(opp.maxPx)}
+                    {/* 3-Variant Switcher Pills */}
+                    <div className="flex items-center gap-1 mb-1">
+                      {(['CONSERVATIVE', 'BALANCED', 'COMPACT'] as GridRangeVariantId[]).map(
+                        (vId) => {
+                          const vp = getVariantProfileForOpp(opp, vId);
+                          const isAct = activeVarId === vId;
+                          return (
+                            <button
+                              key={vId}
+                              type="button"
+                              onClick={() =>
+                                setRowVariants((prev) => ({ ...prev, [opp.instId]: vId }))
+                              }
+                              title={`${vp.label}: ±${vp.halfRangePct.toFixed(2)}% | ${vp.gridNum} grile | Distanță ${vp.gridSpacingPct.toFixed(2)}% | Net +${vp.estimatedNetProfitPerGridPct.toFixed(2)}%`}
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-black border cursor-pointer ${
+                                isAct
+                                  ? vId === 'BALANCED'
+                                    ? 'bg-emerald-500 text-black border-emerald-400'
+                                    : vId === 'COMPACT'
+                                    ? 'bg-amber-500 text-black border-amber-400'
+                                    : 'bg-cyan-500 text-black border-cyan-400'
+                                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                              }`}
+                            >
+                              {vId === 'CONSERVATIVE'
+                                ? `Conserv. ±${vp.halfRangePct.toFixed(2)}%`
+                                : vId === 'BALANCED'
+                                ? `Echilibrat ±${vp.halfRangePct.toFixed(2)}%`
+                                : `Compact ±${vp.halfRangePct.toFixed(2)}%`}
+                            </button>
+                          );
+                        }
+                      )}
                     </div>
-                    <div className="text-[10px] text-amber-300">
-                      {opp.gridNum} grile ({opp.gridSpacingPct.toFixed(2)}%) @ {opp.lever}x
+                    <div className="font-bold text-white">
+                      ${formatPrice(activeVar.minPx)} – ${formatPrice(activeVar.maxPx)}{' '}
+                      <span className="text-[10px] text-cyan-300 font-black">
+                        (±{activeVar.halfRangePct.toFixed(2)}%)
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-amber-300 font-bold">
+                      {activeVar.gridNum} grile • Distanță ~{activeVar.gridSpacingPct.toFixed(2)}% @{' '}
+                      {activeVar.lever}x
                     </div>
                     <div className="text-[9px] text-zinc-400 mt-0.5">
                       <span className="text-rose-300">
-                        SL: ${formatPrice(opp.minPx * (1 - (stopLossPct || 8) / 100 / Math.max(1, opp.lever)))}
+                        SL: ${formatPrice(activeVar.minPx * (1 - (stopLossPct || 8) / 100 / Math.max(1, activeVar.lever)))}
                       </span>{' '}
                       |{' '}
                       <span className="text-emerald-300">
-                        TP: ${formatPrice(opp.maxPx * (1 + (takeProfitPct || 15) / 100 / Math.max(1, opp.lever)))}
+                        TP: ${formatPrice(activeVar.maxPx * (1 + (takeProfitPct || 15) / 100 / Math.max(1, activeVar.lever)))}
                       </span>
                     </div>
                   </td>
                   <td className="py-2 px-2 tabular-nums">
                     <div
                       className={`font-black ${
-                        opp.fitsMaxBudget ? 'text-emerald-400' : 'text-rose-400'
+                        activeVar.fitsMaxBudget ? 'text-emerald-400' : 'text-rose-400'
                       }`}
                     >
-                      ${opp.minInvestmentUSDT.toFixed(2)} {opp.minInvestmentCcy}
+                      ${activeVar.minInvestmentUSDT.toFixed(2)} {opp.minInvestmentCcy}
                     </div>
                     <div className="text-[10px]">
-                      {opp.fitsMaxBudget ? (
-                        <span className="text-emerald-300">ÎN BUGET (Rec: ${opp.recommendedInvestmentUSDT})</span>
+                      {activeVar.fitsMaxBudget ? (
+                        <span className="text-emerald-300">
+                          ÎN BUGET (Rec: ${activeVar.recommendedInvestmentUSDT})
+                        </span>
                       ) : (
                         <span className="text-rose-400">PESTE BUGET (&gt;${maxBudgetPerBot})</span>
                       )}
@@ -2706,22 +2946,36 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <td className="py-2 px-2 tabular-nums">
                     <div
                       className={`font-black ${
-                        opp.estimatedNetProfitPerGridPct >= minNetProfitPct
+                        activeVar.feeCheckPassed &&
+                        activeVar.estimatedNetProfitPerGridPct >= minNetProfitPct
                           ? 'text-emerald-400'
                           : 'text-rose-400'
                       }`}
                     >
-                      +{opp.estimatedNetProfitPerGridPct.toFixed(2)}% / grilă
+                      +{activeVar.estimatedNetProfitPerGridPct.toFixed(2)}% / grilă
                     </div>
                     <div className="text-[10px] text-zinc-400">
-                      Est/zi: +{opp.estimatedDailyNetYieldPct.toFixed(2)}%
+                      Est/zi: +{activeVar.estimatedDailyNetYieldPct.toFixed(2)}% • Fee load:{' '}
+                      {activeVar.feeLoadPctOfStep}%
                     </div>
+                    {activeVar.feeWarning ? (
+                      <div
+                        className="text-[9px] text-rose-400 font-bold mt-0.5 max-w-[190px] leading-tight"
+                        title={activeVar.feeWarning}
+                      >
+                        ⚠ {activeVar.feeWarning}
+                      </div>
+                    ) : (
+                      <div className="text-[9px] text-emerald-400/90 mt-0.5">
+                        ✓ Comisioane verificate ({activeVar.label})
+                      </div>
+                    )}
                   </td>
                   <td className="py-2 px-2 text-right">
                     <div className="flex items-center justify-end space-x-1">
                       <button
                         type="button"
-                        onClick={() => handleLoadOpportunity(opp)}
+                        onClick={() => handleLoadOpportunity(opp, activeVarId)}
                         className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-amber-300 border border-amber-500/40 text-[10px] font-bold cursor-pointer"
                       >
                         În Builder
@@ -2729,16 +2983,30 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       {executionVariant === 'AUTO_LIMIT' ? (
                         <button
                           type="button"
-                          disabled={!opp.fitsMaxBudget || isCreating}
-                          onClick={() => handleCreateNativeBot(opp)}
+                          disabled={!activeVar.fitsMaxBudget || !activeVar.feeCheckPassed || isCreating}
+                          onClick={() =>
+                            handleCreateNativeBot({
+                              ...opp,
+                              minPx: activeVar.minPx,
+                              maxPx: activeVar.maxPx,
+                              gridNum: activeVar.gridNum,
+                              lever: activeVar.lever,
+                              recommendedInvestmentUSDT: activeVar.recommendedInvestmentUSDT,
+                            })
+                          }
                           className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black text-[10px] font-black cursor-pointer"
+                          title={
+                            !activeVar.feeCheckPassed
+                              ? activeVar.feeWarning || 'Comisioanele depășesc pragul de siguranță pentru această variantă'
+                              : `Lansează ${activeVar.label} (±${activeVar.halfRangePct.toFixed(2)}%, ${activeVar.gridNum} grile)`
+                          }
                         >
                           ⚡ Lansează Auto-Limit
                         </button>
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleLoadOpportunity(opp)}
+                          onClick={() => handleLoadOpportunity(opp, activeVarId)}
                           className="px-2.5 py-1 rounded bg-cyan-400 hover:bg-cyan-300 text-black text-[10px] font-black cursor-pointer"
                         >
                           🤖 Pregătește Copy OKX
@@ -2747,7 +3015,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

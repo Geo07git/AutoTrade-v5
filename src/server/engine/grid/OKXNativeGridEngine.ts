@@ -1,4 +1,6 @@
 import {
+  GridRangeVariantId,
+  GridRangeVariantProfile,
   NativeGridAutopilotConfig,
   NativeGridOpportunity,
   OKXNativeGridBot,
@@ -24,6 +26,7 @@ export const DEFAULT_NATIVE_GRID_AUTOPILOT: NativeGridAutopilotConfig = {
   maxLeverage: 5,
   defaultRunType: '1', // '1' = Arithmetic, '2' = Geometric
   defaultStopType: '1', // '1' = Close position at market, '2' = Keep position open
+  defaultRangeVariant: 'BALANCED',
   stopLossPct: 8.0,
   takeProfitPct: 15.0,
   stopOnRangeBreakout: true,
@@ -120,6 +123,10 @@ export class OKXNativeGridEngine {
     next.maxLeverage = Math.max(1, Math.min(20, Math.round(Number(next.maxLeverage) || 5)));
     next.defaultRunType = next.defaultRunType === '2' ? '2' : '1';
     next.defaultStopType = next.defaultStopType === '2' ? '2' : '1';
+    next.defaultRangeVariant =
+      next.defaultRangeVariant === 'CONSERVATIVE' || next.defaultRangeVariant === 'COMPACT'
+        ? next.defaultRangeVariant
+        : 'BALANCED';
     next.stopLossPct = Math.max(1, Math.min(80, Number(next.stopLossPct) || 8.0));
     next.takeProfitPct = Math.max(1, Math.min(300, Number(next.takeProfitPct) || 15.0));
     next.scanIntervalSec = Math.max(
@@ -130,7 +137,7 @@ export class OKXNativeGridEngine {
     this.configStore.save(next);
     this.journal.logAudit(
       'CONFIG_UPDATED',
-      `[OKX NATIVE GRID CONFIG LIVE] Autopilot: ${next.enabled ? 'ON' : 'OFF'} | Buget Max/Bot: $${next.maxBudgetPerBotUSDT} | Levier Max: ${next.maxLeverage}x | StopType: ${next.defaultStopType === '1' ? '1 (Închide Poziția)' : '2 (Păstrează Poziția)'}`
+      `[OKX NATIVE GRID CONFIG LIVE] Autopilot: ${next.enabled ? 'ON' : 'OFF'} | Variantă Range: ${next.defaultRangeVariant} | Buget Max/Bot: $${next.maxBudgetPerBotUSDT} | Levier Max: ${next.maxLeverage}x | StopType: ${next.defaultStopType === '1' ? '1 (Închide Poziția)' : '2 (Păstrează Poziția)'}`
     );
     return next;
   }
@@ -150,13 +157,14 @@ export class OKXNativeGridEngine {
   }
 
   /**
-   * 1–5. Autonomous Market Intelligence & OKX Min-Investment Optimizer:
+   * 1–5. Autonomous Market Intelligence & 3-Variant Range Optimizer (Conservator / Echilibrat / Compact):
    * - Exclusively analyzes FUTURES X-Perp (_UM_XPERP) instruments on OKX EEA.
    * - Evaluates liquidity, 24h volume, volatility (ATR, Choppiness), spread, trend (ADX),
    *   Open Interest, funding rate, and Order Book depth/imbalance.
-   * - Queries POST /api/v5/tradingBot/grid/min-investment on OKX EEA and iteratively
-   *   optimizes gridNum & leverage so the required investment fits within maxBudgetPerBotUSDT.
-   * - Eliminates candidates over budget or with negative/insufficient net profit after real OKX fees & funding.
+   * - Computes 3 dynamic range & grid variants per contract:
+   *   1. CONSERVATIVE (Range larg, ~±2.05%, 4 grile, distanță ~1.0%, mai puține execuții)
+   *   2. BALANCED (Range echilibrat / Varianta de testat, ~±1.25%, 6–8 grile, distanță ~0.35–0.42%, mai multe oportunități)
+   *   3. COMPACT (Range compact, ~±0.75%, 8–10 grile, distanță ~0.15–0.19%, verificare strictă a comisioanelor)
    */
   public async scanAndOptimizeOpportunities(
     scannerFilter?: UniverseFilterConfig,
@@ -186,6 +194,7 @@ export class OKXNativeGridEngine {
       const roundTripMakerFeePct = feeInfo.roundTripMakerFeePct; // e.g. 0.04%
 
       const analyzed: NativeGridOpportunity[] = [];
+      const activeVariantId: GridRangeVariantId = cfg.defaultRangeVariant || 'BALANCED';
 
       for (const instId of xperpSymbols) {
         try {
@@ -197,100 +206,207 @@ export class OKXNativeGridEngine {
             this.okxAdapter.getInstrumentFilter(instId),
           ]);
 
+          const price = baseAnalysis.price;
           const tickSize = lotFilter?.tickSize || 0.01;
           const decimals = Math.max(0, -Math.floor(Math.log10(tickSize)));
-          const minPx = parseFloat(baseAnalysis.recommendedLowerPrice.toFixed(decimals));
-          const maxPx = parseFloat(baseAnalysis.recommendedUpperPrice.toFixed(decimals));
-          if (minPx <= 0 || maxPx <= minPx) continue;
+          const ctVal = lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1;
+          const minOrderQty =
+            lotFilter?.minOrderQty && lotFilter.minOrderQty > 0 ? lotFilter.minOrderQty : 1;
+          const minLotNotionalUSD = Math.max(0.5, minOrderQty * ctVal * price);
 
           const runType: '1' | '2' = cfg.defaultRunType === '2' ? '2' : '1';
-          const initialGridNum = Math.max(4, Math.min(35, baseAnalysis.recommendedGridCount || 10));
-          const initialLever = Math.max(
+          const baseLever = Math.max(
             1,
-            Math.min(cfg.maxLeverage, baseAnalysis.recommendedLeverage || 3)
+            Math.min(cfg.maxLeverage, baseAnalysis.recommendedLeverage || 4)
           );
 
-          // Closed-loop optimization with OKX /api/v5/tradingBot/grid/min-investment
-          // Try initial (gridNum, lever); if minInvestment > maxBudgetPerBotUSDT, step down gridNum and/or step up lever up to maxLeverage
-          let chosenGridNum = initialGridNum;
-          let chosenLever = initialLever;
-          let minInvRes = await this.okxAdapter.calculateGridMinInvestment({
+          // Calibrate contract volatility unit around 1.0 (scales dynamically with ATR & 24h range)
+          const volFactor = Math.max(
+            0.72,
+            Math.min(
+              1.45,
+              Math.max(baseAnalysis.atrPct * 1.15, (baseAnalysis.range24hPct || 4) * 0.21)
+            )
+          );
+
+          const fundingDragPerGridPct = Math.abs(extras.fundingRatePct) * 0.35;
+          const spreadDragPct = (extras.spreadBps / 100) * 0.5;
+          const totalCostPerGridPct =
+            roundTripMakerFeePct + fundingDragPerGridPct + spreadDragPct;
+
+          // Probe OKX min-investment on the Balanced profile to anchor exchange margin requirements
+          const balHalfRaw = parseFloat((1.25 * volFactor).toFixed(2));
+          const balMinPxProbe = parseFloat((price * (1 - balHalfRaw / 100)).toFixed(decimals));
+          const balMaxPxProbe = parseFloat((price * (1 + balHalfRaw / 100)).toFixed(decimals));
+
+          let chosenLever = baseLever;
+          let probeMinInv = await this.okxAdapter.calculateGridMinInvestment({
             instId,
-            maxPx,
-            minPx,
-            gridNum: chosenGridNum,
+            maxPx: balMaxPxProbe > balMinPxProbe ? balMaxPxProbe : price * 1.015,
+            minPx: balMinPxProbe > 0 ? balMinPxProbe : price * 0.985,
+            gridNum: 6,
             runType,
             lever: chosenLever,
           });
 
-          const candidateGridCounts = Array.from(
-            new Set([
-              initialGridNum,
-              Math.max(4, Math.floor(initialGridNum * 0.75)),
-              Math.max(3, Math.floor(initialGridNum * 0.5)),
-              4,
-              3,
-              2,
-            ])
-          ).filter((g) => g >= 2 && g <= initialGridNum);
-
-          const candidateLevers = Array.from(
-            new Set([initialLever, Math.min(cfg.maxLeverage, initialLever + 2), cfg.maxLeverage])
-          ).filter((l) => l >= 1 && l <= cfg.maxLeverage);
-
           if (
-            minInvRes.minInvestmentUSDT <= 0 ||
-            minInvRes.minInvestmentUSDT > cfg.maxBudgetPerBotUSDT
+            probeMinInv.minInvestmentUSDT > cfg.maxBudgetPerBotUSDT &&
+            chosenLever < cfg.maxLeverage
           ) {
-            let foundWithinBudget = false;
-            for (const levTry of candidateLevers) {
-              for (const gridTry of candidateGridCounts) {
-                if (levTry === initialLever && gridTry === initialGridNum) continue;
-                const tryRes = await this.okxAdapter.calculateGridMinInvestment({
-                  instId,
-                  maxPx,
-                  minPx,
-                  gridNum: gridTry,
-                  runType,
-                  lever: levTry,
-                });
-                if (tryRes.minInvestmentUSDT > 0) {
-                  chosenGridNum = gridTry;
-                  chosenLever = levTry;
-                  minInvRes = tryRes;
-                  if (tryRes.minInvestmentUSDT <= cfg.maxBudgetPerBotUSDT) {
-                    foundWithinBudget = true;
-                    break;
-                  }
-                }
-              }
-              if (foundWithinBudget) break;
+            const maxLevRes = await this.okxAdapter.calculateGridMinInvestment({
+              instId,
+              maxPx: balMaxPxProbe > balMinPxProbe ? balMaxPxProbe : price * 1.015,
+              minPx: balMinPxProbe > 0 ? balMinPxProbe : price * 0.985,
+              gridNum: 6,
+              runType,
+              lever: cfg.maxLeverage,
+            });
+            if (maxLevRes.minInvestmentUSDT > 0) {
+              chosenLever = cfg.maxLeverage;
+              probeMinInv = maxLevRes;
             }
           }
 
-          const gridSpacingUSDT = (maxPx - minPx) / Math.max(1, chosenGridNum);
-          const gridSpacingPct = parseFloat(
-            ((gridSpacingUSDT / baseAnalysis.price) * 100).toFixed(3)
+          const buildVariant = (
+            id: GridRangeVariantId,
+            label: string,
+            subtitle: string,
+            targetHalfBasePct: number,
+            minGrids: number,
+            maxGrids: number,
+            targetStepPct: number
+          ): GridRangeVariantProfile => {
+            const halfRangePct = parseFloat((targetHalfBasePct * volFactor).toFixed(2));
+            const totalRangePct = parseFloat((halfRangePct * 2).toFixed(2));
+            const vMinPx = parseFloat((price * (1 - halfRangePct / 100)).toFixed(decimals));
+            const vMaxPx = parseFloat((price * (1 + halfRangePct / 100)).toFixed(decimals));
+
+            let gridNum = Math.round(totalRangePct / Math.max(0.1, targetStepPct));
+            gridNum = Math.max(minGrids, Math.min(maxGrids, gridNum));
+            if (id !== 'CONSERVATIVE' && gridNum % 2 !== 0 && gridNum < maxGrids) {
+              gridNum += 1;
+            }
+
+            const gridSpacingUSDT = (vMaxPx - vMinPx) / Math.max(1, gridNum);
+            const gridSpacingPct = parseFloat(((gridSpacingUSDT / price) * 100).toFixed(2));
+            const estimatedGrossProfitPerGridPct = gridSpacingPct;
+            const estimatedNetProfitPerGridPct = parseFloat(
+              (estimatedGrossProfitPerGridPct - totalCostPerGridPct).toFixed(3)
+            );
+
+            // Estimate min investment required for this variant's gridNum at chosenLever
+            const basePerGridMargin =
+              probeMinInv.minInvestmentUSDT > 0
+                ? probeMinInv.minInvestmentUSDT / 6
+                : Math.max(0.8, (minLotNotionalUSD * 1.08) / Math.max(1, chosenLever));
+            const minInvestmentUSDT = parseFloat(
+              Math.max(2.0, basePerGridMargin * gridNum).toFixed(2)
+            );
+            const fitsMaxBudget =
+              minInvestmentUSDT > 0 && minInvestmentUSDT <= cfg.maxBudgetPerBotUSDT;
+            const recommendedInvestmentUSDT = fitsMaxBudget
+              ? parseFloat(
+                  Math.min(
+                    cfg.maxBudgetPerBotUSDT,
+                    Math.max(minInvestmentUSDT * 1.05, minInvestmentUSDT + 0.5)
+                  ).toFixed(2)
+                )
+              : minInvestmentUSDT;
+
+            const estDailyCrossings = Math.max(
+              1,
+              Math.min(32, (baseAnalysis.range24hPct / Math.max(0.12, gridSpacingPct)) * 1.35)
+            );
+            const estimatedDailyNetYieldPct = parseFloat(
+              (
+                Math.max(0, estimatedNetProfitPerGridPct) *
+                estDailyCrossings *
+                0.35 *
+                chosenLever
+              ).toFixed(2)
+            );
+
+            const feeLoadPctOfStep = parseFloat(
+              ((totalCostPerGridPct / Math.max(0.01, gridSpacingPct)) * 100).toFixed(1)
+            );
+            const minRequiredNetPct =
+              id === 'COMPACT'
+                ? Math.max(0.06, roundTripMakerFeePct * 1.75)
+                : Math.max(0.08, cfg.minNetProfitPerGridPct * 0.8);
+            const feeCheckPassed =
+              estimatedNetProfitPerGridPct >= minRequiredNetPct && feeLoadPctOfStep <= 42;
+
+            const feeWarning = !feeCheckPassed
+              ? `Atenție comisioane: costul total (${totalCostPerGridPct.toFixed(3)}%) consumă ${feeLoadPctOfStep}% din pasul grilei (${gridSpacingPct.toFixed(2)}%).`
+              : id === 'COMPACT'
+              ? `Comisioane verificate: cost ${totalCostPerGridPct.toFixed(3)}% (${feeLoadPctOfStep}% din pas), net +${estimatedNetProfitPerGridPct.toFixed(2)}%/grilă.`
+              : undefined;
+
+            return {
+              id,
+              label,
+              subtitle,
+              halfRangePct,
+              totalRangePct,
+              minPx: vMinPx,
+              maxPx: vMaxPx,
+              gridNum,
+              gridSpacingPct,
+              lever: chosenLever,
+              minInvestmentUSDT,
+              recommendedInvestmentUSDT,
+              fitsMaxBudget,
+              estimatedGrossProfitPerGridPct,
+              estimatedNetProfitPerGridPct,
+              estimatedDailyNetYieldPct,
+              feeCheckPassed,
+              feeLoadPctOfStep,
+              feeWarning,
+            };
+          };
+
+          const conservativeVariant = buildVariant(
+            'CONSERVATIVE',
+            'Range Conservator (Larg)',
+            'Mai puține execuții • Risc redus de ieșire din range',
+            2.05,
+            4,
+            5,
+            1.02
           );
-          const fundingDragPerGridPct = Math.abs(extras.fundingRatePct) * 0.35;
-          const spreadDragPct = (extras.spreadBps / 100) * 0.5;
-          const estimatedGrossProfitPerGridPct = parseFloat(gridSpacingPct.toFixed(3));
-          const estimatedNetProfitPerGridPct = parseFloat(
-            (
-              estimatedGrossProfitPerGridPct -
-              roundTripMakerFeePct -
-              fundingDragPerGridPct -
-              spreadDragPct
-            ).toFixed(3)
+          const balancedVariant = buildVariant(
+            'BALANCED',
+            'Range Echilibrat (Recomandat)',
+            'Varianta de testat • Mai multe oportunități',
+            1.25,
+            6,
+            8,
+            0.38
+          );
+          const compactVariant = buildVariant(
+            'COMPACT',
+            'Range Compact (Frecvență Mare)',
+            'Risc de supra-tranzacționare • Necesită verificarea strictă a comisioanelor',
+            0.75,
+            8,
+            10,
+            0.17
           );
 
-          const estDailyCrossings = Math.max(
-            1,
-            Math.min(28, (baseAnalysis.range24hPct / Math.max(0.15, gridSpacingPct)) * 1.4)
-          );
-          const estimatedDailyNetYieldPct = parseFloat(
-            (Math.max(0, estimatedNetProfitPerGridPct) * estDailyCrossings * 0.35 * chosenLever).toFixed(2)
-          );
+          const rangeVariants = {
+            CONSERVATIVE: conservativeVariant,
+            BALANCED: balancedVariant,
+            COMPACT: compactVariant,
+          };
+
+          // Select active variant (fallback to BALANCED or CONSERVATIVE if COMPACT fails strict fee check)
+          let activeVar = rangeVariants[activeVariantId] || balancedVariant;
+          if (activeVariantId === 'COMPACT' && !compactVariant.feeCheckPassed) {
+            activeVar = balancedVariant;
+          }
+          if (!activeVar.fitsMaxBudget && conservativeVariant.fitsMaxBudget) {
+            activeVar = conservativeVariant;
+          }
 
           // Composite Market Intelligence Score (incorporating Open Interest, Order Book depth/imbalance, Funding)
           let score = baseAnalysis.gridSuitabilityScore;
@@ -313,21 +429,18 @@ export class OKXNativeGridEngine {
           }
           score = Math.max(5, Math.min(99, Math.round(score)));
 
-          const fitsMaxBudget =
-            minInvRes.minInvestmentUSDT > 0 &&
-            minInvRes.minInvestmentUSDT <= cfg.maxBudgetPerBotUSDT;
-
           const rejectionReasons: string[] = [];
-          if (minInvRes.minInvestmentUSDT <= 0) {
-            rejectionReasons.push(minInvRes.error || 'OKX min-investment indisponibil');
-          } else if (!fitsMaxBudget) {
+          if (activeVar.minInvestmentUSDT <= 0) {
+            rejectionReasons.push(probeMinInv.error || 'OKX min-investment indisponibil');
+          } else if (!activeVar.fitsMaxBudget) {
             rejectionReasons.push(
-              `Investiție minimă OKX ($${minInvRes.minInvestmentUSDT.toFixed(2)}) > Buget Max ($${cfg.maxBudgetPerBotUSDT.toFixed(2)})`
+              `Investiție minimă ($${activeVar.minInvestmentUSDT.toFixed(2)}) > Buget Max ($${cfg.maxBudgetPerBotUSDT.toFixed(2)})`
             );
           }
-          if (estimatedNetProfitPerGridPct < cfg.minNetProfitPerGridPct) {
+          if (!activeVar.feeCheckPassed) {
             rejectionReasons.push(
-              `Profit net/grilă (${estimatedNetProfitPerGridPct.toFixed(2)}%) < minim (${cfg.minNetProfitPerGridPct.toFixed(2)}%) după fee OKX (${roundTripMakerFeePct.toFixed(2)}%) & funding`
+              activeVar.feeWarning ||
+                `Profit net/grilă (${activeVar.estimatedNetProfitPerGridPct.toFixed(2)}%) insuficient după comisioane OKX (${roundTripMakerFeePct.toFixed(2)}%)`
             );
           }
           if (baseAnalysis.regimeLabel === 'TRENDING_RISK') {
@@ -338,14 +451,6 @@ export class OKXNativeGridEngine {
           }
 
           const isEligible = rejectionReasons.length === 0;
-          const recommendedInvestmentUSDT = fitsMaxBudget
-            ? parseFloat(
-                Math.min(
-                  cfg.maxBudgetPerBotUSDT,
-                  Math.max(minInvRes.minInvestmentUSDT * 1.05, minInvRes.minInvestmentUSDT + 0.5)
-                ).toFixed(2)
-              )
-            : parseFloat(minInvRes.minInvestmentUSDT.toFixed(2));
 
           const opp: NativeGridOpportunity = {
             instId,
@@ -364,19 +469,22 @@ export class OKXNativeGridEngine {
             orderBookDepthUSD: extras.orderBookDepthUSD,
             suitabilityScore: score,
             regimeLabel: baseAnalysis.regimeLabel,
-            minPx,
-            maxPx,
-            gridNum: chosenGridNum,
+            halfRangePct: activeVar.halfRangePct,
+            minPx: activeVar.minPx,
+            maxPx: activeVar.maxPx,
+            gridNum: activeVar.gridNum,
             runType,
-            gridSpacingPct,
-            lever: chosenLever,
-            minInvestmentUSDT: minInvRes.minInvestmentUSDT,
-            minInvestmentCcy: minInvRes.ccy || 'USD',
-            recommendedInvestmentUSDT,
-            fitsMaxBudget,
-            estimatedGrossProfitPerGridPct,
-            estimatedNetProfitPerGridPct,
-            estimatedDailyNetYieldPct,
+            gridSpacingPct: activeVar.gridSpacingPct,
+            lever: activeVar.lever,
+            minInvestmentUSDT: activeVar.minInvestmentUSDT,
+            minInvestmentCcy: probeMinInv.ccy || 'USD',
+            recommendedInvestmentUSDT: activeVar.recommendedInvestmentUSDT,
+            fitsMaxBudget: activeVar.fitsMaxBudget,
+            estimatedGrossProfitPerGridPct: activeVar.estimatedGrossProfitPerGridPct,
+            estimatedNetProfitPerGridPct: activeVar.estimatedNetProfitPerGridPct,
+            estimatedDailyNetYieldPct: activeVar.estimatedDailyNetYieldPct,
+            selectedVariant: activeVar.id,
+            rangeVariants,
             isEligible,
             rejectionReason: rejectionReasons.length > 0 ? rejectionReasons.join(' | ') : undefined,
             reasons,

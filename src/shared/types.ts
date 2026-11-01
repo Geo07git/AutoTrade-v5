@@ -298,6 +298,30 @@ export interface OKXFeeTierInfo {
   updatedAt: number;
 }
 
+export type GridRangeVariantId = 'CONSERVATIVE' | 'BALANCED' | 'COMPACT';
+
+export interface GridRangeVariantProfile {
+  id: GridRangeVariantId;
+  label: string;                  // 'Range Conservator' | 'Range Echilibrat' | 'Range Compact'
+  subtitle: string;               // Profile description (e.g. 'Range larg • Mai puține execuții')
+  halfRangePct: number;           // ±% from current price (e.g. ±2.05%, ±1.25%, ±0.75%)
+  totalRangePct: number;          // Total range width % (2 * halfRangePct)
+  minPx: number;
+  maxPx: number;
+  gridNum: number;                // e.g. 4 (Conservator), 6–8 (Echilibrat), 8–10 (Compact)
+  gridSpacingPct: number;         // Distance between grids % (e.g. ~1.0%, ~0.35–0.42%, ~0.15–0.19%)
+  lever: number;
+  minInvestmentUSDT: number;
+  recommendedInvestmentUSDT: number;
+  fitsMaxBudget: boolean;
+  estimatedGrossProfitPerGridPct: number;
+  estimatedNetProfitPerGridPct: number; // After real OKX maker fee, funding & spread
+  estimatedDailyNetYieldPct: number;
+  feeCheckPassed: boolean;        // Strict fee verification (critical on COMPACT)
+  feeLoadPctOfStep: number;       // % of gross grid step consumed by fees+funding+spread
+  feeWarning?: string;
+}
+
 export interface NativeGridOpportunity {
   instId: string;                 // Exclusively _UM_XPERP (e.g. LINK-USD_UM_XPERP-310523)
   price: number;
@@ -315,6 +339,7 @@ export interface NativeGridOpportunity {
   orderBookDepthUSD: number;      // Top 20 bid+ask liquidity USD
   suitabilityScore: number;       // 0..100 composite score
   regimeLabel: 'IDEAL_RANGE' | 'HIGH_VOL_RANGE' | 'TRENDING_RISK' | 'LOW_VOLATILITY';
+  halfRangePct?: number;          // ±% around price for active variant
   minPx: number;
   maxPx: number;
   gridNum: number;
@@ -328,6 +353,12 @@ export interface NativeGridOpportunity {
   estimatedGrossProfitPerGridPct: number;
   estimatedNetProfitPerGridPct: number; // After real OKX maker fee & funding
   estimatedDailyNetYieldPct: number;
+  selectedVariant?: GridRangeVariantId;
+  rangeVariants?: {
+    CONSERVATIVE: GridRangeVariantProfile;
+    BALANCED: GridRangeVariantProfile;
+    COMPACT: GridRangeVariantProfile;
+  };
   isEligible: boolean;
   rejectionReason?: string;
   reasons: string[];
@@ -381,6 +412,7 @@ export interface NativeGridAutopilotConfig {
   maxLeverage: number;
   defaultRunType: '1' | '2';
   defaultStopType: '1' | '2';      // '1' = Close position, '2' = Keep position
+  defaultRangeVariant?: GridRangeVariantId; // 'CONSERVATIVE' | 'BALANCED' | 'COMPACT' (default: 'BALANCED')
   stopLossPct: number;
   takeProfitPct: number;
   stopOnRangeBreakout: boolean;
