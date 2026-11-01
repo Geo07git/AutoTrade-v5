@@ -2344,25 +2344,65 @@ export class OKXAdapter implements IExecutionAdapter {
     isDemo?: boolean;
   }): Promise<boolean> {
     const instId = this.normalizeSymbol(params.instId);
-    const body = [
-      {
-        algoId: String(params.algoId),
-        instId,
-        algoOrdType: 'contract_grid',
-        stopType: params.stopType === '2' ? '2' : '1',
-      },
-    ];
+    const primaryStopType = params.stopType === '2' ? '2' : '1';
+    const tryStop = async (targetInstId: string, st: '1' | '2') => {
+      const body = [
+        {
+          algoId: String(params.algoId),
+          instId: targetInstId,
+          algoOrdType: 'contract_grid',
+          stopType: st,
+        },
+      ];
+      return await this.requestWithEnvOverride(
+        'POST',
+        '/api/v5/tradingBot/grid/stop-order-algo',
+        body,
+        true,
+        params.isDemo
+      );
+    };
 
-    const res = await this.requestWithEnvOverride(
-      'POST',
-      '/api/v5/tradingBot/grid/stop-order-algo',
-      body,
-      true,
-      params.isDemo
+    let res = await tryStop(instId, primaryStopType);
+    let item = res?.data?.[0];
+    if (res?.code === '0' && (!item?.sCode || item.sCode === '0')) {
+      return true;
+    }
+
+    // If stopType '1' (close position) fails (e.g. stagnant bot has 0 open position on OKX),
+    // automatically retry with stopType '2' to cancel the grid algo and release locked margin.
+    if (primaryStopType === '1') {
+      const fallbackRes = await tryStop(instId, '2').catch(() => null);
+      const fallbackItem = fallbackRes?.data?.[0];
+      if (fallbackRes?.code === '0' && (!fallbackItem?.sCode || fallbackItem.sCode === '0')) {
+        return true;
+      }
+    }
+
+    // Also check if stripping any trailing numeric suffix from instId is needed by stop-order-algo
+    const baseUmInstId = instId.replace(/(_UM_XPERP)-\d+$/, '$1');
+    if (baseUmInstId !== instId) {
+      const retryBase = await tryStop(baseUmInstId, primaryStopType).catch(() => null);
+      const retryBaseItem = retryBase?.data?.[0];
+      if (retryBase?.code === '0' && (!retryBaseItem?.sCode || retryBaseItem.sCode === '0')) {
+        return true;
+      }
+      if (primaryStopType === '1') {
+        const retryBase2 = await tryStop(baseUmInstId, '2').catch(() => null);
+        const retryBase2Item = retryBase2?.data?.[0];
+        if (retryBase2?.code === '0' && (!retryBase2Item?.sCode || retryBase2Item.sCode === '0')) {
+          return true;
+        }
+      }
+    }
+
+    throw new Error(
+      `OKX stop-order-algo failed: ${item?.sMsg || res?.msg || 'Unknown error'} (sCode: ${
+        item?.sCode || res?.code || 'N/A'
+      })`
     );
-    const item = res?.data?.[0];
-    return res?.code === '0' && (!item?.sCode || item.sCode === '0');
   }
+
 
   /**
    * 5. Close Position for a Contract Grid Bot on OKX: POST /api/v5/tradingBot/grid/close-position

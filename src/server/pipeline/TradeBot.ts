@@ -263,7 +263,12 @@ export class TradeBot {
     this.gridBotAnalyzer = new GridBotAnalyzer(
       this.okxAdapter,
       this.journal,
-      this.nativeGridEngine
+      this.nativeGridEngine,
+      async (algoId: string, reason: string) => {
+        const stopped = await this.stopGridBot(algoId, reason);
+        await this.nativeGridEngine.stopNativeBot(algoId, '1', reason);
+        return stopped.success;
+      }
     );
     this.paperAdapter.setMetadataResolver((sym) =>
       this.universeManager.getInstrumentLotFilter(sym)

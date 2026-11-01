@@ -79,7 +79,7 @@ export class OKXNativeGridEngine {
     }
   }
 
-  private persistBots(): void {
+  public persistBots(): void {
     this.botsStore.save(this.getAllBots());
   }
 

@@ -388,17 +388,32 @@ export class GridStagnationAnalyzer {
       .filter((s) => s.ts >= cutoff120m && s.price > 0)
       .map((s) => s.price);
 
-    let priceOscillationAmplitude60mPct =
-      snapshot.market.currentAtrPct > 0
-        ? parseFloat((snapshot.market.currentAtrPct * 1.6).toFixed(3))
-        : gridStepPct;
+    const noFills60mConfirmed =
+      fillsCount60m === 0 && minutesSinceLastFill >= thresholds.stagnationWarningNoFillMinutes;
+
+    let priceOscillationAmplitude60mPct = noFills60mConfirmed
+      ? parseFloat(
+          Math.min(
+            gridStepPct * 0.45,
+            snapshot.market.currentAtrPct > 0 ? snapshot.market.currentAtrPct * 0.35 : gridStepPct * 0.45
+          ).toFixed(3)
+        )
+      : snapshot.market.currentAtrPct > 0
+      ? parseFloat((snapshot.market.currentAtrPct * 1.4).toFixed(3))
+      : gridStepPct;
+
     if (prices60m.length >= 2 && bot.currentPx > 0) {
       const maxP60 = Math.max(...prices60m);
       const minP60 = Math.min(...prices60m);
       const observedAmp60 = ((maxP60 - minP60) / bot.currentPx) * 100;
-      priceOscillationAmplitude60mPct = parseFloat(
-        Math.max(observedAmp60, snapshot.market.currentAtrPct * 0.9).toFixed(3)
-      );
+      if (noFills60mConfirmed) {
+        // When 0 fills occurred in 60+ minutes, do NOT inflate observed oscillation with historical ATR
+        priceOscillationAmplitude60mPct = parseFloat(observedAmp60.toFixed(3));
+      } else {
+        priceOscillationAmplitude60mPct = parseFloat(
+          Math.max(observedAmp60, snapshot.market.currentAtrPct * 0.85).toFixed(3)
+        );
+      }
     }
 
     let priceOscillationAmplitude120mPct = priceOscillationAmplitude60mPct;
@@ -446,13 +461,44 @@ export class GridStagnationAnalyzer {
       snapshot.risk.minDistToEdgePct >= thresholds.rangeEdgeWarningPct &&
       !snapshot.risk.liquidityDegraded;
 
+    // A bot is actively producing net realized profit if net profit after costs > 0 AND either:
+    // - It has realized PnL progress in the last 120m, OR
+    // - It has not yet exceeded the 180m stagnation stop window without any fills.
     const producesNetRealizedProfit =
       netRealizedProfitAfterCostsUSDT > 0 &&
-      (realizedNetHourlyYieldPct >= thresholds.minProductiveHourlyYieldPct ||
-        realizedPnlDelta120mUSDT >= thresholds.minRealizedPnlProgressUSDT);
+      (realizedPnlDelta120mUSDT >= thresholds.minRealizedPnlProgressUSDT ||
+        (minutesSinceLastFill < thresholds.stagnationStopMinutes &&
+          realizedNetHourlyYieldPct >= thresholds.minProductiveHourlyYieldPct));
+
+    const noProgress60m =
+      fillsCount60m === 0 && realizedPnlDelta60mUSDT <= thresholds.minRealizedPnlProgressUSDT;
+    const noProductiveActivity120m =
+      minutesSinceLastGridClose >= thresholds.stagnationReviewMinutes &&
+      realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
+    const noProductiveActivity180m =
+      minutesSinceLastGridClose >= thresholds.stagnationStopMinutes &&
+      fillsCount120m === 0 &&
+      realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
 
     let recoveryProspect: 'HIGH' | 'MODERATE' | 'LOW' = 'HIGH';
     if (
+      noProductiveActivity180m &&
+      minutesSinceLastFill >= thresholds.stagnationStopMinutes &&
+      !producesNetRealizedProfit
+    ) {
+      // Empirically 0 fills and 0 closed cycles for >= 180m: capital is dead, recovery prospect is LOW
+      recoveryProspect = 'LOW';
+    } else if (
+      minutesSinceLastFill >= thresholds.stagnationReviewMinutes &&
+      fillsCount120m === 0
+    ) {
+      // 0 fills in 120m: cannot be HIGH recovery prospect even if candle ATR appears moderate
+      recoveryProspect =
+        oscillationToGridStepRatio >= thresholds.minOscillationToGridStepRatio &&
+        marketAllowsContinuation
+          ? 'MODERATE'
+          : 'LOW';
+    } else if (
       oscillationToGridStepRatio >= thresholds.minOscillationToGridStepRatio &&
       marketAllowsContinuation
     ) {
@@ -477,16 +523,6 @@ export class GridStagnationAnalyzer {
       isStagnant = false;
       continueOpportunityVerdict = `Productiv (+$${netRealizedProfitAfterCostsUSDT.toFixed(3)} realizat net) • Piață laterală favorabilă`;
     } else {
-      const noProgress60m =
-        fillsCount60m === 0 && realizedPnlDelta60mUSDT <= thresholds.minRealizedPnlProgressUSDT;
-      const noProductiveActivity120m =
-        minutesSinceLastGridClose >= thresholds.stagnationReviewMinutes &&
-        realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
-      const noProductiveActivity180m =
-        minutesSinceLastGridClose >= thresholds.stagnationStopMinutes &&
-        fillsCount120m === 0 &&
-        realizedPnlDelta120mUSDT <= thresholds.minRealizedPnlProgressUSDT;
-
       // Market deterioration signals accompanying stagnation
       let marketDeteriorationSignals = 0;
       if (snapshot.market.adx >= thresholds.adxMonitorThreshold) marketDeteriorationSignals++;
@@ -516,7 +552,7 @@ export class GridStagnationAnalyzer {
       ) {
         level = 'STOP_180M';
         isStagnant = true;
-        continueOpportunityVerdict = `Stagnare confirmată ≥${thresholds.stagnationStopMinutes}m (${minutesSinceLastGridClose.toFixed(0)}m fără ciclu Grid) + lipsă perspectivă revenire (Osc/Pas=${oscillationToGridStepRatio.toFixed(2)}x, Rulaj=${capitalTurnover120mRatio.toFixed(2)}x)`;
+        continueOpportunityVerdict = `Stagnare confirmată ≥${thresholds.stagnationStopMinutes}m (${minutesSinceLastGridClose.toFixed(0)}m fără ciclu Grid, ${minutesSinceLastFill.toFixed(0)}m fără fill) + lipsă perspectivă revenire (Osc/Pas=${oscillationToGridStepRatio.toFixed(2)}x, Rulaj=${capitalTurnover120mRatio.toFixed(2)}x)`;
       } else if (
         thresholds.enableEarlyStopOnMarketDeterioration &&
         noProductiveActivity120m &&
@@ -1109,17 +1145,27 @@ export class GridDecisionEngine {
 export class GridBotSupervisor {
   private okxAdapter: OKXAdapter;
   private journal: GridJournal;
+  private gridEngine: OKXNativeGridEngine;
+  private stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>;
   private eventsStore: JsonStore<GridAnalyzerStopEvent[]>;
   private recordedIdempotencyKeys: Set<string> = new Set();
 
-  constructor(okxAdapter: OKXAdapter, journal: GridJournal) {
+  constructor(
+    okxAdapter: OKXAdapter,
+    journal: GridJournal,
+    gridEngine: OKXNativeGridEngine,
+    stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>
+  ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
+    this.gridEngine = gridEngine;
+    this.stopFallbackBot = stopFallbackBot;
     this.eventsStore = new JsonStore<GridAnalyzerStopEvent[]>('grid_analyzer_events.json', []);
     const rawEvents = this.eventsStore.get() || [];
     let migrated = false;
     for (const ev of rawEvents) {
-      if (ev?.idempotencyKey) {
+      // Only lock idempotencyKey permanently if OKX final state was confirmed
+      if (ev?.idempotencyKey && ev?.okxFinalStateConfirmed) {
         this.recordedIdempotencyKeys.add(ev.idempotencyKey);
       }
       // Normalize any legacy stopType or unconfirmed states in persisted events
@@ -1176,9 +1222,13 @@ export class GridBotSupervisor {
           okxStateLabel = `PENDING (${remState || 'running'})`;
         }
       } else {
-        const history = await this.okxAdapter.getNativeContractGridBots('history', false);
+        const [pending, history] = await Promise.all([
+          this.okxAdapter.getNativeContractGridBots('pending', false).catch(() => []),
+          this.okxAdapter.getNativeContractGridBots('history', false).catch(() => []),
+        ]);
+        const stillInPending = pending.some((p: any) => String(p?.algoId) === String(algoId));
         const foundInHist = history.find((h: any) => String(h?.algoId) === String(algoId));
-        if (foundInHist) {
+        if (foundInHist || !stillInPending) {
           botConfirmedStopped = true;
           okxStateLabel = 'CONFIRMED_STOPPED';
         }
@@ -1273,11 +1323,6 @@ export class GridBotSupervisor {
       return;
     }
 
-    // Rule 10: Do not use individual order fallbacks to administer native OKX bots
-    if (!isNativeOKXBot) {
-      return;
-    }
-
     const cycleKey = `${bot.algoId}:${bot.cTime}:${snapshot.decision}`;
     if (this.recordedIdempotencyKeys.has(cycleKey)) {
       return;
@@ -1294,77 +1339,99 @@ export class GridBotSupervisor {
 
     let stopHttpOk = false;
     let operationalErrorMsg = '';
-
-    // Step 1: Execute STOP on OKX (/api/v5/tradingBot/grid/stop-order-algo)
-    try {
-      stopHttpOk = await this.okxAdapter.stopNativeContractGrid({
-        algoId: bot.algoId,
-        instId: bot.instId,
-        stopType,
-        isDemo: false,
-      });
-    } catch (stopErr: any) {
-      operationalErrorMsg = stopErr?.message || 'stop-order-algo error';
-    }
-
-    // Step 2: Distinct CLOSE POSITION action (/api/v5/tradingBot/grid/close-position) if stop-order-algo failed
-    if (closePositionRequested && !stopHttpOk) {
-      try {
-        const closed = await this.okxAdapter.closeNativeContractGridPosition({
-          algoId: bot.algoId,
-          mktClose: true,
-          isDemo: false,
-        });
-        if (closed) {
-          stopHttpOk = true;
-        }
-      } catch (closeErr: any) {
-        operationalErrorMsg =
-          operationalErrorMsg || closeErr?.message || 'close-position error';
-      }
-    }
-
-    // Step 3: Mandatory Final State Confirmation on OKX via controlled reconciliation polling (Section 5)
-    // OKX transitions through `stopping` for ~1-4 seconds before reaching `stopped` and settling the position close.
     let okxFinalStateConfirmed = false;
-    let okxConfirmedState = stopHttpOk ? 'STOP_PENDING_CONFIRMATION' : 'FAILED';
+    let okxConfirmedState = 'STOP_PENDING_CONFIRMATION';
     let positionConfirmedClosed = !closePositionRequested;
 
-    const maxVerifyAttempts = stopHttpOk ? 4 : 1;
-    for (let attempt = 0; attempt < maxVerifyAttempts; attempt++) {
-      if (attempt > 0 || stopHttpOk) {
-        await new Promise((r) => setTimeout(r, 1200));
-      }
-      const check = await this.verifyBotAndPositionStoppedOnOKX(
-        bot.algoId,
-        bot.instId,
-        closePositionRequested
-      );
-      okxConfirmedState = check.okxStateLabel;
-      if (check.botConfirmedStopped) {
-        okxFinalStateConfirmed = true;
-        positionConfirmedClosed = check.positionConfirmedClosed;
-        // If position close was requested and bot is stopped but position not yet settled, retry once more
-        if (!closePositionRequested || positionConfirmedClosed || attempt === maxVerifyAttempts - 1) {
-          break;
-        }
-      }
-    }
-
-    // If bot stopped with no_close_position despite stopType='1', invoke explicit close-position endpoint
-    if (okxFinalStateConfirmed && closePositionRequested && !positionConfirmedClosed) {
+    if (!isNativeOKXBot) {
+      // Auto-Limit Grid Bot (Ramura 1 Ordine Limit): cancel open grid orders and close position
       try {
-        const closedExplicit = await this.okxAdapter.closeNativeContractGridPosition({
+        if (this.stopFallbackBot) {
+          stopHttpOk = await this.stopFallbackBot(
+            bot.algoId,
+            `[GridBotAnalyzer ${snapshot.decision}] ${snapshot.decisionReason}`
+          );
+        } else {
+          const res = await this.gridEngine.stopNativeBot(
+            bot.algoId,
+            stopType,
+            `[GridBotAnalyzer ${snapshot.decision}] ${snapshot.decisionReason}`
+          );
+          stopHttpOk = res.success;
+        }
+        okxFinalStateConfirmed = stopHttpOk;
+        okxConfirmedState = stopHttpOk ? 'CONFIRMED_STOPPED' : 'FAILED';
+        positionConfirmedClosed = stopHttpOk;
+      } catch (err: any) {
+        operationalErrorMsg = err?.message || 'Auto-Limit stop error';
+      }
+    } else {
+      // Step 1: Execute STOP on OKX (/api/v5/tradingBot/grid/stop-order-algo)
+      try {
+        stopHttpOk = await this.okxAdapter.stopNativeContractGrid({
           algoId: bot.algoId,
-          mktClose: true,
+          instId: bot.instId,
+          stopType,
           isDemo: false,
         });
-        if (closedExplicit) {
-          await new Promise((r) => setTimeout(r, 1000));
-          const recheck = await this.verifyBotAndPositionStoppedOnOKX(bot.algoId, bot.instId, true);
-          positionConfirmedClosed = recheck.positionConfirmedClosed;
+      } catch (stopErr: any) {
+        operationalErrorMsg = stopErr?.message || 'stop-order-algo error';
+      }
+
+      // Step 2: Distinct CLOSE POSITION action (/api/v5/tradingBot/grid/close-position) if stop-order-algo failed
+      if (closePositionRequested && !stopHttpOk) {
+        try {
+          const closed = await this.okxAdapter.closeNativeContractGridPosition({
+            algoId: bot.algoId,
+            mktClose: true,
+            isDemo: false,
+          });
+          if (closed) {
+            stopHttpOk = true;
+          }
+        } catch (closeErr: any) {
+          operationalErrorMsg =
+            operationalErrorMsg || closeErr?.message || 'close-position error';
         }
-      } catch {}
+      }
+
+      // Step 3: Mandatory Final State Confirmation on OKX via controlled reconciliation polling (Section 5)
+      okxConfirmedState = stopHttpOk ? 'STOP_PENDING_CONFIRMATION' : 'FAILED';
+      const maxVerifyAttempts = stopHttpOk ? 4 : 1;
+      for (let attempt = 0; attempt < maxVerifyAttempts; attempt++) {
+        if (attempt > 0 || stopHttpOk) {
+          await new Promise((r) => setTimeout(r, 1200));
+        }
+        const check = await this.verifyBotAndPositionStoppedOnOKX(
+          bot.algoId,
+          bot.instId,
+          closePositionRequested
+        );
+        okxConfirmedState = check.okxStateLabel;
+        if (check.botConfirmedStopped) {
+          okxFinalStateConfirmed = true;
+          positionConfirmedClosed = check.positionConfirmedClosed;
+          if (!closePositionRequested || positionConfirmedClosed || attempt === maxVerifyAttempts - 1) {
+            break;
+          }
+        }
+      }
+
+      // If bot stopped with no_close_position despite stopType='1', invoke explicit close-position endpoint
+      if (okxFinalStateConfirmed && closePositionRequested && !positionConfirmedClosed) {
+        try {
+          const closedExplicit = await this.okxAdapter.closeNativeContractGridPosition({
+            algoId: bot.algoId,
+            mktClose: true,
+            isDemo: false,
+          });
+          if (closedExplicit) {
+            await new Promise((r) => setTimeout(r, 1000));
+            const recheck = await this.verifyBotAndPositionStoppedOnOKX(bot.algoId, bot.instId, true);
+            positionConfirmedClosed = recheck.positionConfirmedClosed;
+          }
+        } catch {}
+      }
     }
 
     const stopHttpStatus: 'HTTP_SUCCESS' | 'FAILED' = stopHttpOk ? 'HTTP_SUCCESS' : 'FAILED';
@@ -1388,11 +1455,13 @@ export class GridBotSupervisor {
       snapshot.state = 'stopped';
       snapshot.reconciliationState = 'CONFIRMED_STOPPED';
       snapshot.lastStopReason = bot.stopReason;
+      this.gridEngine.persistBots();
     } else {
       // Do NOT declare the bot stopped until confirmed by OKX real state!
       bot.state = stopHttpOk ? 'stopping' : bot.state;
       snapshot.state = stopHttpOk ? 'stopping' : snapshot.state;
       snapshot.reconciliationState = stopHttpOk ? 'STOP_PENDING_CONFIRMATION' : 'CONTRADICTORY';
+      this.gridEngine.persistBots();
     }
 
     // Step 4: Record a single complete idempotent event (Section 7)
@@ -1498,7 +1567,12 @@ export class GridBotAnalyzer {
   private snapshots: Map<string, GridBotAnalysisSnapshot> = new Map();
   private isAnalyzing: boolean = false;
 
-  constructor(okxAdapter: OKXAdapter, journal: GridJournal, gridEngine: OKXNativeGridEngine) {
+  constructor(
+    okxAdapter: OKXAdapter,
+    journal: GridJournal,
+    gridEngine: OKXNativeGridEngine,
+    stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>
+  ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
     this.gridEngine = gridEngine;
@@ -1511,7 +1585,7 @@ export class GridBotAnalyzer {
     this.marketAnalyzer = new GridMarketAnalyzer(okxAdapter);
     this.stagnationAnalyzer = new GridStagnationAnalyzer(okxAdapter);
     this.decisionEngine = new GridDecisionEngine();
-    this.supervisor = new GridBotSupervisor(okxAdapter, journal);
+    this.supervisor = new GridBotSupervisor(okxAdapter, journal, gridEngine, stopFallbackBot);
   }
 
   public getThresholds(): GridAnalyzerThresholds {
@@ -1689,13 +1763,22 @@ export class GridBotAnalyzer {
         // Activity & Stagnation indicators updated via existing monitoring loop (no extra OKX requests)
         this.stagnationAnalyzer.updateActivityMetrics(bot, remoteDetails, snapshot, thresholds);
 
-        // 15m Full Re-evaluation cadence (or manual forceFullEvaluation); EMERGENCY & critical risks are evaluated immediately on every cycle
+        // 15m Full Re-evaluation cadence (or manual forceFullEvaluation); EMERGENCY, critical risks & confirmed STOP_180M stagnation are evaluated immediately on every cycle
         const dueFull15m =
           forceFullEvaluation ||
           snapshot.cadence.lastFullEval15mAt === 0 ||
           now - snapshot.cadence.lastFullEval15mAt >= 890_000;
 
-        const evalRes = this.decisionEngine.evaluate(bot, snapshot, thresholds, dueFull15m);
+        const hasConfirmedStagnationStop =
+          snapshot.stagnation?.level === 'STOP_180M' ||
+          snapshot.stagnation?.level === 'EARLY_STOP_MARKET';
+
+        const evalRes = this.decisionEngine.evaluate(
+          bot,
+          snapshot,
+          thresholds,
+          dueFull15m || hasConfirmedStagnationStop
+        );
         const isCritical =
           evalRes.decision === 'EMERGENCY' ||
           evalRes.decision === 'STOP' ||
