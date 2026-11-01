@@ -4,7 +4,90 @@ import { GridOptimizer } from './GridOptimizer';
 
 export class NeutralGridAnalyzer {
   /**
-   * Analyzes a symbol's klines, volatility, range boundness (Choppiness Index + ADX proxy),
+   * Computes true Wilder ADX(14) (+DI, -DI, DX, smoothed ADX) on 15m candles
+   * instead of a 24h net-displacement proxy that artificially compressed ADX to 5..12.
+   */
+  public static computeWilderAdx14(klines: Kline[], period: number = 14): number {
+    if (!klines || klines.length < period + 2) return 20;
+
+    const trList: number[] = [];
+    const plusDmList: number[] = [];
+    const minusDmList: number[] = [];
+
+    for (let i = 1; i < klines.length; i++) {
+      const cur = klines[i];
+      const prev = klines[i - 1];
+      const upMove = cur.high - prev.high;
+      const downMove = prev.low - cur.low;
+
+      const plusDm = upMove > downMove && upMove > 0 ? upMove : 0;
+      const minusDm = downMove > upMove && downMove > 0 ? downMove : 0;
+      const tr = Math.max(
+        cur.high - cur.low,
+        Math.abs(cur.high - prev.close),
+        Math.abs(cur.low - prev.close)
+      );
+
+      trList.push(tr);
+      plusDmList.push(plusDm);
+      minusDmList.push(minusDm);
+    }
+
+    if (trList.length < period) return 20;
+
+    let smoothTr = 0;
+    let smoothPlusDm = 0;
+    let smoothMinusDm = 0;
+
+    for (let i = 0; i < period; i++) {
+      smoothTr += trList[i];
+      smoothPlusDm += plusDmList[i];
+      smoothMinusDm += minusDmList[i];
+    }
+
+    const dxValues: number[] = [];
+    const pushDx = (trVal: number, pDm: number, mDm: number) => {
+      if (trVal <= 1e-12) {
+        dxValues.push(0);
+        return;
+      }
+      const plusDi = (pDm / trVal) * 100;
+      const minusDi = (mDm / trVal) * 100;
+      const diSum = plusDi + minusDi;
+      const dx = diSum > 1e-9 ? (Math.abs(plusDi - minusDi) / diSum) * 100 : 0;
+      dxValues.push(dx);
+    };
+
+    pushDx(smoothTr, smoothPlusDm, smoothMinusDm);
+
+    for (let i = period; i < trList.length; i++) {
+      smoothTr = smoothTr - smoothTr / period + trList[i];
+      smoothPlusDm = smoothPlusDm - smoothPlusDm / period + plusDmList[i];
+      smoothMinusDm = smoothMinusDm - smoothMinusDm / period + minusDmList[i];
+      pushDx(smoothTr, smoothPlusDm, smoothMinusDm);
+    }
+
+    if (dxValues.length === 0) return 20;
+    if (dxValues.length < period) {
+      const avgDx = dxValues.reduce((a, b) => a + b, 0) / dxValues.length;
+      return Math.min(95, Math.max(5, parseFloat(avgDx.toFixed(1))));
+    }
+
+    let adx = 0;
+    for (let i = 0; i < period; i++) {
+      adx += dxValues[i];
+    }
+    adx /= period;
+
+    for (let i = period; i < dxValues.length; i++) {
+      adx = (adx * (period - 1) + dxValues[i]) / period;
+    }
+
+    return Math.min(95, Math.max(5, parseFloat(adx.toFixed(1))));
+  }
+
+  /**
+   * Analyzes a symbol's live 15m klines, volatility, range boundness (Choppiness Index + Wilder ADX(14)),
    * liquidity, spread, and funding to determine how suitable it is for a Neutral Futures Grid.
    */
   public static async analyzeSymbol(
@@ -20,7 +103,7 @@ export class NeutralGridAnalyzer {
     }
   ): Promise<GridCandidateAnalysis | null> {
     try {
-      const klines = await adapter.getKlines(symbol, '15', 96); // 24 hours of 15m candles
+      const klines = await adapter.getKlines(symbol, '15', 96); // 24 hours of fresh 15m candles
       if (!klines || klines.length < 20) return null;
 
       const lastClose = tickerMeta?.lastPrice || klines[klines.length - 1].close;
@@ -68,57 +151,70 @@ export class NeutralGridAnalyzer {
         (100 * Math.log10(Math.max(1.0001, sumTr / hlRange14))) / Math.log10(period);
       const choppinessIndex = Math.max(10, Math.min(95, parseFloat(rawChop.toFixed(1))));
 
-      // 3. Directional Efficiency / ADX Trend Proxy (0..100)
-      // Net displacement vs total path traveled over 24h
-      let totalPath = 0;
-      for (let i = 1; i < klines.length; i++) {
-        totalPath += Math.abs(klines[i].close - klines[i - 1].close);
-      }
-      const netDisplacement = Math.abs(lastClose - firstOpen24h);
-      const efficiencyRatio = totalPath > 0 ? netDisplacement / totalPath : 0;
-      const adxTrendStrength = Math.min(95, Math.max(5, parseFloat((efficiencyRatio * 100).toFixed(1))));
+      // 3. True Wilder ADX(14) on 15m candles (0..100)
+      const adxTrendStrength = NeutralGridAnalyzer.computeWilderAdx14(klines, 14);
 
-      // 4. Volume, Spread, Funding
+      // 4. Live Volume, Spread, Funding & Lot Filter
+      const lotFilter = await adapter.getInstrumentFilter(symbol);
+      const ctVal = lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1;
       const volume24hUSDT =
-        tickerMeta?.volume24hUSDT ||
-        klines.reduce((s, k) => s + k.volume * k.close, 0);
-      const spreadPct = tickerMeta?.spreadPct ?? 0.03;
+        tickerMeta?.volume24hUSDT && tickerMeta.volume24hUSDT > 0
+          ? tickerMeta.volume24hUSDT
+          : klines.reduce((s, k) => s + k.volume * ctVal * k.close, 0);
+      const spreadPct =
+        tickerMeta?.spreadPct !== undefined && tickerMeta.spreadPct > 0
+          ? tickerMeta.spreadPct
+          : 0.03;
       const fundingRatePct = tickerMeta?.fundingRatePct ?? 0.01;
 
-      // 5. Compute Neutral Grid Suitability Score (0..100)
-      // - High Choppiness (50..80) -> up to 35 pts
-      // - Low Directional Trend (ADX < 30) -> up to 25 pts
-      // - Healthy oscillation ATR% (0.35% .. 1.8% per 15m) -> up to 25 pts
-      // - Liquidity & Tight Spread -> up to 15 pts
-      const chopScore = Math.min(35, Math.max(0, ((choppinessIndex - 35) / 40) * 35));
-      const rangeBoundScore = Math.min(25, Math.max(0, ((55 - adxTrendStrength) / 45) * 25));
+      // 5. High-Sensitivity Continuous Neutral Grid Suitability Score (0..100)
+      // - Choppiness (0..32 pts): continuous slope from 36..72
+      const chopScore = Math.min(32, Math.max(0, ((choppinessIndex - 36) / 34) * 32));
 
-      let volScore = 0;
-      if (atrPct >= 0.25 && atrPct <= 1.8) {
-        volScore = 25;
-      } else if (atrPct > 1.8 && atrPct <= 3.2) {
-        volScore = 16;
-      } else if (atrPct >= 0.12) {
-        volScore = 12;
+      // - Wilder ADX(14) Trend Resistance (0..26 pts): peaks when ADX <= 16, drops sharply above ADX 28
+      const rangeBoundScore =
+        adxTrendStrength <= 16
+          ? 26
+          : Math.min(26, Math.max(0, ((44 - adxTrendStrength) / 28) * 26));
+
+      // - Continuous Volatility & 24h Range Centering Score (0..27 pts):
+      //   Peaks when 15m ATR is in the 0.35%..1.10% sweet spot AND price is centered inside its 24h channel
+      let atrBellScore = 0;
+      if (atrPct >= 0.32 && atrPct <= 1.25) {
+        const distFromIdealAtr = Math.abs(atrPct - 0.68) / 0.57;
+        atrBellScore = 18 - distFromIdealAtr * 5;
+      } else if (atrPct > 1.25 && atrPct <= 2.6) {
+        atrBellScore = Math.max(5, 13 - (atrPct - 1.25) * 6);
+      } else if (atrPct >= 0.14 && atrPct < 0.32) {
+        atrBellScore = 4 + ((atrPct - 0.14) / 0.18) * 9;
       } else {
-        volScore = 5;
+        atrBellScore = 2;
       }
 
-      const spreadScore = spreadPct <= 0.04 ? 15 : spreadPct <= 0.08 ? 10 : 4;
+      const posIn24hRange = Math.max(0, Math.min(1, (lastClose - low24h) / range24h));
+      const edgeProximity = Math.abs(posIn24hRange - 0.5) * 2; // 0 = center, 1 = extreme 24h high/low
+      const centeringBonus = Math.max(0, (1 - Math.pow(edgeProximity, 1.4)) * 9);
+      const volScore = atrBellScore + centeringBonus;
+
+      // - Continuous Spread & Liquidity Score (0..15 pts):
+      const spreadPts = Math.max(0, Math.min(10, (1 - spreadPct / 0.1) * 10));
+      const logVol = Math.log10(Math.max(100_000, volume24hUSDT));
+      const liqPts = Math.max(0, Math.min(5, (logVol - 5.0) * 1.5));
+      const spreadScore = spreadPts + liqPts;
+
       const gridSuitabilityScore = Math.round(
         Math.min(99, Math.max(10, chopScore + rangeBoundScore + volScore + spreadScore))
       );
 
       let regimeLabel: GridCandidateAnalysis['regimeLabel'] = 'IDEAL_RANGE';
-      if (adxTrendStrength >= 42 || choppinessIndex < 42) {
+      if (adxTrendStrength >= 30 || choppinessIndex < 40) {
         regimeLabel = 'TRENDING_RISK';
-      } else if (atrPct > 1.8) {
+      } else if (atrPct > 1.65) {
         regimeLabel = 'HIGH_VOL_RANGE';
       } else if (atrPct < 0.18) {
         regimeLabel = 'LOW_VOLATILITY';
       }
 
-      const lotFilter = await adapter.getInstrumentFilter(symbol);
       const autoOpt = GridOptimizer.autoOptimizeParameters(
         symbol,
         lastClose,
@@ -137,8 +233,8 @@ export class NeutralGridAnalyzer {
 
       const reasons: string[] = [
         `Choppiness ${choppinessIndex} (${choppinessIndex >= 55 ? 'Consolidare laterală ideală' : 'Lateral moderat'})`,
-        `Putere Trend ADX ${adxTrendStrength} (${adxTrendStrength < 30 ? 'Risc scăzut de breakout' : 'Atenție la trend'})`,
-        `ATR(15m) ${atrPct.toFixed(2)}% | Range 24h ${range24hPct.toFixed(1)}%`,
+        `Wilder ADX(14) ${adxTrendStrength} (${adxTrendStrength < 25 ? 'Fără trend direcțional' : 'Atenție la trend'})`,
+        `ATR(15m) ${atrPct.toFixed(2)}% | Range 24h ${range24hPct.toFixed(1)}% (Poz ${(posIn24hRange * 100).toFixed(0)}%)`,
       ];
 
       return {

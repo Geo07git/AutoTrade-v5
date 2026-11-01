@@ -578,11 +578,15 @@ export class TradeBot {
         symbols = await this.universeManager.refreshUniverse(cfg.scannerFilter);
       }
       const ap = this.getAutopilotConfig();
-      const targetSymbols = symbols.slice(0, ap.maxScannedSymbols || 12);
+      const targetSymbols = symbols.slice(0, Math.max(16, ap.maxScannedSymbols || 24));
       const analyzed: GridCandidateAnalysis[] = [];
 
       for (const sym of targetSymbols) {
-        const res = await NeutralGridAnalyzer.analyzeSymbol(sym, this.activeAdapter);
+        const res = await NeutralGridAnalyzer.analyzeSymbol(
+          sym,
+          this.activeAdapter,
+          filtered.tickersMap?.[sym]
+        );
         if (res) {
           analyzed.push(res);
         }
@@ -610,7 +614,7 @@ export class TradeBot {
 
       // Refresh OKX Native & Auto-Limit Futures Grid opportunities and evaluate unified Autopilot (Ramura 1: Ordine Limit)
       this.nativeGridEngine
-        .scanAndOptimizeOpportunities(cfg.scannerFilter, Math.min(10, ap.maxScannedSymbols || 10))
+        .scanAndOptimizeOpportunities(cfg.scannerFilter, Math.max(24, ap.maxScannedSymbols || 24))
         .then(async () => {
           if (this.nativeGridEngine.getConfig().enabled) {
             const st = this.getStatus();
@@ -1347,7 +1351,7 @@ export class TradeBot {
     const ap = this.getAutopilotConfig();
     return await this.nativeGridEngine.scanAndOptimizeOpportunities(
       cfg.scannerFilter,
-      Math.max(8, ap.maxScannedSymbols || 10)
+      Math.max(24, ap.maxScannedSymbols || 24)
     );
   }
 

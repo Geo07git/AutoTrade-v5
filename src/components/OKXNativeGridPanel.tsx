@@ -2753,23 +2753,82 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <Search className="w-4 h-4 text-cyan-400" />
             <div>
               <h3 className="font-bold text-xs text-white">
-                MARKET INTELLIGENCE &amp; OPTIMIZATOR INVESTIȚIE MINIMĂ OKX (_UM_XPERP — {eligibleOpportunities.length} ELIGIBILE / {opportunities.length} ANALIZATE)
+                MARKET INTELLIGENCE &amp; OPTIMIZATOR INVESTIȚIE MINIMĂ OKX (_UM_XPERP — {eligibleOpportunities.length} ELIGIBILE / {opportunities.length} ANALIZATE PROFUND)
               </h3>
               <p className="text-[10px] text-zinc-400">
-                Analizează Lichiditatea, Volumul, Volatilitatea (ATR/Chop), Spread-ul, Trendul (ADX), Open Interest, Funding 8h, OrderBook Imbalance și filtrează automat oportunitățile peste bugetul de ${maxBudgetPerBot} sau neprofitabile după comisioanele reale OKX ({feeTierInfo?.roundTripMakerFeePct ?? 0.04}% round-trip).
+                Pre-scorează toate cele {autopilot?.scanDiagnostics?.totalUniverseSwapCount ?? 257} contracte _UM_XPERP după consolidare laterală 24h, spread live, lichiditate și buget per 1 lot, apoi analizează profund (Klines 15m, Wilder ADX(14), Choppiness, ATR, OrderBook, Funding 8h, Min-Investment OKX) top {opportunities.length} candidați ({feeTierInfo?.roundTripMakerFeePct ?? 0.04}% round-trip).
               </p>
             </div>
           </div>
+          {autopilot?.scanDiagnostics && (
+            <div className="text-[10px] text-right text-zinc-400">
+              <div>
+                Ultima recalculare live:{' '}
+                <strong className="text-cyan-300">
+                  {new Date(autopilot.scanDiagnostics.lastScanAt).toLocaleTimeString()}
+                </strong>{' '}
+                ({autopilot.scanDiagnostics.scanDurationMs}ms)
+              </div>
+              <div>
+                Schimbări poziție în clasament:{' '}
+                <strong className="text-amber-300">
+                  {autopilot.scanDiagnostics.rankingChangesLastScan} monede
+                </strong>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* AUDIT DIVERSITATE SELECȚIE 24H, DINAMICĂ METRICI & SENSIBILITATE RANKING */}
+        {autopilot?.scanDiagnostics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-zinc-900/70 border border-zinc-800 rounded p-2 text-[10px]">
+            <div className="space-y-0.5">
+              <div className="font-bold text-cyan-300 uppercase">
+                1. Pâlnie Selecție Univers ({autopilot.scanDiagnostics.totalUniverseSwapCount} _UM_XPERP)
+              </div>
+              <div className="text-zinc-300">
+                Total: <strong className="text-white">{autopilot.scanDiagnostics.totalUniverseSwapCount}</strong> → Lichide/Spread:{' '}
+                <strong className="text-white">{autopilot.scanDiagnostics.passedVolumeAndSpreadCount}</strong> → Eligibile 1-Lot (≤${maxBudgetPerBot}):{' '}
+                <strong className="text-emerald-300">{autopilot.scanDiagnostics.budgetFeasibleCount}</strong> → Analizate Klines+OB:{' '}
+                <strong className="text-cyan-300">{autopilot.scanDiagnostics.deepAnalyzedCount}</strong>
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="font-bold text-emerald-300 uppercase">
+                2. Diversitate Top 7 (Ultimele 24h): {autopilot.scanDiagnostics.distinctTop7Count24h} simboluri distincte
+              </div>
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {autopilot.scanDiagnostics.distinctTop7Symbols24h.map((sym) => (
+                  <span
+                    key={sym}
+                    className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-[9px]"
+                  >
+                    {sym}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <div className="font-bold text-amber-300 uppercase">
+                3. Dinamică &amp; Sensibilitate Clasament (Fără Rotație Artificială)
+              </div>
+              <div className="text-zinc-300">
+                Wilder ADX(14), Chop(14), ATR(14) și Spread bid/ask sunt recalculate live la fiecare scanare. Monedele urcă/coboară exclusiv pe baza datelor reale de piață (<span className="text-emerald-400">↑</span>/<span className="text-rose-400">↓</span> ΔRank &amp; ΔScor).
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-[11px]">
             <thead>
               <tr className="border-b border-zinc-800 text-zinc-400">
-                <th className="py-1.5 px-2">Contract _UM_XPERP</th>
+                <th className="py-1.5 px-2">Rank / Contract _UM_XPERP</th>
                 <th className="py-1.5 px-2">Preț / Range 24h</th>
-                <th className="py-1.5 px-2">Scor &amp; Regim</th>
-                <th className="py-1.5 px-2">Chop / ADX / ATR</th>
+                <th className="py-1.5 px-2">Scor &amp; Δ Dinamică</th>
+                <th className="py-1.5 px-2">Chop / Wilder ADX / ATR</th>
                 <th className="py-1.5 px-2">Open Interest / Vol 24h</th>
                 <th className="py-1.5 px-2">Funding 8h / Spread</th>
                 <th className="py-1.5 px-2">OrderBook Depth / Imb</th>
@@ -2780,13 +2839,16 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900">
-              {opportunities.map((opp) => {
+              {opportunities.map((opp, idx) => {
                 const activeVarId: GridRangeVariantId =
                   rowVariants[opp.instId] ||
                   opp.selectedVariant ||
                   defaultRangeVariant ||
                   'BALANCED';
                 const activeVar = getVariantProfileForOpp(opp, activeVarId);
+                const displayRank = opp.rank ?? idx + 1;
+                const rankDelta = opp.rankDelta ?? 0;
+                const scoreDelta = opp.scoreDelta ?? 0;
                 return (
                 <tr
                   key={opp.instId}
@@ -2795,10 +2857,34 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   }`}
                 >
                   <td className="py-2 px-2">
-                    <div className="font-black text-white">{opp.instId}</div>
-                    <div className="text-[10px] text-zinc-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-cyan-300 font-black text-[10px]">
+                        #{displayRank}
+                      </span>
+                      {opp.prevRank === undefined ? (
+                        <span className="text-[9px] px-1 rounded bg-cyan-500/20 text-cyan-300 font-bold">
+                          NOU
+                        </span>
+                      ) : rankDelta > 0 ? (
+                        <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-bold" title={`A urcat ${rankDelta} poziții față de scanarea anterioară (#${opp.prevRank} → #${displayRank})`}>
+                          ↑{rankDelta}
+                        </span>
+                      ) : rankDelta < 0 ? (
+                        <span className="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300 font-bold" title={`A coborât ${Math.abs(rankDelta)} poziții față de scanarea anterioară (#${opp.prevRank} → #${displayRank})`}>
+                          ↓{Math.abs(rankDelta)}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-zinc-500 font-mono" title="Aceeași poziție în clasament ca la scanarea anterioară">
+                          =
+                        </span>
+                      )}
+                      <span className="font-black text-white">{opp.instId}</span>
+                    </div>
+                    <div className="text-[10px] text-zinc-400 mt-0.5">
                       {opp.isEligible ? (
-                        <span className="text-emerald-400 font-bold">✓ ELIGIBIL NEUTRAL GRID</span>
+                        <span className="text-emerald-400 font-bold">
+                          ✓ ELIGIBIL NEUTRAL GRID {opp.preScore ? `(Pre-Scor: ${opp.preScore})` : ''}
+                        </span>
                       ) : (
                         <span className="text-rose-400" title={opp.rejectionReason}>
                           ✕ {opp.rejectionReason}
@@ -2813,7 +2899,18 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </div>
                   </td>
                   <td className="py-2 px-2">
-                    <div className="font-black text-cyan-300">{opp.suitabilityScore}/100</div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-black text-cyan-300">{opp.suitabilityScore}/100</span>
+                      {scoreDelta !== 0 && (
+                        <span
+                          className={`text-[9px] font-bold ${
+                            scoreDelta > 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
+                          ({scoreDelta > 0 ? `+${scoreDelta}` : scoreDelta})
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
                         opp.regimeLabel === 'IDEAL_RANGE'
@@ -2827,8 +2924,23 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </span>
                   </td>
                   <td className="py-2 px-2 tabular-nums text-[10px]">
-                    <div>Chop: <strong className="text-white">{opp.choppinessIndex.toFixed(1)}</strong></div>
-                    <div>ADX: <strong className="text-white">{opp.adxTrendStrength.toFixed(1)}</strong> | ATR: {opp.atrPct.toFixed(2)}%</div>
+                    <div>
+                      Chop: <strong className="text-white">{opp.choppinessIndex.toFixed(1)}</strong>
+                      {opp.chopDelta !== undefined && opp.chopDelta !== 0 && (
+                        <span className={`ml-1 text-[9px] ${opp.chopDelta > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {opp.chopDelta > 0 ? `+${opp.chopDelta.toFixed(1)}` : opp.chopDelta.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      ADX: <strong className="text-white">{opp.adxTrendStrength.toFixed(1)}</strong>
+                      {opp.adxDelta !== undefined && opp.adxDelta !== 0 && (
+                        <span className={`ml-1 text-[9px] ${opp.adxDelta <= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {opp.adxDelta > 0 ? `+${opp.adxDelta.toFixed(1)}` : opp.adxDelta.toFixed(1)}
+                        </span>
+                      )}{' '}
+                      | ATR: {opp.atrPct.toFixed(2)}%
+                    </div>
                   </td>
                   <td className="py-2 px-2 tabular-nums text-[10px]">
                     <div className="text-white font-bold">

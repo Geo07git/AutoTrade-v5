@@ -362,7 +362,29 @@ export interface NativeGridOpportunity {
   isEligible: boolean;
   rejectionReason?: string;
   reasons: string[];
+  rank?: number;
+  prevRank?: number;
+  rankDelta?: number;             // Positive = climbed rank, Negative = dropped rank
+  scoreDelta?: number;            // Change in suitabilityScore since previous scan
+  chopDelta?: number;             // Change in choppinessIndex since previous scan
+  adxDelta?: number;              // Change in Wilder ADX(14) since previous scan
+  atrDelta?: number;              // Change in ATR(14)% since previous scan
+  preScore?: number;              // Universe pre-score across all 257 contracts
   updatedAt: number;
+}
+
+export interface NativeGridScanDiagnostics {
+  totalUniverseXPerpCount: number;    // Total _UM_XPERP contracts on OKX EEA (e.g. 257)
+  liquidSpreadFilteredCount: number;  // Contracts passing minVolume + maxSpread
+  budgetFeasibleCount: number;        // Contracts whose 1-lot min margin fits budget
+  deepAnalyzedCount: number;          // Contracts deeply analyzed with 15m Klines + OrderBook + Min-Inv
+  eligibleCount: number;              // Final eligible contracts
+  distinctTop7Symbols24h: string[];   // All distinct symbols that entered Top 7 over rolling 24h
+  distinctTop7Count24h: number;
+  metricsRefreshedCount: number;      // Symbols with fresh live Klines/Ticker/OrderBook in last scan
+  rankingChangesLastScan: number;     // Number of symbols whose rank or score changed in last scan
+  lastScanDurationMs: number;
+  lastScanAt: number;
 }
 
 export interface OKXNativeGridBot {
@@ -420,6 +442,7 @@ export interface NativeGridAutopilotConfig {
   scanIntervalSec: number;
   lastScanAt?: number;
   lastDecision?: string;
+  scanDiagnostics?: NativeGridScanDiagnostics;
 }
 
 export interface BotStatusResponse {

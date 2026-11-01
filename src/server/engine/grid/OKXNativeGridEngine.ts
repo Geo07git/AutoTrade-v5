@@ -3,6 +3,7 @@ import {
   GridRangeVariantProfile,
   NativeGridAutopilotConfig,
   NativeGridOpportunity,
+  NativeGridScanDiagnostics,
   OKXNativeGridBot,
   UniverseFilterConfig,
 } from '../../../shared/types';
@@ -49,6 +50,17 @@ export class OKXNativeGridEngine {
   private dismissedAlgoIds: Set<string> = new Set();
   private isScanning: boolean = false;
   private isMonitoring: boolean = false;
+  private prevMetricsMap: Map<
+    string,
+    {
+      rank: number;
+      score: number;
+      chop: number;
+      adx: number;
+      atrPct: number;
+    }
+  > = new Map();
+  private top7History24h: Map<string, number> = new Map();
 
   constructor(
     okxAdapter: OKXAdapter,
@@ -168,7 +180,7 @@ export class OKXNativeGridEngine {
    */
   public async scanAndOptimizeOpportunities(
     scannerFilter?: UniverseFilterConfig,
-    maxCandidatesToAnalyze: number = 10
+    maxCandidatesToAnalyze: number = 24
   ): Promise<NativeGridOpportunity[]> {
     if (this.isScanning) return this.opportunities;
     this.isScanning = true;
@@ -177,16 +189,21 @@ export class OKXNativeGridEngine {
     const startMs = Date.now();
 
     try {
-      const filtered = await this.universeManager.getFilteredUniverse(scannerFilter);
+      const filtered = await this.universeManager.getFilteredUniverse(
+        scannerFilter,
+        cfg.maxBudgetPerBotUSDT,
+        cfg.maxLeverage
+      );
       let rawSymbols = filtered.eligibleSymbols;
       if (!rawSymbols || rawSymbols.length === 0) {
         rawSymbols = await this.universeManager.refreshUniverse(scannerFilter);
       }
 
-      // Mandatory rule: Exclusively FUTURES X-Perp (_UM_XPERP) contracts
+      // Mandatory rule: Exclusively FUTURES X-Perp (_UM_XPERP) contracts, pre-scored across all ~257 symbols
+      const targetPoolSize = Math.max(16, Math.min(30, maxCandidatesToAnalyze));
       const xperpSymbols = rawSymbols
         .filter((s) => s.includes('_UM_XPERP'))
-        .slice(0, Math.max(4, Math.min(20, maxCandidatesToAnalyze)));
+        .slice(0, targetPoolSize);
 
       // Refresh live OKX fee tier before computing net profitability
       await this.okxAdapter.fetchTradeFeeTier('FUTURES', false).catch(() => {});
@@ -196,10 +213,23 @@ export class OKXNativeGridEngine {
       const analyzed: NativeGridOpportunity[] = [];
       const activeVariantId: GridRangeVariantId = cfg.defaultRangeVariant || 'BALANCED';
 
-      for (const instId of xperpSymbols) {
+      const analyzeSingleContract = async (instId: string): Promise<NativeGridOpportunity | null> => {
         try {
-          const baseAnalysis = await NeutralGridAnalyzer.analyzeSymbol(instId, this.okxAdapter);
-          if (!baseAnalysis || baseAnalysis.price <= 0) continue;
+          const tickerInfo = filtered.tickersMap?.[instId];
+          const baseAnalysis = await NeutralGridAnalyzer.analyzeSymbol(
+            instId,
+            this.okxAdapter,
+            tickerInfo
+              ? {
+                  lastPrice: tickerInfo.lastPrice,
+                  volume24hUSDT: tickerInfo.turnover24hUSDT,
+                  high24h: tickerInfo.highPrice24h,
+                  low24h: tickerInfo.lowPrice24h,
+                  spreadPct: tickerInfo.spreadPct,
+                }
+              : undefined
+          );
+          if (!baseAnalysis || baseAnalysis.price <= 0) return null;
 
           const [extras, lotFilter] = await Promise.all([
             this.okxAdapter.fetchMarketIntelligenceExtras(instId),
@@ -408,25 +438,30 @@ export class OKXNativeGridEngine {
             activeVar = conservativeVariant;
           }
 
-          // Composite Market Intelligence Score (incorporating Open Interest, Order Book depth/imbalance, Funding)
+          // Composite Market Intelligence Score (high-sensitivity continuous scoring with OI, OrderBook, Spread, Funding, Net Yield)
           let score = baseAnalysis.gridSuitabilityScore;
           const reasons = [...baseAnalysis.reasons];
 
           if (extras.openInterestUSD >= 500_000) {
-            score += 4;
+            score += Math.min(5, Math.log10(extras.openInterestUSD / 100_000) * 2.2);
             reasons.push(`OI solid ($${(extras.openInterestUSD / 1e6).toFixed(2)}M)`);
           }
           if (Math.abs(extras.orderBookImbalance) <= 0.3) {
-            score += 4;
+            score += (1 - Math.abs(extras.orderBookImbalance) / 0.3) * 4;
             reasons.push(`OrderBook echilibrat (Imb ${(extras.orderBookImbalance * 100).toFixed(0)}%)`);
-          } else if (Math.abs(extras.orderBookImbalance) > 0.65) {
-            score -= 6;
+          } else if (Math.abs(extras.orderBookImbalance) > 0.6) {
+            score -= Math.min(9, (Math.abs(extras.orderBookImbalance) - 0.5) * 14);
             reasons.push(`Presiune OrderBook unidirecțională (${(extras.orderBookImbalance * 100).toFixed(0)}%)`);
           }
-          if (Math.abs(extras.fundingRatePct) > 0.08) {
-            score -= 8;
+          if (extras.spreadBps > 6) {
+            score -= Math.min(10, (extras.spreadBps - 6) * 0.8);
+          }
+          if (Math.abs(extras.fundingRatePct) > 0.06) {
+            score -= Math.min(10, Math.abs(extras.fundingRatePct) * 90);
             reasons.push(`Funding ridicat (${extras.fundingRatePct.toFixed(4)}%)`);
           }
+          // Reward net daily grid productivity
+          score += Math.min(5, activeVar.estimatedDailyNetYieldPct * 0.45);
           score = Math.max(5, Math.min(99, Math.round(score)));
 
           const rejectionReasons: string[] = [];
@@ -488,33 +523,116 @@ export class OKXNativeGridEngine {
             isEligible,
             rejectionReason: rejectionReasons.length > 0 ? rejectionReasons.join(' | ') : undefined,
             reasons,
+            preScore: filtered.preScoresMap?.[instId],
             updatedAt: Date.now(),
           };
 
-          analyzed.push(opp);
+          return opp;
         } catch (symErr: any) {
           console.warn(`[OKXNativeGridEngine] Eroare analiză ${instId}:`, symErr?.message || symErr);
+          return null;
+        }
+      };
+
+      // Execute deep candidate analysis in parallel batches of 6 for speed without hitting OKX rate limits
+      const batchSize = 6;
+      for (let i = 0; i < xperpSymbols.length; i += batchSize) {
+        const batch = xperpSymbols.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map((sym) => analyzeSingleContract(sym)));
+        for (const r of batchResults) {
+          if (r) analyzed.push(r);
         }
       }
 
-      // Sort: eligible opportunities first, then by suitabilityScore descending
+      // Sort: eligible opportunities first, then fitsMaxBudget, then suitabilityScore, then estimatedDailyNetYieldPct
       analyzed.sort((a, b) => {
         if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
         if (a.fitsMaxBudget !== b.fitsMaxBudget) return a.fitsMaxBudget ? -1 : 1;
-        return b.suitabilityScore - a.suitabilityScore;
+        if (b.suitabilityScore !== a.suitabilityScore) {
+          return b.suitabilityScore - a.suitabilityScore;
+        }
+        return b.estimatedDailyNetYieldPct - a.estimatedDailyNetYieldPct;
       });
 
-      this.opportunities = analyzed;
+      // Compute rank, deltas vs previous scan, and 24h Top-7 diversity telemetry
+      const nowTs = Date.now();
+      const cutoff24h = nowTs - 24 * 3600_000;
+      let rankingChangesLastScan = 0;
+      const nextMetricsMap = new Map<
+        string,
+        { rank: number; score: number; chop: number; adx: number; atrPct: number }
+      >();
+
+      analyzed.forEach((opp, idx) => {
+        const currentRank = idx + 1;
+        opp.rank = currentRank;
+        const prev = this.prevMetricsMap.get(opp.instId);
+        if (prev) {
+          opp.prevRank = prev.rank;
+          opp.rankDelta = prev.rank - currentRank; // +2 means climbed 2 places
+          opp.scoreDelta = opp.suitabilityScore - prev.score;
+          opp.chopDelta = parseFloat((opp.choppinessIndex - prev.chop).toFixed(1));
+          opp.adxDelta = parseFloat((opp.adxTrendStrength - prev.adx).toFixed(1));
+          opp.atrDelta = parseFloat((opp.atrPct - prev.atrPct).toFixed(2));
+          if (opp.rankDelta !== 0 || opp.scoreDelta !== 0) {
+            rankingChangesLastScan++;
+          }
+        } else if (this.prevMetricsMap.size > 0) {
+          rankingChangesLastScan++;
+        }
+
+        nextMetricsMap.set(opp.instId, {
+          rank: currentRank,
+          score: opp.suitabilityScore,
+          chop: opp.choppinessIndex,
+          adx: opp.adxTrendStrength,
+          atrPct: opp.atrPct,
+        });
+
+        if (currentRank <= 7) {
+          const shortCoin = opp.instId.split('-')[0];
+          this.top7History24h.set(shortCoin, nowTs);
+        }
+      });
+
+      this.prevMetricsMap = nextMetricsMap;
+
+      // Prune 24h Top-7 history older than 24h
+      for (const [coin, ts] of Array.from(this.top7History24h.entries())) {
+        if (ts < cutoff24h) {
+          this.top7History24h.delete(coin);
+        }
+      }
+
+      const distinctTop7Symbols24h = Array.from(this.top7History24h.keys());
       const eligibleCount = analyzed.filter((o) => o.isEligible).length;
+      const scanDurationMs = Date.now() - startMs;
+
+      const scanDiagnostics: NativeGridScanDiagnostics = {
+        totalUniverseXPerpCount: filtered.allSymbolsCount || rawSymbols.length,
+        liquidSpreadFilteredCount: filtered.liquidSpreadFilteredCount || rawSymbols.length,
+        budgetFeasibleCount: filtered.budgetFeasibleCount || rawSymbols.length,
+        deepAnalyzedCount: analyzed.length,
+        eligibleCount,
+        distinctTop7Symbols24h,
+        distinctTop7Count24h: distinctTop7Symbols24h.length,
+        metricsRefreshedCount: analyzed.length,
+        rankingChangesLastScan,
+        lastScanDurationMs: scanDurationMs,
+        lastScanAt: nowTs,
+      };
+
+      this.opportunities = analyzed;
 
       this.journal.logAudit(
         'SCAN_COMPLETED',
-        `[OKX NATIVE GRID SCAN] ${analyzed.length} contracte _UM_XPERP analizate în ${Date.now() - startMs}ms: ${eligibleCount} eligibile în bugetul ≤$${cfg.maxBudgetPerBotUSDT} USDT.`
+        `[OKX NATIVE GRID SCAN] Univers: ${scanDiagnostics.totalUniverseXPerpCount} _UM_XPERP → ${scanDiagnostics.liquidSpreadFilteredCount} lichide → ${analyzed.length} analizate profund în ${scanDurationMs}ms (${eligibleCount} eligibile ≤$${cfg.maxBudgetPerBotUSDT}, Top-7 24h: ${distinctTop7Symbols24h.join(', ')}).`
       );
 
-      // Update scan timestamp
+      // Update scan timestamp and diagnostics
       const updatedCfg = this.getConfig();
-      updatedCfg.lastScanAt = Date.now();
+      updatedCfg.lastScanAt = nowTs;
+      updatedCfg.scanDiagnostics = scanDiagnostics;
       this.configStore.save(updatedCfg);
 
       // If Autopilot is enabled, evaluate autonomous native bot creation
