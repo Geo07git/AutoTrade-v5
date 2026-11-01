@@ -1,14 +1,27 @@
 name: Deploy to OCI
 
 on:
-  push:
-    branches:
-      - main
-    # Docs / repo-config-only commits must not restart the live trading service.
-    paths-ignore:
-      - '**.md'
-      - '.github/**'
-      - '.gitignore'
+  # ===========================================================================
+  # PAUZA - 2026-11-01: serverul OCI a fost sters, deci nu mai exista target.
+  # Workflow-ul ramane INTACT (pasi, backup, rollback) pentru reluare.
+  #
+  # Ca sa reiei deploy-ul automat dupa ce provisionezi un server nou:
+  #   1. decomenteaza blocul `push:` de mai jos
+  #   2. actualizeaza secretele GitHub: OCI_HOST (IP nou), OCI_USER, OCI_SSH_KEY
+  #   3. asigura-te ca /home/ubuntu/AutoTrade-v5 + autotrade-v5.service exista
+  #
+  # Cat timp `push` e comentat, niciun push pe `main` nu mai declanseaza deploy.
+  # Rularea manuala ramane disponibila (Actions -> Run workflow), dar va esua
+  # esua la SSH pana exista un host valid in OCI_HOST.
+  # ===========================================================================
+  # push:
+  #   branches:
+  #     - main
+  #     # Docs / repo-config-only commits must not restart the live trading service.
+  #   paths-ignore:
+  #     - '**.md'
+  #     - '.github/**'
+  #     - '.gitignore'
   # Manual trigger: Actions -> "Deploy to OCI" -> Run workflow
   workflow_dispatch:
 
