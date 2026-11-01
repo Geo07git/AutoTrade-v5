@@ -1,5 +1,6 @@
 {
-  "name": "react-example",
+  "name": "autotrade-v5",
+  "productName": "TradeBot Pro Terminal",
   "private": true,
   "version": "3.0.0",
   "type": "module",
