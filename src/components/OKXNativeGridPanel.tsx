@@ -104,7 +104,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       opportunities[0]?.recommendedInvestmentUSDT ?? 0
     )
   );
-  const [customStopType, setCustomStopType] = useState<'1' | '2'>('1');
   const [minInvCheck, setMinInvCheck] = useState<{
     minInvestmentUSDT: number;
     ccy: string;
@@ -489,6 +488,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     const targetInvestUSDT = computeBotInvestmentUSDT(v.minInvestmentUSDT);
     setInstId(opp.instId);
     setBuilderVariant(chosenVariantId);
+    setDefaultRangeVariant(chosenVariantId);
     setRowVariants((prev) => ({ ...prev, [opp.instId]: chosenVariantId }));
     setMinPx(v.minPx);
     setMaxPx(v.maxPx);
@@ -556,7 +556,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           takeProfitPct: tpPctVal,
           slTriggerPx: targetSlPx,
           tpTriggerPx: targetTpPx,
-          stopTypeOnRisk: customStopType || defaultStopType,
+          stopTypeOnRisk: defaultStopType,
           stopOnRangeBreakout: stopOnBreakout,
           stopOnTrendInvalidation,
           environment: 'LIVE',
@@ -671,7 +671,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     setRunType(b.runType);
     setLever(b.lever);
     setSz(safeSz);
-    setCustomStopType(b.stopTypeOnRisk || '1');
+    setDefaultStopType(b.stopTypeOnRisk || '1');
     onNotify({
       type: 'info',
       text: `Parametrii botului ${b.instId} ($${b.minPx}–$${b.maxPx}, ${b.gridNum} grile, ${b.lever}x, $${safeSz}) au fost încărcați în Builderul din stânga.`,
@@ -1889,10 +1889,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           )}
         </div>
 
-        {/* Autopilot & Budget Configuration Grid */}
+        {/* Unified Autopilot, Capital, Risk & Range Profile Bar (Single Source of Truth) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           <div className="bg-black border border-zinc-800 rounded p-2">
-            <span className="text-[10px] text-zinc-400 block">Buget Max / Bot ($, min $5)</span>
+            <span className="text-[10px] text-zinc-400 block" title="Bugetul standard alocat fiecărui bot (Autopilot & Builder)">
+              Buget / Bot ($, min $5)
+            </span>
             <input
               type="number"
               min={5}
@@ -1935,7 +1937,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <input
               type="number"
               min={1}
-              max={15}
+              max={20}
               value={maxConcurrentBots}
               onChange={(e) =>
                 setMaxConcurrentBots(
@@ -1946,10 +1948,14 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             />
           </div>
           <div className="bg-black border border-zinc-800 rounded p-2">
-            <span className="text-[10px] text-zinc-400 block">Levier Max (1x–20x)</span>
+            <span className="text-[10px] text-zinc-400 block">Levier Implicit / Max</span>
             <select
               value={maxLeverage}
-              onChange={(e) => setMaxLeverage(parseInt(e.target.value, 10) || 3)}
+              onChange={(e) => {
+                const nextLev = parseInt(e.target.value, 10) || 3;
+                setMaxLeverage(nextLev);
+                setLever(nextLev);
+              }}
               className="w-full bg-zinc-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold mt-0.5"
             >
               {[1, 2, 3, 5, 7, 10, 15, 20].map((l) => (
@@ -1987,32 +1993,38 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             />
           </div>
           <div className="bg-black border border-zinc-800 rounded p-2">
-            <span className="text-[10px] text-zinc-400 block">SL % / TP % Bot</span>
+            <span className="text-[10px] text-zinc-400 block" title="Stop Loss % și Take Profit % din marjă (aplicat atât în Autopilot cât și în Builder)">
+              SL % / TP % Bot
+            </span>
             <div className="grid grid-cols-2 gap-1 mt-0.5">
               <input
                 type="number"
                 step="0.5"
+                min={0.5}
                 value={stopLossPct}
                 onChange={(e) =>
                   setStopLossPct(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
                 }
                 className="w-full bg-zinc-900 border border-rose-500/40 rounded px-1.5 py-1 text-rose-300 font-bold"
-                title="Stop Loss %"
+                title="Stop Loss % din Marjă"
               />
               <input
                 type="number"
                 step="0.5"
+                min={0.5}
                 value={takeProfitPct}
                 onChange={(e) =>
                   setTakeProfitPct(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
                 }
                 className="w-full bg-zinc-900 border border-emerald-500/40 rounded px-1.5 py-1 text-emerald-300 font-bold"
-                title="Take Profit %"
+                title="Take Profit % din Marjă"
               />
             </div>
           </div>
           <div className="bg-black border border-zinc-800 rounded p-2">
-            <span className="text-[10px] text-zinc-400 block">Mod Oprire Risc OKX</span>
+            <span className="text-[10px] text-zinc-400 block" title="Comportamentul la oprire pentru toți boții (Autopilot & Lansare Manuală)">
+              Mod Oprire Risc OKX
+            </span>
             <select
               value={defaultStopType}
               onChange={(e) => setDefaultStopType(e.target.value === '2' ? '2' : '1')}
@@ -2024,7 +2036,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           </div>
           <div className="bg-black border border-cyan-500/40 rounded p-2 col-span-2 md:col-span-2">
             <span className="text-[10px] text-cyan-300 font-bold block">
-              Variantă Range TB5 (Autopilot &amp; Default)
+              Profil Range TB5 (Autopilot &amp; Builder)
             </span>
             <select
               value={defaultRangeVariant}
@@ -2032,6 +2044,10 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 const nextVar = (e.target.value as GridRangeVariantId) || 'BALANCED';
                 setDefaultRangeVariant(nextVar);
                 setBuilderVariant(nextVar);
+                const currentOpp = opportunities.find((o) => o.instId === instId);
+                if (currentOpp) {
+                  handleLoadOpportunity(currentOpp, nextVar);
+                }
               }}
               className="w-full bg-zinc-900 border border-cyan-500/50 rounded px-1.5 py-1 text-cyan-200 font-bold mt-0.5"
             >
@@ -2250,30 +2266,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               return null;
             })()}
 
-            <div className="flex items-center justify-between gap-1 text-[10px]">
-              <span className="text-zinc-500">Range Rapid Manual:</span>
-              <div className="flex items-center gap-1">
-                {[0.75, 1.25, 2.05, 3.5].map((pct) => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() => {
-                      const found = opportunities.find((o) => o.instId === instId);
-                      const refPx = found?.price || (minPx > 0 && maxPx > 0 ? (minPx + maxPx) / 2 : 0);
-                      if (refPx > 0) {
-                        const dec = refPx >= 1000 ? 1 : refPx >= 10 ? 2 : refPx >= 1 ? 3 : 5;
-                        setMinPx(parseFloat((refPx * (1 - pct / 100)).toFixed(dec)));
-                        setMaxPx(parseFloat((refPx * (1 + pct / 100)).toFixed(dec)));
-                      }
-                    }}
-                    className="px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-amber-300 font-bold cursor-pointer"
-                  >
-                    ±{pct}%
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] text-zinc-400 block mb-0.5">
@@ -2338,7 +2330,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </div>
               <div>
                 <label className="text-[10px] text-zinc-400 block mb-0.5">
-                  Levier (lever)
+                  Levier Bot (lever)
                 </label>
                 <select
                   value={lever}
@@ -2354,81 +2346,92 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] text-zinc-400 block mb-0.5">
-                  Marjă Investită pe OKX (sz $, min $5)
-                </label>
-                <input
-                  type="number"
-                  min={5}
-                  step="0.5"
-                  value={sz}
-                  onChange={(e) =>
-                    setSz(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
-                  }
-                  className="w-full bg-black border border-emerald-500/50 rounded px-2 py-1 text-emerald-300 font-bold"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-zinc-400 block mb-0.5">
-                  Mod Oprire Bot (stopType)
-                </label>
-                <select
-                  value={customStopType}
-                  onChange={(e) => setCustomStopType(e.target.value === '2' ? '2' : '1')}
-                  className="w-full bg-black border border-cyan-500/50 rounded px-2 py-1 text-cyan-300 font-bold"
-                >
-                  <option value="1">stopType 1: Închide Poziția</option>
-                  <option value="2">stopType 2: Păstrează Poziția</option>
-                </select>
-              </div>
-            </div>
+            {/* UNIFIED MARGIN ALLOCATION & OKX MIN-INVESTMENT BOX */}
+            {(() => {
+              const currentOpp = opportunities.find((o) => o.instId === instId);
+              const rawOkxMin =
+                minInvCheck?.minInvestmentUSDT || currentOpp?.minInvestmentUSDT || 0;
+              const ccyLabel = minInvCheck?.ccy || currentOpp?.minInvestmentCcy || 'USD';
+              const minOperational = Math.max(5, rawOkxMin);
+              const budgetTarget = computeBotInvestmentUSDT(rawOkxMin);
+              const currentSzVal = Math.max(5, Number(sz) || budgetTarget);
+              const fitsBudget = minOperational <= effectiveMaxBudget;
+              return (
+                <div className="bg-black border border-emerald-500/40 rounded p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black text-emerald-300">
+                      💰 MARJĂ INVESTITĂ ÎN BOT ({instId.split('-')[0]}) &amp; PRAG MINIM OKX
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleCheckMinInvestment}
+                      disabled={isCheckingMinInv}
+                      className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 font-bold text-[10px] cursor-pointer shrink-0"
+                    >
+                      {isCheckingMinInv ? 'Calcul...' : 'Recalculează Min-Inv'}
+                    </button>
+                  </div>
 
-            {/* LIVE SL & TP CALCULATOR BOX (PREȚ TRIGGER $ + PROCENT PnL % / $) */}
-            <div className="bg-black border border-amber-500/40 rounded p-2.5 space-y-2">
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-5">
+                      <span className="text-[9px] text-zinc-400 block mb-0.5">
+                        Marjă Alocată (sz $, min $5)
+                      </span>
+                      <input
+                        type="number"
+                        min={5}
+                        step="0.5"
+                        value={sz}
+                        onChange={(e) =>
+                          setSz(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
+                        }
+                        className="w-full bg-zinc-900 border border-emerald-500/50 rounded px-2 py-1 text-emerald-300 font-black text-xs"
+                      />
+                    </div>
+                    <div className="col-span-7 text-[10px] space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-400">Min Necesar TB5:</span>
+                        <strong
+                          className={
+                            Number(sz) < minOperational ? 'text-amber-300' : 'text-emerald-400'
+                          }
+                        >
+                          ${minOperational.toFixed(2)} {ccyLabel}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-400">Buget Setat Sus:</span>
+                        <button
+                          type="button"
+                          onClick={() => setSz(budgetTarget)}
+                          className="text-cyan-300 hover:text-cyan-200 font-bold underline cursor-pointer"
+                          title="Sincronizează cu Buget / Bot setat în bara de sus"
+                        >
+                          ${effectiveMaxBudget.toFixed(2)} (Aplică ${budgetTarget.toFixed(2)})
+                        </button>
+                      </div>
+                      <div className="text-[9px] text-zinc-400 truncate">
+                        {rawOkxMin > 0
+                          ? fitsBudget
+                            ? `✓ OKX 1-lot ($${rawOkxMin.toFixed(2)}) se încadrează în buget ($${effectiveMaxBudget})`
+                            : `⚠ OKX 1-lot ($${rawOkxMin.toFixed(2)}) depășește Bugetul ($${effectiveMaxBudget})`
+                          : `Calculat automat de la min $5.00 la Buget ($${effectiveMaxBudget})`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* LIVE SL & TP TRIGGER PREVIEW BOX (FOLOSEȘTE DIRECT SL % / TP % DIN BARA DE SUS) */}
+            <div className="bg-black border border-amber-500/40 rounded p-2.5 space-y-1.5">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-1">
                 <span className="text-[10px] font-black text-amber-300">
-                  🎯 CALCULATOR AUTOMAT STOP LOSS &amp; TAKE PROFIT (LIVE)
+                  🎯 PREȚURI TRIGGER SL (-{stopLossPct || 8}%) &amp; TP (+{takeProfitPct || 15}%) • {defaultStopType === '1' ? 'stopType 1 (Închide)' : 'stopType 2 (Păstrează)'}
                 </span>
                 <span className="text-[9px] text-zinc-400">
-                  Click pe orice valoare pt. Copy
+                  Click pt. Copy
                 </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-rose-300 block mb-0.5">
-                    Stop Loss % din Marjă (SL %)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min={0.5}
-                    value={stopLossPct}
-                    onChange={(e) =>
-                      setStopLossPct(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
-                    }
-                    className="w-full bg-zinc-900 border border-rose-500/50 rounded px-2 py-1 text-rose-300 font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-emerald-300 block mb-0.5">
-                    Take Profit % din Marjă (TP %)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min={0.5}
-                    value={takeProfitPct}
-                    onChange={(e) =>
-                      setTakeProfitPct(
-                        e.target.value === '' ? ('' as any) : parseFloat(e.target.value)
-                      )
-                    }
-                    className="w-full bg-zinc-900 border border-emerald-500/50 rounded px-2 py-1 text-emerald-300 font-bold"
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 text-[10px]">
@@ -2438,7 +2441,9 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   title="Click pentru a copia SL Trigger Price ($)"
                 >
                   <div>
-                    <span className="text-zinc-400 block text-[9px]">SL Trigger Price (Sub minPx)</span>
+                    <span className="text-zinc-400 block text-[9px]">
+                      SL Trigger (-{stopLossPct || 8}% = -${(((Number(sz) || 0) * (Number(stopLossPct) || 8)) / 100).toFixed(2)})
+                    </span>
                     <span className="font-black text-rose-400">${formatPrice(calcSlTriggerPx)}</span>
                   </div>
                   <span className="text-[9px] text-cyan-400 font-bold">Copy</span>
@@ -2450,81 +2455,15 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   title="Click pentru a copia TP / Upper Stop Price ($)"
                 >
                   <div>
-                    <span className="text-zinc-400 block text-[9px]">TP / Upper Trigger (Peste maxPx)</span>
+                    <span className="text-zinc-400 block text-[9px]">
+                      TP Trigger (+{takeProfitPct || 15}% = +${(((Number(sz) || 0) * (Number(takeProfitPct) || 15)) / 100).toFixed(2)})
+                    </span>
                     <span className="font-black text-emerald-400">${formatPrice(calcTpTriggerPx)}</span>
                   </div>
                   <span className="text-[9px] text-cyan-400 font-bold">Copy</span>
                 </div>
-
-                <div
-                  onClick={() => handleCopyField('SL PnL %', `${stopLossPct || 8}`)}
-                  className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 rounded px-2 py-1 cursor-pointer flex items-center justify-between"
-                  title="Click pentru a copia procentul SL"
-                >
-                  <div>
-                    <span className="text-zinc-400 block text-[9px]">Pierdere Max la SL (-{stopLossPct || 8}%)</span>
-                    <span className="font-bold text-rose-300">
-                      -${(((Number(sz) || 0) * (Number(stopLossPct) || 8)) / 100).toFixed(2)} USD
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-cyan-400 font-bold">Copy %</span>
-                </div>
-
-                <div
-                  onClick={() => handleCopyField('TP PnL %', `${takeProfitPct || 15}`)}
-                  className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 rounded px-2 py-1 cursor-pointer flex items-center justify-between"
-                  title="Click pentru a copia procentul TP"
-                >
-                  <div>
-                    <span className="text-zinc-400 block text-[9px]">Țintă Profit la TP (+{takeProfitPct || 15}%)</span>
-                    <span className="font-bold text-emerald-300">
-                      +${(((Number(sz) || 0) * (Number(takeProfitPct) || 15)) / 100).toFixed(2)} USD
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-cyan-400 font-bold">Copy %</span>
-                </div>
               </div>
             </div>
-
-            {/* OKX Min-Investment & Budget Sizing Box (Auto-Verified) */}
-            {(() => {
-              const currentOpp = opportunities.find((o) => o.instId === instId);
-              const rawOkxMin =
-                minInvCheck?.minInvestmentUSDT || currentOpp?.minInvestmentUSDT || 0;
-              const ccyLabel = minInvCheck?.ccy || currentOpp?.minInvestmentCcy || 'USD';
-              const minOperational = Math.max(5, rawOkxMin);
-              const budgetTarget = computeBotInvestmentUSDT(rawOkxMin);
-              const currentSzVal = Math.max(5, Number(sz) || budgetTarget);
-              return (
-                <div className="bg-black border border-zinc-800 rounded p-2 flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] text-zinc-400 block">
-                      PRAG MINIM ($5.00+) &amp; BUGET BOT ({instId.split('-')[0]})
-                    </span>
-                    <span
-                      className={`font-black text-xs ${
-                        Number(sz) < minOperational ? 'text-amber-300' : 'text-emerald-400'
-                      }`}
-                    >
-                      Min TB5: ${minOperational.toFixed(2)} | Buget Bot: ${currentSzVal.toFixed(2)}
-                    </span>
-                    <span className="text-[10px] text-cyan-300 block">
-                      {rawOkxMin > 0
-                        ? `OKX 1-lot min: $${rawOkxMin.toFixed(2)} ${ccyLabel} • În limita Buget Max ($${Math.max(5, Number(maxBudgetPerBot) || 25)})`
-                        : `Calculat automat de la min $5.00 la Buget Max ($${Math.max(5, Number(maxBudgetPerBot) || 25)})`}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCheckMinInvestment}
-                    disabled={isCheckingMinInv}
-                    className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 font-bold text-[11px] cursor-pointer shrink-0"
-                  >
-                    {isCheckingMinInv ? 'Calcul...' : 'Recalculează Min-Inv'}
-                  </button>
-                </div>
-              );
-            })()}
 
             {executionVariant === 'AUTO_LIMIT' ? (
               <div className="space-y-1.5">
