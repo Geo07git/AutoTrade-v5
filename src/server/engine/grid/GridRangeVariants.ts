@@ -102,16 +102,17 @@ export function buildGridRangeVariant(
   const minInvestmentUSDT = parseFloat(
     Math.max(2.0, basePerGridMargin * gridNum).toFixed(2)
   );
+  const effectiveMaxBudget = Math.max(5.0, maxBudgetPerBotUSDT);
   const fitsMaxBudget =
-    minInvestmentUSDT > 0 && minInvestmentUSDT <= maxBudgetPerBotUSDT;
+    minInvestmentUSDT > 0 && Math.max(5.0, minInvestmentUSDT) <= effectiveMaxBudget;
   const recommendedInvestmentUSDT = fitsMaxBudget
     ? parseFloat(
         Math.min(
-          maxBudgetPerBotUSDT,
-          Math.max(minInvestmentUSDT * 1.05, minInvestmentUSDT + 0.5)
+          effectiveMaxBudget,
+          Math.max(5.0, minInvestmentUSDT * 1.05, minInvestmentUSDT + 0.5)
         ).toFixed(2)
       )
-    : minInvestmentUSDT;
+    : parseFloat(Math.max(5.0, minInvestmentUSDT).toFixed(2));
 
   const estDailyCrossings = Math.max(
     1,

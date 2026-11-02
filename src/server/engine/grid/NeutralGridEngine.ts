@@ -73,7 +73,10 @@ export class NeutralGridEngine {
       this.lastKnownPrices.set(symbol, livePrice);
 
       const lotFilter = await this.adapter.getInstrumentFilter(symbol);
-      const marginInvestedUSDT = Number(rawConfig.marginInvestedUSDT) || 50;
+      const rawMargin = Number(rawConfig.marginInvestedUSDT);
+      const marginInvestedUSDT = parseFloat(
+        Math.max(5.0, Number.isFinite(rawMargin) && rawMargin > 0 ? rawMargin : 25).toFixed(2)
+      );
 
       // Auto-optimize if mode === 'AUTO' or bounds not specified
       let lowerPrice = Number(rawConfig.lowerPrice) || 0;

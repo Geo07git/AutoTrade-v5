@@ -54,7 +54,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   // Autopilot & Governance state (Exclusively LIVE on OKX EEA)
   const [apEnabled, setApEnabled] = useState<boolean>(Boolean(autopilot?.enabled));
   const [maxBudgetPerBot, setMaxBudgetPerBot] = useState<number>(
-    autopilot?.maxBudgetPerBotUSDT ?? 25
+    Math.max(5, autopilot?.maxBudgetPerBotUSDT ?? 25)
   );
   const [minReserve, setMinReserve] = useState<number>(autopilot?.minReserveUSDT ?? 5);
   const [maxConcurrentBots, setMaxConcurrentBots] = useState<number>(
@@ -97,7 +97,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   const [runType, setRunType] = useState<'1' | '2'>(opportunities[0]?.runType || '1');
   const [lever, setLever] = useState<number>(opportunities[0]?.lever || 3);
   const [sz, setSz] = useState<number>(
-    opportunities[0]?.recommendedInvestmentUSDT || maxBudgetPerBot
+    Math.max(
+      5,
+      autopilot?.maxBudgetPerBotUSDT ?? 25,
+      opportunities[0]?.minInvestmentUSDT ?? 0,
+      opportunities[0]?.recommendedInvestmentUSDT ?? 0
+    )
   );
   const [customStopType, setCustomStopType] = useState<'1' | '2'>('1');
   const [minInvCheck, setMinInvCheck] = useState<{
@@ -173,13 +178,23 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     }
   }, [gridAnalyzer?.thresholds]);
 
+  const computeBotInvestmentUSDT = (
+    minInvUSDT?: number,
+    budgetOverride?: number
+  ): number => {
+    const budget = Math.max(5, Number(budgetOverride ?? maxBudgetPerBot) || 25);
+    const minReq = Math.max(5, Number(minInvUSDT) || 0);
+    return parseFloat(Math.max(5, minReq, budget).toFixed(2));
+  };
+
   // Hydrate Autopilot settings ONLY ONCE on initial load so 3-second polling never overwrites user edits
   useEffect(() => {
     if (!autopilot) return;
     if (!hasHydratedAutopilot.current) {
       hasHydratedAutopilot.current = true;
+      const hydratedBudget = Math.max(5, Number(autopilot.maxBudgetPerBotUSDT) || 25);
       setApEnabled(Boolean(autopilot.enabled));
-      setMaxBudgetPerBot(autopilot.maxBudgetPerBotUSDT);
+      setMaxBudgetPerBot(hydratedBudget);
       setMinReserve(autopilot.minReserveUSDT);
       setMaxConcurrentBots(autopilot.maxConcurrentNativeBots);
       setMinScore(autopilot.minSuitabilityScore);
@@ -195,6 +210,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         setDefaultRangeVariant(autopilot.defaultRangeVariant);
         setBuilderVariant(autopilot.defaultRangeVariant);
       }
+      setSz((prev) => Math.max(5, hydratedBudget, Number(prev) || 0));
     }
   }, [autopilot]);
 
@@ -209,7 +225,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       setGridNum(top.gridNum);
       setRunType(top.runType);
       setLever(top.lever);
-      setSz(top.recommendedInvestmentUSDT);
+      setSz(computeBotInvestmentUSDT(top.minInvestmentUSDT));
+      setMinInvCheck({
+        minInvestmentUSDT: top.minInvestmentUSDT,
+        ccy: top.minInvestmentCcy || 'USD',
+        singleAmt: 0,
+      });
     }
   }, [opportunities]);
 
@@ -218,12 +239,47 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     'x-bot-token': controlToken || 'tradebot5_admin_token',
   });
 
+  // Automatically verify OKX Min-Investment whenever Builder parameters change so user is never stuck in a manual check state
+  useEffect(() => {
+    if (!instId || Number(minPx) <= 0 || Number(maxPx) <= Number(minPx)) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/bot/native-grid/min-investment', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            instId,
+            minPx: Number(minPx),
+            maxPx: Number(maxPx),
+            gridNum: Number(gridNum) || 8,
+            runType,
+            lever: Number(lever) || 3,
+          }),
+        });
+        const data = await res.json();
+        if (data && typeof data.minInvestmentUSDT === 'number' && data.minInvestmentUSDT > 0) {
+          setMinInvCheck(data);
+          setSz((prev) => {
+            const currentVal = Number(prev) || 0;
+            const floorVal = Math.max(5, data.minInvestmentUSDT, Number(maxBudgetPerBot) || 5);
+            return currentVal < Math.max(5, data.minInvestmentUSDT)
+              ? parseFloat(floorVal.toFixed(2))
+              : currentVal;
+          });
+        }
+      } catch {}
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [instId, minPx, maxPx, gridNum, runType, lever]);
+
   const handleSaveAutopilot = async (overrideEnabled?: boolean) => {
     setIsSavingAp(true);
     const nextEnabled = typeof overrideEnabled === 'boolean' ? overrideEnabled : apEnabled;
     if (typeof overrideEnabled === 'boolean') {
       setApEnabled(overrideEnabled);
     }
+    const sanitizedBudget = Math.max(5, Number(maxBudgetPerBot) || 10);
+    setMaxBudgetPerBot(sanitizedBudget);
     try {
       const res = await fetch('/api/bot/native-grid/autopilot', {
         method: 'POST',
@@ -232,7 +288,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           enabled: nextEnabled,
           environment: 'LIVE',
           liveExecutionConfirmed: true,
-          maxBudgetPerBotUSDT: Number(maxBudgetPerBot) || 10,
+          maxBudgetPerBotUSDT: sanitizedBudget,
           minReserveUSDT: Number(minReserve) >= 0 ? Number(minReserve) : 0,
           maxConcurrentNativeBots: Number(maxConcurrentBots) || 1,
           minSuitabilityScore: Number(minScore) || 65,
@@ -320,9 +376,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       const data = await res.json();
       setMinInvCheck(data);
       if (data.minInvestmentUSDT > 0) {
+        const nextTargetSz = computeBotInvestmentUSDT(data.minInvestmentUSDT);
+        setSz((prev) => Math.max(nextTargetSz, Number(prev) || 0));
         onNotify({
           type: 'info',
-          text: `OKX API Min-Investment (${instId}): $${data.minInvestmentUSDT.toFixed(2)} ${data.ccy} pentru ${gridNum} grile la ${lever}x.`,
+          text: `OKX API Min-Investment (${instId}): $${data.minInvestmentUSDT.toFixed(2)} ${data.ccy} (Min Operare TB5: $${Math.max(5, data.minInvestmentUSDT).toFixed(2)} | Buget Bot: $${nextTargetSz.toFixed(2)}) pentru ${gridNum} grile la ${lever}x.`,
         });
       }
     } catch (err: any) {
@@ -392,6 +450,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     const chosenVariantId =
       variantOverride || rowVariants[opp.instId] || opp.selectedVariant || defaultRangeVariant || 'BALANCED';
     const v = getVariantProfileForOpp(opp, chosenVariantId);
+    const targetInvestUSDT = computeBotInvestmentUSDT(v.minInvestmentUSDT);
     setInstId(opp.instId);
     setBuilderVariant(chosenVariantId);
     setRowVariants((prev) => ({ ...prev, [opp.instId]: chosenVariantId }));
@@ -400,7 +459,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     setGridNum(v.gridNum);
     setRunType(opp.runType);
     setLever(v.lever);
-    setSz(v.recommendedInvestmentUSDT);
+    setSz(targetInvestUSDT);
     setMinInvCheck({
       minInvestmentUSDT: v.minInvestmentUSDT,
       ccy: opp.minInvestmentCcy,
@@ -408,7 +467,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     });
     onNotify({
       type: v.feeWarning ? 'error' : 'info',
-      text: `${opp.instId} [${v.label} ±${v.halfRangePct.toFixed(2)}% • ${v.gridNum} grile • Distanță ${v.gridSpacingPct.toFixed(2)}% • Net +${v.estimatedNetProfitPerGridPct.toFixed(2)}%/grilă] încărcat în Builder.${
+      text: `${opp.instId} [${v.label} ±${v.halfRangePct.toFixed(2)}% • ${v.gridNum} grile • Distanță ${v.gridSpacingPct.toFixed(2)}% • Marjă: $${targetInvestUSDT.toFixed(2)} • Net +${v.estimatedNetProfitPerGridPct.toFixed(2)}%/grilă] încărcat în Builder.${
         v.feeWarning ? ` ⚠ ${v.feeWarning}` : ''
       }`,
     });
@@ -421,7 +480,18 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     const targetGridNum = Number(overrideParams?.gridNum ?? gridNum) || 10;
     const targetRunType = overrideParams?.runType || runType;
     const targetLever = Number(overrideParams?.lever ?? lever) || 3;
-    const targetSz = Number(overrideParams?.recommendedInvestmentUSDT ?? sz) || 5;
+    const minReqSz = Math.max(
+      5,
+      Number(overrideParams?.minInvestmentUSDT ?? minInvCheck?.minInvestmentUSDT ?? 0) || 0
+    );
+    const rawRequestedSz =
+      overrideParams?.recommendedInvestmentUSDT !== undefined
+        ? computeBotInvestmentUSDT(overrideParams.minInvestmentUSDT)
+        : Number(sz) || Number(maxBudgetPerBot) || 5;
+    const targetSz = parseFloat(Math.max(5, minReqSz, rawRequestedSz).toFixed(2));
+    if (!overrideParams) {
+      setSz(targetSz);
+    }
     const slPctVal = Number(stopLossPct) || 8;
     const tpPctVal = Number(takeProfitPct) || 15;
     const targetSlPx =
@@ -555,21 +625,27 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   };
 
   const handleLoadStoppedBotToBuilder = (b: OKXNativeGridBot) => {
+    const safeSz = parseFloat(
+      Math.max(5, Number(b.sz) || 0, Number(maxBudgetPerBot) || 5).toFixed(2)
+    );
     setInstId(b.instId);
     setMinPx(b.minPx);
     setMaxPx(b.maxPx);
     setGridNum(b.gridNum);
     setRunType(b.runType);
     setLever(b.lever);
-    setSz(b.sz);
+    setSz(safeSz);
     setCustomStopType(b.stopTypeOnRisk || '1');
     onNotify({
       type: 'info',
-      text: `Parametrii botului ${b.instId} ($${b.minPx}–$${b.maxPx}, ${b.gridNum} grile, ${b.lever}x, $${b.sz}) au fost încărcați în Builderul din stânga. Poți modifica valorile sau apăsa "CREEAZĂ BOT NATIV PE OKX (LIVE)".`,
+      text: `Parametrii botului ${b.instId} ($${b.minPx}–$${b.maxPx}, ${b.gridNum} grile, ${b.lever}x, $${safeSz}) au fost încărcați în Builderul din stânga.`,
     });
   };
 
   const handleRestartStoppedBot = async (b: OKXNativeGridBot) => {
+    const safeSz = parseFloat(
+      Math.max(5, Number(b.sz) || 0, Number(maxBudgetPerBot) || 5).toFixed(2)
+    );
     if (executionVariant === 'NATIVE_ASSISTANT') {
       handleLoadStoppedBotToBuilder(b);
       onNotify({
@@ -585,7 +661,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       gridNum: b.gridNum,
       runType: b.runType,
       lever: b.lever,
-      recommendedInvestmentUSDT: b.sz,
+      minInvestmentUSDT: safeSz,
+      recommendedInvestmentUSDT: safeSz,
     });
   };
 
@@ -1728,15 +1805,28 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         {/* Autopilot & Budget Configuration Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
           <div className="bg-black border border-zinc-800 rounded p-2">
-            <span className="text-[10px] text-zinc-400 block">Buget Max / Bot ($)</span>
+            <span className="text-[10px] text-zinc-400 block">Buget Max / Bot ($, min $5)</span>
             <input
               type="number"
-              min={2}
+              min={5}
               step="1"
               value={maxBudgetPerBot}
-              onChange={(e) =>
-                setMaxBudgetPerBot(e.target.value === '' ? ('' as any) : parseFloat(e.target.value))
-              }
+              onChange={(e) => {
+                const rawVal = e.target.value;
+                if (rawVal === '') {
+                  setMaxBudgetPerBot('' as any);
+                  return;
+                }
+                const parsed = parseFloat(rawVal);
+                setMaxBudgetPerBot(parsed);
+                if (Number.isFinite(parsed) && parsed >= 5) {
+                  setSz(
+                    parseFloat(
+                      Math.max(5, parsed, minInvCheck?.minInvestmentUSDT || 0).toFixed(2)
+                    )
+                  );
+                }
+              }}
               className="w-full bg-zinc-900 border border-emerald-500/40 rounded px-2 py-1 text-emerald-300 font-bold mt-0.5"
             />
           </div>
@@ -2180,10 +2270,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] text-zinc-400 block mb-0.5">
-                  Marjă Investită pe OKX (sz $)
+                  Marjă Investită pe OKX (sz $, min $5)
                 </label>
                 <input
                   type="number"
+                  min={5}
                   step="0.5"
                   value={sz}
                   onChange={(e) =>
@@ -2308,33 +2399,45 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </div>
             </div>
 
-            {/* OKX Min-Investment API Result Box */}
-            <div className="bg-black border border-zinc-800 rounded p-2 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-zinc-500 block">
-                  INVESTIȚIE MINIMĂ OKX API (min-investment)
-                </span>
-                <span
-                  className={`font-black text-xs ${
-                    minInvCheck && minInvCheck.minInvestmentUSDT > sz
-                      ? 'text-rose-400'
-                      : 'text-cyan-300'
-                  }`}
-                >
-                  {minInvCheck && minInvCheck.minInvestmentUSDT > 0
-                    ? `$${minInvCheck.minInvestmentUSDT.toFixed(2)} ${minInvCheck.ccy}`
-                    : 'Apasă "Verifică Min-Investment"'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleCheckMinInvestment}
-                disabled={isCheckingMinInv}
-                className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 font-bold text-[11px] cursor-pointer"
-              >
-                {isCheckingMinInv ? 'Calcul...' : 'Verifică Min-Investment'}
-              </button>
-            </div>
+            {/* OKX Min-Investment & Budget Sizing Box (Auto-Verified) */}
+            {(() => {
+              const currentOpp = opportunities.find((o) => o.instId === instId);
+              const rawOkxMin =
+                minInvCheck?.minInvestmentUSDT || currentOpp?.minInvestmentUSDT || 0;
+              const ccyLabel = minInvCheck?.ccy || currentOpp?.minInvestmentCcy || 'USD';
+              const minOperational = Math.max(5, rawOkxMin);
+              const budgetTarget = computeBotInvestmentUSDT(rawOkxMin);
+              const currentSzVal = Math.max(5, Number(sz) || budgetTarget);
+              return (
+                <div className="bg-black border border-zinc-800 rounded p-2 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block">
+                      PRAG MINIM ($5.00+) &amp; BUGET BOT ({instId.split('-')[0]})
+                    </span>
+                    <span
+                      className={`font-black text-xs ${
+                        Number(sz) < minOperational ? 'text-amber-300' : 'text-emerald-400'
+                      }`}
+                    >
+                      Min TB5: ${minOperational.toFixed(2)} | Buget Bot: ${currentSzVal.toFixed(2)}
+                    </span>
+                    <span className="text-[10px] text-cyan-300 block">
+                      {rawOkxMin > 0
+                        ? `OKX 1-lot min: $${rawOkxMin.toFixed(2)} ${ccyLabel} • În limita Buget Max ($${Math.max(5, Number(maxBudgetPerBot) || 25)})`
+                        : `Calculat automat de la min $5.00 la Buget Max ($${Math.max(5, Number(maxBudgetPerBot) || 25)})`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckMinInvestment}
+                    disabled={isCheckingMinInv}
+                    className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-cyan-300 border border-cyan-500/40 font-bold text-[11px] cursor-pointer shrink-0"
+                  >
+                    {isCheckingMinInv ? 'Calcul...' : 'Recalculează Min-Inv'}
+                  </button>
+                </div>
+              );
+            })()}
 
             {executionVariant === 'AUTO_LIMIT' ? (
               <div className="space-y-1.5">
@@ -3029,22 +3132,34 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </div>
                   </td>
                   <td className="py-2 px-2 tabular-nums">
-                    <div
-                      className={`font-black ${
-                        activeVar.fitsMaxBudget ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      ${activeVar.minInvestmentUSDT.toFixed(2)} {opp.minInvestmentCcy}
-                    </div>
-                    <div className="text-[10px]">
-                      {activeVar.fitsMaxBudget ? (
-                        <span className="text-emerald-300">
-                          ÎN BUGET (Rec: ${activeVar.recommendedInvestmentUSDT})
-                        </span>
-                      ) : (
-                        <span className="text-rose-400">PESTE BUGET (&gt;${maxBudgetPerBot})</span>
-                      )}
-                    </div>
+                    {(() => {
+                      const minOp = Math.max(5, activeVar.minInvestmentUSDT);
+                      const botBudget = Math.max(5, Number(maxBudgetPerBot) || 25);
+                      const fitsBudgetNow = minOp <= botBudget;
+                      const allocSz = computeBotInvestmentUSDT(activeVar.minInvestmentUSDT);
+                      return (
+                        <>
+                          <div
+                            className={`font-black ${
+                              fitsBudgetNow ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
+                          >
+                            Min TB5: ${minOp.toFixed(2)} (OKX: ${activeVar.minInvestmentUSDT.toFixed(2)})
+                          </div>
+                          <div className="text-[10px]">
+                            {fitsBudgetNow ? (
+                              <span className="text-emerald-300 font-bold">
+                                Alocat Bot: ${allocSz.toFixed(2)} (Buget Max: ${botBudget})
+                              </span>
+                            ) : (
+                              <span className="text-rose-400">
+                                PESTE BUGET (&gt;${botBudget})
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="py-2 px-2 tabular-nums">
                     <div
@@ -3086,7 +3201,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       {executionVariant === 'AUTO_LIMIT' ? (
                         <button
                           type="button"
-                          disabled={!activeVar.fitsMaxBudget || !activeVar.feeCheckPassed || isCreating}
+                          disabled={
+                            Math.max(5, activeVar.minInvestmentUSDT) >
+                              Math.max(5, Number(maxBudgetPerBot) || 25) ||
+                            !activeVar.feeCheckPassed ||
+                            isCreating
+                          }
                           onClick={() =>
                             handleCreateNativeBot({
                               ...opp,
@@ -3094,14 +3214,17 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                               maxPx: activeVar.maxPx,
                               gridNum: activeVar.gridNum,
                               lever: activeVar.lever,
-                              recommendedInvestmentUSDT: activeVar.recommendedInvestmentUSDT,
+                              minInvestmentUSDT: activeVar.minInvestmentUSDT,
+                              recommendedInvestmentUSDT: computeBotInvestmentUSDT(
+                                activeVar.minInvestmentUSDT
+                              ),
                             })
                           }
                           className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-black text-[10px] font-black cursor-pointer"
                           title={
                             !activeVar.feeCheckPassed
                               ? activeVar.feeWarning || 'Comisioanele depășesc pragul de siguranță pentru această variantă'
-                              : `Lansează ${activeVar.label} (±${activeVar.halfRangePct.toFixed(2)}%, ${activeVar.gridNum} grile)`
+                              : `Lansează ${activeVar.label} (±${activeVar.halfRangePct.toFixed(2)}%, ${activeVar.gridNum} grile, $${computeBotInvestmentUSDT(activeVar.minInvestmentUSDT).toFixed(2)})`
                           }
                         >
                           ⚡ Lansează Auto-Limit

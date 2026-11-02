@@ -260,6 +260,9 @@ export class TradeBot {
       this.universeManager,
       this.journal
     );
+    this.nativeGridEngine.setDefaultAutopilotCreator((p) =>
+      this.createNativeGridBot({ ...p, executionVariant: 'AUTO_LIMIT' })
+    );
     this.gridBotAnalyzer = new GridBotAnalyzer(
       this.okxAdapter,
       this.journal,
@@ -671,7 +674,7 @@ export class TradeBot {
     nextAutopilot.maxScannedSymbols = Math.max(1, Math.min(100, Math.round(Number(nextAutopilot.maxScannedSymbols) || 12)));
     nextAutopilot.minSuitabilityScore = Math.max(30, Math.min(98, Math.round(Number(nextAutopilot.minSuitabilityScore) || 70)));
     nextAutopilot.maxConcurrentBots = Math.max(1, Math.min(100, Math.round(Number(nextAutopilot.maxConcurrentBots) || 2)));
-    nextAutopilot.marginPerBotUSDT = Math.max(2, Number(nextAutopilot.marginPerBotUSDT) || 15);
+    nextAutopilot.marginPerBotUSDT = Math.max(5, Number(nextAutopilot.marginPerBotUSDT) || 15);
     nextAutopilot.minReserveUSDT = Math.max(0, Number(nextAutopilot.minReserveUSDT) || 5);
     nextAutopilot.defaultLeverage = Math.max(1, Math.min(20, Math.round(Number(nextAutopilot.defaultLeverage) || 3)));
     nextAutopilot.defaultMarginMode = nextAutopilot.defaultMarginMode === 'isolated' ? 'isolated' : 'cross';

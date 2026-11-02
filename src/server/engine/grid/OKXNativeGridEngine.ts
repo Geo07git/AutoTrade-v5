@@ -65,6 +65,11 @@ export class OKXNativeGridEngine {
     }
   > = new Map();
   private top7History24h: Map<string, number> = new Map();
+  private defaultAutopilotCreator?: (params: any) => Promise<{
+    success: boolean;
+    bot?: OKXNativeGridBot;
+    error?: string;
+  }>;
 
   constructor(
     okxAdapter: OKXAdapter,
@@ -106,11 +111,21 @@ export class OKXNativeGridEngine {
     this.dismissedStore.save(Array.from(this.dismissedAlgoIds));
   }
 
+  public setDefaultAutopilotCreator(
+    fn: (params: any) => Promise<{ success: boolean; bot?: OKXNativeGridBot; error?: string }>
+  ): void {
+    this.defaultAutopilotCreator = fn;
+  }
+
   public getConfig(): NativeGridAutopilotConfig {
     const stored = this.configStore.get() || ({} as Partial<NativeGridAutopilotConfig>);
     return {
       ...DEFAULT_NATIVE_GRID_AUTOPILOT,
       ...stored,
+      maxBudgetPerBotUSDT: Math.max(
+        5,
+        Number(stored.maxBudgetPerBotUSDT) || DEFAULT_NATIVE_GRID_AUTOPILOT.maxBudgetPerBotUSDT
+      ),
       environment: 'LIVE',
       liveExecutionConfirmed: true,
     };
@@ -125,7 +140,7 @@ export class OKXNativeGridEngine {
       liveExecutionConfirmed: true,
     };
 
-    next.maxBudgetPerBotUSDT = Math.max(2, Number(next.maxBudgetPerBotUSDT) || 25);
+    next.maxBudgetPerBotUSDT = Math.max(5, Number(next.maxBudgetPerBotUSDT) || 25);
     next.minReserveUSDT = Math.max(0, Number(next.minReserveUSDT) || 5);
     next.maxConcurrentNativeBots = Math.max(
       1,
@@ -316,6 +331,15 @@ export class OKXNativeGridEngine {
           };
 
           const rangeVariants = buildGridRangeVariants(variantCtx);
+          const effectiveBudget = Math.max(5.0, cfg.maxBudgetPerBotUSDT);
+          for (const vKey of ['CONSERVATIVE', 'BALANCED', 'COMPACT'] as GridRangeVariantId[]) {
+            const vp = rangeVariants[vKey];
+            const minOp = parseFloat(Math.max(5.0, vp.minInvestmentUSDT).toFixed(2));
+            vp.fitsMaxBudget = vp.minInvestmentUSDT > 0 && minOp <= effectiveBudget;
+            vp.recommendedInvestmentUSDT = vp.fitsMaxBudget
+              ? parseFloat(Math.max(minOp, effectiveBudget).toFixed(2))
+              : minOp;
+          }
           const activeVar = selectActiveRangeVariant(rangeVariants, activeVariantId);
 
           // Composite Market Intelligence Score (high-sensitivity continuous scoring with OI, OrderBook, Spread, Funding, Net Yield)
@@ -518,9 +542,9 @@ export class OKXNativeGridEngine {
       updatedCfg.scanDiagnostics = scanDiagnostics;
       this.configStore.save(updatedCfg);
 
-      // If Autopilot is enabled, evaluate autonomous native bot creation
-      if (cfg.enabled) {
-        await this.evaluateAutopilot();
+      // If Autopilot is enabled and a default creator is registered, evaluate autonomous bot creation
+      if (cfg.enabled && this.defaultAutopilotCreator) {
+        await this.evaluateAutopilot(undefined, false, this.defaultAutopilotCreator);
       }
 
       return this.opportunities;
@@ -587,7 +611,13 @@ export class OKXNativeGridEngine {
     const gridNum = Math.max(2, Math.min(100, Math.round(Number(params.gridNum) || 8)));
     const runType: '1' | '2' = params.runType === '2' ? '2' : '1';
     const lever = Math.max(1, Math.min(20, Math.round(Number(params.lever) || 3)));
-    const sz = Number(params.sz);
+    const rawSz = Number(params.sz);
+    const baseSz = parseFloat(
+      Math.max(
+        5.0,
+        Number.isFinite(rawSz) && rawSz > 0 ? rawSz : Math.max(5.0, cfg.maxBudgetPerBotUSDT)
+      ).toFixed(2)
+    );
 
     if (minPx <= 0 || maxPx <= minPx) {
       return {
@@ -605,6 +635,17 @@ export class OKXNativeGridEngine {
       runType,
       lever,
     });
+
+    const sz = parseFloat(
+      Math.max(
+        5.0,
+        baseSz,
+        minInv.minInvestmentUSDT > 0 &&
+          minInv.minInvestmentUSDT <= Math.max(baseSz, cfg.maxBudgetPerBotUSDT)
+          ? minInv.minInvestmentUSDT
+          : 0
+      ).toFixed(2)
+    );
 
     if (minInv.minInvestmentUSDT > 0 && sz < minInv.minInvestmentUSDT) {
       const msg = `Investiția alocată ($${sz.toFixed(2)}) este sub investiția minimă cerută de OKX ($${minInv.minInvestmentUSDT.toFixed(2)} ${minInv.ccy}) pentru ${gridNum} grile la ${lever}x.`;
@@ -1046,13 +1087,24 @@ export class OKXNativeGridEngine {
         : this.okxAdapter.getAvailableMarginUSDT() || 100;
 
     const launched: OKXNativeGridBot[] = [];
+    const targetBudgetUSDT = Math.max(5.0, cfg.maxBudgetPerBotUSDT);
+    const effectiveCreator = customCreator || this.defaultAutopilotCreator;
 
     for (const opp of eligible) {
       if (running.length + launched.length >= cfg.maxConcurrentNativeBots) break;
-      const investAmt = Math.min(cfg.maxBudgetPerBotUSDT, opp.recommendedInvestmentUSDT);
-      if (availUSDT - investAmt < cfg.minReserveUSDT) {
-        break;
+      const minReqUSDT = Math.max(5.0, Number(opp.minInvestmentUSDT) || 0);
+      if (minReqUSDT > targetBudgetUSDT) {
+        continue;
       }
+      const maxSpendableUSDT = parseFloat(
+        Math.max(0, availUSDT - cfg.minReserveUSDT).toFixed(2)
+      );
+      if (maxSpendableUSDT < minReqUSDT) {
+        continue;
+      }
+      const investAmt = parseFloat(
+        Math.max(minReqUSDT, Math.min(targetBudgetUSDT, maxSpendableUSDT)).toFixed(2)
+      );
 
       const createPayload = {
         instId: opp.instId,
@@ -1072,8 +1124,8 @@ export class OKXNativeGridEngine {
         executionVariant: 'AUTO_LIMIT' as const,
       };
 
-      const res = customCreator
-        ? await customCreator(createPayload)
+      const res = effectiveCreator
+        ? await effectiveCreator(createPayload)
         : await this.createNativeBot(createPayload);
 
       if (res.success && res.bot) {
