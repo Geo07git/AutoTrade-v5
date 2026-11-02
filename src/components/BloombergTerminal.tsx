@@ -397,62 +397,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   }, [profile, status?.config?.marginMode, status?.config?.maxLeverage]);
 
-  // Sync Autopilot config from backend status on initial load & auto-restore if container reset
+  // Sync Autopilot config from unified nativeGridAutopilot & serverAutopilot
   useEffect(() => {
-    if (!serverAutopilot) return;
-
-    // If the container just reset from hibernation (fresh default state with lastAutopilotCheckAt === 0 and enabled === false),
-    // automatically restore the user's last saved Autopilot configuration from localStorage!
-    if (
-      !hasHydratedAutopilot.current &&
-      !serverAutopilot.enabled &&
-      (!serverAutopilot.lastAutopilotCheckAt || serverAutopilot.lastAutopilotCheckAt === 0)
-    ) {
-      try {
-        const savedRaw = localStorage.getItem('tb5_autopilot_backup');
-        if (savedRaw) {
-          const savedAp = JSON.parse(savedRaw);
-          if (savedAp && typeof savedAp === 'object') {
-            hasHydratedAutopilot.current = true;
-            setApEnabled(Boolean(savedAp.enabled));
-            if (savedAp.scanIntervalSec) setApScanIntervalSec(savedAp.scanIntervalSec);
-            if (savedAp.maxScannedSymbols) setApMaxScannedSymbols(savedAp.maxScannedSymbols);
-            if (savedAp.minSuitabilityScore) setApMinScore(savedAp.minSuitabilityScore);
-            if (savedAp.maxConcurrentBots) setApMaxBots(savedAp.maxConcurrentBots);
-            if (savedAp.marginPerBotUSDT) setApMarginPerBot(savedAp.marginPerBotUSDT);
-            if (savedAp.minReserveUSDT !== undefined) setApMinReserve(savedAp.minReserveUSDT);
-            if (typeof savedAp.useAnalyzerLeverage === 'boolean') setApUseAnalyzerLeverage(savedAp.useAnalyzerLeverage);
-            if (savedAp.defaultLeverage) {
-              setApDefaultLeverage(savedAp.defaultLeverage);
-              setLeverage(savedAp.defaultLeverage);
-            }
-            if (savedAp.defaultMarginMode === 'isolated' || savedAp.defaultMarginMode === 'cross') {
-              setApMarginMode(savedAp.defaultMarginMode);
-              setMarginMode(savedAp.defaultMarginMode);
-            }
-            if (savedAp.defaultGridType) setApGridType(savedAp.defaultGridType);
-            if (savedAp.stopLossPct) setApStopLossPct(savedAp.stopLossPct);
-            if (savedAp.takeProfitPct) setApTakeProfitPct(savedAp.takeProfitPct);
-            if (typeof savedAp.stopOnRangeBreakout === 'boolean') setApStopOnBreakout(savedAp.stopOnRangeBreakout);
-            if (savedAp.cooldownMinutesPerSymbol !== undefined) setApCooldownMin(savedAp.cooldownMinutesPerSymbol);
-            if (typeof savedAp.onlyIdealOrGoodRegime === 'boolean') setApOnlyIdealRegime(savedAp.onlyIdealOrGoodRegime);
-
-            fetch('/api/bot/grid/autopilot', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-bot-token': controlToken,
-              },
-              body: JSON.stringify(savedAp),
-            })
-              .then(() => onRefresh())
-              .catch(() => {});
-            return;
-          }
-        }
-      } catch {}
+    const nat = status?.nativeGridAutopilot;
+    if (nat) {
+      setApEnabled(Boolean(nat.enabled));
+      if (nat.maxBudgetPerBotUSDT) setApMarginPerBot(Math.max(5, nat.maxBudgetPerBotUSDT));
+      if (nat.minSuitabilityScore) setApMinScore(nat.minSuitabilityScore);
+      if (nat.maxConcurrentNativeBots) setApMaxBots(nat.maxConcurrentNativeBots);
+      if (nat.minReserveUSDT !== undefined) setApMinReserve(nat.minReserveUSDT);
+      if (nat.maxLeverage) setApDefaultLeverage(nat.maxLeverage);
+      if (nat.stopLossPct) setApStopLossPct(nat.stopLossPct);
+      if (nat.takeProfitPct) setApTakeProfitPct(nat.takeProfitPct);
+      if (typeof nat.stopOnRangeBreakout === 'boolean') setApStopOnBreakout(nat.stopOnRangeBreakout);
+      if (nat.scanIntervalSec) setApScanIntervalSec(nat.scanIntervalSec);
+      hasHydratedAutopilot.current = true;
+      return;
     }
 
+    if (!serverAutopilot) return;
     if (typeof serverAutopilot.enabled === 'boolean') {
       setApEnabled(serverAutopilot.enabled);
     }
@@ -462,7 +425,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       if (serverAutopilot.maxScannedSymbols) setApMaxScannedSymbols(serverAutopilot.maxScannedSymbols);
       if (serverAutopilot.minSuitabilityScore) setApMinScore(serverAutopilot.minSuitabilityScore);
       if (serverAutopilot.maxConcurrentBots) setApMaxBots(serverAutopilot.maxConcurrentBots);
-      if (serverAutopilot.marginPerBotUSDT) setApMarginPerBot(serverAutopilot.marginPerBotUSDT);
+      if (serverAutopilot.marginPerBotUSDT) setApMarginPerBot(Math.max(5, serverAutopilot.marginPerBotUSDT));
       if (serverAutopilot.minReserveUSDT !== undefined) setApMinReserve(serverAutopilot.minReserveUSDT);
       if (typeof serverAutopilot.useAnalyzerLeverage === 'boolean') setApUseAnalyzerLeverage(serverAutopilot.useAnalyzerLeverage);
       if (serverAutopilot.defaultLeverage) setApDefaultLeverage(serverAutopilot.defaultLeverage);
@@ -474,7 +437,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       if (serverAutopilot.cooldownMinutesPerSymbol !== undefined) setApCooldownMin(serverAutopilot.cooldownMinutesPerSymbol);
       if (typeof serverAutopilot.onlyIdealOrGoodRegime === 'boolean') setApOnlyIdealRegime(serverAutopilot.onlyIdealOrGoodRegime);
     }
-  }, [serverAutopilot]);
+  }, [status?.nativeGridAutopilot, serverAutopilot]);
 
   // Live Optimizer Preview & Actions State
   const [liveSymbolPrice, setLiveSymbolPrice] = useState<number>(0);
@@ -1044,66 +1007,63 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
-  // Save & apply Autopilot configuration
+  // Save & apply unified Autopilot configuration (always preserving Native Grid Autopilot budget & score)
   const handleSaveAutopilot = async (overrideEnabled?: boolean) => {
     setIsSavingAutopilot(true);
     setLocalBanner(null);
+    const nat = status?.nativeGridAutopilot;
     const nextEnabled =
-      typeof overrideEnabled === 'boolean' ? overrideEnabled : apEnabled;
+      typeof overrideEnabled === 'boolean'
+        ? overrideEnabled
+        : Boolean(nat?.enabled ?? apEnabled);
     setApEnabled(nextEnabled);
+    const unifiedBudget = Math.max(
+      5,
+      Number(nat?.maxBudgetPerBotUSDT ?? apMarginPerBot) || 10
+    );
+    const unifiedMinScore = Number(nat?.minSuitabilityScore ?? apMinScore) || 68;
+    const unifiedMaxBots = Number(nat?.maxConcurrentNativeBots ?? apMaxBots) || 2;
+    const unifiedMinReserve = Number(nat?.minReserveUSDT ?? apMinReserve) || 5;
+    const unifiedLev = Number(nat?.maxLeverage ?? apDefaultLeverage) || 3;
     try {
-      const res = await fetch('/api/bot/grid/autopilot', {
+      const res = await fetch('/api/bot/native-grid/autopilot', {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({
           enabled: nextEnabled,
-          scanIntervalSec: Number(apScanIntervalSec),
-          maxScannedSymbols: Number(apMaxScannedSymbols),
-          minSuitabilityScore: Number(apMinScore),
-          maxConcurrentBots: Number(apMaxBots),
-          marginPerBotUSDT: Number(apMarginPerBot),
-          minReserveUSDT: Number(apMinReserve),
-          useAnalyzerLeverage: apUseAnalyzerLeverage,
-          defaultLeverage: Number(apDefaultLeverage),
-          defaultMarginMode: apMarginMode,
-          defaultGridType: apGridType,
-          stopLossPct: Number(apStopLossPct),
-          takeProfitPct: Number(apTakeProfitPct),
-          stopOnRangeBreakout: apStopOnBreakout,
-          cooldownMinutesPerSymbol: Number(apCooldownMin),
-          onlyIdealOrGoodRegime: apOnlyIdealRegime,
+          environment: 'LIVE',
+          liveExecutionConfirmed: true,
+          maxBudgetPerBotUSDT: unifiedBudget,
+          minReserveUSDT: unifiedMinReserve,
+          maxConcurrentNativeBots: unifiedMaxBots,
+          minSuitabilityScore: unifiedMinScore,
+          minNetProfitPerGridPct: nat?.minNetProfitPerGridPct ?? 0.12,
+          maxLeverage: unifiedLev,
+          defaultRunType: nat?.defaultRunType || (apGridType === 'GEOMETRIC' ? '2' : '1'),
+          defaultStopType: nat?.defaultStopType || '1',
+          defaultRangeVariant: nat?.defaultRangeVariant || 'BALANCED',
+          stopLossPct: Number(nat?.stopLossPct ?? apStopLossPct) || 8,
+          takeProfitPct: Number(nat?.takeProfitPct ?? apTakeProfitPct) || 15,
+          stopOnRangeBreakout: nat?.stopOnRangeBreakout ?? apStopOnBreakout,
+          stopOnTrendInvalidation: nat?.stopOnTrendInvalidation ?? true,
         }),
       });
       const data = await safeJson(res);
       if (data.success) {
         if (data.autopilot) {
-          try {
-            localStorage.setItem('tb5_autopilot_backup', JSON.stringify(data.autopilot));
-          } catch {}
           setApEnabled(Boolean(data.autopilot.enabled));
-          setApScanIntervalSec(data.autopilot.scanIntervalSec);
-          setApMaxScannedSymbols(data.autopilot.maxScannedSymbols);
           setApMinScore(data.autopilot.minSuitabilityScore);
-          setApMaxBots(data.autopilot.maxConcurrentBots);
-          setApMarginPerBot(data.autopilot.marginPerBotUSDT);
+          setApMaxBots(data.autopilot.maxConcurrentNativeBots);
+          setApMarginPerBot(data.autopilot.maxBudgetPerBotUSDT);
           setApMinReserve(data.autopilot.minReserveUSDT);
-          setApUseAnalyzerLeverage(Boolean(data.autopilot.useAnalyzerLeverage));
-          setApDefaultLeverage(data.autopilot.defaultLeverage);
-          setApMarginMode(data.autopilot.defaultMarginMode);
-          setApGridType(data.autopilot.defaultGridType);
-          setApStopLossPct(data.autopilot.stopLossPct);
-          setApTakeProfitPct(data.autopilot.takeProfitPct);
-          setApStopOnBreakout(Boolean(data.autopilot.stopOnRangeBreakout));
-          setApCooldownMin(data.autopilot.cooldownMinutesPerSymbol);
-          setApOnlyIdealRegime(Boolean(data.autopilot.onlyIdealOrGoodRegime));
         }
-        const launchedCount = data.launchedBots?.length || 0;
+        const launchedCount = data.launched?.length || data.launchedBots?.length || 0;
         setLocalBanner({
           type: launchedCount > 0 ? 'success' : 'info',
           text:
             launchedCount > 0
               ? `AUTOPILOT ACTIVAT: S-au lansat automat ${launchedCount} bot(i) Grid! (${data.decision})`
-              : `Configurație Autopilot salvată (${nextEnabled ? 'AUTOPILOT ON' : 'DOAR MANUAL'} | Max ${data.autopilot?.maxConcurrentBots || apMaxBots} boți | Scanare la ${data.autopilot?.scanIntervalSec || apScanIntervalSec}s). ${data.decision || ''}`,
+              : `Configurație Autopilot salvată (${nextEnabled ? 'AUTOPILOT ON' : 'DOAR MANUAL'} | Buget Max: $${unifiedBudget}/bot | Scor Min: ≥${unifiedMinScore}). ${data.decision || ''}`,
         });
         onRefresh();
       } else {

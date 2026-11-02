@@ -166,11 +166,81 @@ export class OKXNativeGridEngine {
     );
 
     this.configStore.save(next);
+    this.recomputeOpportunitiesForConfig(next);
     this.journal.logAudit(
       'CONFIG_UPDATED',
-      `[OKX NATIVE GRID CONFIG LIVE] Autopilot: ${next.enabled ? 'ON' : 'OFF'} | Variantă Range: ${next.defaultRangeVariant} | Buget Max/Bot: $${next.maxBudgetPerBotUSDT} | Levier Max: ${next.maxLeverage}x | StopType: ${next.defaultStopType === '1' ? '1 (Închide Poziția)' : '2 (Păstrează Poziția)'}`
+      `[OKX NATIVE GRID CONFIG LIVE] Autopilot: ${next.enabled ? 'ON' : 'OFF'} | Variantă Range: ${next.defaultRangeVariant} | Buget Max/Bot: $${next.maxBudgetPerBotUSDT} | Scor Min: ${next.minSuitabilityScore} | Levier Max: ${next.maxLeverage}x | StopType: ${next.defaultStopType === '1' ? '1 (Închide Poziția)' : '2 (Păstrează Poziția)'}`
     );
     return next;
+  }
+
+  public recomputeOpportunitiesForConfig(cfg: NativeGridAutopilotConfig = this.getConfig()): void {
+    if (!this.opportunities || this.opportunities.length === 0) return;
+    const effectiveBudget = Math.max(5.0, Number(cfg.maxBudgetPerBotUSDT) || 25);
+    const minScore = Math.max(35, Number(cfg.minSuitabilityScore) || 68);
+    const minNetPct = Math.max(0.02, Number(cfg.minNetProfitPerGridPct) || 0.12);
+    const activeVariantId: GridRangeVariantId = cfg.defaultRangeVariant || 'BALANCED';
+    const feeInfo = getLiveFeeRates();
+    const roundTripMakerFeePct = feeInfo.roundTripMakerFeePct;
+
+    for (const opp of this.opportunities) {
+      if (opp.rangeVariants) {
+        for (const vKey of ['CONSERVATIVE', 'BALANCED', 'COMPACT'] as GridRangeVariantId[]) {
+          const vp = opp.rangeVariants[vKey];
+          if (!vp) continue;
+          const minOp = parseFloat(Math.max(5.0, vp.minInvestmentUSDT).toFixed(2));
+          vp.fitsMaxBudget = vp.minInvestmentUSDT > 0 && minOp <= effectiveBudget;
+          vp.recommendedInvestmentUSDT = vp.fitsMaxBudget
+            ? parseFloat(Math.max(minOp, effectiveBudget).toFixed(2))
+            : minOp;
+          const requiredNet =
+            vKey === 'COMPACT'
+              ? Math.max(minNetPct, roundTripMakerFeePct * 2.2)
+              : minNetPct;
+          vp.feeCheckPassed =
+            vp.estimatedNetProfitPerGridPct >= requiredNet &&
+            (vKey !== 'COMPACT' || vp.feeLoadPctOfStep <= 42);
+        }
+        const activeVar = selectActiveRangeVariant(opp.rangeVariants, activeVariantId);
+        opp.selectedVariant = activeVar.id;
+        opp.halfRangePct = activeVar.halfRangePct;
+        opp.minPx = activeVar.minPx;
+        opp.maxPx = activeVar.maxPx;
+        opp.gridNum = activeVar.gridNum;
+        opp.gridSpacingPct = activeVar.gridSpacingPct;
+        opp.lever = activeVar.lever;
+        opp.minInvestmentUSDT = activeVar.minInvestmentUSDT;
+        opp.recommendedInvestmentUSDT = activeVar.recommendedInvestmentUSDT;
+        opp.fitsMaxBudget = activeVar.fitsMaxBudget;
+        opp.estimatedGrossProfitPerGridPct = activeVar.estimatedGrossProfitPerGridPct;
+        opp.estimatedNetProfitPerGridPct = activeVar.estimatedNetProfitPerGridPct;
+        opp.estimatedDailyNetYieldPct = activeVar.estimatedDailyNetYieldPct;
+
+        const rejectionReasons: string[] = [];
+        const minOpActive = parseFloat(Math.max(5.0, activeVar.minInvestmentUSDT).toFixed(2));
+        if (activeVar.minInvestmentUSDT <= 0) {
+          rejectionReasons.push('OKX min-investment indisponibil');
+        } else if (!activeVar.fitsMaxBudget) {
+          rejectionReasons.push(
+            `Investiție minimă ($${minOpActive.toFixed(2)}) > Buget Max ($${effectiveBudget.toFixed(2)})`
+          );
+        }
+        if (!activeVar.feeCheckPassed) {
+          rejectionReasons.push(
+            activeVar.feeWarning ||
+              `Profit net/grilă (${activeVar.estimatedNetProfitPerGridPct.toFixed(2)}%) insuficient după comisioane OKX (${roundTripMakerFeePct.toFixed(2)}%)`
+          );
+        }
+        if (opp.regimeLabel === 'TRENDING_RISK') {
+          rejectionReasons.push('Piață în trend direcțional puternic (TRENDING_RISK)');
+        }
+        if (opp.suitabilityScore < minScore) {
+          rejectionReasons.push(`Scor (${opp.suitabilityScore}) sub pragul minim (${minScore})`);
+        }
+        opp.isEligible = rejectionReasons.length === 0;
+        opp.rejectionReason = rejectionReasons.length > 0 ? rejectionReasons.join(' | ') : undefined;
+      }
+    }
   }
 
   public getAllBots(): OKXNativeGridBot[] {

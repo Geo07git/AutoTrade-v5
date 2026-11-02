@@ -168,6 +168,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   });
 
   const hasHydratedAutopilot = useRef<boolean>(false);
+  const lastSyncedAutopilotSig = useRef<string>('');
   const hasHydratedBuilder = useRef<boolean>(false);
   const hasHydratedAnalyzerThresholds = useRef<boolean>(false);
 
@@ -178,20 +179,51 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     }
   }, [gridAnalyzer?.thresholds]);
 
+  const effectiveMaxBudget = Math.max(
+    5,
+    Number(maxBudgetPerBot) || Number(autopilot?.maxBudgetPerBotUSDT) || 25
+  );
+  const effectiveMinScore =
+    Number(minScore) || Number(autopilot?.minSuitabilityScore) || 68;
+  const effectiveMinNetProfit =
+    Number(minNetProfitPct) || Number(autopilot?.minNetProfitPerGridPct) || 0.12;
+
   const computeBotInvestmentUSDT = (
     minInvUSDT?: number,
     budgetOverride?: number
   ): number => {
-    const budget = Math.max(5, Number(budgetOverride ?? maxBudgetPerBot) || 25);
+    const budget = Math.max(5, Number(budgetOverride ?? effectiveMaxBudget) || 25);
     const minReq = Math.max(5, Number(minInvUSDT) || 0);
     return parseFloat(Math.max(5, minReq, budget).toFixed(2));
   };
 
-  // Hydrate Autopilot settings ONLY ONCE on initial load so 3-second polling never overwrites user edits
+  // Sync Autopilot settings on initial load and whenever server configuration actually changes
   useEffect(() => {
     if (!autopilot) return;
-    if (!hasHydratedAutopilot.current) {
+    try {
+      // Remove legacy duplicate backup key so old Tab 1 settings ($6.00 / 70) never overwrite unified settings
+      localStorage.removeItem('tb5_autopilot_backup');
+    } catch {}
+    const sig = [
+      Boolean(autopilot.enabled),
+      autopilot.maxBudgetPerBotUSDT,
+      autopilot.minReserveUSDT,
+      autopilot.maxConcurrentNativeBots,
+      autopilot.minSuitabilityScore,
+      autopilot.minNetProfitPerGridPct,
+      autopilot.maxLeverage,
+      autopilot.defaultRunType,
+      autopilot.defaultStopType,
+      autopilot.defaultRangeVariant,
+      autopilot.stopLossPct,
+      autopilot.takeProfitPct,
+      Boolean(autopilot.stopOnRangeBreakout),
+      Boolean(autopilot.stopOnTrendInvalidation),
+    ].join('|');
+
+    if (!hasHydratedAutopilot.current || lastSyncedAutopilotSig.current !== sig) {
       hasHydratedAutopilot.current = true;
+      lastSyncedAutopilotSig.current = sig;
       const hydratedBudget = Math.max(5, Number(autopilot.maxBudgetPerBotUSDT) || 25);
       setApEnabled(Boolean(autopilot.enabled));
       setMaxBudgetPerBot(hydratedBudget);
@@ -307,12 +339,16 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       if (data.success) {
         if (data.autopilot) {
           setApEnabled(Boolean(data.autopilot.enabled));
+          try {
+            localStorage.removeItem('tb5_autopilot_backup');
+            localStorage.setItem('tb5_native_autopilot_backup', JSON.stringify(data.autopilot));
+          } catch {}
         }
         onNotify({
           type: 'success',
           text: `Configurație OKX Native Grid LIVE salvată (Autopilot: ${
             data.autopilot?.enabled ? 'ON' : 'OFF'
-          }). ${data.decision || ''}`,
+          } | Buget Max/Bot: $${sanitizedBudget} | Scor Min: ≥${Number(minScore) || 65}). ${data.decision || ''}`,
         });
         onRefresh();
       } else {
@@ -750,7 +786,58 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       : botFilter === 'STOPPED'
         ? stoppedNativeBots
         : bots;
-  const eligibleOpportunities = opportunities.filter((o) => o.isEligible);
+  const evaluateOpportunityLive = (
+    opp: NativeGridOpportunity,
+    activeVar: GridRangeVariantProfile
+  ): {
+    isEligible: boolean;
+    rejectionReason?: string;
+    minOp: number;
+    botBudget: number;
+    fitsBudgetNow: boolean;
+  } => {
+    const minOp = parseFloat(Math.max(5, Number(activeVar.minInvestmentUSDT) || 0).toFixed(2));
+    const botBudget = effectiveMaxBudget;
+    const fitsBudgetNow = activeVar.minInvestmentUSDT > 0 && minOp <= botBudget;
+    const reasons: string[] = [];
+
+    if (activeVar.minInvestmentUSDT <= 0) {
+      reasons.push('OKX min-investment indisponibil');
+    } else if (!fitsBudgetNow) {
+      reasons.push(
+        `Investiție minimă ($${minOp.toFixed(2)}) > Buget Max ($${botBudget.toFixed(2)})`
+      );
+    }
+    const feeOk =
+      activeVar.feeCheckPassed &&
+      activeVar.estimatedNetProfitPerGridPct >= effectiveMinNetProfit;
+    if (!feeOk) {
+      reasons.push(
+        activeVar.feeWarning ||
+          `Profit net/grilă (${activeVar.estimatedNetProfitPerGridPct.toFixed(2)}%) < min (${effectiveMinNetProfit.toFixed(2)}%)`
+      );
+    }
+    if (opp.regimeLabel === 'TRENDING_RISK') {
+      reasons.push('Piață în trend direcțional puternic (TRENDING_RISK)');
+    }
+    if (opp.suitabilityScore < effectiveMinScore) {
+      reasons.push(`Scor (${opp.suitabilityScore}) sub pragul minim (${effectiveMinScore})`);
+    }
+    return {
+      isEligible: reasons.length === 0,
+      rejectionReason: reasons.length > 0 ? reasons.join(' | ') : undefined,
+      minOp,
+      botBudget,
+      fitsBudgetNow,
+    };
+  };
+
+  const eligibleOpportunities = opportunities.filter((o) => {
+    const varId: GridRangeVariantId =
+      rowVariants[o.instId] || o.selectedVariant || defaultRangeVariant || 'BALANCED';
+    const vp = getVariantProfileForOpp(o, varId);
+    return evaluateOpportunityLive(o, vp).isEligible;
+  });
 
   const calcSlTriggerPx =
     minPx > 0 ? parseFloat((minPx * (1 - (stopLossPct || 8) / 100 / Math.max(1, lever))).toFixed(6)) : 0;
@@ -2949,6 +3036,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   defaultRangeVariant ||
                   'BALANCED';
                 const activeVar = getVariantProfileForOpp(opp, activeVarId);
+                const liveEval = evaluateOpportunityLive(opp, activeVar);
                 const displayRank = opp.rank ?? idx + 1;
                 const rankDelta = opp.rankDelta ?? 0;
                 const scoreDelta = opp.scoreDelta ?? 0;
@@ -2956,7 +3044,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 <tr
                   key={opp.instId}
                   className={`hover:bg-zinc-900/60 ${
-                    opp.isEligible ? '' : 'opacity-65'
+                    liveEval.isEligible ? '' : 'opacity-65'
                   }`}
                 >
                   <td className="py-2 px-2">
@@ -2984,13 +3072,13 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       <span className="font-black text-white">{opp.instId}</span>
                     </div>
                     <div className="text-[10px] text-zinc-400 mt-0.5">
-                      {opp.isEligible ? (
+                      {liveEval.isEligible ? (
                         <span className="text-emerald-400 font-bold">
                           ✓ ELIGIBIL NEUTRAL GRID {opp.preScore ? `(Pre-Scor: ${opp.preScore})` : ''}
                         </span>
                       ) : (
-                        <span className="text-rose-400" title={opp.rejectionReason}>
-                          ✕ {opp.rejectionReason}
+                        <span className="text-rose-400" title={liveEval.rejectionReason}>
+                          ✕ {liveEval.rejectionReason}
                         </span>
                       )}
                     </div>
@@ -3133,10 +3221,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   </td>
                   <td className="py-2 px-2 tabular-nums">
                     {(() => {
-                      const minOp = Math.max(5, activeVar.minInvestmentUSDT);
-                      const botBudget = Math.max(5, Number(maxBudgetPerBot) || 25);
-                      const fitsBudgetNow = minOp <= botBudget;
-                      const allocSz = computeBotInvestmentUSDT(activeVar.minInvestmentUSDT);
+                      const { minOp, botBudget, fitsBudgetNow } = liveEval;
+                      const allocSz = computeBotInvestmentUSDT(activeVar.minInvestmentUSDT, botBudget);
                       return (
                         <>
                           <div
@@ -3149,11 +3235,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           <div className="text-[10px]">
                             {fitsBudgetNow ? (
                               <span className="text-emerald-300 font-bold">
-                                Alocat Bot: ${allocSz.toFixed(2)} (Buget Max: ${botBudget})
+                                Alocat Bot: ${allocSz.toFixed(2)} (Buget Max: ${botBudget.toFixed(2)})
                               </span>
                             ) : (
                               <span className="text-rose-400">
-                                PESTE BUGET (&gt;${botBudget})
+                                PESTE BUGET (&gt;${botBudget.toFixed(2)})
                               </span>
                             )}
                           </div>

@@ -645,10 +645,22 @@ export class TradeBot {
 
   public getAutopilotConfig(): GridAutopilotConfig {
     const cfg = this.configStore.get();
-    return {
+    const nativeCfg = this.nativeGridEngine?.getConfig?.();
+    const base: GridAutopilotConfig = {
       ...DEFAULT_AUTOPILOT_CONFIG,
       ...(cfg.autopilot || {}),
     };
+    if (nativeCfg) {
+      base.enabled = Boolean(nativeCfg.enabled);
+      base.marginPerBotUSDT = Math.max(5, Number(nativeCfg.maxBudgetPerBotUSDT) || base.marginPerBotUSDT);
+      base.minReserveUSDT = Math.max(0, Number(nativeCfg.minReserveUSDT) ?? base.minReserveUSDT);
+      base.maxConcurrentBots = Math.max(1, Number(nativeCfg.maxConcurrentNativeBots) || base.maxConcurrentBots);
+      base.minSuitabilityScore = Math.max(35, Number(nativeCfg.minSuitabilityScore) || base.minSuitabilityScore);
+      base.defaultLeverage = Math.max(1, Number(nativeCfg.maxLeverage) || base.defaultLeverage);
+      base.stopLossPct = Number(nativeCfg.stopLossPct) || base.stopLossPct;
+      base.takeProfitPct = Number(nativeCfg.takeProfitPct) || base.takeProfitPct;
+    }
+    return base;
   }
 
   public async updateAutopilotConfig(
