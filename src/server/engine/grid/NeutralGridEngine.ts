@@ -190,17 +190,42 @@ export class NeutralGridEngine {
         activeSellOrders,
       };
 
-      // Deploy initial orders
-      await this.deployInitialGridOrders(bot);
-      this.recalculateBotAccounting(bot, livePrice, lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1);
-
+      // Lock symbol and register bot BEFORE deploying orders so concurrent ticks/reconciliation never treat the bot's new orders as orphans
+      this.processingSymbols.add(symbol);
       this.bots.set(botId, bot);
+
+      let deployRes: { livePlacedCount: number; lastError?: string } = { livePlacedCount: 0 };
+      try {
+        deployRes = await this.deployInitialGridOrders(bot);
+      } finally {
+        this.processingSymbols.delete(symbol);
+      }
+
+      if (executionMode === 'LIVE' && deployRes.livePlacedCount === 0) {
+        this.bots.delete(botId);
+        this.persist();
+        const errReason = deployRes.lastError
+          ? `OKX EEA a respins plasarea ordinelor Limit pentru ${symbol}: ${deployRes.lastError}`
+          : `Nu s-a putut plasa niciun ordin Limit pe OKX EEA pentru ${symbol}. Verifică marja liberă pe contul OKX.`;
+        this.journal.logAudit('ORDER_REJECTED', `[GRID LIVE EȘUAT] ${errReason}`);
+        return {
+          success: false,
+          error: errReason,
+        };
+      }
+
+      this.recalculateBotAccounting(
+        bot,
+        livePrice,
+        lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1
+      );
+
       this.persist();
 
       this.journal.logAudit(
         'GRID_CREATED',
-        `[BOT GRID ACTIVAT] ${symbol} (${executionMode}) | Interval: $${fullConfig.lowerPrice} – $${fullConfig.upperPrice} | ${fullConfig.gridCount} trepte (${fullConfig.gridType}) | Marjă: $${fullConfig.marginInvestedUSDT} × ${fullConfig.leverage}x (${fullConfig.marginMode.toUpperCase()}) | SL: -${fullConfig.risk.stopLossPct}% / TP: +${fullConfig.risk.takeProfitPct}%`,
-        { botId, config: fullConfig, warnings: opt.warnings }
+        `[BOT GRID ACTIVAT] ${symbol} (${executionMode}) | Interval: $${fullConfig.lowerPrice} – $${fullConfig.upperPrice} | ${fullConfig.gridCount} trepte (${fullConfig.gridType}) | Marjă: $${fullConfig.marginInvestedUSDT} × ${fullConfig.leverage}x (${fullConfig.marginMode.toUpperCase()}) | Ordine LIVE plasate pe OKX: ${deployRes.livePlacedCount} | SL: -${fullConfig.risk.stopLossPct}% / TP: +${fullConfig.risk.takeProfitPct}%`,
+        { botId, config: fullConfig, livePlacedCount: deployRes.livePlacedCount, warnings: opt.warnings }
       );
 
       return { success: true, bot, warnings: opt.warnings };
@@ -258,7 +283,9 @@ export class NeutralGridEngine {
    * In LIVE mode, submits limit orders to OKX for the nearest active levels that fit within
    * both the bot's allocated margin budget and the account's real available margin.
    */
-  private async deployInitialGridOrders(bot: GridBotInstance) {
+  private async deployInitialGridOrders(
+    bot: GridBotInstance
+  ): Promise<{ livePlacedCount: number; lastError?: string }> {
     const now = Date.now();
     const targetWindow = this.computeTargetLiveWindow(bot);
     const targetIndices = new Set(targetWindow.map((l) => l.index));
@@ -271,6 +298,8 @@ export class NeutralGridEngine {
 
     const leverage = Math.max(1, Number(bot.config.leverage) || 1);
     let marginExhausted = false;
+    let livePlacedCount = 0;
+    let lastError: string | undefined;
 
     for (const lvl of orderedLevels) {
       const orderLinkId = `${bot.botId}_L${lvl.index}_${now.toString(36)}`;
@@ -285,7 +314,8 @@ export class NeutralGridEngine {
           ? this.adapter.getAvailableMarginUSDT()
           : Infinity;
 
-        if (availMargin > 0 && availMargin < reqMargin) {
+        // Always attempt at least the first 2 closest orders on OKX even if cached availMargin is slightly stale
+        if (livePlacedCount >= 2 && availMargin > 0 && availMargin < reqMargin) {
           marginExhausted = true;
           lvl.activeOrderId = `sim_${orderLinkId}`;
         } else {
@@ -301,9 +331,12 @@ export class NeutralGridEngine {
               marginMode: bot.config.marginMode,
             });
             lvl.activeOrderId = res.orderId;
+            lvl.activeOrderLinkId = res.orderLinkId || orderLinkId;
+            livePlacedCount++;
           } catch (err: any) {
             lvl.activeOrderId = `sim_${orderLinkId}`;
             const errMsg = String(err?.message || err);
+            lastError = errMsg;
             if (errMsg.includes('51008') || errMsg.toLowerCase().includes('insufficient')) {
               marginExhausted = true;
             } else {
@@ -336,6 +369,8 @@ export class NeutralGridEngine {
         gridLevelIndex: lvl.index,
       });
     }
+
+    return { livePlacedCount, lastError };
   }
 
   /**
@@ -780,7 +815,7 @@ export class NeutralGridEngine {
         }
       }
     }
-    if (bot.executionMode === 'LIVE' && (liveBuyCount > 0 || liveSellCount > 0)) {
+    if (bot.executionMode === 'LIVE') {
       bot.activeBuyOrders = liveBuyCount;
       bot.activeSellOrders = liveSellCount;
     } else {
@@ -1132,12 +1167,17 @@ export class NeutralGridEngine {
       const allBots = this.getAllBots();
       const runningBotsBySymbol = new Map<string, GridBotInstance>();
       const stoppedBotsBySymbol = new Map<string, GridBotInstance>();
+      const stoppedBotPrefixes = new Set<string>();
 
       for (const b of allBots) {
         if (b.executionMode !== 'LIVE') continue;
         if (b.status === 'RUNNING') {
           runningBotsBySymbol.set(b.symbol, b);
         } else {
+          const cleanPrefix = b.botId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          if (cleanPrefix) {
+            stoppedBotPrefixes.add(cleanPrefix);
+          }
           if (!stoppedBotsBySymbol.has(b.symbol)) {
             stoppedBotsBySymbol.set(b.symbol, b);
           }
@@ -1145,6 +1185,7 @@ export class NeutralGridEngine {
       }
 
       let stateChanged = false;
+      const openOrderIdsBySymbol = new Map<string, Set<string>>();
 
       // 1. Reconcile Open Orders on OKX
       for (const rawOrd of openOrders) {
@@ -1154,17 +1195,32 @@ export class NeutralGridEngine {
         const ordId = String(rawOrd.ordId || '');
         const clOrdId = String(rawOrd.clOrdId || '');
         if (!instId || !ordId) continue;
+
+        let symSet = openOrderIdsBySymbol.get(instId);
+        if (!symSet) {
+          symSet = new Set<string>();
+          openOrderIdsBySymbol.set(instId, symSet);
+        }
+        symSet.add(ordId);
+
         if (protectedLiveSymbols?.has(instId)) continue;
+
+        const clLower = clOrdId.toLowerCase();
+        const matchesLocalStoppedBot = Array.from(stoppedBotPrefixes).some((prefix) =>
+          clLower.startsWith(prefix)
+        );
 
         const runningBot = runningBotsBySymbol.get(instId);
         if (!runningBot) {
-          // No running LIVE bot on this symbol! If it belongs to a stopped LIVE bot or is a local grid order, cancel it immediately
-          if (stoppedBotsBySymbol.has(instId) || clOrdId.toLowerCase().startsWith('grid')) {
+          // Only cancel if the order explicitly belongs to a botId that was STOPPED on this instance.
+          // Never cancel orders with unknown grid* botId prefixes (e.g. launched from AI Studio Preview while OCI is running, or vice-versa).
+          if (matchesLocalStoppedBot) {
             const cancelled = await this.adapter.cancelOrder(instId, ordId, clOrdId).catch(() => false);
             if (cancelled) {
+              symSet.delete(ordId);
               this.journal.logAudit(
                 'FORCE_SYNC',
-                `[RECONCILIERE OKX] Ordin deschis rezidual anulat pe ${instId} (${rawOrd.side} @ $${rawOrd.px}, ordId: ${ordId}) deoarece botul este oprit.`
+                `[RECONCILIERE OKX] Ordin deschis rezidual anulat pe ${instId} (${rawOrd.side} @ $${rawOrd.px}, ordId: ${ordId}) deoarece botul local este oprit.`
               );
             }
           }
@@ -1205,18 +1261,86 @@ export class NeutralGridEngine {
             trackedIds.add(ordId);
             stateChanged = true;
           } else {
-            // Duplicate or orphan order on a running bot -> cancel it on OKX to free margin
-            const cancelled = await this.adapter.cancelOrder(instId, ordId, clOrdId).catch(() => false);
-            if (cancelled) {
-              const leverage = Math.max(1, Number(runningBot.config.leverage) || 1);
-              const estNotional = ordPx * (parseFloat(rawOrd.sz || '1') || 1);
-              this.adapter.releaseAvailableMarginOptimistic?.((estNotional / leverage) * 1.05);
-              this.journal.logAudit(
-                'FORCE_SYNC',
-                `[RECONCILIERE OKX] Ordin duplicat/orfan anulat pe ${instId} (${rawOrd.side} @ $${rawOrd.px}, ordId: ${ordId}).`
-              );
+            const runningBotPrefix = runningBot.botId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            // Only cancel duplicate/orphan order if it belongs to this running bot or a locally stopped bot
+            if (clLower.startsWith(runningBotPrefix) || matchesLocalStoppedBot) {
+              const cancelled = await this.adapter.cancelOrder(instId, ordId, clOrdId).catch(() => false);
+              if (cancelled) {
+                symSet.delete(ordId);
+                const leverage = Math.max(1, Number(runningBot.config.leverage) || 1);
+                const estNotional = ordPx * (parseFloat(rawOrd.sz || '1') || 1);
+                this.adapter.releaseAvailableMarginOptimistic?.((estNotional / leverage) * 1.05);
+                this.journal.logAudit(
+                  'FORCE_SYNC',
+                  `[RECONCILIERE OKX] Ordin duplicat/orfan anulat pe ${instId} (${rawOrd.side} @ $${rawOrd.px}, ordId: ${ordId}).`
+                );
+              }
             }
           }
+        }
+      }
+
+      // 1B. Verify all running LIVE bots actually have their tracked orders open on OKX;
+      // if any tracked order was filled or externally canceled, process fill or re-place missing orders immediately
+      for (const runningBot of runningBotsBySymbol.values()) {
+        const instId = runningBot.symbol;
+        if (
+          this.processingSymbols.has(instId) ||
+          Date.now() - runningBot.createdAt < 5000 ||
+          runningBot.levels.some((l) => l.activeOrderId?.startsWith('pending_'))
+        ) {
+          continue;
+        }
+
+        const exchangeOpenIds = openOrderIdsBySymbol.get(instId) || new Set<string>();
+        const lotFilter = await this.adapter.getInstrumentFilter(instId).catch(() => null);
+        const ctVal = lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1;
+        let needsReplenish = false;
+
+        for (let i = 0; i < runningBot.levels.length; i++) {
+          const lvl = runningBot.levels[i];
+          if (
+            lvl.status === 'OPEN_ORDER' &&
+            lvl.activeOrderId &&
+            !lvl.activeOrderId.startsWith('sim_') &&
+            !lvl.activeOrderId.startsWith('pending_') &&
+            !exchangeOpenIds.has(lvl.activeOrderId)
+          ) {
+            const ordStatus = await this.adapter
+              .queryOrderStatus(instId, lvl.activeOrderLinkId || '', lvl.activeOrderId)
+              .catch(() => null);
+
+            if (ordStatus?.status === 'FILLED') {
+              const fillPx = ordStatus.avgPrice > 0 ? ordStatus.avgPrice : lvl.price;
+              await this.handleGridLevelFilled(runningBot, i, fillPx, ctVal, true);
+              stateChanged = true;
+            } else {
+              // Order was canceled on exchange (e.g. by another instance or manual action) -> mark as virtual so syncLiveGridWindow re-places it
+              lvl.activeOrderId = `sim_${lvl.activeOrderLinkId || i}`;
+              needsReplenish = true;
+              stateChanged = true;
+            }
+          }
+        }
+
+        const targetWindow = this.computeTargetLiveWindow(runningBot);
+        const liveInTargetCount = targetWindow.filter(
+          (l) => l.activeOrderId && !l.activeOrderId.startsWith('sim_')
+        ).length;
+
+        if (needsReplenish || (targetWindow.length > 0 && liveInTargetCount === 0)) {
+          if (this.adapter.fetchAccountBalance) {
+            await this.adapter.fetchAccountBalance(true).catch(() => {});
+          }
+          const replenished = await this.syncLiveGridWindow(runningBot).catch(() => false);
+          if (replenished) {
+            stateChanged = true;
+          }
+        }
+
+        const livePx = runningBot.currentPrice || this.lastKnownPrices.get(instId) || 0;
+        if (livePx > 0) {
+          this.recalculateBotAccounting(runningBot, livePx, ctVal);
         }
       }
 
@@ -1234,8 +1358,13 @@ export class NeutralGridEngine {
 
         const runningBot = runningBotsBySymbol.get(instId);
         if (!runningBot) {
+          // Never close a position if there are active open orders on this symbol (e.g. managed by another instance)
+          const hasOpenOrdersOnSymbol = (openOrderIdsBySymbol.get(instId)?.size || 0) > 0;
           const stoppedBot = stoppedBotsBySymbol.get(instId);
-          if (stoppedBot) {
+          const recentlyStoppedLocally =
+            stoppedBot && Date.now() - (stoppedBot.stoppedAt || 0) < 45_000;
+
+          if (stoppedBot && recentlyStoppedLocally && !hasOpenOrdersOnSymbol) {
             const closeSide: 'Buy' | 'Sell' = isShortPos ? 'Buy' : 'Sell';
             const closeLinkId = `${stoppedBot.botId}_RECON_${Date.now().toString(36)}`;
             try {

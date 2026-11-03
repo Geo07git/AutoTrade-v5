@@ -447,6 +447,9 @@ export class TradeBot {
   // =========================================================================
 
   public async createGridBot(rawConfig: Partial<NeutralGridBotConfig>) {
+    if (this.configStore.get().executionMode === 'LIVE' && this.hasOKXCredentials()) {
+      await this.okxAdapter.fetchAccountBalance(true).catch(() => {});
+    }
     const status = this.getStatus();
     const res = await this.gridEngine.createAndStartBot(
       rawConfig,

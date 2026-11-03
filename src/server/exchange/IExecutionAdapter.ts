@@ -27,6 +27,7 @@ export interface IExecutionAdapter {
   testConnection(): Promise<ConnectionTestResult>;
   getEquity(): Promise<number>;
   getWalletBalance?(): Promise<number>;
+  fetchAccountBalance?(force?: boolean): Promise<any>;
   getAvailableMarginUSDT?(): number;
   consumeAvailableMarginOptimistic?(amountUSDT: number): void;
   releaseAvailableMarginOptimistic?(amountUSDT: number): void;
