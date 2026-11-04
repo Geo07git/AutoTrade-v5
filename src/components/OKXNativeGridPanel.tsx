@@ -2336,8 +2336,9 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   onChange={(e) => setUniverseSortBy(e.target.value as any)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-zinc-200 font-bold text-xs"
                 >
-                  <option value="VOLUME">Volum 24h (Lichiditate ↓)</option>
-                  <option value="RANGE24H">Volatilitate / Range 24h % ↓</option>
+                  <option value="RANGE_24H">Volatilitate / Range 24h % ↓</option>
+                  <option value="VOLUME_24H">Volum 24h (Lichiditate ↓)</option>
+                  <option value="CHANGE_24H">Mișcare 24h (|Δ%| ↓)</option>
                   <option value="MIN_LOT">Lot Minim OKX ($ Accesibil ↑)</option>
                   <option value="ALPHA">Alfabetic (A → Z)</option>
                 </select>
@@ -2356,7 +2357,9 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       onChange={(e) => setOnlyBudgetAccessibleLot(e.target.checked)}
                       className="accent-emerald-400"
                     />
-                    <span>Doar încadrabile în Buget (${effectiveMaxBudget.toFixed(0)})</span>
+                    <span>
+                      Doar încadrabile în Buget (${Number(effectiveMaxBudget || 25).toFixed(0)})
+                    </span>
                   </label>
                 </div>
                 <select
@@ -2372,11 +2375,15 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 >
                   {filteredUniverseCatalog.map((c) => {
                     const analyzed = allOpportunities.find((o) => o.instId === c.instId);
+                    const estMinVal = Number(
+                      analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD ?? 5
+                    );
                     return (
                       <option key={c.instId} value={c.instId}>
                         {c.baseSymbol} ({c.instId}) — ${formatPrice(c.lastPrice)} | Range 24h:{' '}
-                        {c.range24hPct.toFixed(1)}% | Vol: ${(c.turnover24hUSDT / 1000).toFixed(0)}K
-                        | Min ~${(analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD).toFixed(1)}
+                        {Number(c.range24hPct || 0).toFixed(1)}% | Vol: $
+                        {(Number(c.turnover24hUSDT || 0) / 1000).toFixed(0)}K | Min ~$
+                        {estMinVal.toFixed(1)}
                         {analyzed ? ` ★ [Scor ${analyzed.suitabilityScore}]` : ''}
                       </option>
                     );
@@ -2423,8 +2430,12 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 {filteredUniverseCatalog.slice(0, 36).map((c) => {
                   const isCurrent = (manualSelectedInstId || instId) === c.instId;
                   const analyzed = allOpportunities.find((o) => o.instId === c.instId);
-                  const estMin = analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD;
+                  const estMin = Number(
+                    analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD ?? 5
+                  );
                   const fitsUserBudget = estMin <= effectiveMaxBudget;
+                  const chg24h = Number(c.priceChange24hPct || 0);
+                  const rng24h = Number(c.range24hPct || 0);
                   return (
                     <button
                       key={c.instId}
@@ -2438,7 +2449,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                           ? 'bg-zinc-900/80 hover:bg-zinc-800 border-zinc-800 text-zinc-200'
                           : 'bg-zinc-950/70 hover:bg-zinc-900 border-rose-900/40 text-zinc-400'
                       }`}
-                      title={`${c.instId} | Preț: $${c.lastPrice} | Range 24h: ${c.range24hPct}% | Vol 24h: $${Math.round(c.turnover24hUSDT).toLocaleString()} | Lot Min 1x: $${c.minLotNotionalUSD} | Est Min Grilă: $${estMin.toFixed(2)}`}
+                      title={`${c.instId} | Preț: $${c.lastPrice} | Range 24h: ${rng24h}% | Vol 24h: $${Math.round(Number(c.turnover24hUSDT || 0)).toLocaleString()} | Lot Min 1x: $${c.minLotNotionalUSD} | Est Min Grilă: $${estMin.toFixed(2)}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-black text-[10px] text-amber-300 truncate">
@@ -2446,20 +2457,20 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                         </span>
                         <span
                           className={`text-[8px] font-bold px-1 rounded ${
-                            c.priceChange24hPct >= 0
+                            chg24h >= 0
                               ? 'bg-emerald-500/15 text-emerald-300'
                               : 'bg-rose-500/15 text-rose-300'
                           }`}
                         >
-                          {c.priceChange24hPct >= 0 ? '+' : ''}
-                          {c.priceChange24hPct.toFixed(1)}%
+                          {chg24h >= 0 ? '+' : ''}
+                          {chg24h.toFixed(1)}%
                         </span>
                       </div>
                       <div className="text-[9px] text-zinc-300 font-mono truncate">
                         ${formatPrice(c.lastPrice)}
                       </div>
                       <div className="flex items-center justify-between text-[8px] text-zinc-400 mt-0.5">
-                        <span>R:{c.range24hPct.toFixed(1)}%</span>
+                        <span>R:{rng24h.toFixed(1)}%</span>
                         <span className={fitsUserBudget ? 'text-emerald-400' : 'text-rose-400'}>
                           ~${estMin.toFixed(0)}
                         </span>
@@ -2477,7 +2488,10 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               if (!calcOpp) return null;
               const activeVar =
                 calcOpp.rangeVariants?.[builderVariant] ||
-                calcOpp.rangeVariants?.[calcOpp.activeRangeVariant || 'BALANCED'];
+                calcOpp.rangeVariants?.[calcOpp.selectedVariant || 'BALANCED'];
+              const minInvVal = Number(
+                activeVar?.minInvestmentUSDT ?? calcOpp.minInvestmentUSDT ?? 5
+              );
               return (
                 <div className="bg-fuchsia-950/20 border border-fuchsia-500/40 rounded p-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                   <div className="flex flex-wrap items-center gap-2">
@@ -2490,24 +2504,24 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                     </span>
                     <span className="text-zinc-400">|</span>
                     <span className="text-cyan-300">
-                      Scor Piață: <strong>{calcOpp.suitabilityScore}/100</strong> ({calcOpp.regime})
+                      Scor Piață: <strong>{calcOpp.suitabilityScore}/100</strong> (
+                      {calcOpp.regimeLabel})
                     </span>
                     <span className="text-zinc-400">|</span>
                     <span className="text-zinc-300">
-                      ATR 15m: <strong>{calcOpp.atrPct.toFixed(2)}%</strong> • Chop:{' '}
-                      <strong>{calcOpp.chop.toFixed(1)}</strong> • ADX:{' '}
-                      <strong>{calcOpp.adx.toFixed(1)}</strong>
+                      ATR 15m: <strong>{Number(calcOpp.atrPct || 0).toFixed(2)}%</strong> • Chop:{' '}
+                      <strong>{Number(calcOpp.choppinessIndex || 0).toFixed(1)}</strong> • ADX:{' '}
+                      <strong>{Number(calcOpp.adxTrendStrength || 0).toFixed(1)}</strong>
                     </span>
                     <span className="text-zinc-400">|</span>
                     <span className="text-emerald-300 font-bold">
                       Range [{builderVariant}]: ${formatPrice(activeVar?.minPx ?? calcOpp.minPx)} – $
                       {formatPrice(activeVar?.maxPx ?? calcOpp.maxPx)} (
-                      {activeVar?.gridNum ?? calcOpp.gridNum} grile @ {calcOpp.recommendedLeverage}x)
+                      {activeVar?.gridNum ?? calcOpp.gridNum} grile @ {calcOpp.lever}x)
                     </span>
                     <span className="text-zinc-400">|</span>
                     <span className="text-amber-300 font-bold">
-                      Min-Inv OKX: $
-                      {(activeVar?.minInvestmentUSDT ?? calcOpp.minInvestmentUSDT).toFixed(2)} USD
+                      Min-Inv OKX: ${minInvVal.toFixed(2)} USD
                     </span>
                   </div>
 
@@ -2593,7 +2607,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   {allOpportunities.map((o) => (
                     <option key={o.instId} value={o.instId}>
                       {o.instId} — ${formatPrice(o.price)} (Scor: {o.suitabilityScore} | Min-Inv: $
-                      {o.minInvestmentUSDT.toFixed(2)})
+                      {Number(o.minInvestmentUSDT || 0).toFixed(2)})
                     </option>
                   ))}
                 </optgroup>
@@ -2606,8 +2620,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       .map((c) => (
                         <option key={c.instId} value={c.instId}>
                           {c.instId} — ${formatPrice(c.lastPrice)} (Range 24h:{' '}
-                          {c.range24hPct.toFixed(1)}% | Est Min: $
-                          {c.estMinGridMargin5xUSD.toFixed(2)})
+                          {Number(c.range24hPct || 0).toFixed(1)}% | Est Min: $
+                          {Number(c.estMinGridMargin5xUSD || 5).toFixed(2)})
                         </option>
                       ))}
                   </optgroup>

@@ -457,6 +457,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [editTpPct, setEditTpPct] = useState<number>(15);
   const [editLowerStop, setEditLowerStop] = useState<number>(0);
   const [editUpperStop, setEditUpperStop] = useState<number>(0);
+  const [externalNativeSymbol, setExternalNativeSymbol] = useState<{
+    instId: string;
+    ts: number;
+  } | null>(null);
 
   // Kill Switch Confirmation Modal state (prevents accidental trigger)
   const [showKillSwitchConfirm, setShowKillSwitchConfirm] = useState<boolean>(false);
@@ -951,6 +955,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     setLowerPrice(cand.recommendedLowerPrice);
     setUpperPrice(cand.recommendedUpperPrice);
     setGridCount(cand.recommendedGridCount);
+    setExternalNativeSymbol({ instId: cand.symbol, ts: Date.now() });
     setLocalBanner({
       type: 'info',
       text: `Moneda ${cand.symbol} (Scor Grid ${cand.gridSuitabilityScore}/100) — comutat în [1:OKX NATIVE & AUTO-LIMIT GRID] (Ramura 1: Ordine Limit).`,
@@ -3602,7 +3607,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               setSelectedBotIdForLadder(botId);
               setActiveTab('LADDER');
             }}
-            externalSelectedSymbol={selectedSymbol}
+            externalSelectedSymbol={externalNativeSymbol}
           />
         )}
       </main>
