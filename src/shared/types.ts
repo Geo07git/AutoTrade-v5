@@ -837,3 +837,91 @@ export interface OKXRawPosition {
   [key: string]: any;
 }
 
+export interface AnafTransactionRecord {
+  id: string;
+  source: 'OKX_API' | 'GRID_ARBITRAGE' | 'BOT_ORDER' | 'CSV_IMPORT';
+  timestamp: number;
+  dateFormatted: string;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  closeType: string;
+  pnlUSD: number;
+  feeUSD: number;
+  notionalUSD: number;
+  bnrRate: number;
+  pnlRON: number;
+  feeRON: number;
+  isProfit: boolean;
+  grossGainRON: number;
+  deductibleFeeRON: number;
+  netTaxableGainRON: number;
+}
+
+export type CassCeilingLevel =
+  | 'SUB_6_SALARII'
+  | 'INTRE_6_SI_12_SALARII'
+  | 'INTRE_12_SI_24_SALARII'
+  | 'PESTE_24_SALARII';
+
+export interface AnafTaxSummary {
+  fiscalYear: number;
+  taxRatePct: number;
+  minWageGrossRON: number;
+  usdRonRate: number;
+  eurRonRate: number;
+  ratesUpdatedAt: number;
+  ratesSource: string;
+  totalTransactionsCount: number;
+  profitableTransactionsCount: number;
+  lossTransactionsCount: number;
+  winRatePct: number;
+
+  asymmetric: {
+    grossRevenueRON: number;
+    deductibleExpensesRON: number;
+    netTaxableBaseRON: number;
+    incomeTaxRON: number;
+  };
+
+  symmetric: {
+    totalProfitUSD: number;
+    totalLossUSD: number;
+    netRealizedPnLUSD: number;
+    totalFeesUSD: number;
+    netRealizedPnLRON: number;
+    totalFeesRON: number;
+    symmetricTaxRON: number;
+    asymmetryDifferenceRON: number;
+  };
+
+  cass: {
+    minWageThreshold6RON: number;
+    minWageThreshold12RON: number;
+    minWageThreshold24RON: number;
+    ceilingLevel: CassCeilingLevel;
+    ceilingLabel: string;
+    cassDueRON: number;
+    progressToNextCeilingPct: number;
+    remainingUntilNextCeilingRON: number;
+  };
+
+  totalOwedToStateRON: number;
+  filingDeadline: string;
+
+  spvDeclarationGuide: {
+    formName: string;
+    taxYear: number;
+    section: string;
+    subSection: string;
+    category: string;
+    boxGrossRevenueRON: number;
+    boxDeductibleExpensesRON: number;
+    boxNetTaxableBaseRON: number;
+    boxIncomeTaxDueRON: number;
+    boxCassDueRON: number;
+    boxTotalDueRON: number;
+  };
+
+  transactions: AnafTransactionRecord[];
+}
+

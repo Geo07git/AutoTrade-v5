@@ -16,6 +16,7 @@ import {
   GridAutopilotConfig,
   NativeGridAutopilotConfig,
   OKXFeeTierInfo,
+  AnafTaxSummary,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { OKXAdapter } from '../exchange/OKXAdapter';
@@ -29,6 +30,7 @@ import { GridJournal } from '../engine/grid/GridJournal';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
+import { AnafTaxEngine } from '../fiscal/AnafTaxEngine';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -119,6 +121,7 @@ export class TradeBot {
   private nativeGridEngine: OKXNativeGridEngine;
   private gridBotAnalyzer: GridBotAnalyzer;
   private universeManager: UniverseManager;
+  private anafTaxEngine: AnafTaxEngine;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -276,6 +279,7 @@ export class TradeBot {
     this.paperAdapter.setMetadataResolver((sym) =>
       this.universeManager.getInstrumentLotFilter(sym)
     );
+    this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
 
     this.state = 'TRADING';
     this.logAudit(
@@ -1680,6 +1684,14 @@ export class TradeBot {
       'CONFIG_UPDATED',
       `Configurație Levier & Marjă actualizată: ${lev}x ${validMode.toUpperCase()}.`
     );
+  }
+
+  public async getAnafTaxReport(options?: any): Promise<AnafTaxSummary> {
+    return this.anafTaxEngine.computeTaxReport(options);
+  }
+
+  public getAnafTaxEngine(): AnafTaxEngine {
+    return this.anafTaxEngine;
   }
 }
 

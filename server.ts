@@ -532,6 +532,112 @@ async function startServer() {
     res.json({ success: true, orders: tradeBot.getOrders() });
   });
 
+  // =========================================================================
+  // ANAF FISCAL & DECLARAȚIA UNICĂ 2026 / 2027 ENDPOINTS
+  // =========================================================================
+  app.get('/api/bot/fiscal/report', async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string, 10) || new Date().getFullYear();
+      const taxRate = parseFloat(req.query.taxRate as string) || 10;
+      const minWage = parseFloat(req.query.minWage as string) || 4050;
+      const customRate = parseFloat(req.query.usdRonRate as string) || undefined;
+
+      const report = await tradeBot.getAnafTaxReport({
+        fiscalYear: year,
+        taxRatePct: taxRate,
+        minWageGrossRON: minWage,
+        customUsdRonRate: customRate,
+      });
+
+      res.json({ success: true, report });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la calcularea raportului fiscal ANAF' });
+    }
+  });
+
+  app.post('/api/bot/fiscal/sync', async (req, res) => {
+    try {
+      const year = parseInt(req.body?.year as string, 10) || new Date().getFullYear();
+      const taxRate = parseFloat(req.body?.taxRate as string) || 10;
+      const minWage = parseFloat(req.body?.minWage as string) || 4050;
+      const customRate = parseFloat(req.body?.usdRonRate as string) || undefined;
+
+      // Force refresh live BNR rates
+      await tradeBot.getAnafTaxEngine().fetchBnrRates(true);
+
+      const report = await tradeBot.getAnafTaxReport({
+        fiscalYear: year,
+        taxRatePct: taxRate,
+        minWageGrossRON: minWage,
+        customUsdRonRate: customRate,
+      });
+
+      res.json({
+        success: true,
+        report,
+        message: 'Istoricul tranzacțiilor și cursul BNR au fost sincronizate cu succes din OKX API.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la sincronizarea din OKX API' });
+    }
+  });
+
+  app.post(
+    '/api/bot/fiscal/upload-csv',
+    express.text({ type: ['text/csv', 'text/plain', '*/*'], limit: '15mb' }),
+    (req, res) => {
+      try {
+        const csvText = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        if (!csvText || csvText.length < 10) {
+          return res.status(400).json({ success: false, error: 'Conținutul fișierului CSV este gol.' });
+        }
+        const result = tradeBot.getAnafTaxEngine().parseAndImportOkxCsv(csvText);
+        res.json({
+          success: true,
+          importedCount: result.importedCount,
+          errors: result.errors,
+          message: `Au fost importate cu succes ${result.importedCount} tranzacții din fișierul CSV OKX.`,
+        });
+      } catch (err: any) {
+        res.status(500).json({ success: false, error: err.message || 'Eroare la parsarea CSV-ului OKX' });
+      }
+    }
+  );
+
+  app.post('/api/bot/fiscal/clear-csv', requireControlAuth, (req, res) => {
+    try {
+      tradeBot.getAnafTaxEngine().clearImportedTransactions();
+      res.json({ success: true, message: 'Tranzacțiile importate din CSV au fost șterse.' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/bot/fiscal/export-csv', async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string, 10) || new Date().getFullYear();
+      const taxRate = parseFloat(req.query.taxRate as string) || 10;
+      const minWage = parseFloat(req.query.minWage as string) || 4050;
+      const customRate = parseFloat(req.query.usdRonRate as string) || undefined;
+
+      const report = await tradeBot.getAnafTaxReport({
+        fiscalYear: year,
+        taxRatePct: taxRate,
+        minWageGrossRON: minWage,
+        customUsdRonRate: customRate,
+      });
+
+      const csv = tradeBot.getAnafTaxEngine().generateAuditCsv(report);
+      const filename = `raport_anaf_declaratia_unica_${year}_${new Date().toISOString().slice(0, 10)}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la generarea raportului CSV ANAF' });
+    }
+  });
+
   // CSV Export endpoint for .data/ persistent stores (grid_arbitrages, orders, grid_bots, grid_levels, audit)
   app.get('/api/bot/export/:dataset', (req, res) => {
     try {

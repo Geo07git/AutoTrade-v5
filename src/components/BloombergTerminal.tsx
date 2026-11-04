@@ -40,10 +40,12 @@ import {
   Eye,
   EyeOff,
   Download,
+  FileText,
 } from 'lucide-react';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
+import { AnafTaxPanel } from './AnafTaxPanel';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -129,7 +131,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onDismissAlert,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API'
+    'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API' | 'ANAF_TAX'
   >('NATIVE_GRID');
   const [mobileDashView, setMobileDashView] = useState<'BOTS' | 'LAUNCH'>('BOTS');
   const [showFeeCalculatorModal, setShowFeeCalculatorModal] = useState<boolean>(false);
@@ -1471,6 +1473,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           >
             <Key className="w-3.5 h-3.5" />
             <span>[5:CONEXIUNE OKX EEA &amp; PLATFORME]</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('ANAF_TAX')}
+            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+              activeTab === 'ANAF_TAX'
+                ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
+                : 'bg-black text-emerald-400 border border-emerald-500/40 hover:bg-zinc-900'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>[6:ANAF FISCAL &amp; DECLARAȚIA UNICĂ]</span>
           </button>
         </div>
 
@@ -3610,6 +3624,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             externalSelectedSymbol={externalNativeSymbol}
           />
         )}
+
+        {/* ================================================================= */}
+        {/* TAB 6: MODUL FISCAL ANAF & DECLARAȚIA UNICĂ 2026 / 2027           */}
+        {/* ================================================================= */}
+        {activeTab === 'ANAF_TAX' && (
+          <AnafTaxPanel
+            controlToken={controlToken}
+            onNotify={(banner) => setLocalBanner(banner)}
+          />
+        )}
       </main>
 
       {/* =================================================================== */}
@@ -3896,7 +3920,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       <nav
         aria-label="Navigare mobilă"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-5 gap-0.5 px-1 py-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-6 gap-0.5 px-1 py-1"
       >
         <button
           type="button"
@@ -3908,7 +3932,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           }`}
         >
           <Zap className="w-4 h-4 mb-0.5" />
-          <span>Grid OKX ({runningNativeBotsCount})</span>
+          <span>Grid ({runningNativeBotsCount})</span>
         </button>
 
         <button
@@ -3948,6 +3972,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         >
           <List className="w-4 h-4 mb-0.5" />
           <span>Loguri</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('ANAF_TAX')}
+          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
+            activeTab === 'ANAF_TAX'
+              ? 'bg-emerald-500 text-black font-black'
+              : 'text-emerald-300 hover:bg-zinc-900'
+          }`}
+        >
+          <FileText className="w-4 h-4 mb-0.5" />
+          <span>ANAF</span>
         </button>
 
         <button
