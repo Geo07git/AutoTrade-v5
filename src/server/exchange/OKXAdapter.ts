@@ -252,7 +252,7 @@ export class OKXAdapter implements IExecutionAdapter {
       headers['OK-ACCESS-PASSPHRASE'] = this.passphrase;
     }
 
-    const timeoutMs = isAuth ? 9000 : 7500;
+    const timeoutMs = isAuth ? 12000 : 8500;
     const localController = new AbortController();
     const onExternalAbort = () => localController.abort();
     if (signal) {
@@ -315,6 +315,29 @@ export class OKXAdapter implements IExecutionAdapter {
         return this.request(method, path, body, isAuth, signal, retryOtherDomain, retryCount + 1);
       }
 
+      // OKX upstream transient timeout / server busy (e.g. 50004: "API endpoint request timeout.")
+      const isTransientTimeoutOrServerBusy =
+        parsedCode === '50004' ||
+        parsedCode === '50001' ||
+        parsedCode === '50013' ||
+        parsedCode === '50026' ||
+        text.includes('50004') ||
+        text.includes('API endpoint request timeout') ||
+        text.includes('request timeout') ||
+        res.status === 502 ||
+        res.status === 503 ||
+        res.status === 504;
+
+      if (isTransientTimeoutOrServerBusy && retryCount < maxRetries && !signal?.aborted) {
+        const retryAfter = 800 * (retryCount + 1) + Math.random() * 400;
+        console.warn(`[OKXAdapter] OKX server transient timeout/busy (${parsedCode || res.status}) on ${path} (retry ${retryCount + 1}/${maxRetries}). Retrying in ${Math.round(retryAfter)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfter));
+        if (signal?.aborted) {
+          throw new Error(`OKX request aborted during timeout retry: ${path}`);
+        }
+        return this.request(method, path, body, isAuth, signal, retryOtherDomain, retryCount + 1);
+      }
+
       if (parsedCode === '50110' || text.includes('50110') || text.includes('whitelist') || text.includes('IP')) {
         this.ipWhitelistFailed = true;
         this.lastIpWhitelistCheck = Date.now();
@@ -364,6 +387,26 @@ export class OKXAdapter implements IExecutionAdapter {
       const subCode = data.data?.[0]?.sCode;
       const subMsg = data.data?.[0]?.sMsg;
       const subDetail = subMsg ? ` (sCode ${subCode}: ${subMsg})` : (subCode ? ` (sCode ${subCode})` : '');
+
+      // OKX transient error codes returned with HTTP 200
+      const maxRetries = isAuth ? 2 : 1;
+      const isTransientCode =
+        data.code === '50004' ||
+        data.code === '50001' ||
+        data.code === '50013' ||
+        data.code === '50026' ||
+        data.msg?.includes('50004') ||
+        data.msg?.includes('request timeout');
+
+      if (isTransientCode && retryCount < maxRetries && !signal?.aborted) {
+        const retryAfter = 800 * (retryCount + 1) + Math.random() * 400;
+        console.warn(`[OKXAdapter] OKX server transient code [${data.code}] on ${path} (retry ${retryCount + 1}/${maxRetries}). Retrying in ${Math.round(retryAfter)}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfter));
+        if (signal?.aborted) {
+          throw new Error(`OKX request aborted during retry: ${path}`);
+        }
+        return this.request(method, path, body, isAuth, signal, retryOtherDomain, retryCount + 1);
+      }
 
       if (data.code === '50110' || data.msg?.includes('whitelist') || data.msg?.includes('IP')) {
         throw new Error(`OKX IP Whitelist Error [50110]: IP-ul serverului nu este inclus în Whitelist-ul cheii API pe OKX. Adaugă IP-ul curent în setările API pe OKX.`);
@@ -757,6 +800,16 @@ export class OKXAdapter implements IExecutionAdapter {
         if (msg.includes('429') || msg.includes('50011') || msg.includes('Too Many Requests')) {
           this.lastBalanceFetchTime = Date.now();
           console.warn('[OKXAdapter] Rate limit (429) on balance endpoint; returning cached balance.');
+        } else if (
+          msg.includes('50004') ||
+          msg.includes('API endpoint request timeout') ||
+          msg.includes('request timeout') ||
+          msg.includes('ETIMEDOUT') ||
+          msg.includes('ECONNRESET') ||
+          msg.includes('fetch failed')
+        ) {
+          this.lastBalanceFetchTime = Date.now();
+          console.warn('[OKXAdapter] Transient OKX server timeout (50004/network) fetching balance; returning cached balance.');
         } else if (msg.includes('50110') || msg.includes('whitelist') || msg.includes('IP')) {
           this.ipWhitelistFailed = true;
           this.lastIpWhitelistCheck = Date.now();
