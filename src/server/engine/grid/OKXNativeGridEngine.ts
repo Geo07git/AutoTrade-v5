@@ -50,6 +50,7 @@ export class OKXNativeGridEngine {
   private dismissedStore: JsonStore<string[]>;
 
   private opportunities: NativeGridOpportunity[] = [];
+  private manualOpportunities: Map<string, NativeGridOpportunity> = new Map();
   private bots: Map<string, OKXNativeGridBot> = new Map();
   private dismissedAlgoIds: Set<string> = new Set();
   private isScanning: boolean = false;
@@ -175,7 +176,8 @@ export class OKXNativeGridEngine {
   }
 
   public recomputeOpportunitiesForConfig(cfg: NativeGridAutopilotConfig = this.getConfig()): void {
-    if (!this.opportunities || this.opportunities.length === 0) return;
+    const allOpps = this.getOpportunities();
+    if (!allOpps || allOpps.length === 0) return;
     const effectiveBudget = Math.max(5.0, Number(cfg.maxBudgetPerBotUSDT) || 25);
     const minScore = Math.max(35, Number(cfg.minSuitabilityScore) || 68);
     const minNetPct = Math.max(0.02, Number(cfg.minNetProfitPerGridPct) || 0.12);
@@ -183,7 +185,7 @@ export class OKXNativeGridEngine {
     const feeInfo = getLiveFeeRates();
     const roundTripMakerFeePct = feeInfo.roundTripMakerFeePct;
 
-    for (const opp of this.opportunities) {
+    for (const opp of allOpps) {
       if (opp.rangeVariants) {
         for (const vKey of ['CONSERVATIVE', 'BALANCED', 'COMPACT'] as GridRangeVariantId[]) {
           const vp = opp.rangeVariants[vKey];
@@ -254,7 +256,270 @@ export class OKXNativeGridEngine {
   }
 
   public getOpportunities(): NativeGridOpportunity[] {
-    return this.opportunities;
+    if (this.manualOpportunities.size === 0) {
+      return this.opportunities;
+    }
+    const existingIds = new Set(this.opportunities.map((o) => o.instId));
+    const extras: NativeGridOpportunity[] = [];
+    for (const [, mOpp] of this.manualOpportunities.entries()) {
+      if (!existingIds.has(mOpp.instId)) {
+        extras.push(mOpp);
+      }
+    }
+    return [...this.opportunities, ...extras];
+  }
+
+  /**
+   * On-Demand Manual Contract Calculator (Full 257-Contract Universe):
+   * Calculates all 3 TB5 Range Variants (CONSERVATIVE / BALANCED / COMPACT),
+   * OKX live min-investment, ATR/Chop/ADX/Spread/Funding/OrderBook, and SL/TP
+   * for ANY user-selected coin from the universe, regardless of suitability score.
+   */
+  public async analyzeSingleContractOnDemand(
+    rawInstId: string,
+    overrides?: {
+      maxBudgetPerBotUSDT?: number;
+      maxLeverage?: number;
+      runType?: '1' | '2';
+      rangeVariant?: GridRangeVariantId;
+    }
+  ): Promise<NativeGridOpportunity> {
+    const cleanInput = (rawInstId || '').trim().toUpperCase();
+    if (!cleanInput) {
+      throw new Error('Selectează o monedă validă din universul OKX EEA (_UM_XPERP).');
+    }
+
+    const universe = await this.universeManager.refreshUniverse();
+    let instId = cleanInput;
+    if (!universe.includes(instId)) {
+      const baseCoin = cleanInput.split('-')[0];
+      const matched = universe.find(
+        (s) => s.toUpperCase() === cleanInput || s.toUpperCase().startsWith(`${baseCoin}-`)
+      );
+      if (matched) {
+        instId = matched;
+      }
+    }
+
+    const cfg = this.getConfig();
+    const effectiveBudget = Math.max(
+      5.0,
+      Number(overrides?.maxBudgetPerBotUSDT) || cfg.maxBudgetPerBotUSDT || 25
+    );
+    const effectiveMaxLev = Math.max(
+      1,
+      Math.min(20, Math.round(Number(overrides?.maxLeverage) || cfg.maxLeverage || 5))
+    );
+    const runType: '1' | '2' =
+      overrides?.runType === '2' ? '2' : cfg.defaultRunType === '2' ? '2' : '1';
+    const activeVariantId: GridRangeVariantId =
+      overrides?.rangeVariant || cfg.defaultRangeVariant || 'BALANCED';
+
+    await this.okxAdapter.fetchTradeFeeTier('FUTURES', false).catch(() => {});
+    const feeInfo = getLiveFeeRates();
+    const roundTripMakerFeePct = feeInfo.roundTripMakerFeePct;
+
+    const tickerInfo = this.universeManager.getTickerInfo(instId);
+    const baseAnalysis = await NeutralGridAnalyzer.analyzeSymbol(
+      instId,
+      this.okxAdapter,
+      tickerInfo
+        ? {
+            lastPrice: tickerInfo.lastPrice,
+            volume24hUSDT: tickerInfo.turnover24hUSDT,
+            high24h: tickerInfo.highPrice24h,
+            low24h: tickerInfo.lowPrice24h,
+            spreadPct: tickerInfo.spreadPct,
+          }
+        : undefined
+    );
+
+    if (!baseAnalysis || baseAnalysis.price <= 0) {
+      throw new Error(
+        `Nu s-au putut prelua cotațiile și lumânările 15m de pe OKX EEA pentru ${instId}.`
+      );
+    }
+
+    const [extras, lotFilter] = await Promise.all([
+      this.okxAdapter.fetchMarketIntelligenceExtras(instId),
+      this.okxAdapter.getInstrumentFilter(instId),
+    ]);
+
+    const price = baseAnalysis.price;
+    const tickSize = lotFilter?.tickSize || 0.01;
+    const decimals = Math.max(0, -Math.floor(Math.log10(tickSize)));
+    const ctVal = lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1;
+    const minOrderQty =
+      lotFilter?.minOrderQty && lotFilter.minOrderQty > 0 ? lotFilter.minOrderQty : 1;
+    const minLotNotionalUSD = Math.max(0.5, minOrderQty * ctVal * price);
+
+    const baseLever = overrides?.maxLeverage
+      ? effectiveMaxLev
+      : Math.max(1, Math.min(effectiveMaxLev, baseAnalysis.recommendedLeverage || 4));
+
+    const volFactor = Math.max(
+      0.72,
+      Math.min(
+        1.45,
+        Math.max(baseAnalysis.atrPct * 1.15, (baseAnalysis.range24hPct || 4) * 0.21)
+      )
+    );
+
+    const fundingDragPerGridPct = Math.abs(extras.fundingRatePct) * 0.35;
+    const spreadDragPct = (extras.spreadBps / 100) * 0.5;
+    const totalCostPerGridPct = roundTripMakerFeePct + fundingDragPerGridPct + spreadDragPct;
+
+    const balHalfRaw = parseFloat((1.25 * volFactor).toFixed(2));
+    const balMinPxProbe = parseFloat((price * (1 - balHalfRaw / 100)).toFixed(decimals));
+    const balMaxPxProbe = parseFloat((price * (1 + balHalfRaw / 100)).toFixed(decimals));
+
+    let chosenLever = baseLever;
+    let probeMinInv = await this.okxAdapter.calculateGridMinInvestment({
+      instId,
+      maxPx: balMaxPxProbe > balMinPxProbe ? balMaxPxProbe : price * 1.015,
+      minPx: balMinPxProbe > 0 ? balMinPxProbe : price * 0.985,
+      gridNum: 6,
+      runType,
+      lever: chosenLever,
+    });
+
+    if (probeMinInv.minInvestmentUSDT > effectiveBudget && chosenLever < effectiveMaxLev) {
+      const maxLevRes = await this.okxAdapter.calculateGridMinInvestment({
+        instId,
+        maxPx: balMaxPxProbe > balMinPxProbe ? balMaxPxProbe : price * 1.015,
+        minPx: balMinPxProbe > 0 ? balMinPxProbe : price * 0.985,
+        gridNum: 6,
+        runType,
+        lever: effectiveMaxLev,
+      });
+      if (maxLevRes.minInvestmentUSDT > 0) {
+        chosenLever = effectiveMaxLev;
+        probeMinInv = maxLevRes;
+      }
+    }
+
+    const variantCtx: GridRangeVariantContext = {
+      price,
+      decimals,
+      volFactor,
+      range24hPct: baseAnalysis.range24hPct,
+      chosenLever,
+      minLotNotionalUSD,
+      probeMinInvestmentUSDT: probeMinInv.minInvestmentUSDT,
+      totalCostPerGridPct,
+      roundTripMakerFeePct,
+      maxBudgetPerBotUSDT: effectiveBudget,
+      minNetProfitPerGridPct: cfg.minNetProfitPerGridPct,
+    };
+
+    const rangeVariants = buildGridRangeVariants(variantCtx);
+    for (const vKey of ['CONSERVATIVE', 'BALANCED', 'COMPACT'] as GridRangeVariantId[]) {
+      const vp = rangeVariants[vKey];
+      const minOp = parseFloat(Math.max(5.0, vp.minInvestmentUSDT).toFixed(2));
+      vp.fitsMaxBudget = vp.minInvestmentUSDT > 0 && minOp <= effectiveBudget;
+      vp.recommendedInvestmentUSDT = vp.fitsMaxBudget
+        ? parseFloat(Math.max(minOp, effectiveBudget).toFixed(2))
+        : minOp;
+    }
+    const activeVar = selectActiveRangeVariant(rangeVariants, activeVariantId);
+
+    let score = baseAnalysis.gridSuitabilityScore;
+    const reasons = [...baseAnalysis.reasons];
+    if (extras.openInterestUSD >= 500_000) {
+      score += Math.min(5, Math.log10(extras.openInterestUSD / 100_000) * 2.2);
+      reasons.push(`OI solid ($${(extras.openInterestUSD / 1e6).toFixed(2)}M)`);
+    }
+    if (Math.abs(extras.orderBookImbalance) <= 0.3) {
+      score += (1 - Math.abs(extras.orderBookImbalance) / 0.3) * 4;
+      reasons.push(`OrderBook echilibrat (Imb ${(extras.orderBookImbalance * 100).toFixed(0)}%)`);
+    } else if (Math.abs(extras.orderBookImbalance) > 0.6) {
+      score -= Math.min(9, (Math.abs(extras.orderBookImbalance) - 0.5) * 14);
+      reasons.push(`Presiune OrderBook unidirecțională (${(extras.orderBookImbalance * 100).toFixed(0)}%)`);
+    }
+    if (extras.spreadBps > 6) {
+      score -= Math.min(10, (extras.spreadBps - 6) * 0.8);
+    }
+    if (Math.abs(extras.fundingRatePct) > 0.06) {
+      score -= Math.min(10, Math.abs(extras.fundingRatePct) * 90);
+      reasons.push(`Funding ridicat (${extras.fundingRatePct.toFixed(4)}%)`);
+    }
+    score += Math.min(5, activeVar.estimatedDailyNetYieldPct * 0.45);
+    score = Math.max(5, Math.min(99, Math.round(score)));
+
+    const rejectionReasons: string[] = [];
+    if (activeVar.minInvestmentUSDT <= 0) {
+      rejectionReasons.push(probeMinInv.error || 'OKX min-investment indisponibil');
+    } else if (!activeVar.fitsMaxBudget) {
+      rejectionReasons.push(
+        `Investiție minimă ($${Math.max(5, activeVar.minInvestmentUSDT).toFixed(2)}) > Buget Max ($${effectiveBudget.toFixed(2)})`
+      );
+    }
+    if (!activeVar.feeCheckPassed) {
+      rejectionReasons.push(
+        activeVar.feeWarning ||
+          `Profit net/grilă (${activeVar.estimatedNetProfitPerGridPct.toFixed(2)}%) insuficient după comisioane OKX (${roundTripMakerFeePct.toFixed(2)}%)`
+      );
+    }
+    if (baseAnalysis.regimeLabel === 'TRENDING_RISK') {
+      rejectionReasons.push('Piață în trend direcțional puternic (TRENDING_RISK)');
+    }
+    if (score < cfg.minSuitabilityScore) {
+      rejectionReasons.push(`Scor (${score}) sub pragul minim (${cfg.minSuitabilityScore})`);
+    }
+
+    const opp: NativeGridOpportunity = {
+      instId,
+      price: baseAnalysis.price,
+      volume24hUSDT: baseAnalysis.volume24hUSDT,
+      priceChange24hPct: baseAnalysis.priceChange24hPct,
+      range24hPct: baseAnalysis.range24hPct,
+      atrPct: baseAnalysis.atrPct,
+      choppinessIndex: baseAnalysis.choppinessIndex,
+      adxTrendStrength: baseAnalysis.adxTrendStrength,
+      spreadBps: extras.spreadBps,
+      openInterestUSD: extras.openInterestUSD,
+      fundingRatePct: extras.fundingRatePct,
+      nextFundingRatePct: extras.nextFundingRatePct,
+      orderBookImbalance: extras.orderBookImbalance,
+      orderBookDepthUSD: extras.orderBookDepthUSD,
+      suitabilityScore: score,
+      regimeLabel: baseAnalysis.regimeLabel,
+      halfRangePct: activeVar.halfRangePct,
+      minPx: activeVar.minPx,
+      maxPx: activeVar.maxPx,
+      gridNum: activeVar.gridNum,
+      runType,
+      gridSpacingPct: activeVar.gridSpacingPct,
+      lever: activeVar.lever,
+      minInvestmentUSDT: activeVar.minInvestmentUSDT,
+      minInvestmentCcy: probeMinInv.ccy || 'USD',
+      recommendedInvestmentUSDT: activeVar.recommendedInvestmentUSDT,
+      fitsMaxBudget: activeVar.fitsMaxBudget,
+      estimatedGrossProfitPerGridPct: activeVar.estimatedGrossProfitPerGridPct,
+      estimatedNetProfitPerGridPct: activeVar.estimatedNetProfitPerGridPct,
+      estimatedDailyNetYieldPct: activeVar.estimatedDailyNetYieldPct,
+      selectedVariant: activeVar.id,
+      rangeVariants,
+      isEligible: rejectionReasons.length === 0,
+      rejectionReason: rejectionReasons.length > 0 ? rejectionReasons.join(' | ') : undefined,
+      reasons,
+      updatedAt: Date.now(),
+    };
+
+    this.manualOpportunities.set(instId, opp);
+    const existingIdx = this.opportunities.findIndex((o) => o.instId === instId);
+    if (existingIdx >= 0) {
+      const prevRank = this.opportunities[existingIdx].rank;
+      opp.rank = prevRank;
+      this.opportunities[existingIdx] = opp;
+    }
+
+    this.journal.logAudit(
+      'CANDIDATE_SELECTED',
+      `[MANUAL UNIVERSE CALCULATOR] ${instId} analizat la cerere (indiferent de scor: ${score}/100, Regim: ${baseAnalysis.regimeLabel}): Preț $${price} | Range [${activeVar.label}] $${activeVar.minPx}–$${activeVar.maxPx} (±${activeVar.halfRangePct}%) | ${activeVar.gridNum} grile @ ${activeVar.lever}x | Min-Inv OKX: $${activeVar.minInvestmentUSDT.toFixed(2)} | Net/grilă: +${activeVar.estimatedNetProfitPerGridPct.toFixed(2)}%.`
+    );
+
+    return opp;
   }
 
   /**

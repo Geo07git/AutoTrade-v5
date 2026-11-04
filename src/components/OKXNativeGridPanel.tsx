@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   GridAnalyzerStatusSummary,
   GridAnalyzerThresholds,
@@ -8,6 +8,7 @@ import {
   NativeGridOpportunity,
   OKXFeeTierInfo,
   OKXNativeGridBot,
+  UniverseCatalogItem,
 } from '../shared/types';
 import { formatPrice } from '../shared/formatters';
 import {
@@ -37,6 +38,7 @@ interface OKXNativeGridPanelProps {
   onRefresh: () => void;
   onNotify: (banner: { type: 'success' | 'error' | 'info'; text: string }) => void;
   onInspectLadder?: (botId: string) => void;
+  externalSelectedSymbol?: { instId: string; ts: number } | null;
 }
 
 export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
@@ -50,6 +52,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   onRefresh,
   onNotify,
   onInspectLadder,
+  externalSelectedSymbol,
 }) => {
   // Autopilot & Governance state (Exclusively LIVE on OKX EEA)
   const [apEnabled, setApEnabled] = useState<boolean>(Boolean(autopilot?.enabled));
@@ -125,6 +128,20 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   const [editTpPx, setEditTpPx] = useState<number>(0);
   const [editSlPx, setEditSlPx] = useState<number>(0);
   const [editStopType, setEditStopType] = useState<'1' | '2'>('1');
+
+  // Full Universe Manual Selector & On-Demand Parameter Calculator (all ~257 _UM_XPERP coins, regardless of score)
+  const [universeCatalog, setUniverseCatalog] = useState<UniverseCatalogItem[]>([]);
+  const [isLoadingUniverse, setIsLoadingUniverse] = useState<boolean>(false);
+  const [universeSearch, setUniverseSearch] = useState<string>('');
+  const [universeSortBy, setUniverseSortBy] = useState<
+    'RANGE_24H' | 'VOLUME_24H' | 'CHANGE_24H' | 'MIN_LOT' | 'ALPHA'
+  >('RANGE_24H');
+  const [onlyBudgetAccessibleLot, setOnlyBudgetAccessibleLot] = useState<boolean>(false);
+  const [showManualUniverseModule, setShowManualUniverseModule] = useState<boolean>(true);
+  const [manualSelectedInstId, setManualSelectedInstId] = useState<string>('');
+  const [manualOppsMap, setManualOppsMap] = useState<Record<string, NativeGridOpportunity>>({});
+  const [isCalculatingManual, setIsCalculatingManual] = useState<boolean>(false);
+  const builderSectionRef = useRef<HTMLDivElement | null>(null);
 
   // TB5 GridBotAnalyzer & Autonomous Supervisor state
   const [showAnalyzerThresholds, setShowAnalyzerThresholds] = useState<boolean>(false);
@@ -478,15 +495,87 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     };
   };
 
+  // Merge scanned opportunities with any manually analyzed contracts so manual selections never vanish
+  const allOpportunities = useMemo(() => {
+    const map = new Map<string, NativeGridOpportunity>();
+    for (const o of opportunities) {
+      map.set(o.instId, o);
+    }
+    for (const [k, v] of Object.entries(manualOppsMap) as [string, NativeGridOpportunity][]) {
+      map.set(k, v);
+    }
+    return Array.from(map.values());
+  }, [opportunities, manualOppsMap]);
+
+  const fetchUniverseCatalog = async (force: boolean = false) => {
+    setIsLoadingUniverse(true);
+    try {
+      const res = await fetch(`/api/bot/native-grid/universe${force ? '?force=1' : ''}`);
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.items)) {
+        setUniverseCatalog(data.items);
+        if (!manualSelectedInstId && data.items.length > 0) {
+          setManualSelectedInstId(data.items[0].instId);
+        }
+      }
+    } catch {} finally {
+      setIsLoadingUniverse(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUniverseCatalog(false);
+  }, []);
+
+  const filteredUniverseCatalog = useMemo(() => {
+    const q = universeSearch.trim().toUpperCase();
+    const list = universeCatalog.filter((item) => {
+      if (
+        onlyBudgetAccessibleLot &&
+        item.estMinGridMargin5xUSD > effectiveMaxBudget
+      ) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        item.baseSymbol.includes(q) ||
+        item.instId.toUpperCase().includes(q)
+      );
+    });
+
+    list.sort((a, b) => {
+      if (universeSortBy === 'RANGE_24H') {
+        return b.range24hPct - a.range24hPct;
+      }
+      if (universeSortBy === 'VOLUME_24H') {
+        return b.turnover24hUSDT - a.turnover24hUSDT;
+      }
+      if (universeSortBy === 'CHANGE_24H') {
+        return Math.abs(b.priceChange24hPct) - Math.abs(a.priceChange24hPct);
+      }
+      if (universeSortBy === 'MIN_LOT') {
+        return a.minLotNotionalUSD - b.minLotNotionalUSD;
+      }
+      return a.baseSymbol.localeCompare(b.baseSymbol);
+    });
+    return list;
+  }, [universeCatalog, universeSearch, universeSortBy, onlyBudgetAccessibleLot, effectiveMaxBudget]);
+
   const handleLoadOpportunity = (
     opp: NativeGridOpportunity,
-    variantOverride?: GridRangeVariantId
+    variantOverride?: GridRangeVariantId,
+    forceRamura1: boolean = false,
+    scrollToBuilder: boolean = false
   ) => {
     const chosenVariantId =
       variantOverride || rowVariants[opp.instId] || opp.selectedVariant || defaultRangeVariant || 'BALANCED';
     const v = getVariantProfileForOpp(opp, chosenVariantId);
     const targetInvestUSDT = computeBotInvestmentUSDT(v.minInvestmentUSDT);
+    if (forceRamura1) {
+      setExecutionVariant('AUTO_LIMIT');
+    }
     setInstId(opp.instId);
+    setManualSelectedInstId(opp.instId);
     setBuilderVariant(chosenVariantId);
     setDefaultRangeVariant(chosenVariantId);
     setRowVariants((prev) => ({ ...prev, [opp.instId]: chosenVariantId }));
@@ -501,13 +590,72 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       ccy: opp.minInvestmentCcy,
       singleAmt: 0,
     });
+    if (scrollToBuilder && builderSectionRef.current) {
+      builderSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     onNotify({
       type: v.feeWarning ? 'error' : 'info',
-      text: `${opp.instId} [${v.label} ±${v.halfRangePct.toFixed(2)}% • ${v.gridNum} grile • Distanță ${v.gridSpacingPct.toFixed(2)}% • Marjă: $${targetInvestUSDT.toFixed(2)} • Net +${v.estimatedNetProfitPerGridPct.toFixed(2)}%/grilă] încărcat în Builder.${
+      text: `${opp.instId} [${v.label} ±${v.halfRangePct.toFixed(2)}% • ${v.gridNum} grile • Distanță ${v.gridSpacingPct.toFixed(2)}% • Marjă: $${targetInvestUSDT.toFixed(2)} • Net +${v.estimatedNetProfitPerGridPct.toFixed(2)}%/grilă] preluat în RAMURA 1 (Builder Tab 1).${
         v.feeWarning ? ` ⚠ ${v.feeWarning}` : ''
       }`,
     });
   };
+
+  const handleAnalyzeAndLoadSymbol = async (
+    targetSymbol: string,
+    variantOverride?: GridRangeVariantId,
+    scrollToBuilder: boolean = false
+  ) => {
+    const cleanSym = (targetSymbol || manualSelectedInstId || instId || '').trim();
+    if (!cleanSym) {
+      onNotify({
+        type: 'error',
+        text: 'Selectează o monedă din universul OKX EEA (_UM_XPERP).',
+      });
+      return;
+    }
+    setIsCalculatingManual(true);
+    setManualSelectedInstId(cleanSym);
+    try {
+      const chosenVar = variantOverride || builderVariant || defaultRangeVariant || 'BALANCED';
+      const res = await fetch('/api/bot/native-grid/analyze-symbol', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          instId: cleanSym,
+          maxBudgetPerBotUSDT: effectiveMaxBudget,
+          maxLeverage: Number(lever) || Number(maxLeverage) || 5,
+          runType,
+          rangeVariant: chosenVar,
+        }),
+      });
+      const data = await res.json();
+      if (data?.success && data.opportunity) {
+        const opp: NativeGridOpportunity = data.opportunity;
+        setManualOppsMap((prev) => ({ ...prev, [opp.instId]: opp }));
+        handleLoadOpportunity(opp, chosenVar, true, scrollToBuilder);
+        onRefresh();
+      } else {
+        onNotify({
+          type: 'error',
+          text: data?.error || `Nu s-au putut calcula parametrii pentru ${cleanSym}.`,
+        });
+      }
+    } catch (err: any) {
+      onNotify({
+        type: 'error',
+        text: err.message || `Eroare la calcularea parametrilor pentru ${cleanSym}.`,
+      });
+    } finally {
+      setIsCalculatingManual(false);
+    }
+  };
+
+  useEffect(() => {
+    if (externalSelectedSymbol?.instId) {
+      handleAnalyzeAndLoadSymbol(externalSelectedSymbol.instId, undefined, true);
+    }
+  }, [externalSelectedSymbol?.ts]);
 
   const handleCreateNativeBot = async (overrideParams?: Partial<NativeGridOpportunity>) => {
     const targetInstId = overrideParams?.instId || instId;
@@ -2044,7 +2192,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 const nextVar = (e.target.value as GridRangeVariantId) || 'BALANCED';
                 setDefaultRangeVariant(nextVar);
                 setBuilderVariant(nextVar);
-                const currentOpp = opportunities.find((o) => o.instId === instId);
+                const currentOpp = allOpportunities.find((o) => o.instId === instId);
                 if (currentOpp) {
                   handleLoadOpportunity(currentOpp, nextVar);
                 }
@@ -2117,9 +2265,275 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       </div>
 
       {/* ================================================================= */}
+      {/* 1.5. MODUL MANUAL COMPLET — ALEGERE DIN TOT UNIVERSUL (257 MONEDE) */}
+      {/* ================================================================= */}
+      <div className="bg-zinc-950 border-2 border-fuchsia-500/50 rounded p-3 space-y-2.5 shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-fuchsia-500/30 pb-2">
+          <div className="flex items-center space-x-2">
+            <Zap className="w-4 h-4 text-fuchsia-400" />
+            <div>
+              <h3 className="font-black text-xs text-fuchsia-300 tracking-wide">
+                🎯 MODUL MANUAL — ALEGERE &amp; CALCUL PARAMETRI DIN TOT UNIVERSUL OKX EEA (
+                {universeCatalog.length || 257} MONEDE • INDIFERENT DE SCOR)
+              </h3>
+              <p className="text-[10px] text-zinc-400">
+                Alege orice monedă din cele {universeCatalog.length || 257} contracte{' '}
+                <code className="text-fuchsia-300">_UM_XPERP</code>. Aplicația îi calculează pe loc
+                ATR 15m, cele 3 variante de Range, SL/TP și Min-Investment OKX, apoi încarcă automat
+                valorile în <strong>Ramura 1 (Ordine Limit OKX)</strong> — chiar dacă scorul este sub
+                pragul Autopilot.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => fetchUniverseCatalog(true)}
+              disabled={isLoadingUniverse}
+              className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-fuchsia-500/40 text-fuchsia-300 text-[10px] font-bold flex items-center space-x-1 cursor-pointer"
+            >
+              <RefreshCw className={`w-3 h-3 ${isLoadingUniverse ? 'animate-spin' : ''}`} />
+              <span>
+                {isLoadingUniverse
+                  ? 'Se încarcă universul...'
+                  : `Actualizează Univers (${universeCatalog.length})`}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowManualUniverseModule((v) => !v)}
+              className="px-2.5 py-1 rounded bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/50 text-fuchsia-200 text-[10px] font-black cursor-pointer"
+            >
+              {showManualUniverseModule ? 'Ascunde Modul Manual ▲' : 'Deschide Modul Manual ▼'}
+            </button>
+          </div>
+        </div>
+
+        {showManualUniverseModule && (
+          <div className="space-y-2.5">
+            {/* RAND 1: CAUTARE, SORTARE, FILTRU LOT SI SELECTOR RAPID + BUTON CALCUL */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end bg-black/70 border border-zinc-800 rounded p-2.5">
+              <div className="md:col-span-3">
+                <label className="text-[10px] text-zinc-400 block mb-0.5 font-bold">
+                  1. Caută Monedă (ex: PEPE, SOL, DOGE, SUI, HYPE, WIF)
+                </label>
+                <input
+                  type="text"
+                  value={universeSearch}
+                  onChange={(e) => setUniverseSearch(e.target.value)}
+                  placeholder="Scrie simbolul monedei..."
+                  className="w-full bg-zinc-900 border border-fuchsia-500/50 rounded px-2.5 py-1.5 text-white font-bold text-xs placeholder:text-zinc-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-[10px] text-zinc-400 block mb-0.5 font-bold">
+                  Sortare Univers ({filteredUniverseCatalog.length} monede)
+                </label>
+                <select
+                  value={universeSortBy}
+                  onChange={(e) => setUniverseSortBy(e.target.value as any)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-zinc-200 font-bold text-xs"
+                >
+                  <option value="VOLUME">Volum 24h (Lichiditate ↓)</option>
+                  <option value="RANGE24H">Volatilitate / Range 24h % ↓</option>
+                  <option value="MIN_LOT">Lot Minim OKX ($ Accesibil ↑)</option>
+                  <option value="ALPHA">Alfabetic (A → Z)</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-4">
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="text-[10px] text-fuchsia-300 font-bold">
+                    2. Alege Moneda din Lista Completă ({filteredUniverseCatalog.length} din{' '}
+                    {universeCatalog.length})
+                  </label>
+                  <label className="flex items-center space-x-1 text-[9px] text-emerald-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={onlyBudgetAccessibleLot}
+                      onChange={(e) => setOnlyBudgetAccessibleLot(e.target.checked)}
+                      className="accent-emerald-400"
+                    />
+                    <span>Doar încadrabile în Buget (${effectiveMaxBudget.toFixed(0)})</span>
+                  </label>
+                </div>
+                <select
+                  value={manualSelectedInstId || instId}
+                  onChange={(e) => {
+                    const chosen = e.target.value;
+                    setManualSelectedInstId(chosen);
+                    if (chosen) {
+                      handleAnalyzeAndLoadSymbol(chosen, builderVariant, false);
+                    }
+                  }}
+                  className="w-full bg-zinc-900 border border-fuchsia-500/60 rounded px-2.5 py-1.5 text-amber-300 font-black text-xs"
+                >
+                  {filteredUniverseCatalog.map((c) => {
+                    const analyzed = allOpportunities.find((o) => o.instId === c.instId);
+                    return (
+                      <option key={c.instId} value={c.instId}>
+                        {c.baseSymbol} ({c.instId}) — ${formatPrice(c.lastPrice)} | Range 24h:{' '}
+                        {c.range24hPct.toFixed(1)}% | Vol: ${(c.turnover24hUSDT / 1000).toFixed(0)}K
+                        | Min ~${(analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD).toFixed(1)}
+                        {analyzed ? ` ★ [Scor ${analyzed.suitabilityScore}]` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="md:col-span-3 flex items-center space-x-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleAnalyzeAndLoadSymbol(
+                      manualSelectedInstId || instId,
+                      builderVariant,
+                      true
+                    )
+                  }
+                  disabled={isCalculatingManual || !(manualSelectedInstId || instId)}
+                  className="w-full py-2 px-3 rounded bg-fuchsia-500 hover:bg-fuchsia-400 disabled:opacity-50 text-black font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-md"
+                >
+                  <Zap className={`w-4 h-4 ${isCalculatingManual ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isCalculatingManual
+                      ? 'Se calculează pe OKX...'
+                      : '⚡ Calculează & Preia în Ramura 1'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* RAND 2: CHIPS / BUTOANE RAPIDE CU MONEDELE FILTRATE (PRIMELE 36 DIN CAUTARE) */}
+            <div className="bg-black/50 border border-zinc-900 rounded p-2">
+              <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1.5">
+                <span>
+                  Click direct pe orice monedă pentru <strong>calcul instant al parametrilor</strong>{' '}
+                  și preluare automată în <strong>Ramura 1 (Ordine Limit OKX)</strong>:
+                </span>
+                <span className="text-fuchsia-300 font-bold">
+                  Afișate: {Math.min(36, filteredUniverseCatalog.length)} /{' '}
+                  {filteredUniverseCatalog.length} contracte
+                </span>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-9 lg:grid-cols-12 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                {filteredUniverseCatalog.slice(0, 36).map((c) => {
+                  const isCurrent = (manualSelectedInstId || instId) === c.instId;
+                  const analyzed = allOpportunities.find((o) => o.instId === c.instId);
+                  const estMin = analyzed?.minInvestmentUSDT ?? c.estMinGridMargin5xUSD;
+                  const fitsUserBudget = estMin <= effectiveMaxBudget;
+                  return (
+                    <button
+                      key={c.instId}
+                      type="button"
+                      onClick={() => handleAnalyzeAndLoadSymbol(c.instId, builderVariant, false)}
+                      disabled={isCalculatingManual}
+                      className={`p-1.5 rounded border text-left transition cursor-pointer ${
+                        isCurrent
+                          ? 'bg-fuchsia-950/80 border-fuchsia-400 text-white ring-1 ring-fuchsia-400'
+                          : fitsUserBudget
+                          ? 'bg-zinc-900/80 hover:bg-zinc-800 border-zinc-800 text-zinc-200'
+                          : 'bg-zinc-950/70 hover:bg-zinc-900 border-rose-900/40 text-zinc-400'
+                      }`}
+                      title={`${c.instId} | Preț: $${c.lastPrice} | Range 24h: ${c.range24hPct}% | Vol 24h: $${Math.round(c.turnover24hUSDT).toLocaleString()} | Lot Min 1x: $${c.minLotNotionalUSD} | Est Min Grilă: $${estMin.toFixed(2)}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-[10px] text-amber-300 truncate">
+                          {c.baseSymbol}
+                        </span>
+                        <span
+                          className={`text-[8px] font-bold px-1 rounded ${
+                            c.priceChange24hPct >= 0
+                              ? 'bg-emerald-500/15 text-emerald-300'
+                              : 'bg-rose-500/15 text-rose-300'
+                          }`}
+                        >
+                          {c.priceChange24hPct >= 0 ? '+' : ''}
+                          {c.priceChange24hPct.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="text-[9px] text-zinc-300 font-mono truncate">
+                        ${formatPrice(c.lastPrice)}
+                      </div>
+                      <div className="flex items-center justify-between text-[8px] text-zinc-400 mt-0.5">
+                        <span>R:{c.range24hPct.toFixed(1)}%</span>
+                        <span className={fitsUserBudget ? 'text-emerald-400' : 'text-rose-400'}>
+                          ~${estMin.toFixed(0)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* RAND 3: REZULTATUL CALCULULUI PENTRU MONEDA SELECTATA MANUAL */}
+            {(() => {
+              const targetId = manualSelectedInstId || instId;
+              const calcOpp = allOpportunities.find((o) => o.instId === targetId);
+              if (!calcOpp) return null;
+              const activeVar =
+                calcOpp.rangeVariants?.[builderVariant] ||
+                calcOpp.rangeVariants?.[calcOpp.activeRangeVariant || 'BALANCED'];
+              return (
+                <div className="bg-fuchsia-950/20 border border-fuchsia-500/40 rounded p-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2 py-0.5 rounded bg-fuchsia-500 text-black font-black text-[10px]">
+                      PARAMETRI CALCULAȚI LIVE
+                    </span>
+                    <strong className="text-white font-mono text-xs">{calcOpp.instId}</strong>
+                    <span className="text-amber-300 font-bold">
+                      Preț: ${formatPrice(calcOpp.price)}
+                    </span>
+                    <span className="text-zinc-400">|</span>
+                    <span className="text-cyan-300">
+                      Scor Piață: <strong>{calcOpp.suitabilityScore}/100</strong> ({calcOpp.regime})
+                    </span>
+                    <span className="text-zinc-400">|</span>
+                    <span className="text-zinc-300">
+                      ATR 15m: <strong>{calcOpp.atrPct.toFixed(2)}%</strong> • Chop:{' '}
+                      <strong>{calcOpp.chop.toFixed(1)}</strong> • ADX:{' '}
+                      <strong>{calcOpp.adx.toFixed(1)}</strong>
+                    </span>
+                    <span className="text-zinc-400">|</span>
+                    <span className="text-emerald-300 font-bold">
+                      Range [{builderVariant}]: ${formatPrice(activeVar?.minPx ?? calcOpp.minPx)} – $
+                      {formatPrice(activeVar?.maxPx ?? calcOpp.maxPx)} (
+                      {activeVar?.gridNum ?? calcOpp.gridNum} grile @ {calcOpp.recommendedLeverage}x)
+                    </span>
+                    <span className="text-zinc-400">|</span>
+                    <span className="text-amber-300 font-bold">
+                      Min-Inv OKX: $
+                      {(activeVar?.minInvestmentUSDT ?? calcOpp.minInvestmentUSDT).toFixed(2)} USD
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadOpportunity(calcOpp, builderVariant, true, true)}
+                      className="px-3 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[11px] cursor-pointer shadow"
+                    >
+                      ✓ Valori Preluate în Ramura 1 (Mergi la Lansare ↓)
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* ================================================================= */}
       {/* 2. MAIN WORKSPACE: MANUAL BUILDER (4 COLS) + ACTIVE BOTS (8 COLS)  */}
       {/* ================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+      <div
+        ref={builderSectionRef}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
+      >
         {/* LEFT 4 COLS: BUILDER CU VALIDARE LIVE POST /api/v5/tradingBot/grid/min-investment */}
         <div className="lg:col-span-4 bg-zinc-950 border border-amber-500/40 rounded p-3 space-y-2.5">
           <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
@@ -2140,17 +2554,22 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             <div>
               <div className="flex items-center justify-between mb-0.5">
                 <label className="text-[10px] text-zinc-400 block">
-                  Instrument OKX EEA (Exclusiv _UM_XPERP)
+                  Instrument OKX EEA (Toate cele {universeCatalog.length || 257} contracte _UM_XPERP)
                 </label>
                 <button
                   type="button"
                   onClick={() => {
-                    const found = opportunities.find((o) => o.instId === instId);
-                    if (found) handleLoadOpportunity(found);
+                    const found = allOpportunities.find((o) => o.instId === instId);
+                    if (found) {
+                      handleLoadOpportunity(found, builderVariant, true);
+                    } else {
+                      handleAnalyzeAndLoadSymbol(instId, builderVariant, false);
+                    }
                   }}
+                  disabled={isCalculatingManual}
                   className="text-[10px] text-cyan-300 hover:text-cyan-200 font-bold cursor-pointer"
                 >
-                  ⚡ Auto-Optimizează ATR
+                  {isCalculatingManual ? 'Se calculează...' : '⚡ Recalculează Parametri Live'}
                 </button>
               </div>
               <select
@@ -2158,25 +2577,51 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 onChange={(e) => {
                   const next = e.target.value;
                   setInstId(next);
-                  const found = opportunities.find((o) => o.instId === next);
-                  if (found) handleLoadOpportunity(found);
+                  setManualSelectedInstId(next);
+                  const found = allOpportunities.find((o) => o.instId === next);
+                  if (found) {
+                    handleLoadOpportunity(found, builderVariant, true);
+                  } else {
+                    handleAnalyzeAndLoadSymbol(next, builderVariant, false);
+                  }
                 }}
                 className="w-full bg-black border border-amber-500/50 rounded px-2.5 py-1.5 text-white font-bold"
               >
-                {opportunities.map((o) => (
-                  <option key={o.instId} value={o.instId}>
-                    {o.instId} — ${formatPrice(o.price)} (Min-Inv: ${o.minInvestmentUSDT.toFixed(2)})
-                  </option>
-                ))}
-                {!opportunities.some((o) => o.instId === instId) && (
-                  <option value={instId}>{instId}</option>
+                <optgroup
+                  label={`★ Monede cu Parametri Calculați (${allOpportunities.length})`}
+                >
+                  {allOpportunities.map((o) => (
+                    <option key={o.instId} value={o.instId}>
+                      {o.instId} — ${formatPrice(o.price)} (Scor: {o.suitabilityScore} | Min-Inv: $
+                      {o.minInvestmentUSDT.toFixed(2)})
+                    </option>
+                  ))}
+                </optgroup>
+                {universeCatalog.length > 0 && (
+                  <optgroup
+                    label={`🌐 Tot Universul OKX EEA (${universeCatalog.length} contracte — Calculează automat la selectare)`}
+                  >
+                    {universeCatalog
+                      .filter((c) => !allOpportunities.some((o) => o.instId === c.instId))
+                      .map((c) => (
+                        <option key={c.instId} value={c.instId}>
+                          {c.instId} — ${formatPrice(c.lastPrice)} (Range 24h:{' '}
+                          {c.range24hPct.toFixed(1)}% | Est Min: $
+                          {c.estMinGridMargin5xUSD.toFixed(2)})
+                        </option>
+                      ))}
+                  </optgroup>
                 )}
+                {!allOpportunities.some((o) => o.instId === instId) &&
+                  !universeCatalog.some((c) => c.instId === instId) && (
+                    <option value={instId}>{instId}</option>
+                  )}
               </select>
             </div>
 
             {/* TB5 3-VARIANT RANGE SELECTOR FOR CURRENT CONTRACT */}
             {(() => {
-              const currentOpp = opportunities.find((o) => o.instId === instId);
+              const currentOpp = allOpportunities.find((o) => o.instId === instId);
               if (currentOpp?.rangeVariants) {
                 const variantOrder: GridRangeVariantId[] = ['CONSERVATIVE', 'BALANCED', 'COMPACT'];
                 return (
@@ -2348,7 +2793,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
 
             {/* UNIFIED MARGIN ALLOCATION & OKX MIN-INVESTMENT BOX */}
             {(() => {
-              const currentOpp = opportunities.find((o) => o.instId === instId);
+              const currentOpp = allOpportunities.find((o) => o.instId === instId);
               const rawOkxMin =
                 minInvCheck?.minInvestmentUSDT || currentOpp?.minInvestmentUSDT || 0;
               const ccyLabel = minInvCheck?.ccy || currentOpp?.minInvestmentCcy || 'USD';

@@ -248,6 +248,51 @@ async function startServer() {
     }
   });
 
+  app.get('/api/bot/native-grid/universe', async (req, res) => {
+    try {
+      const force = req.query.force === '1' || req.query.force === 'true';
+      const items = await tradeBot.getFullUniverseCatalog(force);
+      res.json({
+        success: true,
+        totalCount: items.length,
+        items,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la încărcarea catalogului complet din universul OKX EEA',
+      });
+    }
+  });
+
+  app.post('/api/bot/native-grid/analyze-symbol', async (req, res) => {
+    try {
+      const { instId, maxBudgetPerBotUSDT, maxLeverage, runType, rangeVariant } = req.body || {};
+      if (!instId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Selectează o monedă validă din universul OKX EEA (_UM_XPERP).',
+        });
+      }
+      const opportunity = await tradeBot.analyzeNativeGridSymbolOnDemand(String(instId), {
+        maxBudgetPerBotUSDT: maxBudgetPerBotUSDT ? Number(maxBudgetPerBotUSDT) : undefined,
+        maxLeverage: maxLeverage ? Number(maxLeverage) : undefined,
+        runType: runType === '2' ? '2' : runType === '1' ? '1' : undefined,
+        rangeVariant,
+      });
+      res.json({
+        success: true,
+        opportunity,
+        status: tradeBot.getStatus(),
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la calcularea parametrilor pentru moneda selectată',
+      });
+    }
+  });
+
   app.post('/api/bot/native-grid/min-investment', async (req, res) => {
     try {
       const { instId, maxPx, minPx, gridNum, runType, lever } = req.body || {};

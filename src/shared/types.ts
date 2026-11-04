@@ -387,6 +387,25 @@ export interface NativeGridScanDiagnostics {
   lastScanAt: number;
 }
 
+export interface UniverseCatalogItem {
+  instId: string;                     // Full OKX EEA _UM_XPERP instrument ID
+  baseSymbol: string;                 // Base coin ticker (e.g. NEAR, SOL, PEPE, WLD)
+  lastPrice: number;
+  priceChange24hPct: number;
+  high24h: number;
+  low24h: number;
+  range24hPct: number;
+  turnover24hUSDT: number;
+  spreadPct: number;
+  spreadBps: number;
+  ctVal: number;
+  minSz: number;
+  tickSz: number;
+  minLotNotionalUSD: number;          // 1-lot minimum notional value in USD
+  estMinGridMargin5xUSD: number;      // Estimated minimum margin for 4 grids at 5x (min $5)
+  preScore?: number;                  // Informational pre-score (does not block manual selection)
+}
+
 export interface OKXNativeGridBot {
   algoId: string;
   instId: string;

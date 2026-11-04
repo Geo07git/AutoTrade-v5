@@ -3602,6 +3602,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               setSelectedBotIdForLadder(botId);
               setActiveTab('LADDER');
             }}
+            externalSelectedSymbol={selectedSymbol}
           />
         )}
       </main>

@@ -1,4 +1,4 @@
-import { UniverseFilterConfig, AuditLogType } from '../../shared/types';
+import { UniverseFilterConfig, AuditLogType, UniverseCatalogItem } from '../../shared/types';
 import { InstrumentLotFilter } from '../exchange/IExecutionAdapter';
 
 export interface InstrumentMetadata {
@@ -52,6 +52,7 @@ export class UniverseManager {
   private okxBaseUrl: string = 'https://eea.okx.com';
   private cachedUniverse: string[] = [];
   private cachedTickersMap: Record<string, MarketTickerInfo> = {};
+  private lastTickersFetchTime: number = 0;
   private instrumentMetaMap: Map<string, InstrumentMetadata> = new Map();
   private lastRefreshTime: number = 0;
   private logAuditFn?: (type: AuditLogType, message: string, details?: any) => void;
@@ -278,6 +279,7 @@ export class UniverseManager {
 
     if (Object.keys(tickersMap).length > 0) {
       this.cachedTickersMap = tickersMap;
+      this.lastTickersFetchTime = Date.now();
       return tickersMap;
     }
 
@@ -500,5 +502,71 @@ export class UniverseManager {
       ctVal: meta.ctVal || 1,
       ctValCcy: meta.ctValCcy || meta.settleCcy || 'USDT',
     };
+  }
+
+  public getTickerInfo(symbol: string): MarketTickerInfo | undefined {
+    return this.cachedTickersMap[symbol];
+  }
+
+  /**
+   * Returns the complete catalog of all ~257 active _UM_XPERP contracts on OKX EEA
+   * without excluding any coin by score, volume, or spread, so the user can manually
+   * select and calculate parameters for any coin in the universe.
+   */
+  public async getFullUniverseCatalog(forceRefresh: boolean = false): Promise<UniverseCatalogItem[]> {
+    const universe = await this.refreshUniverse(DEFAULT_UNIVERSE_FILTER, forceRefresh);
+    const now = Date.now();
+    const tickersMap =
+      !forceRefresh &&
+      Object.keys(this.cachedTickersMap).length > 0 &&
+      now - this.lastTickersFetchTime < 20_000
+        ? this.cachedTickersMap
+        : await this.fetch24hTickers();
+
+    const items: UniverseCatalogItem[] = [];
+    for (const instId of universe) {
+      if (!instId.includes('_UM_XPERP')) continue;
+      const ticker = tickersMap[instId];
+      const meta = this.instrumentMetaMap.get(instId);
+      const lastPrice = ticker?.lastPrice || 0;
+      const high24h = ticker?.highPrice24h || lastPrice;
+      const low24h = ticker?.lowPrice24h || lastPrice;
+      const range24hPct =
+        lastPrice > 0 && high24h >= low24h
+          ? parseFloat((((high24h - low24h) / lastPrice) * 100).toFixed(2))
+          : 0;
+      const spreadPct = ticker?.spreadPct ?? 0.02;
+      const spreadBps = parseFloat((spreadPct * 100).toFixed(1));
+      const ctVal = meta?.ctVal && meta.ctVal > 0 ? meta.ctVal : 1;
+      const minSz = meta?.minSz && meta.minSz > 0 ? meta.minSz : 1;
+      const tickSz = meta?.tickSz && meta.tickSz > 0 ? meta.tickSz : 0.01;
+      const minLotNotionalUSD = parseFloat((minSz * ctVal * lastPrice).toFixed(2));
+      const estMinGridMargin5xUSD = parseFloat(
+        Math.max(5, (minLotNotionalUSD * 4) / 5).toFixed(2)
+      );
+      const baseSymbol = instId.split('-')[0].toUpperCase();
+
+      items.push({
+        instId,
+        baseSymbol,
+        lastPrice,
+        priceChange24hPct: parseFloat((ticker?.priceChange24hPct || 0).toFixed(2)),
+        high24h,
+        low24h,
+        range24hPct,
+        turnover24hUSDT: Math.round(ticker?.turnover24hUSDT || 0),
+        spreadPct,
+        spreadBps,
+        ctVal,
+        minSz,
+        tickSz,
+        minLotNotionalUSD,
+        estMinGridMargin5xUSD,
+      });
+    }
+
+    // Sort by 24h turnover descending by default (UI allows sorting by Range 24h %, Volume, Min-Lot, or A-Z)
+    items.sort((a, b) => b.turnover24hUSDT - a.turnover24hUSDT);
+    return items;
   }
 }

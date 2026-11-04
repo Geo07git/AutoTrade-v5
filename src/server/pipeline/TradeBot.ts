@@ -1373,6 +1373,22 @@ export class TradeBot {
     );
   }
 
+  public async getFullUniverseCatalog(forceRefresh: boolean = false) {
+    return await this.universeManager.getFullUniverseCatalog(forceRefresh);
+  }
+
+  public async analyzeNativeGridSymbolOnDemand(
+    instId: string,
+    overrides?: {
+      maxBudgetPerBotUSDT?: number;
+      maxLeverage?: number;
+      runType?: '1' | '2';
+      rangeVariant?: any;
+    }
+  ) {
+    return await this.nativeGridEngine.analyzeSingleContractOnDemand(instId, overrides);
+  }
+
   public async calculateNativeGridMinInvestment(params: {
     instId: string;
     maxPx: number;
