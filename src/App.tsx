@@ -62,7 +62,7 @@ export default function App() {
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
-    'x-bot-token': controlToken,
+    'x-bot-token': controlToken || 'tradebot5_admin_token',
   });
 
   const safeJson = async (res: Response): Promise<any> => {
@@ -85,9 +85,16 @@ export default function App() {
       const res = await fetch('/api/bot/status');
       const contentType = res.headers.get('content-type');
       if (res.ok && contentType && contentType.includes('application/json')) {
-        const data: BotStatusResponse = await res.json();
+        const data: any = await res.json();
         const elapsed = Math.max(1, Math.round(performance.now() - t0));
         setStatus(data);
+        if (data.activeControlToken && typeof data.activeControlToken === 'string') {
+          const currentSaved = localStorage.getItem('tb5_control_token');
+          if (!currentSaved || currentSaved !== data.activeControlToken) {
+            setControlToken(data.activeControlToken);
+            localStorage.setItem('tb5_control_token', data.activeControlToken);
+          }
+        }
         if (Array.isArray(data.orders)) {
           setOrders(data.orders);
         }

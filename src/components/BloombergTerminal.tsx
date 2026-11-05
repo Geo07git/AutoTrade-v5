@@ -468,6 +468,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [showKillSwitchConfirm, setShowKillSwitchConfirm] = useState<boolean>(false);
   const [isExecutingKillSwitch, setIsExecutingKillSwitch] = useState<boolean>(false);
 
+  // Bot Control Token Modal & settings state
+  const [showTokenModal, setShowTokenModal] = useState<boolean>(false);
+  const [tokenInput, setTokenInput] = useState<string>(controlToken || '');
+  useEffect(() => {
+    setTokenInput(controlToken || '');
+  }, [controlToken]);
+
   // API & Credentials State (persisted across server/container restarts via server config + localStorage backup)
   const getInitialSavedCreds = () => {
     try {
@@ -1389,6 +1396,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
               UPL: {unrealizedPnL >= 0 ? '+' : ''}${unrealizedPnL.toFixed(2)}
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowTokenModal(true)}
+            className="px-2 sm:px-2.5 py-1.5 rounded font-bold text-[10px] sm:text-xs flex items-center justify-center space-x-1 cursor-pointer border bg-zinc-900 border-amber-500/40 text-amber-300 hover:bg-zinc-800 transition-colors"
+            title="Configurează sau verifică Bot Control Token"
+          >
+            <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="hidden sm:inline">TOKEN:</span>
+            <span className="text-emerald-400 font-mono text-[9px] sm:text-[10px]">
+              {controlToken ? 'CONECTAT' : 'LIPSEȘTE'}
+            </span>
+          </button>
 
           <button
             type="button"
@@ -3599,6 +3619,61 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* BOT CONTROL SECURITY TOKEN CARD */}
+              <div className="bg-zinc-950 border border-amber-500/40 rounded p-4 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                  <h3 className="font-bold text-sm text-amber-400 flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-amber-400" />
+                    <span>BOT CONTROL TOKEN (AUTORIZARE COMENZI CRITICE)</span>
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300">
+                    {controlToken ? 'STATUS: CONECTAT' : 'STATUS: NESETAT'}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Tokenul protejează apelurile API de control critic (Oprire Boți, Kill Switch, Modificare Grilă).
+                  Tokenul implicit de dezvoltare este <code className="text-amber-300 font-bold">tradebot5_admin_token</code>.
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <label className="text-zinc-400 block mb-1">Control Token Curent (trimis în header-ul x-bot-token):</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={tokenInput}
+                        onChange={(e) => setTokenInput(e.target.value)}
+                        placeholder="tradebot5_admin_token"
+                        className="flex-1 bg-black border border-zinc-700 rounded px-2.5 py-1.5 text-white font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onUpdateControlToken) {
+                            onUpdateControlToken(tokenInput);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-amber-500 text-black font-bold rounded text-xs cursor-pointer hover:bg-amber-400 whitespace-nowrap"
+                      >
+                        Salvează Token
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTokenInput('tradebot5_admin_token');
+                          if (onUpdateControlToken) {
+                            onUpdateControlToken('tradebot5_admin_token');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-zinc-900 border border-zinc-700 text-zinc-300 font-bold rounded text-xs cursor-pointer hover:bg-zinc-800 whitespace-nowrap"
+                        title="Resetează la tokenul de dev implicit"
+                      >
+                        Reset Dev Default
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3911,6 +3986,96 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     : 'CONFIRMĂ OPRIREA DE URGENȚĂ'}
                 </span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BOT CONTROL TOKEN CONFIGURATION MODAL */}
+      {showTokenModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowTokenModal(false);
+          }}
+        >
+          <div className="bg-zinc-950 border border-amber-500/60 rounded-lg max-w-lg w-full p-5 space-y-4 shadow-[0_0_30px_rgba(245,158,11,0.25)]">
+            <div className="flex items-center justify-between border-b border-amber-500/30 pb-3">
+              <div className="flex items-center space-x-2">
+                <Key className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-base text-amber-400">
+                  CONFIGURARE BOT CONTROL TOKEN
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTokenModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded hover:bg-zinc-800 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs text-zinc-300 space-y-2 leading-relaxed">
+              <p>
+                Serverul protejează acțiunile critice (Oprire Boți, Kill Switch, Modificare Grilă) solicitând un token de securitate.
+              </p>
+              <div className="p-3 bg-black border border-zinc-800 rounded font-mono text-[11px] space-y-1">
+                <div>Token activ detectat: <strong className="text-emerald-400">{controlToken || 'Nesetat (folosește dev default)'}</strong></div>
+                <div className="text-zinc-500">Token implicit dev: <strong className="text-amber-300">tradebot5_admin_token</strong></div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-300 block">
+                Introdu sau actualizează tokenul local:
+              </label>
+              <input
+                type="text"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="tradebot5_admin_token"
+                className="w-full bg-black border border-amber-500/50 rounded px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTokenInput('tradebot5_admin_token');
+                  if (onUpdateControlToken) {
+                    onUpdateControlToken('tradebot5_admin_token');
+                  }
+                }}
+                className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold rounded text-xs cursor-pointer"
+              >
+                Reset Implicit (tradebot5_admin_token)
+              </button>
+
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTokenModal(false)}
+                  className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded text-xs cursor-pointer font-bold"
+                >
+                  Închide
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onUpdateControlToken) {
+                      onUpdateControlToken(tokenInput);
+                    }
+                    setShowTokenModal(false);
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded text-xs cursor-pointer"
+                >
+                  Salvează Token
+                </button>
+              </div>
             </div>
           </div>
         </div>
