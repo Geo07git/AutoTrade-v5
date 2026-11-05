@@ -2127,6 +2127,19 @@ export class OKXAdapter implements IExecutionAdapter {
   }
 
   /**
+   * Public helper to execute authenticated calls against OKX v5 REST API
+   * (used by AnafTaxEngine for orders-history-archive, orders-history, fills-history, bills-archive)
+   */
+  public async requestPrivate(
+    method: string,
+    path: string,
+    body?: any,
+    signal?: AbortSignal
+  ): Promise<any> {
+    return this.request(method, path, body, true, signal);
+  }
+
+  /**
    * Fetches Open Interest, Funding Rate, and Order Book Depth/Imbalance for Market Intelligence
    * on OKX EEA (https://eea.okx.com).
    */

@@ -9,21 +9,35 @@ interface AnafTaxEngineOptions {
   minWageGrossRON?: number; // 4050 RON în 2026
   customUsdRonRate?: number;
   dataDir?: string;
+  forceSyncOkxApi?: boolean;
 }
 
 export class AnafTaxEngine {
   private okxAdapter: OKXAdapter;
   private dataDir: string;
   private importedCsvFile: string;
+  private syncedTransactionsFile: string;
   private cachedBnrUsdRate: number = 4.62;
   private cachedBnrEurRate: number = 4.97;
   private bnrLastUpdated: number = 0;
   private bnrSource: string = 'BNR Reference (Calibrat)';
 
+  private lastOkxSyncStatus = {
+    lastSyncedAt: 0,
+    totalOrdersFromArchive: 0,
+    totalOrdersFromHistory: 0,
+    totalBillsFromArchive: 0,
+    totalFills: 0,
+    endpointsQueried: [] as string[],
+    hasOkxCredentials: false,
+    errorMessage: undefined as string | undefined,
+  };
+
   constructor(okxAdapter: OKXAdapter, dataDir: string = '.data') {
     this.okxAdapter = okxAdapter;
     this.dataDir = dataDir;
     this.importedCsvFile = path.join(this.dataDir, 'imported_okx_transactions.json');
+    this.syncedTransactionsFile = path.join(this.dataDir, 'okx_synced_transactions.json');
     this.ensureDataDir();
   }
 
@@ -141,6 +155,29 @@ export class AnafTaxEngine {
   }
 
   /**
+   * Persistent cache of OKX synced transactions across preview container restarts
+   */
+  public getPersistentSyncedTransactions(): AnafTransactionRecord[] {
+    try {
+      if (fs.existsSync(this.syncedTransactionsFile)) {
+        const raw = fs.readFileSync(this.syncedTransactionsFile, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  public savePersistentSyncedTransactions(records: AnafTransactionRecord[]): void {
+    this.ensureDataDir();
+    try {
+      fs.writeFileSync(this.syncedTransactionsFile, JSON.stringify(records, null, 2), 'utf8');
+    } catch (err: any) {
+      console.warn('[AnafTaxEngine] Failed to save persistent synced transactions:', err.message);
+    }
+  }
+
+  /**
    * Imports OKX raw CSV text (from Assets -> Order History / Trading History)
    */
   public parseAndImportOkxCsv(csvContent: string): { importedCount: number; errors: string[] } {
@@ -235,6 +272,8 @@ export class AnafTaxEngine {
         grossGainRON,
         deductibleFeeRON,
         netTaxableGainRON,
+        entryPx: rawPx > 0 ? rawPx : undefined,
+        exitPx: rawPx > 0 ? rawPx : undefined,
       });
     }
 
@@ -244,8 +283,453 @@ export class AnafTaxEngine {
   }
 
   /**
-   * Core Fiscal Engine: Aggregates all transactions from OKX Live API,
-   * Grid Arbitrages, Bot Orders and CSV Imports, then computes Romanian ANAF taxes
+   * Queries OKX API endpoint with error catching and optional pagination
+   */
+  private async fetchOkxPaged(pathWithQuery: string): Promise<any[]> {
+    try {
+      const res = await this.okxAdapter.requestPrivate('GET', pathWithQuery);
+      if (res && res.code === '0' && Array.isArray(res.data)) {
+        return res.data;
+      }
+    } catch (err: any) {
+      if (process.env.OKX_DEBUG === '1') {
+        console.warn(`[AnafTaxEngine] OKX API fetch warning for ${pathWithQuery}:`, err.message);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Deep Historical Synchronization with OKX REST API v5:
+   * 1. /api/v5/trade/orders-history-archive (orders older than 3 months, up to 3 years)
+   * 2. /api/v5/trade/orders-history (orders in last 3 months)
+   * 3. /api/v5/account/bills-archive & /api/v5/account/bills (ledger items, trading fees & PnLs)
+   * 4. /api/v5/trade/fills-history & /api/v5/trade/fills (individual fills)
+   *
+   * Matches Entry/Exit FIFO prices and stores all deduplicated records into
+   * .data/okx_synced_transactions.json to guarantee persistent tax audit history.
+   */
+  public async syncFromOkxApi(options: {
+    fiscalYear: number;
+    bnrRate: number;
+    forceFullArchive?: boolean;
+  }): Promise<{ syncedCount: number; newCount: number; status: any }> {
+    const { fiscalYear, bnrRate } = options;
+    const yearStart = new Date(Date.UTC(fiscalYear, 0, 1, 0, 0, 0)).getTime();
+    const yearEnd = new Date(Date.UTC(fiscalYear, 11, 31, 23, 59, 59, 999)).getTime();
+
+    const hasCreds = this.okxAdapter.hasCredentials();
+    this.lastOkxSyncStatus.hasOkxCredentials = hasCreds;
+    this.lastOkxSyncStatus.endpointsQueried = [];
+
+    if (!hasCreds) {
+      this.lastOkxSyncStatus.errorMessage =
+        'Cheile API OKX nu sunt configurate (Mergi în Tab 5 pentru conectare cu API Key, Secret și Passphrase).';
+      return { syncedCount: 0, newCount: 0, status: this.lastOkxSyncStatus };
+    }
+
+    // Load existing persistent cache
+    const existing = this.getPersistentSyncedTransactions();
+    const transactionsMap = new Map<string, AnafTransactionRecord>();
+    for (const tx of existing) {
+      transactionsMap.set(tx.id, tx);
+    }
+    const countBefore = transactionsMap.size;
+
+    let ordersArchiveCount = 0;
+    let ordersHistoryCount = 0;
+    let billsArchiveCount = 0;
+    let fillsCount = 0;
+
+    const endpointsUsed: string[] = [];
+
+    try {
+      // -----------------------------------------------------------------------
+      // A. /api/v5/trade/orders-history-archive (Up to 3 months to 3 years old)
+      // -----------------------------------------------------------------------
+      // We query FUTURES (EEA contracts like _UM_XPERP) and SWAP (standard perp)
+      endpointsUsed.push('/api/v5/trade/orders-history-archive');
+      const instTypes = ['FUTURES', 'SWAP'];
+
+      for (const instType of instTypes) {
+        // Query by quarter for the fiscal year if needed
+        for (const q of [1, 2, 3, 4]) {
+          const archiveQuarterItems = await this.fetchOkxPaged(
+            `/api/v5/trade/orders-history-archive?instType=${instType}&state=filled&year=${fiscalYear}&quarter=${q}&limit=100`
+          );
+          if (archiveQuarterItems.length > 0) {
+            ordersArchiveCount += archiveQuarterItems.length;
+            this.processOkxOrderList(archiveQuarterItems, transactionsMap, bnrRate, yearStart, yearEnd, 'OKX_ARCHIVE');
+          }
+        }
+
+        // Generic archive query with pagination
+        let afterCursor = '';
+        for (let page = 0; page < 3; page++) {
+          const query = `/api/v5/trade/orders-history-archive?instType=${instType}&state=filled&limit=100${
+            afterCursor ? `&after=${afterCursor}` : ''
+          }`;
+          const items = await this.fetchOkxPaged(query);
+          if (!items || items.length === 0) break;
+          ordersArchiveCount += items.length;
+          this.processOkxOrderList(items, transactionsMap, bnrRate, yearStart, yearEnd, 'OKX_ARCHIVE');
+          afterCursor = items[items.length - 1]?.ordId || '';
+          if (!afterCursor || items.length < 100) break;
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // B. /api/v5/trade/orders-history (Completed orders in the last 3 months)
+      // -----------------------------------------------------------------------
+      endpointsUsed.push('/api/v5/trade/orders-history');
+      for (const instType of instTypes) {
+        let afterCursor = '';
+        for (let page = 0; page < 4; page++) {
+          const query = `/api/v5/trade/orders-history?instType=${instType}&state=filled&limit=100${
+            afterCursor ? `&after=${afterCursor}` : ''
+          }`;
+          const items = await this.fetchOkxPaged(query);
+          if (!items || items.length === 0) break;
+          ordersHistoryCount += items.length;
+          this.processOkxOrderList(items, transactionsMap, bnrRate, yearStart, yearEnd, 'OKX_ORDERS_HISTORY');
+          afterCursor = items[items.length - 1]?.ordId || '';
+          if (!afterCursor || items.length < 100) break;
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // C. /api/v5/account/bills-archive & /api/v5/account/bills (Ledger Entries)
+      // -----------------------------------------------------------------------
+      endpointsUsed.push('/api/v5/account/bills-archive', '/api/v5/account/bills');
+      for (const instType of instTypes) {
+        // Bills Archive (trades, liquidations, deliveries)
+        for (const q of [1, 2, 3, 4]) {
+          const archiveBills = await this.fetchOkxPaged(
+            `/api/v5/account/bills-archive?instType=${instType}&type=2&year=${fiscalYear}&quarter=${q}&limit=100`
+          );
+          if (archiveBills.length > 0) {
+            billsArchiveCount += archiveBills.length;
+            this.processOkxBillList(archiveBills, transactionsMap, bnrRate, yearStart, yearEnd);
+          }
+        }
+
+        // Recent Bills (last 7 days)
+        const recentBills = await this.fetchOkxPaged(`/api/v5/account/bills?instType=${instType}&limit=100`);
+        if (recentBills.length > 0) {
+          billsArchiveCount += recentBills.length;
+          this.processOkxBillList(recentBills, transactionsMap, bnrRate, yearStart, yearEnd);
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // D. /api/v5/trade/fills-history & /api/v5/trade/fills (Individual executions)
+      // -----------------------------------------------------------------------
+      endpointsUsed.push('/api/v5/trade/fills-history', '/api/v5/trade/fills');
+      for (const instType of instTypes) {
+        const [recentFills, historyFills] = await Promise.all([
+          this.fetchOkxPaged(`/api/v5/trade/fills?instType=${instType}&limit=100`),
+          this.fetchOkxPaged(`/api/v5/trade/fills-history?instType=${instType}&limit=100`),
+        ]);
+        const allFills = [...recentFills, ...historyFills];
+        fillsCount += allFills.length;
+        this.processOkxFillsList(allFills, transactionsMap, bnrRate, yearStart, yearEnd);
+      }
+
+      // -----------------------------------------------------------------------
+      // E. FIFO Entry/Exit Matching for Grid orders without direct PnL
+      // -----------------------------------------------------------------------
+      this.reconcileEntryExitPairs(transactionsMap, bnrRate);
+
+      // Save merged deduplicated records to persistent disk (.data/okx_synced_transactions.json)
+      const combined = Array.from(transactionsMap.values());
+      this.savePersistentSyncedTransactions(combined);
+
+      const countAfter = transactionsMap.size;
+      const newCount = Math.max(0, countAfter - countBefore);
+
+      this.lastOkxSyncStatus = {
+        lastSyncedAt: Date.now(),
+        totalOrdersFromArchive: ordersArchiveCount,
+        totalOrdersFromHistory: ordersHistoryCount,
+        totalBillsFromArchive: billsArchiveCount,
+        totalFills: fillsCount,
+        endpointsQueried: endpointsUsed,
+        hasOkxCredentials: true,
+        errorMessage: undefined,
+      };
+
+      return {
+        syncedCount: countAfter,
+        newCount,
+        status: this.lastOkxSyncStatus,
+      };
+    } catch (err: any) {
+      console.warn('[AnafTaxEngine] OKX API sync error:', err.message);
+      this.lastOkxSyncStatus.errorMessage = `Eroare sincronizare OKX API: ${err.message}`;
+      return {
+        syncedCount: transactionsMap.size,
+        newCount: 0,
+        status: this.lastOkxSyncStatus,
+      };
+    }
+  }
+
+  /**
+   * Processes OKX Orders (from orders-history and orders-history-archive)
+   */
+  private processOkxOrderList(
+    items: any[],
+    map: Map<string, AnafTransactionRecord>,
+    bnrRate: number,
+    yearStart: number,
+    yearEnd: number,
+    sourceTag: string
+  ): void {
+    for (const item of items) {
+      const rawTs = parseInt(item.uTime || item.fillTime || item.cTime || '0', 10);
+      if (!rawTs || rawTs < yearStart || rawTs > yearEnd) continue;
+
+      const pnl = parseFloat(item.pnl || '0') || 0;
+      const fee = Math.abs(parseFloat(item.fee || '0') || 0);
+      const avgPx = parseFloat(item.avgPx || item.fillPx || item.px || '0') || 0;
+      const fillSz = Math.abs(parseFloat(item.accFillSz || item.fillSz || item.sz || '0') || 0);
+      const ctVal = this.okxAdapter.getCachedCtVal(item.instId || '');
+      const notionalUSD = avgPx * fillSz * (ctVal || 1);
+
+      // Unique record ID
+      const ordId = item.ordId || `${item.clOrdId}_${rawTs}`;
+      const id = `OKX_ORD_${ordId}`;
+
+      const pnlRON = parseFloat((pnl * bnrRate).toFixed(2));
+      const feeRON = parseFloat((fee * bnrRate).toFixed(2));
+      const isProfit = pnl > 0.000001;
+      const grossGainRON = isProfit ? pnlRON : 0;
+      const deductibleFeeRON = isProfit ? feeRON : 0;
+      const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+      const side = String(item.side || '').toUpperCase() === 'SELL' ? 'SELL' : 'BUY';
+
+      map.set(id, {
+        id,
+        source: 'OKX_API',
+        timestamp: rawTs,
+        dateFormatted: new Date(rawTs).toISOString().replace('T', ' ').slice(0, 19),
+        symbol: item.instId || 'OKX_CONTRACT',
+        side,
+        closeType: isProfit
+          ? 'OKX_ORDER_PROFIT'
+          : pnl < -0.000001
+          ? 'OKX_ORDER_LOSS'
+          : `${sourceTag}_${side}`,
+        pnlUSD: parseFloat(pnl.toFixed(4)),
+        feeUSD: parseFloat(fee.toFixed(4)),
+        notionalUSD: parseFloat(notionalUSD.toFixed(2)),
+        bnrRate,
+        pnlRON,
+        feeRON,
+        isProfit,
+        grossGainRON,
+        deductibleFeeRON,
+        netTaxableGainRON,
+        entryPx: avgPx > 0 ? avgPx : undefined,
+        exitPx: avgPx > 0 ? avgPx : undefined,
+        rawOrderId: ordId,
+      });
+    }
+  }
+
+  /**
+   * Processes OKX Ledger Bills (from bills and bills-archive)
+   */
+  private processOkxBillList(
+    items: any[],
+    map: Map<string, AnafTransactionRecord>,
+    bnrRate: number,
+    yearStart: number,
+    yearEnd: number
+  ): void {
+    for (const item of items) {
+      const rawTs = parseInt(item.ts || '0', 10);
+      if (!rawTs || rawTs < yearStart || rawTs > yearEnd) continue;
+
+      const pnl = parseFloat(item.pnl || '0') || 0;
+      const fee = Math.abs(parseFloat(item.fee || '0') || 0);
+
+      // Only interested in trading bills with realized PnL or fee
+      if (Math.abs(pnl) < 1e-8 && fee < 1e-8) continue;
+
+      const billId = String(item.billId || `${item.instId}_${rawTs}`);
+      const id = `OKX_BILL_${billId}`;
+      if (map.has(id)) continue;
+
+      const px = parseFloat(item.px || '0') || 0;
+      const sz = Math.abs(parseFloat(item.sz || '0') || 0);
+      const ctVal = this.okxAdapter.getCachedCtVal(item.instId || '');
+      const notionalUSD = px * sz * (ctVal || 1);
+
+      const pnlRON = parseFloat((pnl * bnrRate).toFixed(2));
+      const feeRON = parseFloat((fee * bnrRate).toFixed(2));
+      const isProfit = pnl > 0.000001;
+      const grossGainRON = isProfit ? pnlRON : 0;
+      const deductibleFeeRON = isProfit ? feeRON : 0;
+      const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+      const side = String(item.subType || item.side || '').toUpperCase().includes('SELL') ? 'SELL' : 'BUY';
+
+      map.set(id, {
+        id,
+        source: 'OKX_API',
+        timestamp: rawTs,
+        dateFormatted: new Date(rawTs).toISOString().replace('T', ' ').slice(0, 19),
+        symbol: item.instId || 'OKX_BILL',
+        side,
+        closeType: isProfit
+          ? 'OKX_BILL_PROFIT'
+          : pnl < -0.000001
+          ? 'OKX_BILL_LOSS'
+          : 'OKX_LEDGER_FEE',
+        pnlUSD: parseFloat(pnl.toFixed(4)),
+        feeUSD: parseFloat(fee.toFixed(4)),
+        notionalUSD: parseFloat(notionalUSD.toFixed(2)),
+        bnrRate,
+        pnlRON,
+        feeRON,
+        isProfit,
+        grossGainRON,
+        deductibleFeeRON,
+        netTaxableGainRON,
+        entryPx: px > 0 ? px : undefined,
+        exitPx: px > 0 ? px : undefined,
+        rawBillId: billId,
+      });
+    }
+  }
+
+  /**
+   * Processes OKX Fills (from fills and fills-history)
+   */
+  private processOkxFillsList(
+    items: any[],
+    map: Map<string, AnafTransactionRecord>,
+    bnrRate: number,
+    yearStart: number,
+    yearEnd: number
+  ): void {
+    for (const item of items) {
+      const rawTs = parseInt(item.fillTime || item.ts || '0', 10);
+      if (!rawTs || rawTs < yearStart || rawTs > yearEnd) continue;
+
+      const pnl = parseFloat(item.fillPnl || item.pnl || '0') || 0;
+      const fee = Math.abs(parseFloat(item.fee || '0') || 0);
+
+      if (Math.abs(pnl) < 1e-8 && fee < 1e-8) continue;
+
+      const tradeId = String(item.tradeId || `${item.ordId}_${rawTs}`);
+      const id = `OKX_FILL_${tradeId}`;
+      if (map.has(id)) continue;
+
+      const px = parseFloat(item.fillPx || item.px || '0') || 0;
+      const sz = Math.abs(parseFloat(item.fillSz || item.sz || '0') || 0);
+      const ctVal = this.okxAdapter.getCachedCtVal(item.instId || '');
+      const notionalUSD = px * sz * (ctVal || 1);
+
+      const pnlRON = parseFloat((pnl * bnrRate).toFixed(2));
+      const feeRON = parseFloat((fee * bnrRate).toFixed(2));
+      const isProfit = pnl > 0.000001;
+      const grossGainRON = isProfit ? pnlRON : 0;
+      const deductibleFeeRON = isProfit ? feeRON : 0;
+      const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+      const side = String(item.side || '').toUpperCase() === 'SELL' ? 'SELL' : 'BUY';
+
+      map.set(id, {
+        id,
+        source: 'OKX_API',
+        timestamp: rawTs,
+        dateFormatted: new Date(rawTs).toISOString().replace('T', ' ').slice(0, 19),
+        symbol: item.instId || 'OKX_FILL',
+        side,
+        closeType: isProfit
+          ? 'OKX_FILL_TAKE_PROFIT'
+          : pnl < -0.000001
+          ? 'OKX_FILL_STOP_LOSS'
+          : 'OKX_EXECUTION',
+        pnlUSD: parseFloat(pnl.toFixed(4)),
+        feeUSD: parseFloat(fee.toFixed(4)),
+        notionalUSD: parseFloat(notionalUSD.toFixed(2)),
+        bnrRate,
+        pnlRON,
+        feeRON,
+        isProfit,
+        grossGainRON,
+        deductibleFeeRON,
+        netTaxableGainRON,
+        entryPx: px > 0 ? px : undefined,
+        exitPx: px > 0 ? px : undefined,
+        rawTradeId: tradeId,
+      });
+    }
+  }
+
+  /**
+   * FIFO Reconciler: Matches open (Buy) and close (Sell) orders for identical symbols
+   * when OKX orders do not have an explicit pnl tag (e.g. grid limit round-trips).
+   */
+  private reconcileEntryExitPairs(map: Map<string, AnafTransactionRecord>, bnrRate: number): void {
+    const list = Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+    const openBuysBySymbol = new Map<string, AnafTransactionRecord[]>();
+
+    for (const tx of list) {
+      if (Math.abs(tx.pnlUSD) > 1e-6) continue; // Already has realized PnL
+
+      const sym = tx.symbol;
+      if (!openBuysBySymbol.has(sym)) {
+        openBuysBySymbol.set(sym, []);
+      }
+      const buyQueue = openBuysBySymbol.get(sym)!;
+
+      if (tx.side === 'BUY' && (tx.entryPx || tx.exitPx)) {
+        buyQueue.push(tx);
+      } else if (tx.side === 'SELL' && buyQueue.length > 0 && (tx.exitPx || tx.entryPx)) {
+        const matchingBuy = buyQueue.shift()!;
+        const entryPx = matchingBuy.entryPx || matchingBuy.exitPx || 0;
+        const exitPx = tx.exitPx || tx.entryPx || 0;
+
+        if (entryPx > 0 && exitPx > 0) {
+          const ctVal = this.okxAdapter.getCachedCtVal(sym) || 1;
+          const sz = matchingBuy.notionalUSD > 0 && entryPx > 0 ? matchingBuy.notionalUSD / entryPx : 1;
+          const calculatedPnlUSD = (exitPx - entryPx) * (sz / ctVal);
+          const combinedFeeUSD = matchingBuy.feeUSD + tx.feeUSD;
+
+          const pnlRON = parseFloat((calculatedPnlUSD * bnrRate).toFixed(2));
+          const feeRON = parseFloat((combinedFeeUSD * bnrRate).toFixed(2));
+          const isProfit = calculatedPnlUSD > 0.000001;
+          const grossGainRON = isProfit ? pnlRON : 0;
+          const deductibleFeeRON = isProfit ? feeRON : 0;
+          const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+          // Update the sell closing order with matched entry price and realized PnL
+          tx.entryPx = entryPx;
+          tx.exitPx = exitPx;
+          tx.pnlUSD = parseFloat(calculatedPnlUSD.toFixed(4));
+          tx.feeUSD = parseFloat(combinedFeeUSD.toFixed(4));
+          tx.pnlRON = pnlRON;
+          tx.feeRON = feeRON;
+          tx.isProfit = isProfit;
+          tx.grossGainRON = grossGainRON;
+          tx.deductibleFeeRON = deductibleFeeRON;
+          tx.netTaxableGainRON = netTaxableGainRON;
+          tx.closeType = isProfit ? 'OKX_GRID_FIFO_PROFIT' : 'OKX_GRID_FIFO_LOSS';
+
+          map.set(tx.id, tx);
+        }
+      }
+    }
+  }
+
+  /**
+   * Core Fiscal Engine: Aggregates all transactions from OKX Live API & Archive,
+   * Persistent Cache, Grid Arbitrages, Bot Orders and CSV Imports, then computes Romanian ANAF taxes.
    */
   public async computeTaxReport(options: AnafTaxEngineOptions = {}): Promise<AnafTaxSummary> {
     const fiscalYear = options.fiscalYear || new Date().getFullYear();
@@ -260,87 +744,36 @@ export class AnafTaxEngine {
 
     const transactionsMap = new Map<string, AnafTransactionRecord>();
 
-    // 1. Fetch real fills from OKX REST API
-    try {
-      const [recentRes, historyRes, billsRes] = await Promise.all([
-        this.okxAdapter['request']('GET', '/api/v5/trade/fills?instType=FUTURES&limit=100', undefined, true).catch(
-          () => ({ code: '-1', data: [] })
-        ),
-        this.okxAdapter['request'](
-          'GET',
-          '/api/v5/trade/fills-history?instType=FUTURES&limit=100',
-          undefined,
-          true
-        ).catch(() => ({ code: '-1', data: [] })),
-        this.okxAdapter['request'](
-          'GET',
-          '/api/v5/account/bills?instType=FUTURES&limit=100',
-          undefined,
-          true
-        ).catch(() => ({ code: '-1', data: [] })),
-      ]);
-
-      const processOkxItem = (item: any, isBill: boolean = false) => {
-        const rawTs = parseInt(item.ts || item.fillTime || item.cTime || '0', 10);
-        if (!rawTs || rawTs < yearStart || rawTs > yearEnd) return;
-
-        const pnl = parseFloat(item.fillPnl || item.pnl || '0') || 0;
-        const fee = Math.abs(parseFloat(item.fee || '0') || 0);
-        const px = parseFloat(item.fillPx || item.px || '0') || 0;
-        const sz = Math.abs(parseFloat(item.fillSz || item.sz || '0') || 0);
-        const ctVal = this.okxAdapter.getCachedCtVal(item.instId || '');
-        const notionalUSD = px * sz * (ctVal || 1);
-
-        // Include items that have either realized PnL or fee paid
-        if (Math.abs(pnl) < 1e-8 && fee < 1e-8) return;
-
-        const id = String(item.tradeId || item.billId || `${item.ordId}_${rawTs}`);
-        if (transactionsMap.has(id)) return;
-
-        const pnlRON = parseFloat((pnl * bnrRate).toFixed(2));
-        const feeRON = parseFloat((fee * bnrRate).toFixed(2));
-        const isProfit = pnl > 0.000001;
-        const grossGainRON = isProfit ? pnlRON : 0;
-        const deductibleFeeRON = isProfit ? feeRON : 0;
-        const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
-
-        transactionsMap.set(id, {
-          id,
-          source: 'OKX_API',
-          timestamp: rawTs,
-          dateFormatted: new Date(rawTs).toISOString().replace('T', ' ').slice(0, 19),
-          symbol: item.instId || 'OKX_FUTURES',
-          side: String(item.side || '').toUpperCase() === 'SELL' ? 'SELL' : 'BUY',
-          closeType: isBill
-            ? item.type === '2'
-              ? 'OKX_TRADE_CLOSE'
-              : 'OKX_BILL'
-            : isProfit
-            ? 'OKX_TAKE_PROFIT'
-            : pnl < 0
-            ? 'OKX_STOP_LOSS'
-            : 'OKX_FILL',
-          pnlUSD: parseFloat(pnl.toFixed(4)),
-          feeUSD: parseFloat(fee.toFixed(4)),
-          notionalUSD: parseFloat(notionalUSD.toFixed(2)),
-          bnrRate,
-          pnlRON,
-          feeRON,
-          isProfit,
-          grossGainRON,
-          deductibleFeeRON,
-          netTaxableGainRON,
-        });
-      };
-
-      if (Array.isArray(recentRes?.data)) recentRes.data.forEach((i: any) => processOkxItem(i, false));
-      if (Array.isArray(historyRes?.data)) historyRes.data.forEach((i: any) => processOkxItem(i, false));
-      if (Array.isArray(billsRes?.data)) billsRes.data.forEach((i: any) => processOkxItem(i, true));
-    } catch (err: any) {
-      console.warn('[AnafTaxEngine] OKX API historical sync warning:', err.message);
+    // 1. Load persistently saved OKX transactions (preserved across container restarts)
+    const persistent = this.getPersistentSyncedTransactions();
+    for (const tx of persistent) {
+      if (tx.timestamp >= yearStart && tx.timestamp <= yearEnd) {
+        transactionsMap.set(tx.id, tx);
+      }
     }
 
-    // 2. Fetch completed Grid Arbitrages from .data/grid_arbitrages.json
+    // 2. Perform deep OKX API sync if credentials exist and forced or not synced recently
+    const shouldSyncOkx =
+      options.forceSyncOkxApi ||
+      (this.okxAdapter.hasCredentials() && Date.now() - this.lastOkxSyncStatus.lastSyncedAt > 120_000);
+
+    if (shouldSyncOkx) {
+      await this.syncFromOkxApi({
+        fiscalYear,
+        bnrRate,
+        forceFullArchive: options.forceSyncOkxApi,
+      });
+
+      // Reload updated persistent cache
+      const updatedPersistent = this.getPersistentSyncedTransactions();
+      for (const tx of updatedPersistent) {
+        if (tx.timestamp >= yearStart && tx.timestamp <= yearEnd) {
+          transactionsMap.set(tx.id, tx);
+        }
+      }
+    }
+
+    // 3. Fetch completed Grid Arbitrages from .data/grid_arbitrages.json
     try {
       const arbFile = path.join(this.dataDir, 'grid_arbitrages.json');
       if (fs.existsSync(arbFile)) {
@@ -355,7 +788,6 @@ export class AnafTaxEngine {
 
             const grossProfitUSDT = parseFloat(a.grossProfitUSDT || a.profit || '0') || 0;
             const feeUSDT = parseFloat(a.feeUSDT || a.fee || '0') || 0;
-            const netProfitUSDT = parseFloat(a.netProfitUSDT || String(grossProfitUSDT - feeUSDT)) || 0;
 
             const pnlRON = parseFloat((grossProfitUSDT * bnrRate).toFixed(2));
             const feeRON = parseFloat((feeUSDT * bnrRate).toFixed(2));
@@ -382,13 +814,15 @@ export class AnafTaxEngine {
               grossGainRON,
               deductibleFeeRON,
               netTaxableGainRON,
+              entryPx: a.entryPrice ? parseFloat(a.entryPrice) : undefined,
+              exitPx: a.exitPrice ? parseFloat(a.exitPrice) : undefined,
             });
           }
         }
       }
     } catch {}
 
-    // 3. Fetch filled orders from .data/orders.json
+    // 4. Fetch filled orders from .data/orders.json
     try {
       const ordersFile = path.join(this.dataDir, 'orders.json');
       if (fs.existsSync(ordersFile)) {
@@ -432,13 +866,15 @@ export class AnafTaxEngine {
               grossGainRON,
               deductibleFeeRON,
               netTaxableGainRON,
+              entryPx: o.price ? parseFloat(o.price) : undefined,
+              exitPx: o.fillPrice ? parseFloat(o.fillPrice) : undefined,
             });
           }
         }
       }
     } catch {}
 
-    // 4. Load imported CSV transactions
+    // 5. Load imported CSV transactions
     const imported = this.getImportedTransactions();
     for (const item of imported) {
       if (item.timestamp >= yearStart && item.timestamp <= yearEnd) {
@@ -586,6 +1022,11 @@ export class AnafTaxEngine {
         boxCassDueRON: cassDueRON,
         boxTotalDueRON: totalOwedToStateRON,
       },
+      okxApiSyncStatus: {
+        ...this.lastOkxSyncStatus,
+        hasOkxCredentials: this.okxAdapter.hasCredentials(),
+      },
+      persistentCacheCount: persistent.length,
       transactions: allTransactions,
     };
   }
@@ -621,6 +1062,8 @@ export class AnafTaxEngine {
         'Sursa',
         'Instrument',
         'Sens',
+        'Pret_Intrare',
+        'Pret_Iesire',
         'Tip_Inchidere',
         'Profit_USD',
         'Comision_USD',
@@ -640,6 +1083,8 @@ export class AnafTaxEngine {
           esc(t.source),
           esc(t.symbol),
           esc(t.side),
+          esc(t.entryPx ?? ''),
+          esc(t.exitPx ?? ''),
           esc(t.closeType),
           esc(t.pnlUSD),
           esc(t.feeUSD),

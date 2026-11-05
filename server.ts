@@ -570,6 +570,7 @@ async function startServer() {
         taxRatePct: taxRate,
         minWageGrossRON: minWage,
         customUsdRonRate: customRate,
+        forceSyncOkxApi: true,
       });
 
       res.json({

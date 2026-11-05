@@ -40,6 +40,7 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [csvUploadText, setCsvUploadText] = useState<string>('');
   const [isUploadingCsv, setIsUploadingCsv] = useState<boolean>(false);
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'OKX_API' | 'GRID' | 'CSV'>('ALL');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchTaxReport = async (forceSync: boolean = false) => {
@@ -204,6 +205,13 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
     } else if (txFilter === 'LOSS') {
       list = list.filter((t) => !t.isProfit);
     }
+    if (sourceFilter === 'OKX_API') {
+      list = list.filter((t) => t.source === 'OKX_API');
+    } else if (sourceFilter === 'GRID') {
+      list = list.filter((t) => t.source === 'GRID_ARBITRAGE' || t.source === 'BOT_ORDER');
+    } else if (sourceFilter === 'CSV') {
+      list = list.filter((t) => t.source === 'CSV_IMPORT');
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toUpperCase();
       list = list.filter(
@@ -214,7 +222,7 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
       );
     }
     return list;
-  }, [report?.transactions, txFilter, searchQuery]);
+  }, [report?.transactions, txFilter, sourceFilter, searchQuery]);
 
   return (
     <div className="space-y-3 p-1">
@@ -367,6 +375,109 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
             </div>
           </div>
         </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* 1.5. SINCRONIZARE AUTOMATĂ OKX API (ARCHIVE & ORDERS HISTORY)       */}
+      {/* =================================================================== */}
+      <div className="bg-zinc-950 border border-cyan-500/40 rounded p-3 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="w-4 h-4 text-cyan-400" />
+            <h3 className="font-bold text-xs text-white flex items-center gap-2">
+              <span>⚡ SINCRONIZARE DIRECTĂ OKX API (ARHIVĂ, COMENZI EXECUTATE &amp; COMISIOANE)</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                PROTECȚIE SESIUNI PREVIEW &amp; RECONCILIERE 100%
+              </span>
+            </h3>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] text-zinc-400">
+              Ultima sincronizare OKX:{' '}
+              <strong className="text-zinc-200">
+                {report?.okxApiSyncStatus?.lastSyncedAt
+                  ? new Date(report.okxApiSyncStatus.lastSyncedAt).toLocaleTimeString()
+                  : 'Niciuna recentă'}
+              </strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => fetchTaxReport(true)}
+              disabled={isSyncing}
+              className="px-3 py-1 rounded bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 text-black font-black text-xs flex items-center space-x-1 cursor-pointer shadow"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Se descarcă din OKX...' : '⚡ Sincronizează Complet cu OKX API (Archive & Fills)'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ENDPOINTS INTEROGATE & PERSISTENȚĂ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+          <div className="bg-black/80 border border-zinc-800 rounded p-2 space-y-1">
+            <div className="text-[10px] text-zinc-400 font-bold flex items-center space-x-1">
+              <span className="text-cyan-400 font-mono">1.</span>
+              <span>/trade/orders-history-archive</span>
+            </div>
+            <div className="text-sm font-black text-cyan-300 tabular-nums">
+              {report?.okxApiSyncStatus?.totalOrdersFromArchive || 0}{' '}
+              <span className="text-[10px] text-zinc-500 font-normal">comenzi</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              Arhivă OKX pentru comenzi mai vechi de 3 luni (până la 3 ani).
+            </p>
+          </div>
+
+          <div className="bg-black/80 border border-zinc-800 rounded p-2 space-y-1">
+            <div className="text-[10px] text-zinc-400 font-bold flex items-center space-x-1">
+              <span className="text-cyan-400 font-mono">2.</span>
+              <span>/trade/orders-history</span>
+            </div>
+            <div className="text-sm font-black text-white tabular-nums">
+              {report?.okxApiSyncStatus?.totalOrdersFromHistory || 0}{' '}
+              <span className="text-[10px] text-zinc-500 font-normal">comenzi</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              Comenzi executate recente în ultimele 3 luni (cu preț intrare/ieșire).
+            </p>
+          </div>
+
+          <div className="bg-black/80 border border-zinc-800 rounded p-2 space-y-1">
+            <div className="text-[10px] text-zinc-400 font-bold flex items-center space-x-1">
+              <span className="text-emerald-400 font-mono">3.</span>
+              <span>/account/bills-archive &amp; bills</span>
+            </div>
+            <div className="text-sm font-black text-emerald-300 tabular-nums">
+              {report?.okxApiSyncStatus?.totalBillsFromArchive || 0}{' '}
+              <span className="text-[10px] text-zinc-500 font-normal">extrase cont</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              Registru contabil oficial OKX: comisioane plătite și PnL realizat.
+            </p>
+          </div>
+
+          <div className="bg-black/80 border border-amber-500/30 rounded p-2 space-y-1">
+            <div className="text-[10px] text-amber-300 font-bold flex items-center space-x-1">
+              <span className="text-amber-400 font-mono">4.</span>
+              <span>Cache Persistent Anti-Pierdere</span>
+            </div>
+            <div className="text-sm font-black text-amber-300 tabular-nums">
+              {report?.persistentCacheCount || 0}{' '}
+              <span className="text-[10px] text-zinc-400 font-normal">pe disc (.data/)</span>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-tight">
+              Salvat permanent pe disc. Nu se pierde la restart sau reload preview!
+            </p>
+          </div>
+        </div>
+
+        {report?.okxApiSyncStatus?.errorMessage && (
+          <div className="bg-rose-950/40 border border-rose-500/40 rounded p-2 text-rose-300 text-xs flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{report.okxApiSyncStatus.errorMessage}</span>
+          </div>
+        )}
       </div>
 
       {/* =================================================================== */}
@@ -729,6 +840,46 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
               className="bg-black border border-zinc-700 rounded px-2 py-1 text-white text-xs w-48 placeholder:text-zinc-600"
             />
 
+            {/* Filtru sursă */}
+            <div className="flex items-center bg-black border border-zinc-800 rounded p-0.5 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setSourceFilter('ALL')}
+                className={`px-2 py-0.5 rounded font-bold cursor-pointer ${
+                  sourceFilter === 'ALL' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Toate Sursele
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceFilter('OKX_API')}
+                className={`px-2 py-0.5 rounded font-bold cursor-pointer ${
+                  sourceFilter === 'OKX_API' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                OKX API &amp; Arhivă
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceFilter('GRID')}
+                className={`px-2 py-0.5 rounded font-bold cursor-pointer ${
+                  sourceFilter === 'GRID' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Grile Bot
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceFilter('CSV')}
+                className={`px-2 py-0.5 rounded font-bold cursor-pointer ${
+                  sourceFilter === 'CSV' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                CSV Import
+              </button>
+            </div>
+
             {/* Filtru tranzacții */}
             <div className="flex items-center bg-black border border-zinc-800 rounded p-0.5 text-[10px]">
               <button
@@ -764,9 +915,9 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
 
         {filteredTransactions.length === 0 ? (
           <div className="bg-black border border-zinc-800 rounded p-6 text-center text-zinc-400 text-xs space-y-1">
-            <p className="font-bold text-amber-300">Nu există tranzacții înregistrate pentru anul fiscal {selectedYear}.</p>
+            <p className="font-bold text-amber-300">Nu există tranzacții pentru filtrul curent (An fiscal {selectedYear}).</p>
             <p className="text-[11px]">
-              Apasă butonul <strong>„Sincronizează API OKX &amp; Curs BNR”</strong> de sus pentru a interoga istoricul direct din bursa OKX, sau folosește <strong>„Încarcă CSV OKX”</strong> pentru a importa fișiere salvate manual.
+              Apasă butonul <strong>„⚡ Sincronizează Complet cu OKX API (Archive &amp; Fills)”</strong> de sus pentru a interoga istoricul direct din arhivele OKX, sau folosește <strong>„Încarcă CSV OKX”</strong>.
             </p>
           </div>
         ) : (
@@ -778,6 +929,7 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
                   <th className="py-1.5 px-2">ID / Sursă</th>
                   <th className="py-1.5 px-2">Instrument</th>
                   <th className="py-1.5 px-2">Sens / Tip</th>
+                  <th className="py-1.5 px-2">Preț Intrare / Ieșire</th>
                   <th className="py-1.5 px-2">Profit USD</th>
                   <th className="py-1.5 px-2">Comision USD</th>
                   <th className="py-1.5 px-2">Curs BNR</th>
@@ -806,6 +958,17 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
                         {tx.side}
                       </span>{' '}
                       <span className="text-[9px] text-zinc-400">{tx.closeType}</span>
+                    </td>
+                    <td className="py-1.5 px-2 font-mono text-[10px] tabular-nums text-zinc-300">
+                      {tx.entryPx && tx.exitPx && tx.entryPx !== tx.exitPx ? (
+                        <span>
+                          ${tx.entryPx.toFixed(3)} → ${tx.exitPx.toFixed(3)}
+                        </span>
+                      ) : tx.exitPx || tx.entryPx ? (
+                        <span>${(tx.exitPx || tx.entryPx)?.toFixed(3)}</span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
                     </td>
                     <td className="py-1.5 px-2 tabular-nums">
                       <span className={tx.pnlUSD >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>

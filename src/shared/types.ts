@@ -855,6 +855,11 @@ export interface AnafTransactionRecord {
   grossGainRON: number;
   deductibleFeeRON: number;
   netTaxableGainRON: number;
+  entryPx?: number;
+  exitPx?: number;
+  rawOrderId?: string;
+  rawTradeId?: string;
+  rawBillId?: string;
 }
 
 export type CassCeilingLevel =
@@ -921,6 +926,19 @@ export interface AnafTaxSummary {
     boxCassDueRON: number;
     boxTotalDueRON: number;
   };
+
+  okxApiSyncStatus: {
+    lastSyncedAt: number;
+    totalOrdersFromArchive: number;
+    totalOrdersFromHistory: number;
+    totalBillsFromArchive: number;
+    totalFills: number;
+    endpointsQueried: string[];
+    hasOkxCredentials: boolean;
+    errorMessage?: string;
+  };
+
+  persistentCacheCount: number;
 
   transactions: AnafTransactionRecord[];
 }
