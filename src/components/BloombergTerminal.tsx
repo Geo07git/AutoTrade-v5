@@ -3632,6 +3632,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           <AnafTaxPanel
             controlToken={controlToken}
             onNotify={(banner) => setLocalBanner(banner)}
+            onSwitchToApiTab={() => setActiveTab('API')}
           />
         )}
       </main>

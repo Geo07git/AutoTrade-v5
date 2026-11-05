@@ -23,9 +23,10 @@ import {
 interface AnafTaxPanelProps {
   controlToken: string;
   onNotify: (banner: { type: 'success' | 'error' | 'info'; text: string }) => void;
+  onSwitchToApiTab?: () => void;
 }
 
-export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNotify }) => {
+export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNotify, onSwitchToApiTab }) => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [taxRatePct, setTaxRatePct] = useState<number>(10); // 10% standard transfer monedă virtuală Cod Fiscal
@@ -173,6 +174,14 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
           type: 'success',
           text: data.message || `Au fost importate ${data.importedCount} tranzacții din CSV.`,
         });
+        if (Array.isArray(data.yearsFound) && data.yearsFound.length > 0 && !data.yearsFound.includes(selectedYear)) {
+          const recYear = data.yearsFound[data.yearsFound.length - 1];
+          setSelectedYear(recYear);
+          onNotify({
+            type: 'info',
+            text: `Fișierul CSV conține tranzacții din anul ${data.yearsFound.join(', ')}. Am comutat automat pe Anul Fiscal ${recYear}!`,
+          });
+        }
         setShowUploadModal(false);
         setCsvUploadText('');
         await fetchTaxReport(false);
@@ -183,6 +192,26 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
       onNotify({ type: 'error', text: err.message || 'Eroare de rețea la importul CSV.' });
     } finally {
       setIsUploadingCsv(false);
+    }
+  };
+
+  const handleClearCsv = async () => {
+    try {
+      const res = await fetch('/api/bot/fiscal/clear-csv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-token': controlToken,
+        },
+      });
+      const data = await res.json();
+      if (data?.success) {
+        onNotify({ type: 'info', text: 'Tranzacțiile CSV importate anterior au fost șterse.' });
+        setShowUploadModal(false);
+        await fetchTaxReport(false);
+      }
+    } catch (err: any) {
+      onNotify({ type: 'error', text: err.message || 'Eroare la ștergerea tranzacțiilor CSV.' });
     }
   };
 
@@ -471,6 +500,26 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
             </p>
           </div>
         </div>
+
+        {!report?.okxApiSyncStatus?.hasOkxCredentials && (
+          <div className="bg-amber-950/40 border border-amber-500/50 rounded p-2.5 text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Cheile API OKX nu sunt configurate!</strong> Pentru a descărca automat arhiva completă și extrasele contului tău direct din OKX prin API, introdu cheile tale în secțiunea dedicată.
+              </span>
+            </div>
+            {onSwitchToApiTab && (
+              <button
+                type="button"
+                onClick={onSwitchToApiTab}
+                className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-black text-xs cursor-pointer shadow ml-auto shrink-0"
+              >
+                Mergi la Tab 5: Conectează OKX
+              </button>
+            )}
+          </div>
+        )}
 
         {report?.okxApiSyncStatus?.errorMessage && (
           <div className="bg-rose-950/40 border border-rose-500/40 rounded p-2 text-rose-300 text-xs flex items-center space-x-2">
@@ -1050,22 +1099,33 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
               />
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-zinc-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800">
               <button
                 type="button"
-                onClick={() => setShowUploadModal(false)}
-                className="px-3 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold cursor-pointer"
+                onClick={handleClearCsv}
+                className="px-3 py-1.5 rounded bg-rose-950/50 hover:bg-rose-900/80 border border-rose-500/40 text-rose-300 text-xs font-bold cursor-pointer"
+                title="Șterge tranzacțiile importate anterior din baza de date locală"
               >
-                Anulează
+                🗑️ Șterge Tranzacțiile CSV Importate
               </button>
-              <button
-                type="button"
-                onClick={handleUploadCsvSubmit}
-                disabled={isUploadingCsv || !csvUploadText.trim()}
-                className="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black text-xs cursor-pointer flex items-center space-x-1"
-              >
-                {isUploadingCsv ? 'Se procesează...' : 'Importă Tranzacțiile'}
-              </button>
+
+              <div className="flex items-center space-x-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="px-3 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold cursor-pointer"
+                >
+                  Anulează
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUploadCsvSubmit}
+                  disabled={isUploadingCsv || !csvUploadText.trim()}
+                  className="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-black text-xs cursor-pointer flex items-center space-x-1"
+                >
+                  {isUploadingCsv ? 'Se procesează...' : 'Importă Tranzacțiile'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

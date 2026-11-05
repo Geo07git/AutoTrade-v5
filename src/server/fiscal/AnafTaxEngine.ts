@@ -178,108 +178,525 @@ export class AnafTaxEngine {
   }
 
   /**
-   * Imports OKX raw CSV text (from Assets -> Order History / Trading History)
+   * Imports OKX raw CSV text (Order History, Trading History / Fills, Position History, or Bills)
+   * Supporting auto-delimiter detection (comma, semicolon, tab), European decimal commas,
+   * Romanian/English diacritics normalization, and FIFO round-trip matching when PnL column is missing.
    */
-  public parseAndImportOkxCsv(csvContent: string): { importedCount: number; errors: string[] } {
-    const lines = csvContent.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
-    if (lines.length < 2) {
-      return { importedCount: 0, errors: ['Fișierul CSV este gol sau nu are antet.'] };
+  public parseAndImportOkxCsv(csvContent: string): {
+    importedCount: number;
+    errors: string[];
+    yearsFound: number[];
+    profitableCycles: number;
+    lossCycles: number;
+    totalProfitRON: number;
+    totalFeesRON: number;
+    message: string;
+  } {
+    const rawContent = (csvContent || '').replace(/^\uFEFF/, '').trim();
+    if (!rawContent || rawContent.length < 10) {
+      return {
+        importedCount: 0,
+        errors: ['Fișierul CSV este gol sau conține date insuficiente.'],
+        yearsFound: [],
+        profitableCycles: 0,
+        lossCycles: 0,
+        totalProfitRON: 0,
+        totalFeesRON: 0,
+        message: 'Fișier gol.',
+      };
     }
 
-    const header = lines[0].split(',').map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
-    const findIdx = (keywords: string[]) =>
-      header.findIndex((h) => keywords.some((k) => h.includes(k.toLowerCase())));
+    // Save a backup of the raw uploaded file for audit / reprocessing
+    try {
+      this.ensureDataDir();
+      fs.writeFileSync(path.join(this.dataDir, 'last_uploaded_okx.csv'), rawContent, 'utf8');
+    } catch {}
 
-    const timeIdx = findIdx(['time', 'date', 'created', 'timestamp', 'data']);
-    const instIdIdx = findIdx(['instrument', 'symbol', 'pair', 'instid', 'moneda']);
-    const sideIdx = findIdx(['side', 'direction', 'sens', 'type']);
-    const pnlIdx = findIdx(['realized pnl', 'pnl', 'profit', 'closed pnl']);
-    const feeIdx = findIdx(['fee', 'commission', 'comision']);
-    const fillPxIdx = findIdx(['price', 'fill px', 'filled price', 'pret']);
-    const fillSzIdx = findIdx(['amount', 'filled amount', 'size', 'qty', 'cantitate']);
+    const lines = rawContent.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    if (lines.length < 2) {
+      return {
+        importedCount: 0,
+        errors: ['Fișierul CSV nu are suficiente rânduri (lipsesc datele după antet).'],
+        yearsFound: [],
+        profitableCycles: 0,
+        lossCycles: 0,
+        totalProfitRON: 0,
+        totalFeesRON: 0,
+        message: 'Fără date.',
+      };
+    }
 
-    const existing = this.getImportedTransactions();
-    const existingIds = new Set(existing.map((e) => e.id));
-    const newRecords: AnafTransactionRecord[] = [];
-    const errors: string[] = [];
+    // 1. Auto-detect delimiter: count ',', ';', '\t', '|' in the first 5 non-empty lines
+    const sampleLines = lines.slice(0, Math.min(5, lines.length));
+    const commaCount = sampleLines.reduce((acc, l) => acc + (l.match(/,/g) || []).length, 0);
+    const semiCount = sampleLines.reduce((acc, l) => acc + (l.match(/;/g) || []).length, 0);
+    const tabCount = sampleLines.reduce((acc, l) => acc + (l.match(/\t/g) || []).length, 0);
 
-    const bnrRate = this.cachedBnrUsdRate || 4.62;
+    let delimiter = ',';
+    if (semiCount > commaCount && semiCount > tabCount) delimiter = ';';
+    else if (tabCount > commaCount && tabCount > semiCount) delimiter = '\t';
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-      // parse CSV line with quoted values
-      const cols: string[] = [];
+    // 2. Parse a single line respecting quotes
+    const parseCsvRow = (line: string): string[] => {
+      const res: string[] = [];
       let inQuotes = false;
       let curr = '';
       for (let c = 0; c < line.length; c++) {
         const ch = line[c];
         if (ch === '"') {
-          inQuotes = !inQuotes;
-        } else if (ch === ',' && !inQuotes) {
-          cols.push(curr.trim());
+          if (inQuotes && line[c + 1] === '"') {
+            curr += '"';
+            c++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === delimiter && !inQuotes) {
+          res.push(curr.trim());
           curr = '';
         } else {
           curr += ch;
         }
       }
-      cols.push(curr.trim());
+      res.push(curr.trim());
+      return res.map((v) => v.replace(/^["']|["']$/g, '').trim());
+    };
 
-      const clean = (val?: string) => (val || '').replace(/^["']|["']$/g, '').trim();
+    // 3. Normalization helper: removes Romanian/European diacritics and converts to lower case
+    const norm = (s: string) =>
+      (s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
 
-      const rawTime = clean(timeIdx >= 0 ? cols[timeIdx] : '');
-      const rawInst = clean(instIdIdx >= 0 ? cols[instIdIdx] : 'OKX_FUTURES');
-      const rawSide = clean(sideIdx >= 0 ? cols[sideIdx] : 'TRADE').toUpperCase();
-      const rawPnl = parseFloat(clean(pnlIdx >= 0 ? cols[pnlIdx] : '0')) || 0;
-      const rawFee = Math.abs(parseFloat(clean(feeIdx >= 0 ? cols[feeIdx] : '0')) || 0);
-      const rawPx = parseFloat(clean(fillPxIdx >= 0 ? cols[fillPxIdx] : '0')) || 0;
-      const rawSz = parseFloat(clean(fillSzIdx >= 0 ? cols[fillSzIdx] : '0')) || 0;
+    // 4. Number parsing helper: handles European decimal commas ('13,66'), dot thousands, and currency suffixes
+    const parseNumeric = (val?: string): number => {
+      if (!val) return 0;
+      let str = String(val).replace(/^["']|["']$/g, '').trim();
+      // Remove trailing currency tokens like USDT, USD, EUR, RON, BTC, %, spaces
+      str = str.replace(/(usdt|usd|eur|ron|btc|eth|%|\s)+$/i, '').trim();
+      if (!str) return 0;
 
-      let ts = Date.now();
-      if (rawTime) {
-        const parsedTs = Date.parse(rawTime);
-        if (!isNaN(parsedTs)) ts = parsedTs;
+      // European format with dot thousands and comma decimal: 1.234,56
+      if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(str)) {
+        str = str.replace(/\./g, '').replace(',', '.');
+      }
+      // US format with comma thousands and dot decimal: 1,234.56
+      else if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(str)) {
+        str = str.replace(/,/g, '');
+      }
+      // Plain comma decimal: 13,66 or -0,05
+      else if (str.includes(',') && !str.includes('.')) {
+        str = str.replace(',', '.');
       }
 
-      const id = `CSV_${rawInst}_${ts}_${i}`;
-      if (existingIds.has(id)) continue;
+      const num = parseFloat(str);
+      return Number.isFinite(num) ? num : 0;
+    };
 
-      const pnlUSD = rawPnl;
-      const feeUSD = rawFee;
-      const notionalUSD = rawPx * rawSz;
-      const pnlRON = parseFloat((pnlUSD * bnrRate).toFixed(2));
-      const feeRON = parseFloat((feeUSD * bnrRate).toFixed(2));
-      const isProfit = pnlUSD > 0.000001;
-      const grossGainRON = isProfit ? pnlRON : 0;
-      const deductibleFeeRON = isProfit ? feeRON : 0;
-      const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+    // 5. Header identification
+    const headerCols = parseCsvRow(lines[0]).map(norm);
+    const findIdx = (keywords: string[]) =>
+      headerCols.findIndex((h) => keywords.some((k) => h.includes(norm(k))));
 
-      newRecords.push({
-        id,
-        source: 'CSV_IMPORT',
-        timestamp: ts,
-        dateFormatted: new Date(ts).toISOString().replace('T', ' ').slice(0, 19),
-        symbol: rawInst,
-        side: rawSide.includes('BUY') ? 'BUY' : 'SELL',
-        closeType: isProfit ? 'PROFIT_CLOSE' : rawPnl < 0 ? 'LOSS_CLOSE' : 'FILL',
-        pnlUSD: parseFloat(pnlUSD.toFixed(4)),
-        feeUSD: parseFloat(feeUSD.toFixed(4)),
-        notionalUSD: parseFloat(notionalUSD.toFixed(2)),
-        bnrRate,
-        pnlRON,
-        feeRON,
-        isProfit,
-        grossGainRON,
-        deductibleFeeRON,
-        netTaxableGainRON,
-        entryPx: rawPx > 0 ? rawPx : undefined,
-        exitPx: rawPx > 0 ? rawPx : undefined,
+    const timeIdx = findIdx([
+      'order time',
+      'fill time',
+      'creation time',
+      'create time',
+      'update time',
+      'trade time',
+      'closing time',
+      'closed time',
+      'open time',
+      'time',
+      'date',
+      'timestamp',
+      'data',
+      'timp',
+      'ctime',
+      'utime',
+      'ts',
+    ]);
+
+    const instIdIdx = findIdx([
+      'contract name',
+      'contract',
+      'instrument id',
+      'instrument',
+      'trading pair',
+      'symbol',
+      'pair',
+      'instid',
+      'moneda',
+      'pereche',
+      'asset',
+    ]);
+
+    const sideIdx = findIdx([
+      'side',
+      'direction',
+      'sens',
+      'directie',
+      'order type',
+      'type',
+      'tip',
+      'action',
+      'posside',
+    ]);
+
+    const openPxIdx = findIdx(['opening price', 'open price', 'pret deschidere', 'entry price', 'pret intrare']);
+    const closePxIdx = findIdx(['closing price', 'close price', 'pret inchidere', 'exit price', 'pret iesire']);
+
+    const fillPxIdx = findIdx([
+      'average filled price',
+      'average price',
+      'avg price',
+      'fill price',
+      'filled price',
+      'order price',
+      'execution price',
+      'price',
+      'pret mediu',
+      'pret',
+      'avgpx',
+      'fillpx',
+      'px',
+    ]);
+
+    const fillSzIdx = findIdx([
+      'filled amount',
+      'executed amount',
+      'filled quantity',
+      'executed quantity',
+      'amount',
+      'quantity',
+      'size',
+      'qty',
+      'cantitate',
+      'volum',
+      'accfillsz',
+      'fillsz',
+      'sz',
+    ]);
+
+    const feeIdx = findIdx([
+      'trading fee',
+      'transaction fee',
+      'commission',
+      'fee (usdt)',
+      'fee(usdt)',
+      'fee (usd)',
+      'fee(usd)',
+      'fee',
+      'comision',
+      'taxa',
+    ]);
+
+    const pnlIdx = findIdx([
+      'realized p&l',
+      'realized pnl',
+      'closed pnl',
+      'profit and loss',
+      'total pnl',
+      'net pnl',
+      'pnl',
+      'profit',
+      'venit realizat',
+      'castig',
+      'fillpnl',
+    ]);
+
+    const ordIdIdx = findIdx(['order id', 'ordid', 'trade id', 'fillid', 'bill id', 'id ordin', 'id tranzactie', 'id']);
+
+    const bnrRate = this.cachedBnrUsdRate || 4.62;
+
+    // 6. First pass: extract all raw rows
+    interface RawCsvItem {
+      rowIdx: number;
+      ts: number;
+      dateFormatted: string;
+      inst: string;
+      side: 'BUY' | 'SELL';
+      px: number;
+      openPx?: number;
+      closePx?: number;
+      sz: number;
+      fee: number;
+      pnl: number;
+      ordId?: string;
+    }
+
+    const rawItems: RawCsvItem[] = [];
+    const yearsSet = new Set<number>();
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const cols = parseCsvRow(line);
+
+      const rawTimeStr = timeIdx >= 0 ? cols[timeIdx] : '';
+      let ts = Date.now();
+      if (rawTimeStr) {
+        // Handle Unix timestamp (milliseconds or seconds)
+        if (/^\d{10,13}$/.test(rawTimeStr)) {
+          const numTs = parseInt(rawTimeStr, 10);
+          ts = rawTimeStr.length === 10 ? numTs * 1000 : numTs;
+        } else {
+          // Standard date parse
+          const parsed = Date.parse(rawTimeStr);
+          if (!isNaN(parsed)) ts = parsed;
+        }
+      }
+
+      const itemDate = new Date(ts);
+      const itemYear = itemDate.getFullYear();
+      if (itemYear >= 2020 && itemYear <= 2030) {
+        yearsSet.add(itemYear);
+      }
+
+      // Symbol
+      let rawInst = instIdIdx >= 0 && cols[instIdIdx] ? cols[instIdIdx] : 'OKX_CONTRACT';
+      rawInst = rawInst.replace(/^["']|["']$/g, '').trim();
+
+      // Side
+      const rawSideStr = (sideIdx >= 0 && cols[sideIdx] ? cols[sideIdx] : '').toUpperCase();
+      const isBuy =
+        rawSideStr.includes('BUY') ||
+        rawSideStr.includes('CUMPAR') ||
+        rawSideStr.includes('LONG') ||
+        rawSideStr.includes('BID');
+      const side: 'BUY' | 'SELL' = isBuy ? 'BUY' : 'SELL';
+
+      // Prices & Quantities
+      const px = fillPxIdx >= 0 ? parseNumeric(cols[fillPxIdx]) : 0;
+      const openPx = openPxIdx >= 0 ? parseNumeric(cols[openPxIdx]) : undefined;
+      const closePx = closePxIdx >= 0 ? parseNumeric(cols[closePxIdx]) : undefined;
+      const sz = fillSzIdx >= 0 ? Math.abs(parseNumeric(cols[fillSzIdx])) : 1;
+      const fee = feeIdx >= 0 ? Math.abs(parseNumeric(cols[feeIdx])) : 0;
+      const pnl = pnlIdx >= 0 ? parseNumeric(cols[pnlIdx]) : 0;
+      const ordId = ordIdIdx >= 0 ? cols[ordIdIdx] : undefined;
+
+      rawItems.push({
+        rowIdx: i,
+        ts,
+        dateFormatted: itemDate.toISOString().replace('T', ' ').slice(0, 19),
+        inst: rawInst,
+        side,
+        px: px > 0 ? px : (closePx || openPx || 0),
+        openPx: openPx && openPx > 0 ? openPx : undefined,
+        closePx: closePx && closePx > 0 ? closePx : undefined,
+        sz,
+        fee,
+        pnl,
+        ordId,
       });
     }
 
-    const combined = [...existing, ...newRecords];
-    this.saveImportedTransactions(combined);
-    return { importedCount: newRecords.length, errors };
+    const hasExplicitPnL = rawItems.some((r) => Math.abs(r.pnl) > 1e-6);
+
+    const generatedRecords: AnafTransactionRecord[] = [];
+    let profitableCycles = 0;
+    let lossCycles = 0;
+    let totalProfitRON = 0;
+    let totalFeesRON = 0;
+
+    // Case A: CSV has explicit Realized PnL column (e.g. Position History or Trading History)
+    if (hasExplicitPnL) {
+      for (const item of rawItems) {
+        const pnlUSD = item.pnl;
+        const feeUSD = item.fee;
+        const pnlRON = parseFloat((pnlUSD * bnrRate).toFixed(2));
+        const feeRON = parseFloat((feeUSD * bnrRate).toFixed(2));
+        const isProfit = pnlUSD > 0.000001;
+        const grossGainRON = isProfit ? pnlRON : 0;
+        const deductibleFeeRON = isProfit ? feeRON : 0;
+        const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+        if (isProfit) {
+          profitableCycles++;
+          totalProfitRON += grossGainRON;
+        } else if (pnlUSD < -0.000001) {
+          lossCycles++;
+        }
+        totalFeesRON += feeRON;
+
+        const notionalUSD = item.px * item.sz;
+        const id = `CSV_${item.inst}_${item.ts}_${item.rowIdx}`;
+
+        generatedRecords.push({
+          id,
+          source: 'CSV_IMPORT',
+          timestamp: item.ts,
+          dateFormatted: item.dateFormatted,
+          symbol: item.inst,
+          side: item.side,
+          closeType: isProfit ? 'OKX_CSV_PROFIT' : pnlUSD < 0 ? 'OKX_CSV_LOSS' : 'OKX_CSV_FILL',
+          pnlUSD: parseFloat(pnlUSD.toFixed(4)),
+          feeUSD: parseFloat(feeUSD.toFixed(4)),
+          notionalUSD: parseFloat(notionalUSD.toFixed(2)),
+          bnrRate,
+          pnlRON,
+          feeRON,
+          isProfit,
+          grossGainRON,
+          deductibleFeeRON,
+          netTaxableGainRON,
+          entryPx: item.openPx || item.px,
+          exitPx: item.closePx || item.px,
+          rawOrderId: item.ordId,
+        });
+      }
+    } else {
+      // Case B: CSV is Order History or Fills WITHOUT explicit PnL column (standard OKX orders export)
+      // We run a FIFO matching engine on Buy and Sell orders by contract to reconstruct round-trip cycles!
+      rawItems.sort((a, b) => a.ts - b.ts);
+
+      const itemsBySymbol = new Map<string, RawCsvItem[]>();
+      for (const item of rawItems) {
+        if (!itemsBySymbol.has(item.inst)) {
+          itemsBySymbol.set(item.inst, []);
+        }
+        itemsBySymbol.get(item.inst)!.push(item);
+      }
+
+      for (const [sym, items] of itemsBySymbol.entries()) {
+        const buyQueue: RawCsvItem[] = [];
+        const ctVal = this.okxAdapter.getCachedCtVal(sym) || 1;
+
+        for (const item of items) {
+          if (item.side === 'BUY') {
+            buyQueue.push({ ...item });
+          } else if (item.side === 'SELL') {
+            if (buyQueue.length > 0) {
+              const buy = buyQueue.shift()!;
+              const entryPx = buy.px > 0 ? buy.px : item.px;
+              const exitPx = item.px > 0 ? item.px : entryPx;
+              const matchedSz = Math.min(buy.sz, item.sz);
+              const calculatedPnlUSD = (exitPx - entryPx) * matchedSz * ctVal;
+              const combinedFeeUSD = buy.fee + item.fee;
+
+              const pnlRON = parseFloat((calculatedPnlUSD * bnrRate).toFixed(2));
+              const feeRON = parseFloat((combinedFeeUSD * bnrRate).toFixed(2));
+              const isProfit = calculatedPnlUSD > 0.000001;
+              const grossGainRON = isProfit ? pnlRON : 0;
+              const deductibleFeeRON = isProfit ? feeRON : 0;
+              const netTaxableGainRON = Math.max(0, parseFloat((grossGainRON - deductibleFeeRON).toFixed(2)));
+
+              if (isProfit) {
+                profitableCycles++;
+                totalProfitRON += grossGainRON;
+              } else if (calculatedPnlUSD < -0.000001) {
+                lossCycles++;
+              }
+              totalFeesRON += feeRON;
+
+              const notionalUSD = exitPx * matchedSz * ctVal;
+              const id = `CSV_CYCLE_${sym}_${item.ts}_${item.rowIdx}`;
+
+              generatedRecords.push({
+                id,
+                source: 'CSV_IMPORT',
+                timestamp: item.ts,
+                dateFormatted: item.dateFormatted,
+                symbol: sym,
+                side: 'SELL',
+                closeType: isProfit ? 'OKX_CSV_FIFO_PROFIT' : 'OKX_CSV_FIFO_LOSS',
+                pnlUSD: parseFloat(calculatedPnlUSD.toFixed(4)),
+                feeUSD: parseFloat(combinedFeeUSD.toFixed(4)),
+                notionalUSD: parseFloat(notionalUSD.toFixed(2)),
+                bnrRate,
+                pnlRON,
+                feeRON,
+                isProfit,
+                grossGainRON,
+                deductibleFeeRON,
+                netTaxableGainRON,
+                entryPx,
+                exitPx,
+                rawOrderId: item.ordId,
+              });
+            } else {
+              // Unmatched Sell fill with fee
+              const feeUSD = item.fee;
+              const feeRON = parseFloat((feeUSD * bnrRate).toFixed(2));
+              totalFeesRON += feeRON;
+
+              generatedRecords.push({
+                id: `CSV_FILL_${sym}_${item.ts}_${item.rowIdx}`,
+                source: 'CSV_IMPORT',
+                timestamp: item.ts,
+                dateFormatted: item.dateFormatted,
+                symbol: sym,
+                side: 'SELL',
+                closeType: 'OKX_CSV_EXECUTION',
+                pnlUSD: 0,
+                feeUSD: parseFloat(feeUSD.toFixed(4)),
+                notionalUSD: parseFloat((item.px * item.sz * ctVal).toFixed(2)),
+                bnrRate,
+                pnlRON: 0,
+                feeRON,
+                isProfit: false,
+                grossGainRON: 0,
+                deductibleFeeRON: 0,
+                netTaxableGainRON: 0,
+                entryPx: item.px,
+                exitPx: item.px,
+                rawOrderId: item.ordId,
+              });
+            }
+          }
+        }
+
+        // Any remaining unmatched Buys with fees
+        for (const buy of buyQueue) {
+          if (buy.fee > 0) {
+            const feeRON = parseFloat((buy.fee * bnrRate).toFixed(2));
+            totalFeesRON += feeRON;
+
+            generatedRecords.push({
+              id: `CSV_BUY_${sym}_${buy.ts}_${buy.rowIdx}`,
+              source: 'CSV_IMPORT',
+              timestamp: buy.ts,
+              dateFormatted: buy.dateFormatted,
+              symbol: sym,
+              side: 'BUY',
+              closeType: 'OKX_CSV_ENTRY',
+              pnlUSD: 0,
+              feeUSD: parseFloat(buy.fee.toFixed(4)),
+              notionalUSD: parseFloat((buy.px * buy.sz * ctVal).toFixed(2)),
+              bnrRate,
+              pnlRON: 0,
+              feeRON,
+              isProfit: false,
+              grossGainRON: 0,
+              deductibleFeeRON: 0,
+              netTaxableGainRON: 0,
+              entryPx: buy.px,
+              exitPx: buy.px,
+              rawOrderId: buy.ordId,
+            });
+          }
+        }
+      }
+    }
+
+    // Replace the saved imported CSV transactions with newly computed records
+    this.saveImportedTransactions(generatedRecords);
+
+    const yearsFound = Array.from(yearsSet).sort();
+    const message = `Au fost procesate cu succes ${generatedRecords.length} tranzacții OKX (${profitableCycles} pe plus, ${lossCycles} pe minus). Profit Brut: ${totalProfitRON.toFixed(2)} RON, Comisioane: ${totalFeesRON.toFixed(2)} RON. Ani detectați: ${yearsFound.join(', ')}.`;
+
+    return {
+      importedCount: generatedRecords.length,
+      errors: [],
+      yearsFound,
+      profitableCycles,
+      lossCycles,
+      totalProfitRON: parseFloat(totalProfitRON.toFixed(2)),
+      totalFeesRON: parseFloat(totalFeesRON.toFixed(2)),
+      message,
+    };
   }
 
   /**

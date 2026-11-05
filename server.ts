@@ -562,6 +562,16 @@ async function startServer() {
       const minWage = parseFloat(req.body?.minWage as string) || 4050;
       const customRate = parseFloat(req.body?.usdRonRate as string) || undefined;
 
+      const hasCreds = tradeBot.hasOKXCredentials();
+      if (!hasCreds) {
+        return res.status(400).json({
+          success: false,
+          hasCredentials: false,
+          error:
+            'Cheile API OKX (API Key, Secret Key, Passphrase) nu sunt configurate în sistem! Mergi în Tab 5 (Conexiune OKX EEA) pentru a salva cheile de acces.',
+        });
+      }
+
       // Force refresh live BNR rates
       await tradeBot.getAnafTaxEngine().fetchBnrRates(true);
 
@@ -597,7 +607,12 @@ async function startServer() {
           success: true,
           importedCount: result.importedCount,
           errors: result.errors,
-          message: `Au fost importate cu succes ${result.importedCount} tranzacții din fișierul CSV OKX.`,
+          yearsFound: result.yearsFound,
+          profitableCycles: result.profitableCycles,
+          lossCycles: result.lossCycles,
+          totalProfitRON: result.totalProfitRON,
+          totalFeesRON: result.totalFeesRON,
+          message: result.message,
         });
       } catch (err: any) {
         res.status(500).json({ success: false, error: err.message || 'Eroare la parsarea CSV-ului OKX' });
