@@ -12,9 +12,9 @@ export class MartingaleEngine {
     gridCount: number,
     centerPrice: number,
     prices: number[],
-    config: MartingaleConfig
+    config?: MartingaleConfig
   ): number[] {
-    if (!config.enabled || config.sizeMultiplier <= 1.0 || prices.length === 0) {
+    if (!config || !config.enabled || config.sizeMultiplier <= 1.0 || prices.length === 0) {
       return prices.map(() => 1.0);
     }
 
@@ -48,9 +48,9 @@ export class MartingaleEngine {
    */
   public static clampNotionalToCeiling(
     plannedTotalNotionalUSDT: number,
-    config: MartingaleConfig
+    config?: MartingaleConfig
   ): number {
-    if (config.maxExposureUSDT && config.maxExposureUSDT > 0) {
+    if (config?.maxExposureUSDT && config.maxExposureUSDT > 0) {
       return Math.min(plannedTotalNotionalUSDT, config.maxExposureUSDT);
     }
     return plannedTotalNotionalUSDT;

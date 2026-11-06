@@ -31,6 +31,7 @@ import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
 import { AnafTaxEngine } from '../fiscal/AnafTaxEngine';
+import { ResearchCoordinator } from '../research/ResearchCoordinator';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -122,6 +123,7 @@ export class TradeBot {
   private gridBotAnalyzer: GridBotAnalyzer;
   private universeManager: UniverseManager;
   private anafTaxEngine: AnafTaxEngine;
+  private researchCoordinator: ResearchCoordinator;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -280,12 +282,17 @@ export class TradeBot {
       this.universeManager.getInstrumentLotFilter(sym)
     );
     this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
+    this.researchCoordinator = new ResearchCoordinator(this.okxAdapter);
 
     this.state = 'TRADING';
     this.logAudit(
       'EXCHANGE_CONNECTED',
       `TB5 Neutral Grid System inițializat pe platforma ${appConfig.activePlatform} (${appConfig.executionMode}).`
     );
+  }
+
+  public getResearchCoordinator(): ResearchCoordinator {
+    return this.researchCoordinator;
   }
 
   public logAudit(type: AuditLogType, message: string, details?: any) {

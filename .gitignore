@@ -7,6 +7,7 @@ coverage/
 *.log
 # Runtime data & secrets (config with API keys, orders, positions, audit, experiment logs) must NEVER be committed
 .data/
+data/
 .env*
 !.env.example
 .telegram*.json
