@@ -207,6 +207,49 @@ export class OKXAdapter implements IExecutionAdapter {
   }
 
   /**
+   * Resolves an instrument symbol to the live, active instrument on OKX.
+   * If an X-Perp contract has rolled over or an outdated expiry suffix was passed
+   * (e.g. BTC-USD_UM_XPERP-310530 -> BTC-USD_UM_XPERP-310404), this dynamically finds the active
+   * live contract. If not found, falls back to the normalized symbol.
+   */
+  public async resolveLiveInstrumentId(symbol: string): Promise<string> {
+    if (!symbol) return '';
+    const norm = this.normalizeSymbol(symbol);
+
+    try {
+      // Preload instruments in bulk if empty or cache is older than 30 mins
+      if (this.instrumentFilters.size === 0 || Date.now() - this.lastBulkInstrumentsLoadTime > 30 * 60 * 1000) {
+        await this.loadAllInstrumentsBulk();
+      }
+
+      if (this.instrumentFilters.has(norm)) {
+        return norm;
+      }
+
+      // If it's an X-Perp, try resolving by base/prefix (e.g. BTC-USD_UM_XPERP-310530 -> BTC-USD_UM_XPERP-310404)
+      if (norm.includes('_UM_XPERP')) {
+        const prefix = norm.replace(/-\d+$/, ''); // e.g. BTC-USD_UM_XPERP
+        for (const liveId of this.instrumentFilters.keys()) {
+          if (liveId.startsWith(prefix)) {
+            return liveId;
+          }
+        }
+        // Also try by base symbol e.g. BTC
+        const base = norm.split('-')[0];
+        for (const liveId of this.instrumentFilters.keys()) {
+          if (liveId.startsWith(`${base}-USD_UM_XPERP`)) {
+            return liveId;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[OKXAdapter] Transient error in resolveLiveInstrumentId for ${norm}:`, err?.message);
+    }
+
+    return norm;
+  }
+
+  /**
    * Generates HMAC-SHA256 signature for OKX v5 authentication
    */
   private generateSignature(timestamp: string, method: string, requestPath: string, bodyStr: string = ''): string {
@@ -1149,7 +1192,8 @@ export class OKXAdapter implements IExecutionAdapter {
     signal?: AbortSignal,
     onProgress?: (fetchedCount: number, oldestTs: number) => void
   ): Promise<Kline[]> {
-    const instId = this.normalizeSymbol(symbol);
+    const rawInstId = this.normalizeSymbol(symbol);
+    const instId = await this.resolveLiveInstrumentId(rawInstId);
 
     // Map interval formats to OKX bar formats
     let okxBar = '5m';
@@ -1238,7 +1282,12 @@ export class OKXAdapter implements IExecutionAdapter {
         }
       } catch (err: any) {
         if (err?.name === 'AbortError' || signal?.aborted) break;
-        console.warn(`[OKXAdapter] Transient error fetching history candles for ${instId} page ${pageCount}:`, err?.message || err);
+        const msg = String(err?.message || err);
+        if (msg.includes('51001') || msg.includes("doesn't exist")) {
+          console.warn(`[OKXAdapter] Instrument ${instId} does not exist on OKX (51001), aborting history fetch without retrying.`);
+          break;
+        }
+        console.warn(`[OKXAdapter] Transient error fetching history candles for ${instId} page ${pageCount}:`, msg);
         await new Promise((r) => setTimeout(r, 500));
       }
 
@@ -1257,7 +1306,8 @@ export class OKXAdapter implements IExecutionAdapter {
     days: number = 90,
     signal?: AbortSignal
   ): Promise<Array<{ fundingTime: number; fundingRate: number; realizedRate?: number }>> {
-    const instId = this.normalizeSymbol(symbol);
+    const rawInstId = this.normalizeSymbol(symbol);
+    const instId = await this.resolveLiveInstrumentId(rawInstId);
     const cutoffTs = Date.now() - Math.max(1, days) * 86_400_000;
     const historyMap = new Map<number, { fundingTime: number; fundingRate: number; realizedRate?: number }>();
 
@@ -1314,7 +1364,12 @@ export class OKXAdapter implements IExecutionAdapter {
         }
       } catch (err: any) {
         if (err?.name === 'AbortError' || signal?.aborted) break;
-        console.warn(`[OKXAdapter] Error fetching funding history for ${instId}:`, err?.message || err);
+        const msg = String(err?.message || err);
+        if (msg.includes('51001') || msg.includes("doesn't exist")) {
+          console.warn(`[OKXAdapter] Instrument ${instId} funding history does not exist on OKX (51001), terminating.`);
+          break;
+        }
+        console.warn(`[OKXAdapter] Error fetching funding history for ${instId}:`, msg);
         break;
       }
 

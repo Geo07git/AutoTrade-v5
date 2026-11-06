@@ -53,7 +53,12 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
   availableUniverse = [],
   externalSelectedSymbol,
 }) => {
-  const [symbol, setSymbol] = useState<string>(externalSelectedSymbol || 'BTC-USD_UM_XPERP-310530');
+  const [universeList, setUniverseList] = useState<string[]>(availableUniverse);
+  const [symbol, setSymbol] = useState<string>(() => {
+    if (externalSelectedSymbol && !externalSelectedSymbol.includes('310530')) return externalSelectedSymbol;
+    if (availableUniverse && availableUniverse.length > 0) return availableUniverse[0];
+    return 'BTC-USD_UM_XPERP-310404';
+  });
   const [days, setDays] = useState<number>(90);
   const [bar, setBar] = useState<string>('5m');
   const [loading, setLoading] = useState<boolean>(false);
@@ -62,6 +67,42 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
   const [report, setReport] = useState<any | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{ day: number; hour: number; score: number; volat: number; vol: number } | null>(null);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Dynamically load the full 259+ OKX EEA universe catalog so user can pick any instrument
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/bot/native-grid/universe')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!isMounted) return;
+        if (d?.success && Array.isArray(d.items) && d.items.length > 0) {
+          const syms: string[] = d.items.map((it: any) => it.instId);
+          setUniverseList((prev) => (prev.length > 0 ? Array.from(new Set([...prev, ...syms])) : syms));
+          setSymbol((curr) => {
+            if (!curr || curr.includes('310530')) {
+              return syms[0] || 'BTC-USD_UM_XPERP-310404';
+            }
+            return curr;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (availableUniverse && availableUniverse.length > 0) {
+      setUniverseList((prev) => Array.from(new Set([...availableUniverse, ...prev])));
+      setSymbol((curr) => {
+        if (!curr || curr.includes('310530')) {
+          return availableUniverse[0];
+        }
+        return curr;
+      });
+    }
+  }, [availableUniverse]);
 
   useEffect(() => {
     if (externalSelectedSymbol && externalSelectedSymbol !== symbol) {
@@ -218,24 +259,24 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
                 type="text"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.trim().toUpperCase())}
-                placeholder="ex. BTC-USD_UM_XPERP-310530"
+                placeholder="ex. BTC-USD_UM_XPERP-310404"
                 className="w-full bg-black border border-zinc-700 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
               />
-              {availableUniverse.length > 0 && (
+              {universeList.length > 0 && (
                 <div className="absolute right-1 top-1.5">
                   <select
                     onChange={(e) => {
                       if (e.target.value) setSymbol(e.target.value);
                     }}
-                    className="bg-zinc-900 text-zinc-300 text-[10px] rounded border border-zinc-700 px-1 py-0.5"
+                    className="bg-zinc-900 text-zinc-300 text-[10px] rounded border border-zinc-700 px-1 py-0.5 max-w-[110px]"
                     defaultValue=""
                   >
                     <option value="" disabled>
-                      Univers
+                      Univers ({universeList.length})
                     </option>
-                    {availableUniverse.slice(0, 30).map((u) => (
+                    {universeList.slice(0, 80).map((u) => (
                       <option key={u} value={u}>
-                        {u.replace('-USD_UM_XPERP-310530', '')}
+                        {u.replace(/-USD_UM_XPERP(-\d+)?$/, '').replace(/-USDT-SWAP$/, '').replace(/-USDC-SWAP$/, '')}
                       </option>
                     ))}
                   </select>

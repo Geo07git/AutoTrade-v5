@@ -841,9 +841,13 @@ export class HistoricalGridResearch {
     }
 
     try {
-      // Determine appropriate BTC symbol on OKX
-      const btcSymbol = symbol.includes('_UM_XPERP') ? 'BTC-USD_UM_XPERP-310530' : 'BTC-USDT-SWAP';
-      const btcKlines = await this.dataStore.loadOrFetchKlines(btcSymbol, bar, days, signal);
+      // Determine appropriate BTC benchmark symbol on OKX (resolved dynamically)
+      let btcSymbol = symbol.includes('_UM_XPERP') ? 'BTC-USD_UM_XPERP' : 'BTC-USDT-SWAP';
+      let btcKlines = await this.dataStore.loadOrFetchKlines(btcSymbol, bar, days, signal);
+      if (btcKlines.length < 50 && btcSymbol !== 'BTC-USDT-SWAP') {
+        btcSymbol = 'BTC-USDT-SWAP';
+        btcKlines = await this.dataStore.loadOrFetchKlines(btcSymbol, bar, days, signal);
+      }
 
       if (btcKlines.length < 50) {
         return {

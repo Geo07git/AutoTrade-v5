@@ -61,7 +61,7 @@ function generateSyntheticKlines(count: number, centerPrice: number = 100, ampli
 async function runTests() {
   console.log('[Test] Running GridBacktestEngine test suite...');
 
-  const SYMBOL = 'BTC-USD_UM_XPERP-310530';
+  const SYMBOL = 'BTC-USD_UM_XPERP-310404';
   const klines = generateSyntheticKlines(240, 100, 3.5); // 240 5m candles = 20 hours
 
   const config: NeutralGridBotConfig = createDefaultBotConfig(

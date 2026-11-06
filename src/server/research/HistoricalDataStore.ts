@@ -67,7 +67,7 @@ export class HistoricalDataStore {
     signal?: AbortSignal,
     onProgress?: (progressPct: number, message: string) => void
   ): Promise<Kline[]> {
-    const instId = this.adapter.normalizeSymbol(symbol);
+    const instId = await this.adapter.resolveLiveInstrumentId(symbol);
     const filePath = this.sanitizeFilename(instId, bar);
     const targetStartTs = Date.now() - Math.max(1, days) * 86_400_000;
     const now = Date.now();
@@ -169,7 +169,7 @@ export class HistoricalDataStore {
     days: number = 90,
     signal?: AbortSignal
   ): Promise<FundingRateRecord[]> {
-    const instId = this.adapter.normalizeSymbol(symbol);
+    const instId = await this.adapter.resolveLiveInstrumentId(symbol);
     const filePath = this.sanitizeFilename(instId, 'funding');
     const targetStartTs = Date.now() - Math.max(1, days) * 86_400_000;
     const now = Date.now();
