@@ -29,6 +29,16 @@
 * **Remote Commands**: Control and monitor the bot directly via Telegram (`/status`, `/report`, `/scan`, `/mod`, `/kill`, `/resume`).
 * **Clean Event Notifications**: Hourly/daily performance summaries, critical safety alerts, and manual command replies (trade execution alerts are suppressed to keep the channel clean and focused on reports).
 
+### 5. DeepSeek Autonomous Agent (Neutral Grid desk)
+* **What it is**: an LLM decision layer sitting *on top of* the OKX native contract-grid engine. Every cycle it reads the TB5 opportunity scan, the running bots and the account limits, then answers with **one strict-JSON decision**: `OPEN_GRID` / `STOP_BOT` / `AMEND_BOT` / `HOLD`.
+* **Modes**: `OFF` (default — nothing runs), `ADVISOR` (analyse + journal decisions, dry-run only), `AUTONOMOUS` (execute the approved actions).
+* **Never trusts the model**: every proposal passes `validateActions()` before execution — execution mode, kill switch, native-Autopilot authority conflict, OKX credentials, per-symbol cooldown, range geometry (price must sit inside `[minPx, maxPx]` and within +/-25%), budget/reserve, leverage cap, concurrent-slot count and the session loss limit.
+* **Deterministic guardrails**: hard SL on margin, liquidation proximity, range breakout and "no arbitrage for too long" produce `STOP_BOT` actions that do not depend on the LLM at all.
+* **Fallback**: with no API key (or an API failure) the agent switches to the deterministic TB5 ranking (`LOCAL_FALLBACK`), clearly labelled as such in the journal.
+* **Hard limits**: it never switches execution mode, never touches the kill switch, credentials, account leverage or the Autopilot, and it refuses to open native grids unless the account is *already* `LIVE`.
+* **API**: `GET /api/bot/agent/status`, `POST /api/bot/agent/config`, `POST /api/bot/agent/api-key`, `POST /api/bot/agent/run`, `GET /api/bot/agent/decisions`, `POST /api/bot/agent/stop` (panic).
+* **Tests**: `npm test` covers modes, the execution guard, the guardrails and config clamping fully offline (`src/server/agent/__tests__/deepSeekAgent.test.ts`).
+
 ---
 
 ## 🛠️ Technology Stack

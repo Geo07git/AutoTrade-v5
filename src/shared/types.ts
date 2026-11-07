@@ -62,6 +62,10 @@ export type AuditLogType =
   | 'SCAN_ERROR'
   | 'CANDIDATE_SELECTED'
   | 'CANDIDATE_REJECTED'
+  | 'AGENT_DECISION'
+  | 'AGENT_ACTION'
+  | 'AGENT_GUARDRAIL'
+  | 'AGENT_ERROR'
   | 'RECOVERY'
   | 'FORCE_SYNC'
   | 'SYSTEM'
@@ -464,6 +468,161 @@ export interface NativeGridAutopilotConfig {
   scanDiagnostics?: NativeGridScanDiagnostics;
 }
 
+// =============================================================================
+// DEEPSEEK AUTONOMOUS AGENT — brain of the Neutral Grid desk
+// =============================================================================
+
+/** OFF = loop stopped. ADVISOR = analyse + log decisions, never execute. AUTONOMOUS = execute approved actions. */
+export type DeepSeekAgentMode = 'OFF' | 'ADVISOR' | 'AUTONOMOUS';
+/** Which engine produced the decision. LOCAL_FALLBACK = deterministic TB5 ranking, used only if the API is unavailable. */
+export type DeepSeekAgentEngine = 'DEEPSEEK' | 'LOCAL_FALLBACK';
+export type DeepSeekActionType = 'OPEN_GRID' | 'STOP_BOT' | 'AMEND_BOT' | 'HOLD';
+
+export interface DeepSeekOpenGridAction {
+  type: 'OPEN_GRID';
+  instId: string;
+  minPx: number;
+  maxPx: number;
+  gridNum: number;
+  runType: '1' | '2';
+  lever: number;
+  sz: number;
+  stopLossPct?: number;
+  takeProfitPct?: number;
+  rangeVariant?: GridRangeVariantId;
+  rationale_ro?: string;
+}
+
+export interface DeepSeekStopBotAction {
+  type: 'STOP_BOT';
+  algoId: string;
+  stopType?: '1' | '2';
+  rationale_ro?: string;
+}
+
+export interface DeepSeekAmendBotAction {
+  type: 'AMEND_BOT';
+  algoId: string;
+  tpTriggerPx?: number;
+  slTriggerPx?: number;
+  stopLossPct?: number;
+  takeProfitPct?: number;
+  rationale_ro?: string;
+}
+
+export interface DeepSeekHoldAction {
+  type: 'HOLD';
+  rationale_ro?: string;
+}
+
+export type DeepSeekAgentAction =
+  | DeepSeekOpenGridAction
+  | DeepSeekStopBotAction
+  | DeepSeekAmendBotAction
+  | DeepSeekHoldAction;
+
+export interface DeepSeekActionResult {
+  action: DeepSeekAgentAction;
+  success: boolean;
+  message: string;
+  algoId?: string;
+  timestamp: number;
+  source: 'MODEL' | 'GUARDRAIL';
+}
+
+export interface DeepSeekRejectedAction {
+  action: any;
+  reason: string;
+}
+
+export interface DeepSeekAgentDecision {
+  id: string;
+  createdAt: number;
+  trigger: 'SCHEDULE' | 'MANUAL' | 'EVENT';
+  mode: DeepSeekAgentMode;
+  engine: DeepSeekAgentEngine;
+  model: string;
+  dryRun: boolean;
+  latencyMs: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  marketRegime: string;
+  summaryRo: string;
+  confidence: number;
+  actions: DeepSeekAgentAction[];
+  guardrailActions: DeepSeekAgentAction[];
+  approvedActions: DeepSeekAgentAction[];
+  rejectedActions: DeepSeekRejectedAction[];
+  results: DeepSeekActionResult[];
+  error?: string;
+}
+
+export interface DeepSeekAgentConfig {
+  mode: DeepSeekAgentMode;
+  model: string;
+  baseUrl: string;
+  temperature: number;
+  maxTokens: number;
+  runIntervalSec: number;
+  maxActionsPerCycle: number;
+  maxConcurrentBots: number;
+  budgetPerBotUSDT: number;
+  minReserveUSDT: number;
+  maxLeverage: number;
+  minSuitabilityScore: number;
+  minNetProfitPerGridPct: number;
+  cooldownMinutesPerSymbol: number;
+  allowedSymbols: string[];
+  blockedSymbols: string[];
+  allowOpenBots: boolean;
+  allowStopBots: boolean;
+  allowAmendBots: boolean;
+  scanBeforeDecision: boolean;
+  notifyTelegram: boolean;
+  dailyLossLimitUSDT: number;
+  maxOpportunitiesInPrompt: number;
+  fallbackEnabled: boolean;
+  /** Deterministic risk layer: stop a bot even if the model says HOLD. */
+  enforceHardGuardrails: boolean;
+  hardStopLossPct: number;
+  hardMinLiqDistancePct: number;
+  hardMaxNoFillMinutes: number;
+  lastRunAt?: number;
+  lastDecisionAt?: number;
+  lastDecisionSummary?: string;
+  lastError?: string;
+  totalCycles: number;
+  totalActionsExecuted: number;
+  totalErrors: number;
+  consecutiveErrors: number;
+  symbolCooldowns?: Record<string, number>;
+}
+
+export interface DeepSeekAgentStatus {
+  mode: DeepSeekAgentMode;
+  engine: DeepSeekAgentEngine;
+  isConfigured: boolean;
+  apiKeyMasked: string;
+  model: string;
+  loopActive: boolean;
+  nextRunAt?: number;
+  authorityConflict: boolean;
+  authorityConflictReason?: string;
+  accountSnapshot: {
+    executionMode: ExecutionMode;
+    killSwitchEngaged: boolean;
+    equityUSDT: number;
+    freeBalanceUSDT: number;
+    marginInvestedUSDT: number;
+    sessionPnlUSDT: number;
+    runningBots: number;
+    freeSlots: number;
+  };
+  lastDecision?: DeepSeekAgentDecision;
+  decisions: DeepSeekAgentDecision[];
+  config: DeepSeekAgentConfig;
+}
+
 export interface BotStatusResponse {
   state: BotState;
   executionMode: ExecutionMode;
@@ -500,6 +659,7 @@ export interface BotStatusResponse {
   nativeGridOpportunities?: NativeGridOpportunity[];
   nativeGridAutopilot?: NativeGridAutopilotConfig;
   gridAnalyzer?: GridAnalyzerStatusSummary;
+  deepSeekAgent?: Omit<DeepSeekAgentStatus, 'decisions'>;
   gridBots?: GridBotInstance[];
   recentArbitrages?: GridArbitrageEvent[];
   gridCandidates?: GridCandidateAnalysis[];

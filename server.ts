@@ -530,6 +530,86 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // DEEPSEEK AUTONOMOUS AGENT ROUTES
+  // =========================================================================
+  app.get('/api/bot/agent/status', (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10) || 20;
+      const agent = tradeBot.getDeepSeekAgentStatus();
+      res.json({
+        success: true,
+        agent: { ...agent, decisions: tradeBot.getDeepSeekAgentDecisions(limit) },
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la citirea stării DeepSeek Agent',
+      });
+    }
+  });
+
+  app.post('/api/bot/agent/config', requireControlAuth, (req, res) => {
+    try {
+      const result = tradeBot.updateDeepSeekAgentConfig(req.body || {});
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la salvarea configurației DeepSeek Agent',
+      });
+    }
+  });
+
+  app.post('/api/bot/agent/api-key', requireControlAuth, (req, res) => {
+    try {
+      const { apiKey } = req.body || {};
+      const result = tradeBot.setDeepSeekApiKey(String(apiKey || ''));
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la salvarea cheii API DeepSeek',
+      });
+    }
+  });
+
+  // Manual cycle — works in every mode (OFF/ADVISOR produce a dry-run decision, nothing is executed)
+  app.post('/api/bot/agent/run', requireControlAuth, async (_req, res) => {
+    try {
+      const result = await tradeBot.runDeepSeekAgentCycle('MANUAL');
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la rularea ciclului DeepSeek Agent',
+      });
+    }
+  });
+
+  app.get('/api/bot/agent/decisions', (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10) || 20;
+      res.json({ success: true, decisions: tradeBot.getDeepSeekAgentDecisions(limit) });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la citirea deciziilor' });
+    }
+  });
+
+  // Emergency stop: forces mode OFF and kills the autonomous loop (open bots are NOT touched)
+  app.post('/api/bot/agent/stop', requireControlAuth, (req, res) => {
+    try {
+      const reason = String(req.body?.reason || 'Panic stop din Terminal TB5');
+      const result = tradeBot.stopDeepSeekAgent(reason);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la oprirea DeepSeek Agent',
+      });
+    }
+  });
+
   app.get('/api/bot/logs', (req, res) => {
     res.json(tradeBot.getAuditLogs());
   });

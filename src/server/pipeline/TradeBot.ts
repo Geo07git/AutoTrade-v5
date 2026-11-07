@@ -31,6 +31,10 @@ import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
 import { AnafTaxEngine } from '../fiscal/AnafTaxEngine';
+import {
+  DeepSeekAgent,
+  DeepSeekAccountSnapshot,
+} from '../agent/DeepSeekAgent';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -122,6 +126,7 @@ export class TradeBot {
   private gridBotAnalyzer: GridBotAnalyzer;
   private universeManager: UniverseManager;
   private anafTaxEngine: AnafTaxEngine;
+  private deepSeekAgent: DeepSeekAgent;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -280,6 +285,31 @@ export class TradeBot {
       this.universeManager.getInstrumentLotFilter(sym)
     );
     this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
+
+    // DeepSeek autonomous agent — decision layer on top of the OKX native grid engine.
+    // It never switches execution mode, never touches the kill switch and never trades outside
+    // the explicit config limits (see DeepSeekAgent.validateActions / buildGuardrailStops).
+    this.deepSeekAgent = new DeepSeekAgent({
+      getAccountSnapshot: () => this.getAgentAccountSnapshot(),
+      hasOKXCredentials: () => this.hasOKXCredentials(),
+      getNativeGridAutopilotConfig: () => {
+        const nc = this.nativeGridEngine.getConfig();
+        return { enabled: Boolean(nc.enabled), lastDecision: nc.lastDecision };
+      },
+      getNativeGridBots: () => this.nativeGridEngine.getAllBots(),
+      getNativeGridOpportunities: () => this.nativeGridEngine.getOpportunities(),
+      scanNativeGridOpportunities: () => this.scanNativeGridOpportunities(),
+      createNativeGridBot: (params: any) => this.createNativeGridBot(params),
+      stopNativeGridBot: (algoId: string, stopType?: '1' | '2', reason?: string) =>
+        this.stopNativeGridBot(algoId, stopType, reason),
+      amendNativeGridBot: (algoId: string, params: any) =>
+        this.amendNativeGridBot(algoId, params),
+      logAudit: (type: AuditLogType, message: string, details?: any) =>
+        this.logAudit(type, message, details),
+      notifyTelegram: async (text: string) => {
+        await telegramService.sendMessage(text);
+      },
+    });
 
     this.state = 'TRADING';
     this.logAudit(
@@ -1231,6 +1261,7 @@ export class TradeBot {
         nativeGridOpportunities,
         nativeGridAutopilot,
         gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
+        deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
         gridBots: allBots,
         recentArbitrages: this.journal.getArbitrages(100),
         gridCandidates: this.gridCandidates,
@@ -1315,6 +1346,7 @@ export class TradeBot {
       nativeGridOpportunities,
       nativeGridAutopilot,
       gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
+      deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
       gridBots: allBots,
       recentArbitrages: this.journal.getArbitrages(100),
       gridCandidates: this.gridCandidates,
@@ -1582,6 +1614,94 @@ export class TradeBot {
     };
   }
 
+  // =========================================================================
+  // DEEPSEEK AUTONOMOUS AGENT FACADE
+  // =========================================================================
+
+  /**
+   * Lightweight account snapshot for the agent. Deliberately does NOT call getStatus()
+   * (that method is heavy and calls back into the agent for its own summary).
+   */
+  private getAgentAccountSnapshot(): DeepSeekAccountSnapshot {
+    const cfg = this.configStore.get();
+    const mode = cfg.executionMode;
+    const modeBots = this.gridEngine.getAllBots().filter((b) => b.executionMode === mode);
+    const running = modeBots.filter((b) => b.status === 'RUNNING');
+    const marginInvested = parseFloat(
+      running.reduce((s, b) => s + (b.config.marginInvestedUSDT || 0), 0).toFixed(2)
+    );
+    const feeTier = this.okxAdapter.getCachedFeeTierInfo();
+
+    if (mode === 'LIVE') {
+      const bal = this.okxAdapter.getCachedAccountBalanceDetails();
+      const fills = this.okxAdapter.getCachedExchangeFillsSummary();
+      const wallet = bal.walletBalance > 0 ? bal.walletBalance : this.cachedLiveWalletBalance;
+      const unreal = bal.unrealizedPnl || 0;
+      const equity = bal.equity > 0 ? bal.equity : wallet + unreal;
+      const free =
+        bal.availBalance > 0 ? bal.availBalance : Math.max(0, wallet - (bal.frozenMargin || 0));
+      const netRealized = (fills.realizedPnlUSDT || 0) - (fills.totalFeesUSDT || 0);
+      return {
+        executionMode: mode,
+        killSwitchEngaged: this.isKillSwitchEngagedForMode('LIVE'),
+        equity: parseFloat(equity.toFixed(2)),
+        freeBalance: parseFloat(free.toFixed(2)),
+        marginInvested,
+        sessionPnl: parseFloat((netRealized + unreal).toFixed(2)),
+        makerFeePct: feeTier.makerFeeRate * 100,
+        takerFeePct: feeTier.takerFeeRate * 100,
+      };
+    }
+
+    const botGridProfit = modeBots.reduce((s, b) => s + (b.gridProfitUSDT || 0), 0);
+    const botFees = modeBots.reduce((s, b) => s + (b.totalFeesUSDT || 0), 0);
+    const botUnrealized = running.reduce((s, b) => s + (b.floatingPnlUSDT || 0), 0);
+    const baseWallet = cfg.paperEquity || 200;
+    const wallet = baseWallet + botGridProfit - botFees;
+    return {
+      executionMode: mode,
+      killSwitchEngaged: this.isKillSwitchEngagedForMode('PAPER'),
+      equity: parseFloat((wallet + botUnrealized).toFixed(2)),
+      freeBalance: parseFloat(Math.max(0, wallet - marginInvested).toFixed(2)),
+      marginInvested,
+      sessionPnl: parseFloat((botGridProfit - botFees + botUnrealized).toFixed(2)),
+      makerFeePct: feeTier.makerFeeRate * 100,
+      takerFeePct: feeTier.takerFeeRate * 100,
+    };
+  }
+
+  public getDeepSeekAgent(): DeepSeekAgent {
+    return this.deepSeekAgent;
+  }
+
+  public getDeepSeekAgentStatus() {
+    return this.deepSeekAgent.getStatus();
+  }
+
+  public getDeepSeekAgentDecisions(limit: number = 20) {
+    return this.deepSeekAgent.getDecisions(limit);
+  }
+
+  public updateDeepSeekAgentConfig(updates: any) {
+    const config = this.deepSeekAgent.updateConfig(updates || {});
+    return { success: true, config, agent: this.deepSeekAgent.getStatusSummary() };
+  }
+
+  public setDeepSeekApiKey(apiKey: string) {
+    const res = this.deepSeekAgent.setApiKey(apiKey);
+    return { ...res, agent: this.deepSeekAgent.getStatusSummary() };
+  }
+
+  public async runDeepSeekAgentCycle(trigger: 'MANUAL' | 'SCHEDULE' | 'EVENT' = 'MANUAL') {
+    const decision = await this.deepSeekAgent.runCycle(trigger);
+    return { success: !decision.error, decision, agent: this.deepSeekAgent.getStatusSummary() };
+  }
+
+  public stopDeepSeekAgent(reason: string = 'Oprit manual din Terminal') {
+    const config = this.deepSeekAgent.panic(reason);
+    return { success: true, config, agent: this.deepSeekAgent.getStatusSummary() };
+  }
+
   public async start(): Promise<void> {
     this.state = this.isKillSwitchEngagedForMode() ? 'STOPPED' : 'TRADING';
     const runningSymbols = this.gridEngine.getRunningBots().map((b) => b.symbol);
@@ -1644,6 +1764,11 @@ export class TradeBot {
     // Periodic Universe Grid Scanner using configurable autopilot.scanIntervalSec
     const scanSec = this.getAutopilotConfig().scanIntervalSec || 60;
     this.rescheduleScannerInterval(scanSec);
+
+    // DeepSeek agent autonomous loop (no-op when the agent mode is OFF)
+    if (this.deepSeekAgent.getConfig().mode !== 'OFF') {
+      this.deepSeekAgent.startLoop();
+    }
   }
 
   // Compatibility helpers for server routes
