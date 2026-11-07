@@ -60,7 +60,7 @@ Terminal de trading algoritmic în stil Bloomberg pentru **grid neutru (market-n
 |---|---|---|
 | Pipeline central | `src/server/pipeline/TradeBot.ts` | stare, config, mod execuție, orchestrare |
 | Grid TB5 (propriu) | `src/server/engine/grid/NeutralGridEngine.ts` | grid cu nivele proprii, risk manager, martingale opțional |
-| Grid nativ OKX | `src/server/engine/grid/OKXNativeGridEngine.ts` | `contract_grid` pe OKX: scan, create/stop/amend/sync |
+| Grid nativ OKX | `src/server/engine/grid/OKXNativeGridEngine.ts` | `contract_grid` pe OKX: scan, create/stop/amend/sync. **Atenție:** gateway-ul `tradingBot/grid` nu cunoaște id-urile `_UM_XPERP` — vezi §14. |
 | Analiză eligibilitate | `NeutralGridAnalyzer.ts`, `GridBotAnalyzer.ts` | scor 0-100 (choppiness, range-bound, ATR bell, spread/lichiditate) + regim |
 | Optimizer grid | `GridOptimizer.ts`, `GridRangeVariants.ts` | range optim, număr de grile, spacing aritmetic/geometric |
 | Risk | `GridRiskManager.ts` | SL/TP, trailing, protecție equity, lichidare |
@@ -210,6 +210,7 @@ Fără cheie API sau la eroare/timeout de la DeepSeek: agentul folosește rankin
 - Nu cuplează/decuplează Autopilot-ul nativ și nu îl ocolește: dacă e activ → `authorityConflict`, zero deschideri.
 - Nu deschide grid nativ dacă modul nu e deja `LIVE` (capital real, asumat de tine).
 - Nu inventează instrumente: doar candidați din scanul `_UM_XPERP`.
+- Nu mai încearcă gridul nativ OKX pe `_UM_XPERP`: ruta `/tradingBot/grid/*` respinge aceste id-uri (verificat read-only: `orders-algo-pending` + `BTC-USD_UM_XPERP-310404` → `51001`, în timp ce `BTC-USDT-SWAP` întoarce listă goală; apoi `order-algo` → `51000`). Deci `OPEN_GRID` merge direct pe execuția cu ordine (`AUTO_LIMIT`), fără un apel sortat eșecului. Comutatorul `preferNativeAlgo` rămâne activ doar pentru id-uri `-SWAP`.
 - Nu își modifică singur limitele ca să „încapă” o acțiune — refuză și jurnalizează motivul.
 
 ### 5.8 Moduri și semnificația `dryRun`
@@ -465,6 +466,7 @@ Concurrency `deploy-oci-main` cu `cancel-in-progress: false` — deploy-urile nu
 | „Cheile API OKX nu sunt configurate.” | credențiale lipsă | tab 5 → salvează + Test conexiune |
 | „Modul de execuție este PAPER…” | gridul nativ cere LIVE | treci pe LIVE (asumat) sau rămâi pe grid TB5 în PAPER |
 | `401` pe rute de control | token lipsă/greșit | trimite `x-bot-token` = `BOT_CONTROL_TOKEN` |
+| `[OKX EEA GATEWAY 51000]` / `51001` la o deschidere nativă | gateway-ul `tradingBot/grid` nu cunoaște id-urile `_UM_XPERP` (acceptă doar SPOT/SWAP/MARGIN) | nu e o eroare de configurare: folosește execuția directă (`AUTO_LIMIT`); agentul o face deja automat pe X-Perp |
 | `50124` / erori OKX la poziții | diferențe demo vs live | verifică flag-ul **OKX Demo** din tab 5 și modul de execuție |
 | Health check roșu după deploy | build/service picat | workflow-ul face rollback automat; verifică `journalctl -u autotrade-v5` |
 

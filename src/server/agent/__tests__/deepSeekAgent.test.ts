@@ -334,8 +334,8 @@ test('AUTONOMOUS mode + LIVE account: the eligible candidate is opened once', as
   eq(h.calls.created[0].environment, 'LIVE', 'native grid creation must be flagged LIVE');
   eq(
     h.calls.created[0].executionVariant,
-    'NATIVE_ASSISTANT',
-    'preferNativeAlgo defaults to ON: the real OKX contract_grid algo must be attempted first'
+    'AUTO_LIMIT',
+    'OKX EEA rejects _UM_XPERP on /tradingBot/grid/* (51001 then 51000): X-Perp opens must skip the native algo'
   );
   eq(h.calls.created[0].stopTypeOnRisk, '1', 'risk stop must close the position at market');
   ok(h.calls.created[0].sz <= 20, 'size must respect budgetPerBotUSDT');
@@ -343,17 +343,26 @@ test('AUTONOMOUS mode + LIVE account: the eligible candidate is opened once', as
   eq(decision.results.filter((r) => r.success).length, 1, 'one successful result expected');
 });
 
-test('preferNativeAlgo=false falls back to the direct-order execution path', async () => {
-  const h = makeAgent();
-  await armAutonomous(h, { preferNativeAlgo: false });
-
-  await h.agent.runCycle('MANUAL');
-
-  eq(h.calls.created.length, 1, 'exactly one bot must be created');
+test('preferNativeAlgo is a no-op on X-Perp: both switch states use direct orders', async () => {
+  const off = makeAgent();
+  await armAutonomous(off, { preferNativeAlgo: false });
+  await off.agent.runCycle('MANUAL');
+  eq(off.calls.created.length, 1, 'exactly one bot must be created');
   eq(
-    h.calls.created[0].executionVariant,
+    off.calls.created[0].executionVariant,
     'AUTO_LIMIT',
     'direct orders must be used when the native algo is disabled'
+  );
+
+  const on = makeAgent();
+  const cfg = await armAutonomous(on, { preferNativeAlgo: true });
+  eq(cfg.preferNativeAlgo, true, 'the switch itself must stay ON when the operator enables it');
+  await on.agent.runCycle('MANUAL');
+  eq(on.calls.created.length, 1, 'exactly one bot must be created');
+  eq(
+    on.calls.created[0].executionVariant,
+    'AUTO_LIMIT',
+    'an X-Perp must never be routed to the native grid algo (OKX EEA 51001/51000), even when the switch is ON'
   );
 });
 

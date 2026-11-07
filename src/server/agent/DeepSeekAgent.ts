@@ -1244,6 +1244,25 @@ export class DeepSeekAgent {
 
   // ------------------------------------------------------------ execution ----
 
+  /**
+   * OKX EEA does not expose X-Perp (`_UM_XPERP`) instruments on the grid algo gateway:
+   * `GET /api/v5/tradingBot/grid/orders-algo-pending` answers 51001 ("Instrument ID doesn't
+   * exist") for `BTC-USD_UM_XPERP-310404`, while the identical call with `BTC-USDT-SWAP`
+   * returns an empty list — and `POST /tradingBot/grid/order-algo` then fails with
+   * 51000 "Parameter instId error". The native contract_grid route only knows
+   * SPOT / SWAP / MARGIN ids. Verified read-only, nothing was placed.
+   *
+   * Consequence: an X-Perp open always goes straight to the direct-order fallback, so we
+   * no longer burn a guaranteed-failing API call per open or journal a misleading
+   * [OKX EEA GATEWAY 51000] line. `preferNativeAlgo` keeps its meaning for SWAP ids, so
+   * the native route resumes automatically if the universe ever trades `-SWAP`.
+   */
+  private resolveExecutionVariant(instId: string): 'NATIVE_ASSISTANT' | 'AUTO_LIMIT' {
+    if (!this.getConfig().preferNativeAlgo) return 'AUTO_LIMIT';
+    if (String(instId || '').toUpperCase().includes('_UM_XPERP')) return 'AUTO_LIMIT';
+    return 'NATIVE_ASSISTANT';
+  }
+
   private async executeAction(
     action: DeepSeekAgentAction,
     source: 'MODEL' | 'GUARDRAIL'
@@ -1264,7 +1283,7 @@ export class DeepSeekAgent {
           stopTypeOnRisk: '1',
           stopOnRangeBreakout: true,
           stopOnTrendInvalidation: true,
-          executionVariant: this.getConfig().preferNativeAlgo ? 'NATIVE_ASSISTANT' : 'AUTO_LIMIT',
+          executionVariant: this.resolveExecutionVariant(action.instId),
           environment: 'LIVE',
           explicitLiveConfirm: true,
         });

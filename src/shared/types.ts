@@ -590,6 +590,12 @@ export interface DeepSeekAgentConfig {
   /**
    * Try the real OKX `contract_grid` algo first (`/tradingBot/grid/order-algo`).
    * Direct limit orders stay available as an automatic fallback (OKX EEA 51000).
+   *
+   * Verified read-only on 2026-11-07: the grid gateway does NOT know X-Perp ids at all
+   * (`orders-algo-pending` + `BTC-USD_UM_XPERP-310404` -> 51001, while `BTC-USDT-SWAP`
+   * returns an empty list). Every candidate of this desk is an X-Perp, so the native
+   * attempt is skipped and the direct-order path is used first; the switch only matters
+   * for SWAP ids.
    */
   preferNativeAlgo: boolean;
   /**
