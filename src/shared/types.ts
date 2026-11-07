@@ -587,6 +587,17 @@ export interface DeepSeekAgentConfig {
   hardStopLossPct: number;
   hardMinLiqDistancePct: number;
   hardMaxNoFillMinutes: number;
+  /**
+   * Try the real OKX `contract_grid` algo first (`/tradingBot/grid/order-algo`).
+   * Direct limit orders stay available as an automatic fallback (OKX EEA 51000).
+   */
+  preferNativeAlgo: boolean;
+  /**
+   * Stop a bot that produced 0 arbitrages for hardMaxNoFillMinutes even when PnL is
+   * positive: a passive grid locks capital without earning. Releases the symbol so the
+   * next cycle can re-draw the grid at the current price.
+   */
+  stopIfPassive: boolean;
   lastRunAt?: number;
   lastDecisionAt?: number;
   lastDecisionSummary?: string;

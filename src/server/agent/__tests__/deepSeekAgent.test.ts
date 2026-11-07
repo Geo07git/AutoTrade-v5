@@ -332,11 +332,29 @@ test('AUTONOMOUS mode + LIVE account: the eligible candidate is opened once', as
   eq(h.calls.created.length, 1, 'exactly one bot must be created');
   eq(h.calls.created[0].instId, INST, 'the created bot must target the analysed instrument');
   eq(h.calls.created[0].environment, 'LIVE', 'native grid creation must be flagged LIVE');
-  eq(h.calls.created[0].executionVariant, 'AUTO_LIMIT', 'must use the Ramura 1 execution path');
+  eq(
+    h.calls.created[0].executionVariant,
+    'NATIVE_ASSISTANT',
+    'preferNativeAlgo defaults to ON: the real OKX contract_grid algo must be attempted first'
+  );
   eq(h.calls.created[0].stopTypeOnRisk, '1', 'risk stop must close the position at market');
   ok(h.calls.created[0].sz <= 20, 'size must respect budgetPerBotUSDT');
   ok(h.calls.created[0].lever <= 5, 'leverage must respect maxLeverage');
   eq(decision.results.filter((r) => r.success).length, 1, 'one successful result expected');
+});
+
+test('preferNativeAlgo=false falls back to the direct-order execution path', async () => {
+  const h = makeAgent();
+  await armAutonomous(h, { preferNativeAlgo: false });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 1, 'exactly one bot must be created');
+  eq(
+    h.calls.created[0].executionVariant,
+    'AUTO_LIMIT',
+    'direct orders must be used when the native algo is disabled'
+  );
 });
 
 // ===========================================================================
@@ -546,6 +564,36 @@ test('guardrail: no arbitrages for too long with negative PnL produces a STOP_BO
     'the guardrail must explain the stale bot'
   );
   eq(h.calls.stopped.length, 1, 'the stale bot must be stopped');
+});
+
+test('guardrail: a passive bot is stopped even with a positive PnL', async () => {
+  const h = makeAgent({
+    bots: [bot({ arbitrageNum: 0, totalPnl: 0.01, cTime: Date.now() - 200 * 60_000 })],
+  });
+  await armAutonomous(h, { hardMaxNoFillMinutes: 180, stopIfPassive: true });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  ok(
+    decision.guardrailActions.some((a: any) => /bot pasiv/i.test(a.rationale_ro || '')),
+    'the guardrail must report the passive grid'
+  );
+  eq(h.calls.stopped.length, 1, 'dead capital must be released even on a positive PnL');
+});
+
+test('guardrail: stopIfPassive=false keeps the old PnL condition', async () => {
+  const h = makeAgent({
+    bots: [bot({ arbitrageNum: 0, totalPnl: 0.01, cTime: Date.now() - 200 * 60_000 })],
+  });
+  await armAutonomous(h, { hardMaxNoFillMinutes: 180, stopIfPassive: false });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(
+    decision.guardrailActions.length,
+    0,
+    'a positive PnL must not trigger a passive stop when the switch is off'
+  );
 });
 
 test('guardrail: a healthy bot raises nothing', async () => {

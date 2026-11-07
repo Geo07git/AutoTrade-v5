@@ -109,6 +109,8 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   hardStopLossPct: 12,
   hardMinLiqDistancePct: 12,
   hardMaxNoFillMinutes: 180,
+  preferNativeAlgo: true,
+  stopIfPassive: true,
   totalCycles: 0,
   totalActionsExecuted: 0,
   totalErrors: 0,
@@ -143,8 +145,10 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
 - Prefer IDEAL_RANGE / HIGH_VOL_RANGE with chop >= 55, adx <= 25, order-book imbalance within +/-0.35, spread <= 6bps, net_per_grid_pct > 0 and positive daily_yield_pct.
+- Optimise, do not copy: rank candidates by suitabilityScore x daily_yield_pct, then adjust gridNum so that net_per_grid_pct stays above the minimum while the range still covers the recent 24h range. Reject a range whose lower bound sits on the 24h low (or upper bound on the 24h high): one breakout fills every level at once.
 - Avoid TRENDING_RISK and LOW_VOLATILITY regimes, and avoid symbols with high absolute funding when a better candidate exists.
 - STOP_BOT only on clear deterioration: price outside the range, net PnL <= -6% of margin, distance to liquidation < 15%, regime flip to TRENDING_RISK, or zero arbitrages with negative float after 90+ minutes.
+- A bot with zero arbitrages after the passive threshold is DEAD CAPITAL: stop it even when the PnL is slightly positive. An idle grid must not hold a slot.
 - AMEND_BOT only to tighten risk (raise SL, lower TP) or to widen TP when the range is clearly holding; never widen SL beyond hard_stop_loss_pct.
 - Never propose: changing execution mode, toggling the kill switch, changing account leverage, creating/modifying/deleting any bot that is not in running_bots, or anything about API keys, balances transfers, or deposits.
 - Never output markdown, prose or code fences. Output ONE JSON object and nothing else.
@@ -255,6 +259,9 @@ export class DeepSeekAgent {
       ...stored,
       mode: (stored.mode === 'ADVISOR' || stored.mode === 'AUTONOMOUS' ? stored.mode : 'OFF') as DeepSeekAgentMode,
       symbolCooldowns: stored.symbolCooldowns || {},
+      // Boolean switches default to ON: an absent key must never disable a safety net.
+      preferNativeAlgo: stored.preferNativeAlgo !== false,
+      stopIfPassive: stored.stopIfPassive !== false,
     };
     return merged;
   }
@@ -272,12 +279,20 @@ export class DeepSeekAgent {
     next.maxActionsPerCycle = clamp(Math.round(Number(next.maxActionsPerCycle) || 2), 1, 5);
     next.maxConcurrentBots = clamp(Math.round(Number(next.maxConcurrentBots) || 2), 1, 10);
     next.budgetPerBotUSDT = clamp(Number(next.budgetPerBotUSDT) || 20, 5, 1000);
-    next.minReserveUSDT = clamp(Number(next.minReserveUSDT) || 10, 0, 10_000);
+    next.minReserveUSDT = clamp(
+      Number.isFinite(Number(next.minReserveUSDT)) ? Number(next.minReserveUSDT) : 10,
+      0,
+      10_000
+    );
     next.maxLeverage = clamp(Math.round(Number(next.maxLeverage) || 5), 1, 20);
     next.minSuitabilityScore = clamp(Math.round(Number(next.minSuitabilityScore) || 70), 30, 98);
     next.minNetProfitPerGridPct = clamp(Number(next.minNetProfitPerGridPct) || 0.05, 0.01, 5);
     next.cooldownMinutesPerSymbol = clamp(
-      Math.round(Number(next.cooldownMinutesPerSymbol) || 30),
+      Math.round(
+        Number.isFinite(Number(next.cooldownMinutesPerSymbol))
+          ? Number(next.cooldownMinutesPerSymbol)
+          : 30
+      ),
       0,
       1440
     );
@@ -286,6 +301,8 @@ export class DeepSeekAgent {
     next.hardStopLossPct = clamp(Number(next.hardStopLossPct) || 12, 2, 60);
     next.hardMinLiqDistancePct = clamp(Number(next.hardMinLiqDistancePct) || 12, 3, 60);
     next.hardMaxNoFillMinutes = clamp(Math.round(Number(next.hardMaxNoFillMinutes) || 180), 15, 1440);
+    next.preferNativeAlgo = next.preferNativeAlgo !== false;
+    next.stopIfPassive = next.stopIfPassive !== false;
     next.allowedSymbols = Array.isArray(next.allowedSymbols)
       ? next.allowedSymbols.map((s) => String(s).trim()).filter(Boolean)
       : [];
@@ -758,19 +775,32 @@ export class DeepSeekAgent {
     this.logDecision(decision);
     await this.notify(decision, cfg);
 
-    // Cooldowns for successfully opened symbols
-    if (results.some((r) => r.success && r.action.type === 'OPEN_GRID')) {
-      const cooldowns = { ...(cfg.symbolCooldowns || {}) };
-      for (const r of results) {
-        if (r.success && r.action.type === 'OPEN_GRID') {
-          cooldowns[r.action.instId] = Date.now();
+    // Cooldowns for successfully opened symbols. A guardrail stop releases the symbol at
+    // once, so the next cycle may re-draw a fresh grid around the current price.
+    const cooldowns = { ...(cfg.symbolCooldowns || {}) };
+    let cooldownsChanged = false;
+    for (const r of results) {
+      if (!r.success) continue;
+      if (r.action.type === 'OPEN_GRID') {
+        cooldowns[(r.action as any).instId] = Date.now();
+        cooldownsChanged = true;
+      }
+      if (r.action.type === 'STOP_BOT' && r.source === 'GUARDRAIL') {
+        const stopped = ctx.runningBots.find(
+          (b) => b.algoId === (r.action as any).algoId
+        );
+        if (stopped?.instId && cooldowns[stopped.instId] !== undefined) {
+          delete cooldowns[stopped.instId];
+          cooldownsChanged = true;
         }
       }
-      this.pruneCooldowns(cooldowns);
-      this.saveRuntime({ symbolCooldowns: cooldowns, lastRunAt: Date.now(), lastDecisionAt: Date.now() });
-    } else {
-      this.saveRuntime({ lastRunAt: Date.now(), lastDecisionAt: Date.now() });
     }
+    if (cooldownsChanged) this.pruneCooldowns(cooldowns);
+    this.saveRuntime({
+      ...(cooldownsChanged ? { symbolCooldowns: cooldowns } : {}),
+      lastRunAt: Date.now(),
+      lastDecisionAt: Date.now(),
+    });
 
     return decision;
   }
@@ -1129,13 +1159,12 @@ export class DeepSeekAgent {
         reasons.push(`preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(bot.maxPx, 6)}]`);
       }
       const ageMin = Math.max(0, Math.round((Date.now() - (bot.cTime || Date.now())) / 60000));
-      if (
-        bot.arbitrageNum === 0 &&
-        ageMin >= cfg.hardMaxNoFillMinutes &&
-        bot.totalPnl < 0
-      ) {
+      const passive = bot.arbitrageNum === 0 && ageMin >= cfg.hardMaxNoFillMinutes;
+      if (passive && (cfg.stopIfPassive || bot.totalPnl < 0)) {
         reasons.push(
-          `0 arbitraje în ${ageMin} min (prag ${cfg.hardMaxNoFillMinutes} min) cu PnL negativ`
+          cfg.stopIfPassive
+            ? `0 arbitraje în ${ageMin} min (prag ${cfg.hardMaxNoFillMinutes} min) — bot pasiv, capital imobilizat (PnL ${rnd(bot.totalPnl)} USDT ignorat intenționat)`
+            : `0 arbitraje în ${ageMin} min (prag ${cfg.hardMaxNoFillMinutes} min) cu PnL negativ`
         );
       }
 
@@ -1235,7 +1264,7 @@ export class DeepSeekAgent {
           stopTypeOnRisk: '1',
           stopOnRangeBreakout: true,
           stopOnTrendInvalidation: true,
-          executionVariant: 'AUTO_LIMIT',
+          executionVariant: this.getConfig().preferNativeAlgo ? 'NATIVE_ASSISTANT' : 'AUTO_LIMIT',
           environment: 'LIVE',
           explicitLiveConfirm: true,
         });

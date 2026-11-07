@@ -393,6 +393,8 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
     ['notifyTelegram', 'Trimite deciziile in Telegram', 'notificari'],
     ['fallbackEnabled', 'Fallback determinist fara LLM', 'LOCAL_FALLBACK'],
     ['enforceHardGuardrails', 'Guardrails dure (SL / lichidare / breakout)', 'STRAT DE SIGURANTA'],
+    ['preferNativeAlgo', 'Grid nativ OKX (algo real), fallback pe ordine', 'NATIVE_ALGO'],
+    ['stopIfPassive', 'Stop bot pasiv (0 arbitraje) chiar si pe plus', 'capital liber'],
   ];
 
   return (
