@@ -1017,7 +1017,7 @@ export class TradeBot {
   }
 
   private async refreshLiveAccountMetrics(force: boolean = false): Promise<void> {
-    if (!this.hasOKXCredentials()) return;
+    if (!this.hasOKXCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) return;
     try {
       const bal = await this.okxAdapter.fetchAccountBalance(force);
       if (bal.walletBalance > 0) {
@@ -1251,6 +1251,7 @@ export class TradeBot {
         marketSentimentScore: this.marketSentimentScore,
         telegramActive: telegramService.isConfigured(),
         telegramStatus: telegramService.getCredentialsStatus(),
+        okxAuthStatus: this.okxAdapter.getAuthStatus(),
       };
     }
 
@@ -1335,6 +1336,7 @@ export class TradeBot {
       marketSentimentScore: this.marketSentimentScore,
       telegramActive: telegramService.isConfigured(),
       telegramStatus: telegramService.getCredentialsStatus(),
+      okxAuthStatus: this.okxAdapter.getAuthStatus(),
     };
   }
 
@@ -1623,7 +1625,7 @@ export class TradeBot {
             await this.gridEngine.onPriceTick(bot.symbol, px);
           }
         }
-        if (this.hasOKXCredentials()) {
+        if (this.hasOKXCredentials() && !this.okxAdapter.isCredentialsPermanentlyFailed()) {
           if (monitorTickCount % 4 === 0 && this.configStore.get().executionMode === 'LIVE') {
             await this.gridEngine
               .reconcileWithExchange(this.getProtectedNativeSymbols())

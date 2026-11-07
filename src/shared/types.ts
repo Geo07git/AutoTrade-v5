@@ -513,6 +513,7 @@ export interface BotStatusResponse {
   marketSentimentScore?: number;
   telegramActive?: boolean;
   telegramStatus?: TelegramConfigStatus;
+  okxAuthStatus?: { failed: boolean; message: string };
   [key: string]: any;
 }
 

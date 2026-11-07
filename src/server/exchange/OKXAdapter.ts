@@ -27,6 +27,7 @@ export class OKXAdapter implements IExecutionAdapter {
   private accountPosMode: 'long_short' | 'net' | null = null;
   private posModeCheckPromise: Promise<void> | null = null;
   private credentialsPermanentlyFailed: boolean = false;
+  private lastAuthErrorMessage: string = '';
 
   // Bulk instrument cache to avoid per-symbol 429 rate limits on /api/v5/public/instruments
   private bulkInstrumentsPromise: Promise<void> | null = null;
@@ -164,6 +165,17 @@ export class OKXAdapter implements IExecutionAdapter {
 
   public hasCredentials(): boolean {
     return Boolean(this.apiKey && this.secretKey && this.passphrase);
+  }
+
+  public isCredentialsPermanentlyFailed(): boolean {
+    return this.credentialsPermanentlyFailed;
+  }
+
+  public getAuthStatus(): { failed: boolean; message: string } {
+    return {
+      failed: this.credentialsPermanentlyFailed,
+      message: this.lastAuthErrorMessage,
+    };
   }
 
   public markCredentialsInvalid(): void {
@@ -732,7 +744,7 @@ export class OKXAdapter implements IExecutionAdapter {
       };
     }
 
-    if (this.credentialsPermanentlyFailed && !force) {
+    if (this.credentialsPermanentlyFailed) {
       return {
         equity: this.cachedEquity,
         walletBalance: this.cachedWalletBalance,
@@ -871,8 +883,9 @@ export class OKXAdapter implements IExecutionAdapter {
           msg.includes('Invalid Sign')
         ) {
           this.credentialsPermanentlyFailed = true;
+          this.lastAuthErrorMessage = 'OKX Passphrase sau Cheie API incorectă (Cod 50105). Actualizați acreditările în tabul [6: API].';
           this.lastBalanceFetchTime = Date.now() + 300_000;
-          console.warn('[OKXAdapter] Auth paused due to invalid API credentials/passphrase (update in [6:API] tab):', msg);
+          console.info('[OKXAdapter] Autentificarea privată OKX este suspendată: Passphrase sau Cheie API incorectă (Cod 50105). Introduceți datele corecte în tabul [6: API].');
         } else {
           this.lastBalanceFetchTime = Date.now();
           console.warn('[OKXAdapter] Transient issue fetching account balance:', msg);
@@ -1595,8 +1608,8 @@ export class OKXAdapter implements IExecutionAdapter {
    * Fetches real open positions from OKX
    */
   public async getOpenPositions(settleCoin: string = 'USDT'): Promise<OKXRawPosition[]> {
-    if (!this.hasCredentials()) {
-      throw new Error('Cannot fetch OKX positions: OKX API credentials not configured.');
+    if (!this.hasCredentials() || this.credentialsPermanentlyFailed) {
+      return [];
     }
 
     try {
@@ -2776,7 +2789,7 @@ export class OKXAdapter implements IExecutionAdapter {
    * GET /api/v5/tradingBot/grid/orders-algo-details?algoOrdType=contract_grid&algoId=...
    */
   public async getNativeContractGridDetails(algoId: string, isDemo?: boolean): Promise<any | null> {
-    if (!this.hasCredentials() || !algoId) return null;
+    if (!this.hasCredentials() || this.credentialsPermanentlyFailed || !algoId) return null;
     try {
       const res = await this.requestWithEnvOverride(
         'GET',

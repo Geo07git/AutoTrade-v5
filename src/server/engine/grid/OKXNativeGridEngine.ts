@@ -1492,7 +1492,7 @@ export class OKXNativeGridEngine {
    *   and market regime invalidation TRENDING_RISK) and automatically stops the bot on OKX.
    */
   public async syncAndMonitorActiveBots(killSwitchEngaged: boolean = false): Promise<void> {
-    if (this.isMonitoring || !this.okxAdapter.hasCredentials()) return;
+    if (this.isMonitoring || !this.okxAdapter.hasCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) return;
     this.isMonitoring = true;
 
     try {

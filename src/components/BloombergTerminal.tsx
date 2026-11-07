@@ -1684,6 +1684,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         </div>
       )}
 
+      {/* OKX Auth Credentials Alert Banner */}
+      {status?.okxAuthStatus?.failed && (
+        <div className="mx-2 mt-2 p-2.5 rounded text-xs font-mono flex items-center justify-between border bg-amber-950/80 text-amber-200 border-amber-600/70 shadow-lg">
+          <div className="flex items-center space-x-2">
+            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Atenție Acreditări OKX:</strong> {status.okxAuthStatus.message || 'Passphrase sau Cheie API incorectă (Cod 50105).'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('API')}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[11px] cursor-pointer transition-colors"
+          >
+            Configurați în Tab [6: API]
+          </button>
+        </div>
+      )}
+
       {/* =================================================================== */}
       {/* 4. MAIN WORKSPACE CONTENT                                           */}
       {/* =================================================================== */}
