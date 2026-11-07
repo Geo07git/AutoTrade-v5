@@ -38,7 +38,15 @@ interface OKXNativeGridPanelProps {
   onRefresh: () => void;
   onNotify: (banner: { type: 'success' | 'error' | 'info'; text: string }) => void;
   onInspectLadder?: (botId: string) => void;
-  externalSelectedSymbol?: { instId: string; ts: number } | null;
+  externalSelectedSymbol?: {
+    instId: string;
+    ts: number;
+    minPx?: number;
+    maxPx?: number;
+    gridNum?: number;
+    runType?: '1' | '2';
+    lever?: number;
+  } | null;
 }
 
 export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
@@ -653,7 +661,25 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
 
   useEffect(() => {
     if (externalSelectedSymbol?.instId) {
-      handleAnalyzeAndLoadSymbol(externalSelectedSymbol.instId, undefined, true);
+      if (externalSelectedSymbol.minPx && externalSelectedSymbol.maxPx) {
+        setInstId(externalSelectedSymbol.instId);
+        setManualSelectedInstId(externalSelectedSymbol.instId);
+        setMinPx(externalSelectedSymbol.minPx);
+        setMaxPx(externalSelectedSymbol.maxPx);
+        if (externalSelectedSymbol.gridNum) setGridNum(externalSelectedSymbol.gridNum);
+        if (externalSelectedSymbol.runType) setRunType(externalSelectedSymbol.runType);
+        if (externalSelectedSymbol.lever) setLever(externalSelectedSymbol.lever);
+        setExecutionVariant('AUTO_LIMIT');
+        if (builderSectionRef.current) {
+          builderSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        onNotify({
+          type: 'success',
+          text: `Parametrii din Historical Research au fost aplicați în RAMURA 1 pentru ${externalSelectedSymbol.instId} (${externalSelectedSymbol.minPx} - ${externalSelectedSymbol.maxPx}, ${externalSelectedSymbol.gridNum} grile).`,
+        });
+      } else {
+        handleAnalyzeAndLoadSymbol(externalSelectedSymbol.instId, undefined, true);
+      }
     }
   }, [externalSelectedSymbol?.ts]);
 

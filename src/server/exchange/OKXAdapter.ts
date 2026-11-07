@@ -27,6 +27,7 @@ export class OKXAdapter implements IExecutionAdapter {
   private accountPosMode: 'long_short' | 'net' | null = null;
   private posModeCheckPromise: Promise<void> | null = null;
   private credentialsPermanentlyFailed: boolean = false;
+  private lastAuthErrorMessage: string = '';
 
   // Bulk instrument cache to avoid per-symbol 429 rate limits on /api/v5/public/instruments
   private bulkInstrumentsPromise: Promise<void> | null = null;
@@ -166,6 +167,17 @@ export class OKXAdapter implements IExecutionAdapter {
     return Boolean(this.apiKey && this.secretKey && this.passphrase);
   }
 
+  public isCredentialsPermanentlyFailed(): boolean {
+    return this.credentialsPermanentlyFailed;
+  }
+
+  public getAuthStatus(): { failed: boolean; message: string } {
+    return {
+      failed: this.credentialsPermanentlyFailed,
+      message: this.lastAuthErrorMessage,
+    };
+  }
+
   public markCredentialsInvalid(): void {
     console.warn('[OKXAdapter] Warning: Received auth error from OKX. Retrying on next cycle.');
   }
@@ -199,7 +211,54 @@ export class OKXAdapter implements IExecutionAdapter {
       const base = clean.replace(/USDT$/, '');
       return `${base}-USDT-SWAP`;
     }
+    if (clean.endsWith('USDC')) {
+      const base = clean.replace(/USDC$/, '');
+      return `${base}-USDC-SWAP`;
+    }
     return `${clean}-USDT-SWAP`;
+  }
+
+  /**
+   * Resolves an instrument symbol to the live, active instrument on OKX.
+   * If an X-Perp contract has rolled over or an outdated expiry suffix was passed
+   * (e.g. BTC-USD_UM_XPERP-310530 -> BTC-USD_UM_XPERP-310404), this dynamically finds the active
+   * live contract. If not found, falls back to the normalized symbol.
+   */
+  public async resolveLiveInstrumentId(symbol: string): Promise<string> {
+    if (!symbol) return '';
+    const norm = this.normalizeSymbol(symbol);
+
+    try {
+      // Preload instruments in bulk if empty or cache is older than 30 mins
+      if (this.instrumentFilters.size === 0 || Date.now() - this.lastBulkInstrumentsLoadTime > 30 * 60 * 1000) {
+        await this.loadAllInstrumentsBulk();
+      }
+
+      if (this.instrumentFilters.has(norm)) {
+        return norm;
+      }
+
+      // If it's an X-Perp, try resolving by base/prefix (e.g. BTC-USD_UM_XPERP-310530 -> BTC-USD_UM_XPERP-310404)
+      if (norm.includes('_UM_XPERP')) {
+        const prefix = norm.replace(/-\d+$/, ''); // e.g. BTC-USD_UM_XPERP
+        for (const liveId of this.instrumentFilters.keys()) {
+          if (liveId.startsWith(prefix)) {
+            return liveId;
+          }
+        }
+        // Also try by base symbol e.g. BTC
+        const base = norm.split('-')[0];
+        for (const liveId of this.instrumentFilters.keys()) {
+          if (liveId.startsWith(`${base}-USD_UM_XPERP`)) {
+            return liveId;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[OKXAdapter] Transient error in resolveLiveInstrumentId for ${norm}:`, err?.message);
+    }
+
+    return norm;
   }
 
   /**
@@ -685,7 +744,7 @@ export class OKXAdapter implements IExecutionAdapter {
       };
     }
 
-    if (this.credentialsPermanentlyFailed && !force) {
+    if (this.credentialsPermanentlyFailed) {
       return {
         equity: this.cachedEquity,
         walletBalance: this.cachedWalletBalance,
@@ -824,8 +883,9 @@ export class OKXAdapter implements IExecutionAdapter {
           msg.includes('Invalid Sign')
         ) {
           this.credentialsPermanentlyFailed = true;
+          this.lastAuthErrorMessage = 'OKX Passphrase sau Cheie API incorectă (Cod 50105). Actualizați acreditările în tabul [6: API].';
           this.lastBalanceFetchTime = Date.now() + 300_000;
-          console.warn('[OKXAdapter] Auth paused due to invalid API credentials/passphrase (update in [6:API] tab):', msg);
+          console.info('[OKXAdapter] Autentificarea privată OKX este suspendată: Passphrase sau Cheie API incorectă (Cod 50105). Introduceți datele corecte în tabul [6: API].');
         } else {
           this.lastBalanceFetchTime = Date.now();
           console.warn('[OKXAdapter] Transient issue fetching account balance:', msg);
@@ -1134,6 +1194,205 @@ export class OKXAdapter implements IExecutionAdapter {
   }
 
   /**
+   * Fetches historical klines via OKX /api/v5/market/history-candles
+   * Supports any X-Perp, SWAP, or USDC instrument.
+   * Handles pagination (after cursor), rate limiting spacing (110ms), and auto-retry.
+   */
+  public async getHistoryKlines(
+    symbol: string,
+    bar: string = '5m',
+    days: number = 90,
+    signal?: AbortSignal,
+    onProgress?: (fetchedCount: number, oldestTs: number) => void
+  ): Promise<Kline[]> {
+    const rawInstId = this.normalizeSymbol(symbol);
+    const instId = await this.resolveLiveInstrumentId(rawInstId);
+
+    // Map interval formats to OKX bar formats
+    let okxBar = '5m';
+    const norm = bar.replace('m', '').replace('M', '');
+    if (norm === '1') okxBar = '1m';
+    else if (norm === '3') okxBar = '3m';
+    else if (norm === '5') okxBar = '5m';
+    else if (norm === '15') okxBar = '15m';
+    else if (norm === '30') okxBar = '30m';
+    else if (norm === '60' || norm === '1H') okxBar = '1H';
+    else if (norm === '120' || norm === '2H') okxBar = '2H';
+    else if (norm === '240' || norm === '4H') okxBar = '4H';
+    else if (norm === 'D' || norm === '1D') okxBar = '1D';
+
+    const now = Date.now();
+    const cutoffTs = now - Math.max(1, days) * 86_400_000;
+    const allCandlesMap = new Map<number, Kline>();
+
+    let afterCursor: string | undefined = undefined;
+    let consecutiveEmptyPages = 0;
+    const candleMinutes = okxBar === '1m' ? 1 : okxBar === '3m' ? 3 : okxBar === '5m' ? 5 : okxBar === '15m' ? 15 : 60;
+    const maxPages = Math.ceil((days * 24 * 60) / candleMinutes / 100) + 50;
+    let pageCount = 0;
+
+    while (pageCount < maxPages) {
+      if (signal?.aborted) {
+        console.warn(`[OKXAdapter] getHistoryKlines aborted for ${instId}`);
+        break;
+      }
+
+      pageCount++;
+      const queryParams = new URLSearchParams({
+        instId,
+        bar: okxBar,
+        limit: '100',
+      });
+      if (afterCursor) {
+        queryParams.set('after', afterCursor);
+      }
+
+      try {
+        const fetchSignal = signal || AbortSignal.timeout(10000);
+        const res = await this.request(
+          'GET',
+          `/api/v5/market/history-candles?${queryParams.toString()}`,
+          undefined,
+          false,
+          fetchSignal
+        );
+
+        if (res.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
+          consecutiveEmptyPages = 0;
+          let oldestInBatch = Infinity;
+
+          for (const k of res.data) {
+            const ts = parseInt(k[0], 10);
+            if (!isNaN(ts)) {
+              if (ts < oldestInBatch) oldestInBatch = ts;
+              if (ts >= cutoffTs) {
+                allCandlesMap.set(ts, {
+                  timestamp: ts,
+                  open: parseFloat(k[1]),
+                  high: parseFloat(k[2]),
+                  low: parseFloat(k[3]),
+                  close: parseFloat(k[4]),
+                  volume: parseFloat(k[5]) || parseFloat(k[6]) || 0,
+                });
+              }
+            }
+          }
+
+          if (onProgress) {
+            onProgress(allCandlesMap.size, oldestInBatch);
+          }
+
+          if (oldestInBatch <= cutoffTs || oldestInBatch === Infinity) {
+            break;
+          }
+
+          afterCursor = String(oldestInBatch);
+        } else {
+          consecutiveEmptyPages++;
+          if (consecutiveEmptyPages >= 2) {
+            break;
+          }
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || signal?.aborted) break;
+        const msg = String(err?.message || err);
+        if (msg.includes('51001') || msg.includes("doesn't exist")) {
+          console.warn(`[OKXAdapter] Instrument ${instId} does not exist on OKX (51001), aborting history fetch without retrying.`);
+          break;
+        }
+        console.warn(`[OKXAdapter] Transient error fetching history candles for ${instId} page ${pageCount}:`, msg);
+        await new Promise((r) => setTimeout(r, 500));
+      }
+
+      // Safe rate-limit throttle (110ms between pages)
+      await new Promise((r) => setTimeout(r, 110));
+    }
+
+    return Array.from(allCandlesMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  /**
+   * Fetches historical funding rates via OKX /api/v5/public/funding-rate-history
+   */
+  public async getFundingRateHistory(
+    symbol: string,
+    days: number = 90,
+    signal?: AbortSignal
+  ): Promise<Array<{ fundingTime: number; fundingRate: number; realizedRate?: number }>> {
+    const rawInstId = this.normalizeSymbol(symbol);
+    const instId = await this.resolveLiveInstrumentId(rawInstId);
+    const cutoffTs = Date.now() - Math.max(1, days) * 86_400_000;
+    const historyMap = new Map<number, { fundingTime: number; fundingRate: number; realizedRate?: number }>();
+
+    let afterCursor: string | undefined = undefined;
+    let pageCount = 0;
+    const maxPages = Math.ceil((days * 3) / 100) + 10;
+
+    while (pageCount < maxPages) {
+      if (signal?.aborted) break;
+      pageCount++;
+
+      const queryParams = new URLSearchParams({
+        instId,
+        limit: '100',
+      });
+      if (afterCursor) {
+        queryParams.set('after', afterCursor);
+      }
+
+      try {
+        const fetchSignal = signal || AbortSignal.timeout(10000);
+        const res = await this.request(
+          'GET',
+          `/api/v5/public/funding-rate-history?${queryParams.toString()}`,
+          undefined,
+          false,
+          fetchSignal
+        );
+
+        if (res.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
+          let oldestInBatch = Infinity;
+
+          for (const item of res.data) {
+            const fTime = parseInt(item.fundingTime, 10);
+            const fRate = parseFloat(item.fundingRate);
+            if (!isNaN(fTime) && !isNaN(fRate)) {
+              if (fTime < oldestInBatch) oldestInBatch = fTime;
+              if (fTime >= cutoffTs) {
+                historyMap.set(fTime, {
+                  fundingTime: fTime,
+                  fundingRate: fRate,
+                  realizedRate: item.realizedRate ? parseFloat(item.realizedRate) : undefined,
+                });
+              }
+            }
+          }
+
+          if (oldestInBatch <= cutoffTs || oldestInBatch === Infinity) {
+            break;
+          }
+          afterCursor = String(oldestInBatch);
+        } else {
+          break;
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || signal?.aborted) break;
+        const msg = String(err?.message || err);
+        if (msg.includes('51001') || msg.includes("doesn't exist")) {
+          console.warn(`[OKXAdapter] Instrument ${instId} funding history does not exist on OKX (51001), terminating.`);
+          break;
+        }
+        console.warn(`[OKXAdapter] Error fetching funding history for ${instId}:`, msg);
+        break;
+      }
+
+      await new Promise((r) => setTimeout(r, 110));
+    }
+
+    return Array.from(historyMap.values()).sort((a, b) => a.fundingTime - b.fundingTime);
+  }
+
+  /**
    * Fetches latest ticker price
    */
   public async getTickerPrice(symbol: string): Promise<number | null> {
@@ -1349,8 +1608,8 @@ export class OKXAdapter implements IExecutionAdapter {
    * Fetches real open positions from OKX
    */
   public async getOpenPositions(settleCoin: string = 'USDT'): Promise<OKXRawPosition[]> {
-    if (!this.hasCredentials()) {
-      throw new Error('Cannot fetch OKX positions: OKX API credentials not configured.');
+    if (!this.hasCredentials() || this.credentialsPermanentlyFailed) {
+      return [];
     }
 
     try {
@@ -2530,7 +2789,7 @@ export class OKXAdapter implements IExecutionAdapter {
    * GET /api/v5/tradingBot/grid/orders-algo-details?algoOrdType=contract_grid&algoId=...
    */
   public async getNativeContractGridDetails(algoId: string, isDemo?: boolean): Promise<any | null> {
-    if (!this.hasCredentials() || !algoId) return null;
+    if (!this.hasCredentials() || this.credentialsPermanentlyFailed || !algoId) return null;
     try {
       const res = await this.requestWithEnvOverride(
         'GET',

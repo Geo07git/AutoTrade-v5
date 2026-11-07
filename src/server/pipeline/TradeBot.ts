@@ -35,6 +35,7 @@ import {
   DeepSeekAgent,
   DeepSeekAccountSnapshot,
 } from '../agent/DeepSeekAgent';
+import { ResearchCoordinator } from '../research/ResearchCoordinator';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -127,6 +128,7 @@ export class TradeBot {
   private universeManager: UniverseManager;
   private anafTaxEngine: AnafTaxEngine;
   private deepSeekAgent: DeepSeekAgent;
+  private researchCoordinator: ResearchCoordinator;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -285,6 +287,7 @@ export class TradeBot {
       this.universeManager.getInstrumentLotFilter(sym)
     );
     this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
+    this.researchCoordinator = new ResearchCoordinator(this.okxAdapter);
 
     // DeepSeek autonomous agent — decision layer on top of the OKX native grid engine.
     // It never switches execution mode, never touches the kill switch and never trades outside
@@ -316,6 +319,10 @@ export class TradeBot {
       'EXCHANGE_CONNECTED',
       `TB5 Neutral Grid System inițializat pe platforma ${appConfig.activePlatform} (${appConfig.executionMode}).`
     );
+  }
+
+  public getResearchCoordinator(): ResearchCoordinator {
+    return this.researchCoordinator;
   }
 
   public logAudit(type: AuditLogType, message: string, details?: any) {
@@ -1040,7 +1047,7 @@ export class TradeBot {
   }
 
   private async refreshLiveAccountMetrics(force: boolean = false): Promise<void> {
-    if (!this.hasOKXCredentials()) return;
+    if (!this.hasOKXCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) return;
     try {
       const bal = await this.okxAdapter.fetchAccountBalance(force);
       if (bal.walletBalance > 0) {
@@ -1275,6 +1282,7 @@ export class TradeBot {
         marketSentimentScore: this.marketSentimentScore,
         telegramActive: telegramService.isConfigured(),
         telegramStatus: telegramService.getCredentialsStatus(),
+        okxAuthStatus: this.okxAdapter.getAuthStatus(),
       };
     }
 
@@ -1360,6 +1368,7 @@ export class TradeBot {
       marketSentimentScore: this.marketSentimentScore,
       telegramActive: telegramService.isConfigured(),
       telegramStatus: telegramService.getCredentialsStatus(),
+      okxAuthStatus: this.okxAdapter.getAuthStatus(),
     };
   }
 
@@ -1736,7 +1745,7 @@ export class TradeBot {
             await this.gridEngine.onPriceTick(bot.symbol, px);
           }
         }
-        if (this.hasOKXCredentials()) {
+        if (this.hasOKXCredentials() && !this.okxAdapter.isCredentialsPermanentlyFailed()) {
           if (monitorTickCount % 4 === 0 && this.configStore.get().executionMode === 'LIVE') {
             await this.gridEngine
               .reconcileWithExchange(this.getProtectedNativeSymbols())

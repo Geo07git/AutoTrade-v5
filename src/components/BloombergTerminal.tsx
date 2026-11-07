@@ -41,11 +41,13 @@ import {
   EyeOff,
   Download,
   FileText,
+  BarChart2,
 } from 'lucide-react';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
 import { AnafTaxPanel } from './AnafTaxPanel';
+import { HistoricalGridResearchPanel, ApplyToGridParams } from './HistoricalGridResearchPanel';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -131,7 +133,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onDismissAlert,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API' | 'ANAF_TAX'
+    'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API' | 'ANAF_TAX' | 'RESEARCH'
   >('NATIVE_GRID');
   const [mobileDashView, setMobileDashView] = useState<'BOTS' | 'LAUNCH'>('BOTS');
   const [showFeeCalculatorModal, setShowFeeCalculatorModal] = useState<boolean>(false);
@@ -153,6 +155,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   );
   const nativeGridOpportunities = status?.nativeGridOpportunities || [];
   const nativeGridAutopilot = status?.nativeGridAutopilot;
+
+  const universeSymbols = useMemo(() => {
+    const set = new Set<string>();
+    gridCandidates.forEach((c) => {
+      if (c.symbol) set.add(c.symbol);
+    });
+    nativeGridOpportunities.forEach((o) => {
+      if (o.instId) set.add(o.instId);
+    });
+    return Array.from(set);
+  }, [gridCandidates, nativeGridOpportunities]);
 
   // =========================================================================
   // LIVE HEARTBEAT CLOCK, COUNTDOWN & PRICE CHANGE FLASH TRACKER
@@ -462,6 +475,11 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [externalNativeSymbol, setExternalNativeSymbol] = useState<{
     instId: string;
     ts: number;
+    minPx?: number;
+    maxPx?: number;
+    gridNum?: number;
+    runType?: '1' | '2';
+    lever?: number;
   } | null>(null);
 
   // Kill Switch Confirmation Modal state (prevents accidental trigger)
@@ -1506,6 +1524,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <FileText className="w-3.5 h-3.5" />
             <span>[6:ANAF FISCAL &amp; DECLARAȚIA UNICĂ]</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('RESEARCH')}
+            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+              activeTab === 'RESEARCH'
+                ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                : 'bg-black text-purple-300 border border-purple-500/40 hover:bg-zinc-900'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>[7: HISTORICAL RESEARCH &amp; BACKTEST]</span>
+          </button>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -1650,6 +1680,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             className="text-zinc-300 hover:text-white px-2 font-bold cursor-pointer"
           >
             ✕
+          </button>
+        </div>
+      )}
+
+      {/* OKX Auth Credentials Alert Banner */}
+      {status?.okxAuthStatus?.failed && (
+        <div className="mx-2 mt-2 p-2.5 rounded text-xs font-mono flex items-center justify-between border bg-amber-950/80 text-amber-200 border-amber-600/70 shadow-lg">
+          <div className="flex items-center space-x-2">
+            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Atenție Acreditări OKX:</strong> {status.okxAuthStatus.message || 'Passphrase sau Cheie API incorectă (Cod 50105).'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('API')}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[11px] cursor-pointer transition-colors"
+          >
+            Configurați în Tab [6: API]
           </button>
         </div>
       )}
@@ -3710,6 +3759,33 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             onSwitchToApiTab={() => setActiveTab('API')}
           />
         )}
+
+        {/* ================================================================= */}
+        {/* TAB 7: HISTORICAL GRID RESEARCH, PATTERN MINER & BACKTEST         */}
+        {/* ================================================================= */}
+        {activeTab === 'RESEARCH' && (
+          <HistoricalGridResearchPanel
+            controlToken={controlToken}
+            onApplyToGrid={(params: ApplyToGridParams) => {
+              setExternalNativeSymbol({
+                instId: params.instId,
+                minPx: params.minPx,
+                maxPx: params.maxPx,
+                gridNum: params.gridNum,
+                runType: params.runType,
+                lever: params.lever,
+                ts: Date.now(),
+              });
+              setActiveTab('NATIVE_GRID');
+              setLocalBanner({
+                type: 'success',
+                text: `Parametrii optimizați pentru ${params.instId} (${params.minPx} - ${params.maxPx}, ${params.gridNum} grile, ${params.lever}x) au fost transferați în RAMURA 1!`,
+              });
+            }}
+            onNotify={(banner) => setLocalBanner(banner)}
+            availableUniverse={universeSymbols}
+          />
+        )}
       </main>
 
       {/* =================================================================== */}
@@ -4086,7 +4162,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       <nav
         aria-label="Navigare mobilă"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-6 gap-0.5 px-1 py-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-7 gap-0.5 px-1 py-1"
       >
         <button
           type="button"
@@ -4138,6 +4214,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         >
           <List className="w-4 h-4 mb-0.5" />
           <span>Loguri</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('RESEARCH')}
+          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
+            activeTab === 'RESEARCH'
+              ? 'bg-purple-500 text-white font-black'
+              : 'text-purple-300 hover:bg-zinc-900'
+          }`}
+        >
+          <BarChart2 className="w-4 h-4 mb-0.5" />
+          <span>Research</span>
         </button>
 
         <button

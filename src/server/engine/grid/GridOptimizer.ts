@@ -241,14 +241,15 @@ export class GridOptimizer {
       (avgSellPx * (1 + maxExcursionPct)).toFixed(priceDecimals)
     );
 
-    const stopBufferPct = Math.max(0.005, (config.risk.stopLossPct || 5) / (100 * Math.max(1, leverage * 0.5)));
+    const effectiveSlPct = config.risk?.stopLossPct || (config as any).stopLossPct || 5;
+    const stopBufferPct = Math.max(0.005, effectiveSlPct / (100 * Math.max(1, leverage * 0.5)));
     const lowerStopPrice =
-      config.risk.lowerStopPrice && config.risk.lowerStopPrice > 0 && config.risk.lowerStopPrice < lower
+      config.risk?.lowerStopPrice && config.risk.lowerStopPrice > 0 && config.risk.lowerStopPrice < lower
         ? config.risk.lowerStopPrice
         : parseFloat((lower * (1 - stopBufferPct)).toFixed(priceDecimals));
 
     const upperStopPrice =
-      config.risk.upperStopPrice && config.risk.upperStopPrice > upper
+      config.risk?.upperStopPrice && config.risk.upperStopPrice > upper
         ? config.risk.upperStopPrice
         : parseFloat((upper * (1 + stopBufferPct)).toFixed(priceDecimals));
 

@@ -750,6 +750,61 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // HISTORICAL GRID RESEARCH & PATTERN MINING ENDPOINTS
+  // =========================================================================
+  app.get('/api/research/grid', requireControlAuth, async (req, res) => {
+    try {
+      const symbol = (req.query.symbol as string) || 'BTC-USD_UM_XPERP-310530';
+      const days = parseInt(req.query.days as string, 10) || 90;
+      const bar = (req.query.bar as string) || '5m';
+      const force = req.query.force === '1' || req.query.force === 'true';
+
+      const coordinator = tradeBot.getResearchCoordinator();
+      const job = await coordinator.executeOrQueueResearch(symbol, days, bar, force);
+
+      res.json({
+        success: true,
+        ...job,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la inițierea cercetării istorice pentru grid',
+      });
+    }
+  });
+
+  app.get('/api/research/grid/status', requireControlAuth, (req, res) => {
+    try {
+      const symbol = (req.query.symbol as string) || 'BTC-USD_UM_XPERP-310530';
+      const days = parseInt(req.query.days as string, 10) || 90;
+      const bar = (req.query.bar as string) || '5m';
+
+      const coordinator = tradeBot.getResearchCoordinator();
+      const status = coordinator.getJobStatus(symbol, days, bar);
+
+      if (!status) {
+        return res.json({
+          success: true,
+          status: 'IDLE',
+          progressPct: 0,
+          progressMessage: 'Nicio cercetare activă pentru acest simbol.',
+        });
+      }
+
+      res.json({
+        success: true,
+        ...status,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err.message || 'Eroare la verificarea stării cercetării istorice',
+      });
+    }
+  });
+
   // CSV Export endpoint for .data/ persistent stores (grid_arbitrages, orders, grid_bots, grid_levels, audit)
   app.get('/api/bot/export/:dataset', (req, res) => {
     try {
