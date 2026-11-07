@@ -25,3 +25,5 @@ public/*.zip
 win-unpacked/
 # Editor/workspace config is personal (can trigger tasks on folder open) - never commit
 .vscode/
+# Generated refactor scaffolding (regenerate with scripts/extract-old.mjs; header says "do not commit")
+scripts/_oldVariants.ts
