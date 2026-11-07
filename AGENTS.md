@@ -39,9 +39,19 @@ local and safe; the owner decides what happens next.
 
 ## Deployment (production impact)
 
-`.github/workflows/deploy.yml` deploys **every push to `main`** to the live OCI
+**Current state: automatic deploy is PAUSED.** In `.github/workflows/deploy.yml`
+the `push:` trigger is commented out (the OCI server was deleted on 2026-11-01),
+so a push to `main` deploys **nothing** and restarts **nothing**. The workflow
+still exists and can be run manually: Actions → "Deploy to OCI" → Run workflow
+(`workflow_dispatch`) — it fails at SSH until `OCI_HOST` points to a real host.
+
+Do **not** tell the owner that a push deployed, restarted the service or ran a
+health check while `push:` stays commented out. Verify the trigger before making
+any claim about deployment.
+
+When the workflow is re-enabled, it deploys every push to `main` to the live OCI
 server (`/home/ubuntu/AutoTrade-v5`, systemd service `autotrade-v5.service`).
-This is a real trading bot, so a push is a production action.
+That is a real trading bot, so a push then becomes a production action.
 
 - `paths-ignore` (`**.md`, `.github/**`, `.gitignore`) → docs and repo-config
   commits do **not** deploy and do not restart the service. Batch non-code work
@@ -49,14 +59,14 @@ This is a real trading bot, so a push is a production action.
 - `concurrency: deploy-oci-main` with `cancel-in-progress: false` → deploys run
   one at a time and are never interrupted mid-way.
 - Flow: verify clean tree → backup (`git bundle` + `dist/` tarball) →
-  `git reset --hard origin/main` → `npm ci` → `npm run build` → restart → poll
-  `/api/health` for up to 30s.
-- Any failure (build, service, health) triggers an automatic
+  `git reset --hard origin/main` → `npm ci` → `npm run lint` → `npm test` →
+  `npm run build` → restart → poll `/api/health` (10 × 3 s).
+- Any failure (lint, test, build, service, health) triggers an automatic
   `git reset --hard <previous commit>` rollback.
 - Manual redeploy: Actions → "Deploy to OCI" → Run workflow (`workflow_dispatch`).
 
-Implication: **never push a broken build to `main`**. Group changes so that one
-push = one coherent, deployable state.
+Implication for any future re-activation: **never push a broken build to `main`**.
+Group changes so that one push = one coherent, deployable state.
 
 ## Commit message style
 
@@ -64,9 +74,9 @@ Imperative mood, English, conventional prefix:
 `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`.
 
 Examples:
-- `feat: add momentum engine cooldown guard`
-- `fix: reconcile OKX positions after 50124 fallback`
-- `test: add console smoke-test helper`
+- `feat: add neutral grid cooldown guard`
+- `fix: reconcile OKX native grid bots after 50124 fallback`
+- `docs: rewrite README for the current grid + DeepSeek configuration`
 
 ## Hook reference
 
