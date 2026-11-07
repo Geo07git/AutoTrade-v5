@@ -50,6 +50,7 @@ import { OKXNativeGridPanel } from './OKXNativeGridPanel';
 import { AnafTaxPanel } from './AnafTaxPanel';
 import { HistoricalGridResearchPanel, ApplyToGridParams } from './HistoricalGridResearchPanel';
 import { DeepSeekAgentPanel } from './DeepSeekAgentPanel';
+import { DeepSeekApiKeyCard } from './DeepSeekApiKeyCard';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -3747,6 +3748,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* DEEPSEEK API — agentul AI (setarile complete ramin in tab 8) */}
+            <DeepSeekApiKeyCard
+              agentStatus={status?.deepSeekAgent}
+              controlToken={controlToken}
+              onNotify={(banner) => setLocalBanner(banner)}
+              onRefresh={onRefresh}
+              onOpenAgent={() => setActiveTab('AI_AGENT')}
+            />
           </div>
         )}
 

@@ -81,7 +81,7 @@ Bara de navigare (desktop) și bara de jos (mobil) au exact aceste intrări:
 | 2 | **UNIVERS SCANNER GRID** (`n` = candidați) | scan univers, candidați scorați, praguri, analiză simbol, aplicare parametri în tab 1 |
 | 3 | **TREPTE GRILĂ & ORDINE** | nivelele gridului, ordinele plasate, risk per bot |
 | 4 | **GRID JOURNAL & LOGURI** (`n` = intrări) | jurnal arbitraje + audit log (`AGENT_*`, `GRID_*`, `RISK_*`) |
-| 5 | **CONEXIUNE OKX EEA & PLATFORME** | chei API OKX, **OKX Demo (simulated trading)**, regiune EEA/GLOBAL/AUTO, test conexiune, **mod PAPER/LIVE**, kill switch, reset cont paper, Telegram |
+| 5 | **CONEXIUNE OKX EEA & PLATFORME** | chei API OKX, **OKX Demo (simulated trading)**, regiune EEA/GLOBAL/AUTO, test conexiune, **mod PAPER/LIVE**, kill switch, reset cont paper, Telegram, **cheie API DeepSeek** (cardul agentului, cu buton către tab 8) |
 | 6 | **ANAF FISCAL & DECLARAȚIA UNICĂ** | import CSV / sync OKX, curs BNR, impozit + CASS pe praguri, export |
 | 7 | **HISTORICAL RESEARCH & BACKTEST** | research complet pe simbol: profiluri orare, regim, pattern mining (FDR), backtest, walk-forward, recomandare optimă |
 | 8 | **DEEPSEEK AGENT** (arată modul curent) | mod OFF/ADVISOR/AUTONOMOUS, cheie API, limite + guardrails, ciclu manual, panic stop, jurnal decizii |
@@ -254,11 +254,11 @@ npm install
 |---|---|---|
 | `BOT_CONTROL_TOKEN` | **da, în producție** | token pentru rutele de control (`x-bot-token` / `Bearer` / `?token=`). Generabil cu `openssl rand -hex 24` |
 | `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` | pentru LIVE | fallback dacă nu le salvezi din UI |
-| `DEEPSEEK_API_KEY` | pentru AI complet | alternativă la cheia salvată din tab 8 |
+| `DEEPSEEK_API_KEY` | pentru AI complet | alternativă la cheia salvată din UI (tab 5 sau tab 8) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | opțional | notificări + comenzi (chat ID se auto-împerechează la primul mesaj) |
 | `NODE_ENV` | recomandat `production` pe server | în producție, fără `BOT_CONTROL_TOKEN` se generează un token aleator la fiecare pornire |
 
-> Cheile pot fi introduse și din UI (tab 5 pentru OKX, tab 8 pentru DeepSeek) și se salvează în `.data/`, care este gitignored.
+> Cheile pot fi introduse și din UI și se salvează în `.data/`, care este gitignored: **OKX** din tab 5, **DeepSeek** din tab 5 (cardul *Configurare API DeepSeek*) sau din tab 8. Ambele locuri scriu aceeași cheie, prin același endpoint — nu există două surse de adevăr.
 
 ### 6.4 Pornire
 
@@ -285,7 +285,7 @@ Alte scripturi: `npm run lint` (tsc --noEmit), `npm test`, `npm run clean`, `npm
 
 | Pas | Unde | Ce faci | Ce trebuie să vezi |
 |---|---|---|---|
-| 1 | tab 8 | Salvează cheia DeepSeek (sau pune `DEEPSEEK_API_KEY` în `.env`) | badge `CHEIE SETATA`, `ENGINE: DEEPSEEK` după primul ciclu |
+| 1 | tab 5 sau 8 | Salvează cheia DeepSeek (sau pune `DEEPSEEK_API_KEY` în `.env`) | badge `CHEIE SETATA`, `ENGINE: DEEPSEEK` după primul ciclu |
 | 2 | tab 8 | Setează limitele (§8) | `MODIFICARI NESALVATE` dispare după salvare |
 | 3 | tab 8 | Apasă **CICLU MANUAL** (modul e încă `OFF`) | o decizie `DRY-RUN` în jurnal, cu respingeri motivate |
 | 4 | tab 8 | Citește 5-10 decizii: „de ce nu a deschis?” | motivele sunt concrete (scor, profit/grilă, cooldown, sloturi, range) |
@@ -461,7 +461,7 @@ Concurrency `deploy-oci-main` cu `cancel-in-progress: false` — deploy-urile nu
 |---|---|---|
 | Agentul nu deschide nimic, doar `HOLD` | mod `OFF`/`ADVISOR` (dry-run), praguri prea sus, sau cont PAPER | citește respingerile din jurnal; treci pe `AUTONOMOUS` + `LIVE` |
 | Banner `CONFLICT DE AUTORITATE` | Autopilot nativ OKX activ | oprește Autopilot-ul din tab 1/5 (un singur trader automat o dată) |
-| `ENGINE: LOCAL_FALLBACK` | lipsă cheie DeepSeek sau eroare API | salvează cheia în tab 8; verifică `Ultima eroare inregistrata` |
+| `ENGINE: LOCAL_FALLBACK` | lipsă cheie DeepSeek sau eroare API | salvează cheia în tab 5 sau tab 8; verifică `Ultima eroare inregistrata` |
 | „Cheile API OKX nu sunt configurate.” | credențiale lipsă | tab 5 → salvează + Test conexiune |
 | „Modul de execuție este PAPER…” | gridul nativ cere LIVE | treci pe LIVE (asumat) sau rămâi pe grid TB5 în PAPER |
 | `401` pe rute de control | token lipsă/greșit | trimite `x-bot-token` = `BOT_CONTROL_TOKEN` |
