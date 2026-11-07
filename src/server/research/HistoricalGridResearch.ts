@@ -190,7 +190,7 @@ export class HistoricalGridResearch {
   /**
    * Computes 24-hour, 7-day, session breakdown and 24x7 heatmap.
    */
-  private computeProfiles(klines: Kline[]): {
+  public computeProfiles(klines: Kline[]): {
     hourlyProfiles: HourlyProfile[];
     bestHoursList: number[];
     dayProfiles: DayOfWeekProfile[];

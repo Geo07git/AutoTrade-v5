@@ -41,6 +41,7 @@ export interface GridOptimalRecommendation {
   regimeVerdict: string;
   expectedMonthlyRoiPct: number;
   expectedMaxDrawdownPct: number;
+  executiveSummaryStatement: string;
 }
 
 export interface FullResearchOutput {
@@ -206,17 +207,41 @@ export class ResearchCoordinator {
 
       const walkForward = GridBacktestEngine.runWalkForward(klines, instId, fundingRates);
 
-      // Step 6: 3-Way Comparison
+      // Step 6: 3-Way Comparison WITHOUT Look-Ahead Bias
+      // Train (in-sample) = first 60 days, Test (out-of-sample) = last 30 days
       job.progressPct = 90;
-      job.progressMessage = 'Generare comparație 24/7 vs Ore Optime vs Filtre...';
+      job.progressMessage = 'Generare comparație 24/7 vs Ore Optime vs Filtre (out-of-sample)...';
 
+      const splitIndex = Math.max(10, Math.floor(klines.length * (60 / 90)));
+      const trainKlines = klines.slice(0, splitIndex);
+      const testKlines = klines.slice(splitIndex);
+
+      // Learn best hours strictly on in-sample train
+      const inSampleProfiles = this.researchEngine.computeProfiles(trainKlines);
+      const inSampleBestHours = inSampleProfiles.bestHoursList;
+
+      // Extract valid pattern filters discovered in-sample
+      const splitTime = testKlines.length > 0 ? testKlines[0].timestamp : 0;
+      const trainFunding = fundingRates.filter((f) => f.fundingTime < splitTime);
+      const testFunding = fundingRates.filter((f) => f.fundingTime >= splitTime);
+      const inSamplePatternReport = PatternMiner.minePatterns(trainKlines, trainFunding, instId);
+      const inSampleValidPatterns = inSamplePatternReport.patterns.filter((p) => p.isValid);
+
+      // Project pattern rules onto testKlines without look-ahead
+      const testPatternBlockedIndices = PatternMiner.extractBlockedIndicesForKlines(
+        testKlines,
+        inSampleValidPatterns,
+        testFunding
+      );
+
+      // Run 3-way comparison strictly on the 30-day out-of-sample test klines using OOS recommendedConfig
       const bestConfig = walkForward.recommendedConfig;
       const comparison = GridBacktestEngine.runComparison(
-        klines,
+        testKlines.length >= 20 ? testKlines : klines,
         bestConfig,
-        fundingRates,
-        researchReport.bestHoursList,
-        new Set(patternReport.combinedBlockedIndices)
+        testFunding.length > 0 ? testFunding : fundingRates,
+        inSampleBestHours.length > 0 ? inSampleBestHours : researchReport.bestHoursList,
+        testPatternBlockedIndices
       );
 
       // Step 7: Optimal Recommendation Synthesis
@@ -317,6 +342,23 @@ export class ResearchCoordinator {
       ? comp.bestHoursMode.annualizedRoiPct / 12
       : comp.mode247.annualizedRoiPct / 12;
 
+    const recommendedMarginUSDT = 50;
+
+    // Readable executive recommendation sentence requested by user
+    let hoursStr = '24/7 (Toate orele)';
+    if (research.bestHoursList && research.bestHoursList.length > 0) {
+      const sortedHours = [...new Set(research.bestHoursList)].sort((a, b) => a - b);
+      if (sortedHours.length <= 8) {
+        hoursStr = sortedHours.map((h) => `${h.toString().padStart(2, '0')}:00`).join(', ') + ' UTC';
+      } else {
+        const topHours = sortedHours.slice(0, 6).map((h) => `${h.toString().padStart(2, '0')}:00`).join(', ');
+        hoursStr = `${topHours} (+${sortedHours.length - 6} ore) UTC`;
+      }
+    }
+
+    const gridTypeText = runType === '2' ? 'geometrice' : 'aritmetice';
+    const executiveSummaryStatement = `Folosiți în intervalul orar ${hoursStr}, când prețul este între $${lowerPx} și $${upperPx}, suma recomandată a fi investită = ${recommendedMarginUSDT} USDT (la un levier de ${recommendedLeverage}x cu ${gridNum} grile ${gridTypeText}).`;
+
     return {
       symbol,
       minPx: lowerPx,
@@ -324,7 +366,7 @@ export class ResearchCoordinator {
       gridNum,
       runType,
       recommendedLeverage,
-      recommendedMarginUSDT: 50,
+      recommendedMarginUSDT,
       bestTradingHours: research.bestHoursList,
       stopLossPct,
       takeProfitPct,
@@ -335,6 +377,7 @@ export class ResearchCoordinator {
       regimeVerdict: research.regime.overallRegime,
       expectedMonthlyRoiPct: parseFloat(monthlyRoi.toFixed(2)),
       expectedMaxDrawdownPct: comp.mode247.maxDrawdownPct,
+      executiveSummaryStatement,
     };
   }
 }

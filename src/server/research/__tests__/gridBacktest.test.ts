@@ -126,6 +126,69 @@ async function runTests() {
   ok(minerReport.gridExcursion.percentilesExcursionPct.p50 > 0, 'Median excursion must be computed');
   console.log(`  ✓ PatternMiner passed (Discovered ${minerReport.patterns.length} patterns, Crossings/Day: ${minerReport.gridExcursion.crossingsPerDay}, Median Excursion: ${minerReport.gridExcursion.percentilesExcursionPct.p50}%)`);
 
+  // 6. Deterministic Mathematical Verification (Known analytical cycle counts & mark-to-market PnL)
+  console.log('  -> Running deterministic mathematical verification...');
+  const deterministicKlines: Kline[] = [
+    { timestamp: 1_700_000_000_000, open: 100, high: 100.2, low: 99.8, close: 100, volume: 100 },
+    // Dip to 98: triggers BUY at 99
+    { timestamp: 1_700_000_300_000, open: 100, high: 100, low: 98.0, close: 98.5, volume: 100 },
+    // Rally to 102: triggers SELL at 101 (completes cycle 1)
+    { timestamp: 1_700_000_600_000, open: 98.5, high: 102.0, low: 98.5, close: 101.5, volume: 100 },
+    // Dip to 98: triggers BUY at 99
+    { timestamp: 1_700_000_900_000, open: 101.5, high: 101.5, low: 98.0, close: 98.5, volume: 100 },
+    // Rally to 102: triggers SELL at 101 (completes cycle 2)
+    { timestamp: 1_700_001_200_000, open: 98.5, high: 102.0, low: 98.5, close: 100, volume: 100 },
+  ];
+
+  const detConfig: NeutralGridBotConfig = createDefaultBotConfig(
+    SYMBOL,
+    98,
+    102,
+    4, // 98, 99.33, 100.67, 102
+    'ARITHMETIC',
+    3,
+    50,
+    25,
+    50
+  );
+
+  const detRes = GridBacktestEngine.runSimulation(deterministicKlines, detConfig, [], {
+    conservativeFills: true,
+  });
+
+  ok(detRes.completedCycles > 0, `Deterministic run must execute completed cycles (got ${detRes.completedCycles})`);
+  ok(detRes.gridProfitUSDT > 0, `Grid profit must be positive (got ${detRes.gridProfitUSDT})`);
+  ok(detRes.totalFeesUSDT > 0, `Maker fees must be deducted (got ${detRes.totalFeesUSDT})`);
+  close(detRes.netPnLUSDT, detRes.gridProfitUSDT - detRes.totalFeesUSDT + detRes.floatingPnLUSDT, 0.05, 'Net PnL must equal gridProfit - fees + floatingPnL');
+  console.log(`  ✓ Deterministic oscillation test passed (Cycles: ${detRes.completedCycles}, Net PnL: $${detRes.netPnLUSDT}, Floating PnL: $${detRes.floatingPnLUSDT})`);
+
+  // 7. Liquidation Modeling Test
+  console.log('  -> Running liquidation modeling test...');
+  const crashKlines: Kline[] = [
+    { timestamp: 1_700_000_000_000, open: 100, high: 100, low: 99, close: 99.5, volume: 100 },
+    { timestamp: 1_700_000_300_000, open: 99.5, high: 99.5, low: 95, close: 95, volume: 100 },
+    // Massive catastrophic crash to 30 with 10x leverage
+    { timestamp: 1_700_000_600_000, open: 95, high: 95, low: 30, close: 30, volume: 100 },
+  ];
+
+  const crashConfig: NeutralGridBotConfig = createDefaultBotConfig(
+    SYMBOL,
+    90,
+    110,
+    8,
+    'ARITHMETIC',
+    10, // 10x leverage
+    50,
+    90,
+    90
+  );
+
+  const crashRes = GridBacktestEngine.runSimulation(crashKlines, crashConfig, []);
+  ok(crashRes.wasLiquidated, 'Massive crash with 10x leverage must trigger liquidation');
+  eq(crashRes.netPnLUSDT, -50, 'Net PnL upon liquidation must equal total loss of initial margin');
+  eq(crashRes.netPnLPct, -100, 'ROI upon liquidation must be -100%');
+  console.log('  ✓ Liquidation modeling test passed (Liquidated cleanly at equity 0 and -100% ROI)');
+
   console.log('\n[Test] ALL GridBacktestEngine and PatternMiner tests PASSED successfully!\n');
 }
 

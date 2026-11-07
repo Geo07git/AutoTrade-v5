@@ -114,119 +114,7 @@ export class PatternMiner {
     const gridExcursion = this.computeGridExcursionAnalytics(klines);
 
     // 3. Define candidate event definitions to study
-    const candidates: Array<{
-      type: PatternEventType;
-      title: string;
-      description: string;
-      predicate: (idx: number) => boolean;
-      gridRec: 'FILTER_PAUSE_GRID' | 'FAVOR_GRID_ENTRY' | 'NEUTRAL';
-      filterDesc: string;
-    }> = [
-      {
-        type: 'VOLUME_SPIKE_3X',
-        title: 'Spike Volum Extrem (>3x MA20)',
-        description: 'Volumul depășește de 3 ori media mobilă pe 20 de perioade.',
-        predicate: (i) => features.volRatio20[i] >= 3.0,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Pauză grid 6 lumânări după spike > 3x pentru a evita trenduri violente.',
-      },
-      {
-        type: 'VOLUME_SPIKE_2_5X',
-        title: 'Spike Volum Ridicat (>2.5x MA20)',
-        description: 'Volumul depășește de 2.5 ori media mobilă pe 20 de perioade.',
-        predicate: (i) => features.volRatio20[i] >= 2.5 && features.volRatio20[i] < 3.0,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Pauză grid 3 lumânări după volum brusc.',
-      },
-      {
-        type: 'RANGE_EXPANSION_3X_ATR',
-        title: 'Lumânare de Expansiune Extremă (>3x ATR)',
-        description: 'Range-ul lumânării (High-Low) este de peste 3 ori valoarea ATR(14).',
-        predicate: (i) => features.rangeToAtr[i] >= 3.0,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Oprește plasarea de noi ordine când o lumânare depășește 3x ATR.',
-      },
-      {
-        type: 'RANGE_EXPANSION_2X_ATR',
-        title: 'Lumânare de Expansiune (>2x ATR)',
-        description: 'Range-ul lumânării depășește de 2 ori valoarea ATR(14).',
-        predicate: (i) => features.rangeToAtr[i] >= 2.0 && features.rangeToAtr[i] < 3.0,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Pauză scurtă 3 lumânări după expansiune >2x ATR.',
-      },
-      {
-        type: 'BULLISH_BREAKOUT',
-        title: 'Breakout Ascendent Confirmat (High 20)',
-        description: 'Prețul de închidere sparge peste maximul ultimelor 20 de lumânări.',
-        predicate: (i) => i >= 20 && klines[i].close > features.highest20[i - 1],
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Evită grid neutru în momentum ascendent puternic.',
-      },
-      {
-        type: 'BEARISH_BREAKOUT',
-        title: 'Breakout Descendent Confirmat (Low 20)',
-        description: 'Prețul de închidere sparge sub minimul ultimelor 20 de lumânări.',
-        predicate: (i) => i >= 20 && klines[i].close < features.lowest20[i - 1],
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Evită grid neutru în momentum descendent violent.',
-      },
-      {
-        type: 'FALSE_BREAKOUT_UP',
-        title: 'Breakout Fals în Sus (Bull Trap)',
-        description: 'Prețul depășește maximul anterior dar închide înapoi în interiorul range-ului.',
-        predicate: (i) => i >= 20 && klines[i].high > features.highest20[i - 1] && klines[i].close <= features.highest20[i - 1],
-        gridRec: 'FAVOR_GRID_ENTRY',
-        filterDesc: 'Reversie excelentă: semnal favorabil de mean-reversion pentru grid.',
-      },
-      {
-        type: 'FALSE_BREAKOUT_DOWN',
-        title: 'Breakout Fals în Jos (Bear Trap)',
-        description: 'Prețul scade sub minimul anterior dar închide înapoi în range.',
-        predicate: (i) => i >= 20 && klines[i].low < features.lowest20[i - 1] && klines[i].close >= features.lowest20[i - 1],
-        gridRec: 'FAVOR_GRID_ENTRY',
-        filterDesc: 'Reversie excelentă: respingere la minim, oportun pentru grilă.',
-      },
-      {
-        type: 'UPPER_WICK_REJECTION',
-        title: 'Respingere cu Wick Superior (>60%)',
-        description: 'Wick-ul superior ocupă peste 60% din range-ul lumânării (Pin bar la rezistență).',
-        predicate: (i) => {
-          const r = Math.max(1e-6, klines[i].high - klines[i].low);
-          const upperWick = klines[i].high - Math.max(klines[i].open, klines[i].close);
-          return upperWick / r >= 0.6;
-        },
-        gridRec: 'FAVOR_GRID_ENTRY',
-        filterDesc: 'Indică epuizarea cumpărătorilor și revenire în grilă.',
-      },
-      {
-        type: 'LOWER_WICK_REJECTION',
-        title: 'Respingere cu Wick Inferior (>60%)',
-        description: 'Wick-ul inferior ocupă peste 60% din range-ul lumânării (Pin bar la suport).',
-        predicate: (i) => {
-          const r = Math.max(1e-6, klines[i].high - klines[i].low);
-          const lowerWick = Math.min(klines[i].open, klines[i].close) - klines[i].low;
-          return lowerWick / r >= 0.6;
-        },
-        gridRec: 'FAVOR_GRID_ENTRY',
-        filterDesc: 'Indică epuizarea vânzătorilor și revenire în grilă.',
-      },
-      {
-        type: 'VOLATILITY_COMPRESSION_TO_EXPANSION',
-        title: 'Compresie → Expansiune Bruscă',
-        description: 'Squeeze de volatilitate urmat de o lumânare de rupere a range-ului.',
-        predicate: (i) => i >= 15 && features.isCompression[i - 1] && features.rangeToAtr[i] >= 1.8,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Pauză grilă când piața iese dintr-o compresie strânsă.',
-      },
-      {
-        type: 'EXTREME_FUNDING_RATE',
-        title: 'Funding Rate Extrem (Top/Bottom 5%)',
-        description: 'Rata de funding se află în extremitățile istorice (dislocare de sentiment).',
-        predicate: (i) => Math.abs(features.fundingPercentile[i] || 0) >= 0.95,
-        gridRec: 'FILTER_PAUSE_GRID',
-        filterDesc: 'Atenție la funding extrem: risc ridicat de squeeze.',
-      },
-    ];
+    const candidates = this.getCandidateDefinitions(klines, features);
 
     const horizons = [3, 6, 12, 24];
     const studiedPatterns: DiscoveredPattern[] = [];
@@ -353,29 +241,56 @@ export class PatternMiner {
       });
     }
 
-    // 4. Benjamini-Hochberg FDR correction across all studied tests
-    const fdrAlpha = 0.05;
-    const sortedP = [...allPValues].sort((a, b) => a - b);
-    const m = Math.max(1, sortedP.length);
-
+    // 4. Benjamini-Hochberg FDR correction across all studied horizon tests
+    const allTests: Array<{ patId: string; h: number; pValue: number }> = [];
     for (const pat of studiedPatterns) {
       for (const h of horizons) {
-        const hm = pat.horizons[h];
-        const rank = sortedP.findIndex((p) => p >= hm.pValue) + 1;
-        const qVal = Math.min(1.0, (hm.pValue * m) / Math.max(1, rank));
-        hm.qValueFdr = parseFloat(qVal.toFixed(4));
+        allTests.push({ patId: pat.id, h, pValue: pat.horizons[h].pValue });
       }
+    }
 
+    const m = Math.max(1, allTests.length);
+    // Sort all tests ascending by p-value
+    allTests.sort((a, b) => a.pValue - b.pValue);
+
+    // Compute raw adjusted q-values: q'_i = (p_(i) * m) / i (1-indexed rank)
+    const rawQ: number[] = new Array(m);
+    for (let i = 0; i < m; i++) {
+      const rank = i + 1;
+      rawQ[i] = (allTests[i].pValue * m) / rank;
+    }
+
+    // Enforce monotonicity backwards: q_(i) = min(1.0, min(q'_(i), q_(i+1)))
+    const monoQ: number[] = new Array(m);
+    monoQ[m - 1] = Math.min(1.0, rawQ[m - 1]);
+    for (let i = m - 2; i >= 0; i--) {
+      monoQ[i] = Math.min(1.0, Math.min(rawQ[i], monoQ[i + 1]));
+    }
+
+    // Map monotonic q-values back to pattern horizons
+    for (let i = 0; i < m; i++) {
+      const test = allTests[i];
+      const pat = studiedPatterns.find((p) => p.id === test.patId);
+      if (pat && pat.horizons[test.h]) {
+        pat.horizons[test.h].qValueFdr = parseFloat(monoQ[i].toFixed(4));
+      }
+    }
+
+    // Evaluate significance and validity for each pattern
+    const fdrAlpha = 0.05;
+    for (const pat of studiedPatterns) {
       const bestHm = pat.horizons[pat.bestHorizonBars];
-      pat.isFdrSignificant = bestHm.qValueFdr <= fdrAlpha || bestHm.pValue <= 0.01;
+      // Strictly require FDR adjusted q-value <= 0.05 (no pValue <= 0.01 bypass!)
+      pat.isFdrSignificant = bestHm.qValueFdr <= fdrAlpha;
 
       // Final validity gate:
-      // - At least 30 discovery occurrences (or 25 for rarer wicks)
-      // - Preserves >= 45% effect on test set with same sign
-      // - Statistically significant
+      // - At least 25 discovery occurrences in train
+      // - Retains >= 45% effect on test set with same sign
+      // - At least 8 occurrences in test set
+      // - Statistically significant after Benjamini-Hochberg FDR correction
       const hasEnoughSamples = pat.trainOccurrences >= 25;
       const retainsEffect = pat.sameSign && pat.effectPreservedPct >= 45;
-      pat.isValid = hasEnoughSamples && retainsEffect && pat.testOccurrences >= 8;
+      pat.isValid = hasEnoughSamples && retainsEffect && pat.testOccurrences >= 8 && pat.isFdrSignificant;
     }
 
     // Sort patterns: valid first, then by occurrence count
@@ -407,6 +322,167 @@ export class PatternMiner {
       gridExcursion,
       combinedBlockedIndices: Array.from(blockedSet).sort((a, b) => a - b),
     };
+  }
+
+  /**
+   * Evaluates valid pattern filters on any arbitrary kline set (e.g. out-of-sample test set or live feed)
+   * without look-ahead bias, returning the set of blocked candle indices.
+   */
+  public static extractBlockedIndicesForKlines(
+    klines: Kline[],
+    validPatterns: DiscoveredPattern[],
+    fundingRates: FundingRateRecord[] = []
+  ): Set<number> {
+    const blockedSet = new Set<number>();
+    if (!klines || klines.length === 0 || !validPatterns || validPatterns.length === 0) {
+      return blockedSet;
+    }
+
+    const pauseFilters = validPatterns.filter((p) => p.isValid && p.gridRecommendation === 'FILTER_PAUSE_GRID');
+    if (pauseFilters.length === 0) return blockedSet;
+
+    const features = this.extractFeatures(klines, fundingRates);
+    const n = klines.length;
+    const defs = this.getCandidateDefinitions(klines, features);
+    const defMap = new Map(defs.map((d) => [d.type, d]));
+
+    for (const pat of pauseFilters) {
+      const def = defMap.get(pat.eventType);
+      if (!def) continue;
+
+      for (let i = 0; i < n; i++) {
+        if (def.predicate(i)) {
+          const blockBars = pat.eventType === 'VOLUME_SPIKE_3X' || pat.eventType === 'RANGE_EXPANSION_3X_ATR' ? 6 : 3;
+          for (let b = 1; b <= blockBars; b++) {
+            if (i + b < n) blockedSet.add(i + b);
+          }
+        }
+      }
+    }
+
+    return blockedSet;
+  }
+
+  /**
+   * Defines candidate event study definitions.
+   */
+  private static getCandidateDefinitions(
+    klines: Kline[],
+    features: ReturnType<typeof PatternMiner.extractFeatures>
+  ): Array<{
+    type: PatternEventType;
+    title: string;
+    description: string;
+    predicate: (idx: number) => boolean;
+    gridRec: 'FILTER_PAUSE_GRID' | 'FAVOR_GRID_ENTRY' | 'NEUTRAL';
+    filterDesc: string;
+  }> {
+    return [
+      {
+        type: 'VOLUME_SPIKE_3X',
+        title: 'Spike Volum Extrem (>3x MA20)',
+        description: 'Volumul depășește de 3 ori media mobilă pe 20 de perioade.',
+        predicate: (i) => features.volRatio20[i] >= 3.0,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Pauză grid 6 lumânări după spike > 3x pentru a evita trenduri violente.',
+      },
+      {
+        type: 'VOLUME_SPIKE_2_5X',
+        title: 'Spike Volum Ridicat (>2.5x MA20)',
+        description: 'Volumul depășește de 2.5 ori media mobilă pe 20 de perioade.',
+        predicate: (i) => features.volRatio20[i] >= 2.5 && features.volRatio20[i] < 3.0,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Pauză grid 3 lumânări după volum brusc.',
+      },
+      {
+        type: 'RANGE_EXPANSION_3X_ATR',
+        title: 'Lumânare de Expansiune Extremă (>3x ATR)',
+        description: 'Range-ul lumânării (High-Low) este de peste 3 ori valoarea ATR(14).',
+        predicate: (i) => features.rangeToAtr[i] >= 3.0,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Oprește plasarea de noi ordine când o lumânare depășește 3x ATR.',
+      },
+      {
+        type: 'RANGE_EXPANSION_2X_ATR',
+        title: 'Lumânare de Expansiune (>2x ATR)',
+        description: 'Range-ul lumânării depășește de 2 ori valoarea ATR(14).',
+        predicate: (i) => features.rangeToAtr[i] >= 2.0 && features.rangeToAtr[i] < 3.0,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Pauză scurtă 3 lumânări după expansiune >2x ATR.',
+      },
+      {
+        type: 'BULLISH_BREAKOUT',
+        title: 'Breakout Ascendent Confirmat (High 20)',
+        description: 'Prețul de închidere sparge peste maximul ultimelor 20 de lumânări.',
+        predicate: (i) => i >= 20 && klines[i].close > features.highest20[i - 1],
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Evită grid neutru în momentum ascendent puternic.',
+      },
+      {
+        type: 'BEARISH_BREAKOUT',
+        title: 'Breakout Descendent Confirmat (Low 20)',
+        description: 'Prețul de închidere sparge sub minimul ultimelor 20 de lumânări.',
+        predicate: (i) => i >= 20 && klines[i].close < features.lowest20[i - 1],
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Evită grid neutru în momentum descendent violent.',
+      },
+      {
+        type: 'FALSE_BREAKOUT_UP',
+        title: 'Breakout Fals în Sus (Bull Trap)',
+        description: 'Prețul depășește maximul anterior dar închide înapoi în interiorul range-ului.',
+        predicate: (i) => i >= 20 && klines[i].high > features.highest20[i - 1] && klines[i].close <= features.highest20[i - 1],
+        gridRec: 'FAVOR_GRID_ENTRY',
+        filterDesc: 'Reversie excelentă: semnal favorabil de mean-reversion pentru grid.',
+      },
+      {
+        type: 'FALSE_BREAKOUT_DOWN',
+        title: 'Breakout Fals în Jos (Bear Trap)',
+        description: 'Prețul scade sub minimul anterior dar închide în range.',
+        predicate: (i) => i >= 20 && klines[i].low < features.lowest20[i - 1] && klines[i].close >= features.lowest20[i - 1],
+        gridRec: 'FAVOR_GRID_ENTRY',
+        filterDesc: 'Reversie excelentă: respingere la minim, oportun pentru grilă.',
+      },
+      {
+        type: 'UPPER_WICK_REJECTION',
+        title: 'Respingere cu Wick Superior (>60%)',
+        description: 'Wick-ul superior ocupă peste 60% din range-ul lumânării (Pin bar la rezistență).',
+        predicate: (i) => {
+          const r = Math.max(1e-6, klines[i].high - klines[i].low);
+          const upperWick = klines[i].high - Math.max(klines[i].open, klines[i].close);
+          return upperWick / r >= 0.6;
+        },
+        gridRec: 'FAVOR_GRID_ENTRY',
+        filterDesc: 'Indică epuizarea cumpărătorilor și revenire în grilă.',
+      },
+      {
+        type: 'LOWER_WICK_REJECTION',
+        title: 'Respingere cu Wick Inferior (>60%)',
+        description: 'Wick-ul inferior ocupă peste 60% din range-ul lumânării (Pin bar la suport).',
+        predicate: (i) => {
+          const r = Math.max(1e-6, klines[i].high - klines[i].low);
+          const lowerWick = Math.min(klines[i].open, klines[i].close) - klines[i].low;
+          return lowerWick / r >= 0.6;
+        },
+        gridRec: 'FAVOR_GRID_ENTRY',
+        filterDesc: 'Indică epuizarea vânzătorilor și revenire în grilă.',
+      },
+      {
+        type: 'VOLATILITY_COMPRESSION_TO_EXPANSION',
+        title: 'Compresie → Expansiune Bruscă',
+        description: 'Squeeze de volatilitate urmat de o lumânare de rupere a range-ului.',
+        predicate: (i) => i >= 15 && features.isCompression[i - 1] && features.rangeToAtr[i] >= 1.8,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Pauză grilă când piața iese dintr-o compresie strânsă.',
+      },
+      {
+        type: 'EXTREME_FUNDING_RATE',
+        title: 'Funding Rate Extrem (Top/Bottom 5%)',
+        description: 'Rata de funding se află în extremitățile istorice (dislocare de sentiment).',
+        predicate: (i) => Math.abs(features.fundingPercentile[i] || 0) >= 0.95,
+        gridRec: 'FILTER_PAUSE_GRID',
+        filterDesc: 'Atenție la funding extrem: risc ridicat de squeeze.',
+      },
+    ];
   }
 
   /**

@@ -124,6 +124,7 @@ export interface BacktestOptions {
   lotFilter?: InstrumentLotFilter;
   customMakerFeeRate?: number;
   customTakerFeeRate?: number;
+  conservativeFills?: boolean; // at most 1 fill per slot per candle (default true)
 }
 
 export class GridBacktestEngine {
@@ -168,7 +169,6 @@ export class GridBacktestEngine {
     const marginInvested = config.marginInvestedUSDT || 50;
     let cashBalance = marginInvested;
     let netPositionContracts = 0;
-    let avgHoldPrice = firstPrice;
     let realizedGridProfit = 0;
     let totalMakerFees = 0;
     let totalTakerFees = 0;
@@ -184,16 +184,12 @@ export class GridBacktestEngine {
     let minLiqDistPct = 999;
     let wasLiquidated = false;
 
-    // Build fast lookup for funding rates by timestamp
-    const fundingMap = new Map<number, number>();
-    for (const f of fundingRates) {
-      fundingMap.set(f.fundingTime, f.fundingRate);
-    }
+    const conservativeFills = options.conservativeFills !== false; // true by default
 
     const equityCurve: Array<{ timestamp: number; equity: number; drawdownPct: number }> = [];
-    const dailyReturns: number[] = [];
-    let lastDayIndex = -1;
-    let dayStartEquity = marginInvested;
+    const periodicReturns: number[] = [];
+    let lastPeriodKey = -1;
+    let prevPeriodEquity = marginInvested;
 
     const lowerBound = Math.min(config.lowerPrice, config.upperPrice);
     const upperBound = Math.max(config.lowerPrice, config.upperPrice);
@@ -209,6 +205,7 @@ export class GridBacktestEngine {
       qtyContracts: number;
       state: 'WAITING_BUY' | 'WAITING_SELL';
       openPrice?: number;
+      side?: 'LONG' | 'SHORT';
     }
 
     const slots: GridSlot[] = [];
@@ -228,20 +225,13 @@ export class GridBacktestEngine {
       });
     }
 
+    // Sort funding records ascending
+    const sortedFunding = [...fundingRates].sort((a, b) => a.fundingTime - b.fundingTime);
+
     for (let i = 0; i < klines.length; i++) {
       const k = klines[i];
       const candleHourUtc = new Date(k.timestamp).getUTCHours();
-      const candleDayIndex = Math.floor(k.timestamp / 86_400_000);
-
-      // Track daily returns for Sharpe ratio
-      if (candleDayIndex !== lastDayIndex) {
-        if (lastDayIndex !== -1 && dayStartEquity > 0) {
-          const currentEq = cashBalance + realizedGridProfit + fundingPnL - (totalMakerFees + totalTakerFees);
-          dailyReturns.push((currentEq - dayStartEquity) / dayStartEquity);
-          dayStartEquity = currentEq;
-        }
-        lastDayIndex = candleDayIndex;
-      }
+      const prevK = i > 0 ? klines[i - 1] : null;
 
       // Check range boundary metrics
       if (k.high > upperBound) breakoutsAbove++;
@@ -263,21 +253,18 @@ export class GridBacktestEngine {
         }
       }
 
-      // Funding application (check if candle crosses 8h boundary: 00:00, 08:00, 16:00 UTC)
-      const prevK = i > 0 ? klines[i - 1] : null;
-      if (prevK) {
-        const prev8h = Math.floor(prevK.timestamp / 28_800_000);
-        const curr8h = Math.floor(k.timestamp / 28_800_000);
-        if (curr8h > prev8h && Math.abs(netPositionContracts) > 1e-6) {
-          const matchedRate = fundingMap.get(curr8h * 28_800_000) ?? 0.0001;
-          const posNotional = netPositionContracts * ctVal * k.close;
-          const fPayment = posNotional * matchedRate;
-          fundingPnL -= fPayment;
+      // Real funding event application between prev candle and current candle
+      if (prevK && Math.abs(netPositionContracts) > 1e-6 && sortedFunding.length > 0) {
+        for (const f of sortedFunding) {
+          if (f.fundingTime > prevK.timestamp && f.fundingTime <= k.timestamp) {
+            const posNotional = netPositionContracts * ctVal * k.close;
+            const fPayment = posNotional * f.fundingRate;
+            fundingPnL -= fPayment;
+          }
         }
       }
 
       if (wasLiquidated) {
-        cashBalance = 0;
         break;
       }
 
@@ -288,82 +275,81 @@ export class GridBacktestEngine {
 
       if (canExecuteNewFills) {
         for (const slot of slots) {
-          if (slot.state === 'WAITING_BUY' && k.low <= slot.buyPrice) {
-            // BUY fill at slot.buyPrice
-            const notional = slot.buyPrice * slot.qtyContracts * ctVal;
-            const fee = notional * makerRate;
-            totalMakerFees += fee;
+          let filledInThisCandle = false;
 
-            if (slot.openPrice !== undefined) {
-              // Closing a short leg!
+          // Check BUY condition at slot.buyPrice
+          if (slot.state === 'WAITING_BUY' && k.low <= slot.buyPrice) {
+            const notional = slot.buyPrice * slot.qtyContracts * ctVal;
+            totalMakerFees += notional * makerRate;
+
+            if (slot.openPrice !== undefined && slot.side === 'SHORT') {
+              // Closing short position opened at slot.openPrice
               const profit = (slot.openPrice - slot.buyPrice) * slot.qtyContracts * ctVal;
               realizedGridProfit += profit;
               completedCycles++;
               netPositionContracts += slot.qtyContracts;
               slot.openPrice = undefined;
+              slot.side = undefined;
               slot.state = 'WAITING_SELL';
             } else {
-              // Opening a long leg waiting to sell at slot.sellPrice
+              // Opening long position
               netPositionContracts += slot.qtyContracts;
               slot.openPrice = slot.buyPrice;
+              slot.side = 'LONG';
               slot.state = 'WAITING_SELL';
             }
+            filledInThisCandle = true;
+          }
 
-            // Intra-candle check: if candle also reached sellPrice, complete round-trip!
-            if (slot.state === 'WAITING_SELL' && k.high >= slot.sellPrice) {
-              const exitNotional = slot.sellPrice * slot.qtyContracts * ctVal;
-              totalMakerFees += exitNotional * makerRate;
-              const profit = (slot.sellPrice - slot.buyPrice) * slot.qtyContracts * ctVal;
-              realizedGridProfit += profit;
-              completedCycles++;
-              netPositionContracts -= slot.qtyContracts;
-              slot.openPrice = undefined;
-              slot.state = 'WAITING_BUY';
-            }
-          } else if (slot.state === 'WAITING_SELL' && k.high >= slot.sellPrice) {
-            // SELL fill at slot.sellPrice
+          // Check SELL condition at slot.sellPrice
+          if ((!conservativeFills || !filledInThisCandle) && slot.state === 'WAITING_SELL' && k.high >= slot.sellPrice) {
             const notional = slot.sellPrice * slot.qtyContracts * ctVal;
-            const fee = notional * makerRate;
-            totalMakerFees += fee;
+            totalMakerFees += notional * makerRate;
 
-            if (slot.openPrice !== undefined) {
-              // Closing a long leg!
+            if (slot.openPrice !== undefined && slot.side === 'LONG') {
+              // Closing long position opened at slot.openPrice
               const profit = (slot.sellPrice - slot.openPrice) * slot.qtyContracts * ctVal;
               realizedGridProfit += profit;
               completedCycles++;
               netPositionContracts -= slot.qtyContracts;
               slot.openPrice = undefined;
+              slot.side = undefined;
               slot.state = 'WAITING_BUY';
             } else {
-              // Opening a short leg waiting to buy back at slot.buyPrice
+              // Opening short position
               netPositionContracts -= slot.qtyContracts;
               slot.openPrice = slot.sellPrice;
+              slot.side = 'SHORT';
               slot.state = 'WAITING_BUY';
-            }
-
-            // Intra-candle check: if candle also dipped to buyPrice, complete round-trip!
-            if (slot.state === 'WAITING_BUY' && k.low <= slot.buyPrice) {
-              const buyNotional = slot.buyPrice * slot.qtyContracts * ctVal;
-              totalMakerFees += buyNotional * makerRate;
-              const profit = (slot.sellPrice - slot.buyPrice) * slot.qtyContracts * ctVal;
-              realizedGridProfit += profit;
-              completedCycles++;
-              netPositionContracts += slot.qtyContracts;
-              slot.openPrice = undefined;
-              slot.state = 'WAITING_SELL';
             }
           }
         }
       }
 
-      // Mark-to-market floating PnL on remaining net inventory
-      const currentPrice = k.close;
-      const floatingPnL =
-        netPositionContracts !== 0
-          ? (currentPrice - avgHoldPrice) * netPositionContracts * ctVal
-          : 0;
+      // Mark-to-market floating PnL calculated accurately from all open position slots
+      let currentFloatingPnL = 0;
+      for (const slot of slots) {
+        if (slot.openPrice !== undefined) {
+          if (slot.side === 'LONG') {
+            currentFloatingPnL += (k.close - slot.openPrice) * slot.qtyContracts * ctVal;
+          } else if (slot.side === 'SHORT') {
+            currentFloatingPnL += (slot.openPrice - k.close) * slot.qtyContracts * ctVal;
+          }
+        }
+      }
 
-      const currentEquity = cashBalance + realizedGridProfit + floatingPnL + fundingPnL - (totalMakerFees + totalTakerFees);
+      const totalFees = totalMakerFees + totalTakerFees;
+      const currentEquity = cashBalance + realizedGridProfit + currentFloatingPnL + fundingPnL - totalFees;
+
+      // Track periodic returns for Sharpe ratio (daily for > 2 days, hourly for shorter)
+      const periodKey = klines.length > 576 ? Math.floor(k.timestamp / 86_400_000) : Math.floor(k.timestamp / 3_600_000);
+      if (periodKey !== lastPeriodKey) {
+        if (lastPeriodKey !== -1 && prevPeriodEquity > 0) {
+          periodicReturns.push((currentEquity - prevPeriodEquity) / prevPeriodEquity);
+        }
+        prevPeriodEquity = currentEquity;
+        lastPeriodKey = periodKey;
+      }
 
       if (currentEquity > peakEquity) {
         peakEquity = currentEquity;
@@ -373,7 +359,7 @@ export class GridBacktestEngine {
       if (ddUSDT > maxDrawdownUSDT) maxDrawdownUSDT = ddUSDT;
       if (ddPct > maxDrawdownPct) maxDrawdownPct = ddPct;
 
-      // Sample equity curve every 20 candles or on last candle to keep payload compact
+      // Sample equity curve every 20 candles or on last candle
       if (i % 20 === 0 || i === klines.length - 1) {
         equityCurve.push({
           timestamp: k.timestamp,
@@ -383,29 +369,38 @@ export class GridBacktestEngine {
       }
     }
 
-    // Final inventory closeout at last price
+    // Final inventory mark-to-market closeout
     const finalPrice = klines[klines.length - 1].close;
     let finalFloatingPnL = 0;
-    if (Math.abs(netPositionContracts) > 1e-6) {
-      finalFloatingPnL = (finalPrice - avgHoldPrice) * netPositionContracts * ctVal;
+    if (!wasLiquidated) {
+      for (const slot of slots) {
+        if (slot.openPrice !== undefined) {
+          if (slot.side === 'LONG') {
+            finalFloatingPnL += (finalPrice - slot.openPrice) * slot.qtyContracts * ctVal;
+          } else if (slot.side === 'SHORT') {
+            finalFloatingPnL += (slot.openPrice - finalPrice) * slot.qtyContracts * ctVal;
+          }
+        }
+      }
     }
 
     const totalFees = totalMakerFees + totalTakerFees;
-    const finalEquity = cashBalance + realizedGridProfit + finalFloatingPnL + fundingPnL - totalFees;
-    const netPnLUSDT = finalEquity - marginInvested;
-    const netPnLPct = (netPnLUSDT / marginInvested) * 100;
+    let finalEquity = wasLiquidated ? 0 : cashBalance + realizedGridProfit + finalFloatingPnL + fundingPnL - totalFees;
+    let netPnLUSDT = wasLiquidated ? -marginInvested : finalEquity - marginInvested;
+    let netPnLPct = wasLiquidated ? -100 : (netPnLUSDT / marginInvested) * 100;
 
     // Annualized ROI & Sharpe
     const durationDays = Math.max(1, (klines[klines.length - 1].timestamp - klines[0].timestamp) / 86_400_000);
-    const annualizedRoiPct = (netPnLPct / durationDays) * 365;
+    const annualizedRoiPct = wasLiquidated ? -100 : (netPnLPct / durationDays) * 365;
 
     let sharpeRatio = 0;
-    if (dailyReturns.length > 2) {
-      const meanReturn = dailyReturns.reduce((s, r) => s + r, 0) / dailyReturns.length;
-      const variance = dailyReturns.reduce((s, r) => s + Math.pow(r - meanReturn, 2), 0) / (dailyReturns.length - 1);
+    if (periodicReturns.length > 2) {
+      const meanReturn = periodicReturns.reduce((s, r) => s + r, 0) / periodicReturns.length;
+      const variance = periodicReturns.reduce((s, r) => s + Math.pow(r - meanReturn, 2), 0) / (periodicReturns.length - 1);
       const stdDev = Math.sqrt(variance);
-      if (stdDev > 0) {
-        sharpeRatio = (meanReturn / stdDev) * Math.sqrt(365);
+      if (stdDev > 1e-8) {
+        const periodsPerYear = klines.length > 576 ? 365 : 365 * 24;
+        sharpeRatio = (meanReturn / stdDev) * Math.sqrt(periodsPerYear);
       }
     }
 
@@ -454,9 +449,8 @@ export class GridBacktestEngine {
     if (!klines || klines.length < 10) return [];
 
     const firstPrice = klines[0].open;
-    const high = Math.max(...klines.map((k) => k.high));
-    const low = Math.min(...klines.map((k) => k.low));
-    const mid = (high + low) / 2;
+    // Look-ahead-free: variations are centered on starting price at bot launch
+    const mid = firstPrice;
 
     const rangeWidthsPct = [
       { name: 'Tight (±1.5%)', half: 1.5 },
@@ -547,12 +541,14 @@ export class GridBacktestEngine {
     const isResult = this.runSimulation(inSampleKlines, bestConfig, fundingRates, options);
 
     // 2. Test exact same config Out-Of-Sample
-    // Re-anchor lower/upper bounds proportionally to out-of-sample starting price
-    const anchorRatio = outOfSampleKlines[0].open / inSampleKlines[0].open;
+    // Re-anchor lower/upper bounds around outOfSampleKlines[0].open using in-sample optimal percentage half-width
+    const inSampleStart = inSampleKlines[0].open;
+    const halfWidthPct = Math.max(0.5, ((bestConfig.upperPrice - bestConfig.lowerPrice) / (2 * inSampleStart)) * 100);
+    const oosStart = outOfSampleKlines[0].open;
     const oosConfig: NeutralGridBotConfig = {
       ...bestConfig,
-      lowerPrice: parseFloat((bestConfig.lowerPrice * anchorRatio).toFixed(2)),
-      upperPrice: parseFloat((bestConfig.upperPrice * anchorRatio).toFixed(2)),
+      lowerPrice: parseFloat((oosStart * (1 - halfWidthPct / 100)).toFixed(2)),
+      upperPrice: parseFloat((oosStart * (1 + halfWidthPct / 100)).toFixed(2)),
     };
 
     const oosResult = this.runSimulation(outOfSampleKlines, oosConfig, fundingRates, options);

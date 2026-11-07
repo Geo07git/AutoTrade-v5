@@ -265,16 +265,16 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
               {universeList.length > 0 && (
                 <div className="absolute right-1 top-1.5">
                   <select
+                    value={universeList.includes(symbol) ? symbol : ''}
                     onChange={(e) => {
                       if (e.target.value) setSymbol(e.target.value);
                     }}
-                    className="bg-zinc-900 text-zinc-300 text-[10px] rounded border border-zinc-700 px-1 py-0.5 max-w-[110px]"
-                    defaultValue=""
+                    className="bg-zinc-900 text-zinc-300 text-[10px] rounded border border-zinc-700 px-1 py-0.5 max-w-[130px] cursor-pointer"
                   >
                     <option value="" disabled>
-                      Univers ({universeList.length})
+                      Toate ({universeList.length})
                     </option>
-                    {universeList.slice(0, 80).map((u) => (
+                    {[...universeList].sort().map((u) => (
                       <option key={u} value={u}>
                         {u.replace(/-USD_UM_XPERP(-\d+)?$/, '').replace(/-USDT-SWAP$/, '').replace(/-USDC-SWAP$/, '')}
                       </option>
@@ -386,6 +386,21 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Executive Summary Statement requested by user */}
+          {rec.executiveSummaryStatement && (
+            <div className="bg-amber-950/40 border border-amber-500/50 rounded-lg p-3 text-amber-200 text-xs font-medium flex items-start gap-2 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <strong className="text-amber-400 block text-[11px] uppercase tracking-wider font-black">
+                  ⚡ RECOMANDARE STRATEGICĂ DE EXECUȚIE:
+                </strong>
+                <p className="font-mono text-zinc-100 text-xs leading-relaxed">
+                  {rec.executiveSummaryStatement}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Parameter Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
@@ -905,6 +920,59 @@ export const HistoricalGridResearchPanel: React.FC<HistoricalGridResearchPanelPr
               </div>
             </div>
           </div>
+
+          {/* 7. FINAL OPERATIONAL EXECUTIVE RECOMMENDATION */}
+          {rec && rec.executiveSummaryStatement && (
+            <div className="bg-gradient-to-r from-zinc-950 via-amber-950/30 to-zinc-950 border-2 border-amber-500/70 rounded-lg p-4 space-y-3 shadow-[0_0_25px_rgba(245,158,11,0.2)]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 bg-amber-500/20 rounded border border-amber-500/50 text-amber-400">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-xs text-amber-300 uppercase tracking-wide">
+                      CONCLUZIE ȘI RECOMANDARE FINALĂ DE TRANZACȚIONARE
+                    </h4>
+                    <p className="text-[10px] text-zinc-400">
+                      Instrucțiune operațională directă sintetizată din Walk-Forward și analiza de profil.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.3)] transition-all"
+                >
+                  <span>APLICĂ DIRECT ÎN GRID (TAB 1)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="bg-black/80 border border-amber-500/40 rounded p-3 text-xs sm:text-sm text-zinc-100 font-mono leading-relaxed">
+                <span className="text-amber-400 font-bold mr-2 text-base">👉</span>
+                <strong>{rec.executiveSummaryStatement}</strong>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono text-zinc-300">
+                <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800">
+                  <span className="text-zinc-500 text-[10px] block">Interval Preț:</span>
+                  <strong className="text-emerald-400">${rec.minPx} — ${rec.maxPx}</strong>
+                </div>
+                <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800">
+                  <span className="text-zinc-500 text-[10px] block">Ore Recomandate (UTC):</span>
+                  <strong className="text-amber-300">{rec.bestTradingHours?.slice(0, 5).join(', ')}...</strong>
+                </div>
+                <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800">
+                  <span className="text-zinc-500 text-[10px] block">Capital Recomandat:</span>
+                  <strong className="text-cyan-300">{rec.recommendedMarginUSDT} USDT</strong>
+                </div>
+                <div className="bg-zinc-900/80 p-2 rounded border border-zinc-800">
+                  <span className="text-zinc-500 text-[10px] block">Levier &amp; Grile:</span>
+                  <strong className="text-white">{rec.recommendedLeverage}x / {rec.gridNum} trepte</strong>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
