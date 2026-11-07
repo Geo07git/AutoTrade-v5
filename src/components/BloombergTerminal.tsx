@@ -42,12 +42,14 @@ import {
   Download,
   FileText,
   BarChart2,
+  BrainCircuit,
 } from 'lucide-react';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
 import { AnafTaxPanel } from './AnafTaxPanel';
 import { HistoricalGridResearchPanel, ApplyToGridParams } from './HistoricalGridResearchPanel';
+import { DeepSeekAgentPanel } from './DeepSeekAgentPanel';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -133,7 +135,16 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onDismissAlert,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'DASHBOARD' | 'NATIVE_GRID' | 'CONFIG' | 'SCANNER' | 'LADDER' | 'JOURNAL' | 'API' | 'ANAF_TAX' | 'RESEARCH'
+    | 'DASHBOARD'
+    | 'NATIVE_GRID'
+    | 'CONFIG'
+    | 'SCANNER'
+    | 'LADDER'
+    | 'JOURNAL'
+    | 'API'
+    | 'ANAF_TAX'
+    | 'RESEARCH'
+    | 'AI_AGENT'
   >('NATIVE_GRID');
   const [mobileDashView, setMobileDashView] = useState<'BOTS' | 'LAUNCH'>('BOTS');
   const [showFeeCalculatorModal, setShowFeeCalculatorModal] = useState<boolean>(false);
@@ -1535,6 +1546,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           >
             <BarChart2 className="w-3.5 h-3.5" />
             <span>[7: HISTORICAL RESEARCH &amp; BACKTEST]</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('AI_AGENT')}
+            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+              activeTab === 'AI_AGENT'
+                ? 'bg-violet-500 text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]'
+                : 'bg-black text-violet-300 border border-violet-500/40 hover:bg-zinc-900'
+            }`}
+          >
+            <BrainCircuit className="w-3.5 h-3.5" />
+            <span>[8: DEEPSEEK AGENT] ({status?.deepSeekAgent?.mode || 'OFF'})</span>
           </button>
         </div>
 
@@ -3786,6 +3809,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             availableUniverse={universeSymbols}
           />
         )}
+
+        {/* ================================================================= */}
+        {/* TAB 8: DEEPSEEK AUTONOMOUS AGENT (NEUTRAL GRID DESK)              */}
+        {/* ================================================================= */}
+        {activeTab === 'AI_AGENT' && (
+          <DeepSeekAgentPanel
+            agentStatus={status?.deepSeekAgent}
+            controlToken={controlToken}
+            onNotify={(banner) => setLocalBanner(banner)}
+            onRefresh={onRefresh}
+          />
+        )}
       </main>
 
       {/* =================================================================== */}
@@ -4162,7 +4197,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       <nav
         aria-label="Navigare mobilă"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-7 gap-0.5 px-1 py-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-8 gap-0.5 px-1 py-1"
       >
         <button
           type="button"
@@ -4253,6 +4288,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         >
           <Key className="w-4 h-4 mb-0.5" />
           <span>OKX</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('AI_AGENT')}
+          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
+            activeTab === 'AI_AGENT'
+              ? 'bg-violet-500 text-white font-black'
+              : 'text-violet-300 hover:bg-zinc-900'
+          }`}
+        >
+          <BrainCircuit className="w-4 h-4 mb-0.5" />
+          <span>Agent</span>
         </button>
       </nav>
     </div>

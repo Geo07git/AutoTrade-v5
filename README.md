@@ -36,6 +36,7 @@
 * **Deterministic guardrails**: hard SL on margin, liquidation proximity, range breakout and "no arbitrage for too long" produce `STOP_BOT` actions that do not depend on the LLM at all.
 * **Fallback**: with no API key (or an API failure) the agent switches to the deterministic TB5 ranking (`LOCAL_FALLBACK`), clearly labelled as such in the journal.
 * **Hard limits**: it never switches execution mode, never touches the kill switch, credentials, account leverage or the Autopilot, and it refuses to open native grids unless the account is *already* `LIVE`.
+* **UI**: tab `[8: DEEPSEEK AGENT]` in the terminal — mode switch (OFF/ADVISOR/AUTONOMOUS, AUTONOMOUS asks for confirmation), API key, limits + guardrail editors, manual cycle, panic stop and the live decision journal (approved / rejected-with-reason / executed, incl. token usage and latency).
 * **API**: `GET /api/bot/agent/status`, `POST /api/bot/agent/config`, `POST /api/bot/agent/api-key`, `POST /api/bot/agent/run`, `GET /api/bot/agent/decisions`, `POST /api/bot/agent/stop` (panic).
 * **Tests**: `npm test` covers modes, the execution guard, the guardrails and config clamping fully offline (`src/server/agent/__tests__/deepSeekAgent.test.ts`).
 
