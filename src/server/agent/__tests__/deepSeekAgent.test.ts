@@ -575,6 +575,24 @@ test('guardrail: no arbitrages for too long with negative PnL produces a STOP_BO
   eq(h.calls.stopped.length, 1, 'the stale bot must be stopped');
 });
 
+test('guardrail: a young bot with 0 arbitrages is NOT stopped by the passive rule', async () => {
+  const h = makeAgent({
+    bots: [bot({ arbitrageNum: 0, totalPnl: 0.01, cTime: Date.now() - 30 * 60_000 })],
+  });
+  // Even if the operator asks for 20 min, the clamp raises it to 60: a 30 min old grid is
+  // simply still waiting for its first crossing.
+  await armAutonomous(h, { hardMaxNoFillMinutes: 20, stopIfPassive: true });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(
+    decision.guardrailActions.length,
+    0,
+    'a 30 min old bot with 0 arbitrages must be left alone (threshold floor is 60 min)'
+  );
+  eq(h.calls.stopped.length, 0, 'nothing may be stopped');
+});
+
 test('guardrail: a passive bot is stopped even with a positive PnL', async () => {
   const h = makeAgent({
     bots: [bot({ arbitrageNum: 0, totalPnl: 0.01, cTime: Date.now() - 200 * 60_000 })],
@@ -652,6 +670,14 @@ test('config: invalid values are clamped, never trusted', async () => {
   eq(cfg.hardStopLossPct, 60, 'hard SL must clamp to 60%');
   eq(cfg.maxActionsPerCycle, 5, 'actions per cycle must clamp to 5');
   ok(DEFAULT_DEEPSEEK_AGENT_CONFIG.mode === 'OFF', 'the shipped default mode must stay OFF');
+});
+
+test('config: the passive-bot threshold cannot be set below 60 min', async () => {
+  const h = makeAgent();
+
+  const cfg = h.agent.updateConfig({ hardMaxNoFillMinutes: 20 });
+
+  eq(cfg.hardMaxNoFillMinutes, 60, 'a 20 min passive threshold guarantees a false stop on every bot');
 });
 
 test('panic: forces OFF and stops the loop without touching open bots', async () => {

@@ -602,6 +602,10 @@ export interface DeepSeekAgentConfig {
    * Stop a bot that produced 0 arbitrages for hardMaxNoFillMinutes even when PnL is
    * positive: a passive grid locks capital without earning. Releases the symbol so the
    * next cycle can re-draw the grid at the current price.
+   *
+   * The counter must come from `getNativeGridBotsSnapshot()` (live TB5 telemetry), never from
+   * the static AUTO_LIMIT snapshot — otherwise every bot looks passive forever.
+   * Floor: 60 minutes (see sanitizeConfig).
    */
   stopIfPassive: boolean;
   lastRunAt?: number;

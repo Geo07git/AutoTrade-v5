@@ -693,7 +693,7 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
           {numberField('Actiuni / ciclu', 'maxActionsPerCycle', 'clamp 1-5', '1')}
           {numberField('Hard SL (% marja)', 'hardStopLossPct', 'guardrail, nu depinde de LLM', '0.5')}
           {numberField('Distanta min. lichidare %', 'hardMinLiqDistancePct', 'sub prag => stop', '0.5')}
-          {numberField('Fara arbitraje (min)', 'hardMaxNoFillMinutes', 'bot blocat => stop', '10')}
+          {numberField('Fara arbitraje (min)', 'hardMaxNoFillMinutes', 'min 60, recomandat 180', '10')}
           {numberField('Temperature', 'temperature', '0 = determinist', '0.05')}
           {numberField('Max tokens raspuns', 'maxTokens', 'buget de raspuns', '100')}
         </div>

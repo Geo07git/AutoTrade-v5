@@ -299,7 +299,7 @@ export class TradeBot {
         const nc = this.nativeGridEngine.getConfig();
         return { enabled: Boolean(nc.enabled), lastDecision: nc.lastDecision };
       },
-      getNativeGridBots: () => this.nativeGridEngine.getAllBots(),
+      getNativeGridBots: () => this.getNativeGridBotsSnapshot(),
       getNativeGridOpportunities: () => this.nativeGridEngine.getOpportunities(),
       scanNativeGridOpportunities: () => this.scanNativeGridOpportunities(),
       createNativeGridBot: (params: any) => this.createNativeGridBot(params),
@@ -1089,6 +1089,38 @@ export class TradeBot {
     } catch {}
   }
 
+  /**
+   * Single source of truth for bot telemetry — used by BOTH the UI and the DeepSeek agent.
+   *
+   * A bot opened through the AUTO_LIMIT fallback is persisted as a STATIC snapshot by
+   * `nativeGridEngine.registerFallbackBot()`: `arbitrageNum = 0`, `totalPnl = 0`, because no
+   * OKX grid algo exists for `_UM_XPERP`. The live counters live on the TB5 NeutralGridEngine
+   * bot that shares the same `botId`. Reading `nativeGridEngine.getAllBots()` directly
+   * therefore reports "0 arbitraje / PnL 0" for as long as the bot exists — which is exactly
+   * what the agent's passive-bot guardrail used to see, so every bot was stopped right at
+   * `hardMaxNoFillMinutes` even when it had already booked arbitrages.
+   */
+  public getNativeGridBotsSnapshot() {
+    const liveBots = this.gridEngine.getAllBots();
+    const byId = new Map(liveBots.map((b) => [b.botId, b]));
+    return this.nativeGridEngine.getAllBots().map((nb) => {
+      if (!nb.algoId.toLowerCase().startsWith('grid')) return nb;
+      const match = byId.get(nb.algoId);
+      if (!match) return nb;
+      return {
+        ...nb,
+        state: match.status === 'RUNNING' ? ('running' as const) : ('stopped' as const),
+        currentPx: match.currentPrice || nb.currentPx,
+        gridProfit: match.gridProfitUSDT || 0,
+        floatProfit: match.floatingPnlUSDT || 0,
+        totalPnl: match.totalNetPnlUSDT || 0,
+        totalPnlPct: match.totalNetPnlPct || 0,
+        arbitrageNum: match.completedArbitrages || 0,
+        stopReason: match.stopReason || nb.stopReason,
+      };
+    });
+  }
+
   public getStatus(): BotStatusResponse {
     const cfg = this.configStore.get();
     cfg.killSwitchEngaged = this.isKillSwitchEngagedForMode(cfg.executionMode);
@@ -1160,25 +1192,7 @@ export class TradeBot {
       }
     }
 
-    const nativeGridBots = this.nativeGridEngine.getAllBots().map((nb) => {
-      if (nb.algoId.toLowerCase().startsWith('grid')) {
-        const match = allBots.find((b) => b.botId === nb.algoId);
-        if (match) {
-          return {
-            ...nb,
-            state: match.status === 'RUNNING' ? ('running' as const) : ('stopped' as const),
-            currentPx: match.currentPrice || nb.currentPx,
-            gridProfit: match.gridProfitUSDT || 0,
-            floatProfit: match.floatingPnlUSDT || 0,
-            totalPnl: match.totalNetPnlUSDT || 0,
-            totalPnlPct: match.totalNetPnlPct || 0,
-            arbitrageNum: match.completedArbitrages || 0,
-            stopReason: match.stopReason || nb.stopReason,
-          };
-        }
-      }
-      return nb;
-    });
+    const nativeGridBots = this.getNativeGridBotsSnapshot();
     const nativeGridOpportunities = this.nativeGridEngine.getOpportunities();
     const nativeGridAutopilot = this.nativeGridEngine.getConfig();
 

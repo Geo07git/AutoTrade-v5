@@ -300,7 +300,10 @@ export class DeepSeekAgent {
     next.maxOpportunitiesInPrompt = clamp(Math.round(Number(next.maxOpportunitiesInPrompt) || 12), 3, 30);
     next.hardStopLossPct = clamp(Number(next.hardStopLossPct) || 12, 2, 60);
     next.hardMinLiqDistancePct = clamp(Number(next.hardMinLiqDistancePct) || 12, 3, 60);
-    next.hardMaxNoFillMinutes = clamp(Math.round(Number(next.hardMaxNoFillMinutes) || 180), 15, 1440);
+    // Lower bound 60 min: a neutral grid only earns when price crosses its levels, and a sane
+  // grid needs ~2-4 crossings/hour in a choppy tape. 15-20 min guarantees a false "passive"
+  // verdict on EVERY bot (28 pointless open->stop cycles in one night).
+  next.hardMaxNoFillMinutes = clamp(Math.round(Number(next.hardMaxNoFillMinutes) || 180), 60, 1440);
     next.preferNativeAlgo = next.preferNativeAlgo !== false;
     next.stopIfPassive = next.stopIfPassive !== false;
     next.allowedSymbols = Array.isArray(next.allowedSymbols)

@@ -195,9 +195,11 @@ Rulate la fiecare ciclu, indiferent ce a răspuns modelul. Dacă un bot încalc�
 | PnL ≤ −X% din marjă | `hardStopLossPct` = 12% |
 | Distanță până la lichidare ≤ Y% | `hardMinLiqDistancePct` = 12% |
 | Preț în afara `[minPx, maxPx]` | — |
-| 0 arbitraje în ≥ Z min **și** PnL negativ | `hardMaxNoFillMinutes` = 180 min |
+| 0 arbitraje în ≥ Z min (PnL ignorat dacă `stopIfPassive`) | `hardMaxNoFillMinutes` = 180 min, **minim 60** |
 
 Acțiunile de guardrail se execută **înaintea** celor propuse de model și nu pot fi anulate de un `HOLD`.
+
+> Numărătoarea de arbitraje vine din **telemetria live TB5** (`getNativeGridBotsSnapshot()`), nu din snapshot-ul static scris la creare pentru boții `AUTO_LIMIT`. Snapshot-ul acela rămâne veșnic la `0 arbitraje / PnL 0` (nu există algo OKX pentru `_UM_XPERP`), deci citit direct ar face ca regula „bot pasiv” să oprească **fiecare** bot exact la prag, inclusiv pe cei care aveau deja round-trip-uri înjumătățite.
 
 ### 5.6 Fallback determinist (`LOCAL_FALLBACK`)
 
@@ -344,7 +346,7 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `enforceHardGuardrails` | `true` | bool | activează §5.5 |
 | `hardStopLossPct` | 12 | 2-60 | guardrail SL (% din marjă) |
 | `hardMinLiqDistancePct` | 12 | 3-60 | guardrail distanță lichidare |
-| `hardMaxNoFillMinutes` | 180 | 15-1440 | guardrail „0 arbitraje” |
+| `hardMaxNoFillMinutes` | 180 | 60-1440 | guardrail „0 arbitraje” (sub 60 min = fals pozitiv garantat) |
 
 Contoare read-only: `totalCycles`, `totalActionsExecuted`, `totalErrors`, `consecutiveErrors`, `symbolCooldowns`, `lastDecisionAt`, `lastError`.
 
@@ -466,6 +468,7 @@ Concurrency `deploy-oci-main` cu `cancel-in-progress: false` — deploy-urile nu
 | „Cheile API OKX nu sunt configurate.” | credențiale lipsă | tab 5 → salvează + Test conexiune |
 | „Modul de execuție este PAPER…” | gridul nativ cere LIVE | treci pe LIVE (asumat) sau rămâi pe grid TB5 în PAPER |
 | `401` pe rute de control | token lipsă/greșit | trimite `x-bot-token` = `BOT_CONTROL_TOKEN` |
+| Toți boții se opresc la exact N minute cu „0 arbitraje” | snapshot-ul static `AUTO_LIMIT` (arbitrageNum mereu 0) sau prag prea mic | actualizează la versiunea curentă (telemetrie live) și ține `hardMaxNoFillMinutes` ≥ 120; sub 60 e blocat de clamp |
 | `[OKX EEA GATEWAY 51000]` / `51001` la o deschidere nativă | gateway-ul `tradingBot/grid` nu cunoaște id-urile `_UM_XPERP` (acceptă doar SPOT/SWAP/MARGIN) | nu e o eroare de configurare: folosește execuția directă (`AUTO_LIMIT`); agentul o face deja automat pe X-Perp |
 | `50124` / erori OKX la poziții | diferențe demo vs live | verifică flag-ul **OKX Demo** din tab 5 și modul de execuție |
 | Health check roșu după deploy | build/service picat | workflow-ul face rollback automat; verifică `journalctl -u autotrade-v5` |
