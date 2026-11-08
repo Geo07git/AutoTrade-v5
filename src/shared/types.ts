@@ -259,6 +259,12 @@ export interface GridAutopilotConfig {
 
 export interface AppConfig {
   executionMode: ExecutionMode;
+  /**
+   * Explicit owner approval for the ONE path that may need LIVE while the app runs PAPER:
+   * the neutral-grid direct-order fallback (native algo endpoint answers 51000/51001 for
+   * `_UM_XPERP` ids). Absent/false means such a grid is refused, never escalated silently.
+   */
+  allowGridEnvFlipToLive?: boolean;
   activeProfile: ProfileType;
   activePlatform?: ExchangePlatformId;
   testnet: boolean;

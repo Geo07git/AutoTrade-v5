@@ -27,6 +27,7 @@ import { GridBotAnalyzer } from '../engine/grid/GridBotAnalyzer';
 import { NeutralGridAnalyzer } from '../engine/grid/NeutralGridAnalyzer';
 import { GridOptimizer } from '../engine/grid/GridOptimizer';
 import { GridJournal } from '../engine/grid/GridJournal';
+import { resolveGridEnvGate } from '../engine/grid/gridEnvGate';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
@@ -1599,8 +1600,35 @@ export class TradeBot {
       !params?.disableDirectOrderFallback
     ) {
       const vp = res.validatedParams;
-      const prevMode = cfg.executionMode;
-      if (prevMode !== 'LIVE') {
+      // The native algo endpoint rejected the `-USD_UM` suffix (51000/51001) and the grid has
+      // to go out through the limit-order route. That route needs LIVE — but escalating the
+      // WHOLE process from PAPER to LIVE was a silent, global side effect of a venue error.
+      // The gate makes it an explicit, coded, owner-approved decision; by default it refuses
+      // and nothing is sent.
+      const envGate = resolveGridEnvGate({
+        current: cfg.executionMode,
+        required: 'LIVE',
+        allowFlipToLive: cfg.allowGridEnvFlipToLive === true,
+      });
+      if (!envGate.allowed) {
+        this.logAudit('GRID_RISK_TRIGGERED', 'Grid direct-order fallback refused by environment gate', {
+          instId: vp.instId,
+          code: envGate.code,
+          executionMode: cfg.executionMode,
+          detail: envGate.detail,
+        });
+        return {
+          success: false,
+          error: `${envGate.code}: ${envGate.detail}`,
+        };
+      }
+      if (envGate.flipTo === 'LIVE') {
+        this.logAudit('MODE_CHANGED', 'Execution mode escalated to LIVE for the grid direct-order fallback', {
+          instId: vp.instId,
+          from: cfg.executionMode,
+          to: 'LIVE',
+          detail: envGate.detail,
+        });
         await this.setExecutionMode('LIVE');
       }
       const gridRes = await this.createGridBot({
