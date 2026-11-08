@@ -77,7 +77,11 @@ const TERMINAL: GridIntentState[] = ['CONFIRMED', 'REJECTED', 'ABANDONED'];
 
 export const isTerminalState = (state: GridIntentState): boolean => TERMINAL.includes(state);
 
-/** States from which a resend is allowed. `SUBMITTING`/`SUBMITTED_UNKNOWN` are NOT. */
+/**
+ * States that may be retried. `REJECTED`/`ABANDONED` are terminal for HISTORY (the record is
+ * never rewritten) but not final for the OPERATION: a definite rejection is exactly what a
+ * retry loop is supposed to pick up. `CONFIRMED` is final for both.
+ */
 export const isResubmittableState = (state: GridIntentState): boolean =>
   state === 'PLANNED' || state === 'PROBED' || state === 'REJECTED' || state === 'ABANDONED';
 
@@ -181,7 +185,7 @@ export class GridIntentJournal {
 
   /**
    * Moves an intent forward. Refuses the transitions that would let a caller resubmit an
-   * order whose fate is unknown, and refuses to move anything out of a terminal state.
+   * order whose fate is unknown, and refuses to rewrite a confirmed record.
    */
   public transition(
     intentId: string,
@@ -193,7 +197,13 @@ export class GridIntentJournal {
     if (idx === -1) return undefined;
 
     const current = all[idx];
-    if (isTerminalState(current.state)) return current;
+
+    // A confirmed bot is a fact about OKX: it can never be rewritten by a later transition.
+    if (current.state === 'CONFIRMED') return current;
+
+    // A REJECTED/ABANDONED intent may be retried, but ONLY by an explicit resend. Any other
+    // transition out of those states is refused so history is not silently rewritten.
+    if (isTerminalState(current.state) && state !== 'SUBMITTING') return current;
 
     if (state === 'SUBMITTING' && current.state === 'SUBMITTED_UNKNOWN') {
       // Guard rail: the ONLY exit from SUBMITTED_UNKNOWN is a reconciliation verdict.

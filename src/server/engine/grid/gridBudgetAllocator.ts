@@ -171,6 +171,16 @@ export function allocateGridBudget(input: BudgetAllocationInput): BudgetAllocati
       skipped.push({ instId, code: 'CANDIDATE_INVALID', detail: 'resolved size is 0 cents' });
       continue;
     }
+    if (size.szCents > perBotCapCents) {
+      // The 5 USDC venue floor can exceed a per-bot cap the owner configured lower (2 USDT).
+      // Sending 5 USDT anyway would silently multiply the configured ceiling by 2.5x.
+      skipped.push({
+        instId,
+        code: 'BUDGET_CAP_EXCEEDED',
+        detail: `venue floor ${centsToUsd(size.szCents)} USDT above the ${centsToUsd(perBotCapCents)} USDT per-bot cap`,
+      });
+      continue;
+    }
     if (size.szCents > remaining) {
       skipped.push({
         instId,
