@@ -118,6 +118,14 @@ export interface GridPlanRejection {
 
 export type GridPlanResult = { ok: true; plan: GridPlan } | GridPlanRejection;
 
+/**
+ * Narrowing helper. `if (!result.ok)` does NOT narrow a union whose discriminant is a boolean
+ * literal, so every consumer uses this guard instead of a truthiness check on `.ok`.
+ */
+export function isGridPlanRejection(result: GridPlanResult): result is GridPlanRejection {
+  return result.ok !== true;
+}
+
 // ---------------------------------------------------------------------------
 // Constants — the neutral-grid geometry, in one place
 // ---------------------------------------------------------------------------
