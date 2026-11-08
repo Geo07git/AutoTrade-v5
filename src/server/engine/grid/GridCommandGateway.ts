@@ -175,6 +175,15 @@ export class GridCommandGateway {
       runId: meta.runId,
       geometryHash: plan.geometryHash,
       szCents: plan.szCents,
+      // The geometry travels with the intent: if the create times out before we learn the
+      // algoId, reconciliation matches on these exact numbers instead of guessing.
+      geometry: {
+        minPx: plan.minPx,
+        maxPx: plan.maxPx,
+        gridNum: plan.gridNum,
+        lever: plan.lever,
+        runType: String(plan.runType),
+      },
       detail: `env=${this.gates.executionEnvironment()} sz=${plan.szCents / 100} USDT`,
     });
 

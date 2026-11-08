@@ -28,6 +28,8 @@ import { NeutralGridAnalyzer } from '../engine/grid/NeutralGridAnalyzer';
 import { GridOptimizer } from '../engine/grid/GridOptimizer';
 import { GridJournal } from '../engine/grid/GridJournal';
 import { resolveGridEnvGate } from '../engine/grid/gridEnvGate';
+import { GridIntentJournal, type GridIntent } from '../engine/grid/GridIntentJournal';
+import { GridReconciler, type GridReconcilePort } from '../engine/grid/GridReconciler';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
@@ -125,6 +127,11 @@ export class TradeBot {
     executionMode?: ExecutionMode;
   }>;
   private journal: GridJournal;
+
+  /** Crash-safe record of every grid mutation the gateway is about to make. */
+  private gridIntentStore = new JsonStore<{ intents: GridIntent[] }>('grid_intents.json', { intents: [] });
+  private gridIntentJournalInstance?: GridIntentJournal;
+  private gridReconcilerInstance?: GridReconciler;
 
   private activeAdapter: IExecutionAdapter;
   private okxAdapter: OKXAdapter;
@@ -337,6 +344,96 @@ export class TradeBot {
 
   public getResearchCoordinator(): ResearchCoordinator {
     return this.researchCoordinator;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Grid intent journal + reconciliation (D3/D7)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * The journal is created lazily so it can share the JsonStore instance without touching the
+   * constructor's initialisation order (the venue port needs the native engine, which is built
+   * later in the constructor).
+   */
+  public getGridIntentJournal(): GridIntentJournal {
+    if (!this.gridIntentJournalInstance) {
+      this.gridIntentJournalInstance = new GridIntentJournal(
+        {
+          load: () => this.gridIntentStore.get()?.intents || [],
+          save: (intents) => this.gridIntentStore.set({ intents }),
+        },
+        { now: () => Date.now(), maxTerminal: 200 }
+      );
+    }
+    return this.gridIntentJournalInstance;
+  }
+
+  /**
+   * Venue view for reconciliation.
+   *
+   * It THROWS rather than returning an empty list when OKX cannot be trusted. An empty list is
+   * a verdict ("nothing landed" → safe to retry); producing it from a failed query would let
+   * the desk resend a grid that may well be live. Everything here is cheap when there is
+   * nothing to reconcile, because the reconciler asks only when intents are unresolved.
+   */
+  private getGridReconciler(): GridReconciler {
+    if (!this.gridReconcilerInstance) {
+      const venue: GridReconcilePort = {
+        listVenueBots: async () => {
+          if (!this.okxAdapter.hasCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) {
+            throw new Error('OKX credentials unavailable — cannot reconcile grid intents');
+          }
+          // One sync against the exchange, then read the engine's authoritative view.
+          await this.nativeGridEngine.syncAndMonitorActiveBots(
+            this.configStore.get().killSwitchEngaged === true
+          );
+          const bots = this.nativeGridEngine.getAllBots();
+          return bots.map((b) => ({
+            algoId: String(b.algoId),
+            instId: String(b.instId),
+            state: b.state === 'running' ? ('running' as const) : ('stopped' as const),
+            minPx: b.minPx,
+            maxPx: b.maxPx,
+            gridNum: b.gridNum,
+            lever: b.lever,
+          }));
+        },
+      };
+      this.gridReconcilerInstance = new GridReconciler({
+        journal: this.getGridIntentJournal(),
+        venue,
+        maxPerCycle: 50,
+        log: (level, message, details) => {
+          if (level === 'error') {
+            this.logAudit('RECONCILIATION_DISCREPANCY', message, details);
+          } else {
+            console.log(`[GridReconciler] ${message}`, details ?? '');
+          }
+        },
+      });
+    }
+    return this.gridReconcilerInstance;
+  }
+
+  /**
+   * Resolves every grid intent whose outcome is unknown. Called once at boot and then on the
+   * monitor tick. Never sends anything: it only reads the venue and rewrites the journal.
+   */
+  public async reconcileGridIntents(): Promise<void> {
+    try {
+      const report = await this.getGridReconciler().reconcile();
+      if (report.checked > 0) {
+        this.logAudit(
+          'RECONCILIATION_DISCREPANCY',
+          `Grid intents reconciled: ${report.confirmed} confirmed, ${report.abandoned} abandoned, ` +
+            `${report.stillUnknown} still unknown${report.available ? '' : ' (venue unavailable)'}`,
+          { codes: report.codes }
+        );
+      }
+    } catch (err: any) {
+      // Reconciliation is best-effort: it must never take the desk down.
+      console.warn('[GridReconciler] reconcile failed:', err?.message || err);
+    }
   }
 
   public logAudit(type: AuditLogType, message: string, details?: any) {
@@ -1893,12 +1990,20 @@ export class TradeBot {
     // Run initial scan in background (which also triggers evaluateAutopilotLaunch and Native Grid scan)
     this.triggerManualScan().catch(() => {});
 
+    // Resolve any grid intent left unknown by a previous crash or timeout BEFORE the desk
+    // resumes opening anything. Reads only; never sends.
+    void this.reconcileGridIntents();
+
     // Background price monitor every 4s for active grid bots
     if (this.monitorInterval) clearInterval(this.monitorInterval);
     let monitorTickCount = 0;
     this.monitorInterval = setInterval(async () => {
       try {
         monitorTickCount++;
+        if (monitorTickCount % 10 === 0) {
+          // ~40s cadence: cheap when nothing is unresolved (the reconciler returns early).
+          void this.reconcileGridIntents();
+        }
         const running = this.gridEngine.getRunningBots();
         for (const bot of running) {
           const px = await this.activeAdapter.getTickerPrice(bot.symbol);

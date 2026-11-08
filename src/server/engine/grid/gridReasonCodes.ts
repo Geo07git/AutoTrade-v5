@@ -88,7 +88,13 @@ export type GridExecutionCode =
   | 'INTENT_DUPLICATE'
   | 'GATEWAY_REJECTED'
   | 'GATEWAY_UNKNOWN_OUTCOME'
-  | 'CONFIRM_TIMEOUT';
+  | 'CONFIRM_TIMEOUT'
+  // reconciliation verdicts
+  | 'RECONCILED_CONFIRMED'
+  | 'RECONCILED_ABSENT'
+  | 'RECONCILED_STILL_RUNNING'
+  | 'RECONCILE_AMBIGUOUS'
+  | 'RECONCILE_UNAVAILABLE';
 
 export type GridReasonCode = GridDecisionCode | GridExecutionCode;
 
@@ -166,6 +172,11 @@ export const GRID_REASON_MESSAGES_RO: Record<GridReasonCode, string> = {
   GATEWAY_REJECTED: 'Respins de gateway',
   GATEWAY_UNKNOWN_OUTCOME: 'Rezultat necunoscut: nu se retrimite',
   CONFIRM_TIMEOUT: 'Confirmarea de la OKX a expirat',
+  RECONCILED_CONFIRMED: 'Confirmat prin reconciliere',
+  RECONCILED_ABSENT: 'Absent pe venue: create-ul nu a ajuns, se poate relua',
+  RECONCILED_STILL_RUNNING: 'Stop-ul nu s-a aplicat: botul ruleaza in continuare',
+  RECONCILE_AMBIGUOUS: 'Reconciliere ambigua: mai multi candidati, nu se ghiceste',
+  RECONCILE_UNAVAILABLE: 'Reconciliere imposibila: venue indisponibil, nimic modificat',
 };
 
 // ---------------------------------------------------------------------------

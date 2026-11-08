@@ -155,6 +155,8 @@ export class GridIntentJournal {
     runId?: string;
     geometryHash?: string;
     szCents?: number;
+    /** Recorded geometry, so a reconcile can match a create that never learned its algoId. */
+    geometry?: GridIntent['geometry'];
     reasonCodes?: string[];
     detail?: string;
   }): GridIntent {
@@ -172,6 +174,7 @@ export class GridIntentJournal {
       updatedAt: ts,
       runId: input.runId,
       geometryHash: input.geometryHash,
+      geometry: input.geometry,
       szCents: input.szCents,
       attempts: 0,
       reasonCodes: [...(input.reasonCodes || [])],
