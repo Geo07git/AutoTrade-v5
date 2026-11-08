@@ -36,6 +36,12 @@ import {
   DeepSeekAccountSnapshot,
 } from '../agent/DeepSeekAgent';
 import { ResearchCoordinator } from '../research/ResearchCoordinator';
+import {
+  AgentUniverseScanner,
+  computeAgentGridMetrics,
+  type AgentUniverseTicker,
+} from '../agent/AgentUniverseScan';
+import { getLiveFeeRates } from '../../shared/fees';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -300,6 +306,13 @@ export class TradeBot {
         return { enabled: Boolean(nc.enabled), lastDecision: nc.lastDecision };
       },
       getNativeGridBots: () => this.getNativeGridBotsSnapshot(),
+      // Agent-owned selection: public OKX data + crossings/hour, never the app scanner.
+      scanAgentUniverse: (opts: {
+        deepScanCount: number;
+        budgetPerBotUSDT: number;
+        maxLeverage: number;
+      }) => this.scanAgentUniverse(opts),
+      getMarketActivity: (instId: string) => this.getMarketActivity(instId),
       getNativeGridOpportunities: () => this.nativeGridEngine.getOpportunities(),
       scanNativeGridOpportunities: () => this.scanNativeGridOpportunities(),
       createNativeGridBot: (params: any) => this.createNativeGridBot(params),
@@ -1100,6 +1113,98 @@ export class TradeBot {
    * what the agent's passive-bot guardrail used to see, so every bot was stopped right at
    * `hardMaxNoFillMinutes` even when it had already booked arbitrages.
    */
+  private agentUniverseScanner?: AgentUniverseScanner;
+
+  /**
+   * AGENT-OWNED SCAN — selection belongs to DeepSeek, not to the app scanner.
+   *
+   * This method is pure plumbing: OKX public REST (instruments, 24h tickers, 15m candles,
+   * order book). There is NO NeutralGridAnalyzer, NO suitability score and NO app ranking
+   * here — the ranking (crossings/hour) is computed in `AgentUniverseScan`.
+   */
+  public async scanAgentUniverse(opts: {
+    deepScanCount: number;
+    budgetPerBotUSDT: number;
+    maxLeverage: number;
+  }) {
+    if (!this.agentUniverseScanner) {
+      this.agentUniverseScanner = new AgentUniverseScanner(
+        {
+          listXPerpContracts: async () => {
+            const ids = await this.universeManager.refreshUniverse();
+            return (ids || []).map((instId) => {
+              const meta = this.universeManager.getInstrumentMetadata(instId);
+              return {
+                instId,
+                minSz: meta?.minSz || 1,
+                lotSz: meta?.lotSz || 1,
+                tickSz: meta?.tickSz || 0.01,
+                ctVal: meta?.ctVal || 1,
+              };
+            });
+          },
+          fetchTickers: async () => {
+            const raw = await this.universeManager.fetch24hTickers();
+            const out: Record<string, AgentUniverseTicker> = {};
+            for (const [instId, t] of Object.entries(raw || {})) {
+              const row: any = t;
+              out[instId] = {
+                instId,
+                lastPrice: Number(row.lastPrice) || 0,
+                turnover24hUSDT: Number(row.turnover24hUSDT) || 0,
+                priceChange24hPct: Number(row.priceChange24hPct) || 0,
+                high24h: Number(row.highPrice24h) || 0,
+                low24h: Number(row.lowPrice24h) || 0,
+                spreadPct: Number(row.spreadPct) || 0,
+              };
+            }
+            return out;
+          },
+          fetchKlines15m: (instId: string, bars: number) =>
+            this.okxAdapter.getKlines(instId, '15m', bars),
+          fetchBookSnapshot: async (instId: string, depth: number) => {
+            const book = await this.okxAdapter.getOrderBook(instId, depth);
+            const ctVal = this.universeManager.getInstrumentMetadata(instId)?.ctVal || 1;
+            let bidUsd = 0;
+            let askUsd = 0;
+            for (const [px, sz] of book.bids || []) bidUsd += px * sz * ctVal;
+            for (const [px, sz] of book.asks || []) askUsd += px * sz * ctVal;
+            const total = bidUsd + askUsd;
+            return { depthUsd: total, imbalance: total > 0 ? (bidUsd - askUsd) / total : 0 };
+          },
+        },
+        (message, details) => this.logAudit('UNIVERSE_REFRESH', message, details)
+      );
+    }
+
+    const fee = getLiveFeeRates();
+    return this.agentUniverseScanner.scan({
+      budgetPerBotUSDT: Math.max(1, Number(opts.budgetPerBotUSDT) || 12),
+      maxLeverage: Math.min(2, Math.max(1, Number(opts.maxLeverage) || 2)),
+      roundTripFeePct: Number(fee.roundTripMakerFeePct) || 0.08,
+      deepScanCount: Math.max(1, Number(opts.deepScanCount) || 25),
+    });
+  }
+
+  /** Current price activity for a running bot (input for the agent's stagnation rule). */
+  public async getMarketActivity(
+    instId: string
+  ): Promise<{ pathPerHourPct: number; atrPct: number } | null> {
+    try {
+      const klines = await this.okxAdapter.getKlines(instId, '15m', 48);
+      const last = klines?.[klines.length - 1];
+      const metrics = computeAgentGridMetrics({
+        price: Number(last?.close) || 0,
+        klines15m: klines,
+        roundTripFeePct: 0,
+      });
+      if (!metrics) return null;
+      return { pathPerHourPct: metrics.pathPerHourPct, atrPct: metrics.atrPct };
+    } catch {
+      return null;
+    }
+  }
+
   public getNativeGridBotsSnapshot() {
     const liveBots = this.gridEngine.getAllBots();
     const byId = new Map(liveBots.map((b) => [b.botId, b]));

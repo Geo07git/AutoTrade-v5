@@ -61,6 +61,18 @@ export interface DeepSeekAgentDeps {
   getNativeGridBots(): OKXNativeGridBot[];
   getNativeGridOpportunities(): NativeGridOpportunity[];
   scanNativeGridOpportunities(): Promise<NativeGridOpportunity[]>;
+  /**
+   * AGENT-OWNED universe scan (public OKX data only, ranked by crossings/hour).
+   * When implemented AND `ownUniverseScan` is on, the agent ignores the app's
+   * opportunity list completely — no NeutralGridAnalyzer, no app scores.
+   */
+  scanAgentUniverse?(opts: {
+    deepScanCount: number;
+    budgetPerBotUSDT: number;
+    maxLeverage: number;
+  }): Promise<NativeGridOpportunity[]>;
+  /** Live price activity for one instrument, in % of price (feeds the stagnation stop). */
+  getMarketActivity?(instId: string): Promise<{ pathPerHourPct: number; atrPct: number } | null>;
   createNativeGridBot(params: any): Promise<{ success: boolean; bot?: any; error?: string }>;
   stopNativeGridBot(
     algoId: string,
@@ -88,13 +100,18 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   maxTokens: 1600,
   runIntervalSec: 300,
   maxActionsPerCycle: 2,
-  maxConcurrentBots: 2,
-  budgetPerBotUSDT: 20,
+  // 1 slot at launch; the owner may raise it to 2 after the first validated runs.
+  maxConcurrentBots: 1,
+  budgetPerBotUSDT: 12,
   minReserveUSDT: 10,
-  maxLeverage: 5,
+  maxLeverage: 2,
   minSuitabilityScore: 70,
   minNetProfitPerGridPct: 0.05,
-  cooldownMinutesPerSymbol: 30,
+  cooldownMinutesPerSymbol: 45,
+  maxTotalMarginUSDT: 40,
+  ownUniverseScan: true,
+  universeScanSize: 25,
+  minCrossingsPerHour: 0.35,
   allowedSymbols: [],
   blockedSymbols: [],
   allowOpenBots: true,
@@ -144,11 +161,14 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - sz must be <= budget_per_bot_usdt and >= the candidate min_inv_usdt; lever <= max_leverage.
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
-- Prefer IDEAL_RANGE / HIGH_VOL_RANGE with chop >= 55, adx <= 25, order-book imbalance within +/-0.35, spread <= 6bps, net_per_grid_pct > 0 and positive daily_yield_pct.
-- Optimise, do not copy: rank candidates by suitabilityScore x daily_yield_pct, then adjust gridNum so that net_per_grid_pct stays above the minimum while the range still covers the recent 24h range. Reject a range whose lower bound sits on the 24h low (or upper bound on the 24h high): one breakout fills every level at once.
-- Avoid TRENDING_RISK and LOW_VOLATILITY regimes, and avoid symbols with high absolute funding when a better candidate exists.
-- STOP_BOT only on clear deterioration: price outside the range, net PnL <= -6% of margin, distance to liquidation < 15%, regime flip to TRENDING_RISK, or zero arbitrages with negative float after 90+ minutes.
-- A bot with zero arbitrages after the passive threshold is DEAD CAPITAL: stop it even when the PnL is slightly positive. An idle grid must not hold a slot.
+- The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
+- Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
+- Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
+- Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once.
+- Avoid symbols with high absolute funding when a better candidate exists.
+- STOP_BOT only on clear deterioration: price outside the range, net PnL <= -6% of margin, distance to liquidation < 15%, or a dead tape re-confirmed by current data.
+- Silence alone is NOT a reason to stop. Before stopping a silent bot, re-check current price activity, current ATR, elapsed minutes vs expected_first_fill_min, and the net expected edge: stop only when the tape can no longer reach the next level AND the expected net edge is gone. Never stop a profitable bot merely because it has not filled yet - ask for AMEND_BOT or HOLD instead.
+- Recovery of a loss is analytical only: never average down, never martingale, never raise order size or leverage to win a loss back. If a grid is wrong, close it.
 - AMEND_BOT only to tighten risk (raise SL, lower TP) or to widen TP when the range is clearly holding; never widen SL beyond hard_stop_loss_pct.
 - Never propose: changing execution mode, toggling the kill switch, changing account leverage, creating/modifying/deleting any bot that is not in running_bots, or anything about API keys, balances transfers, or deposits.
 - Never output markdown, prose or code fences. Output ONE JSON object and nothing else.
@@ -159,7 +179,7 @@ OUTPUT JSON SCHEMA
   "summary_ro": "string: 1-3 sentences in ROMANIAN explaining the decision to the operator",
   "confidence": 0.0,
   "actions": [
-    { "type": "OPEN_GRID", "instId": "SOL-USD_UM_XPERP-310523", "minPx": 0, "maxPx": 0, "gridNum": 6, "runType": "1", "lever": 3, "sz": 20, "stopLossPct": 8, "takeProfitPct": 15, "rangeVariant": "BALANCED", "rationale_ro": "..." },
+    { "type": "OPEN_GRID", "instId": "SOL-USD_UM_XPERP-310523", "minPx": 0, "maxPx": 0, "gridNum": 6, "runType": "1", "lever": 2, "sz": 12, "stopLossPct": 8, "takeProfitPct": 15, "rangeVariant": "BALANCED", "rationale_ro": "..." },
     { "type": "STOP_BOT", "algoId": "1234567890", "stopType": "1", "rationale_ro": "..." },
     { "type": "AMEND_BOT", "algoId": "1234567890", "slTriggerPx": 0, "tpTriggerPx": 0, "rationale_ro": "..." },
     { "type": "HOLD", "rationale_ro": "..." }
@@ -198,6 +218,19 @@ function pctDistance(from: number, to: number): number | null {
   return Math.abs(from - to) / from * 100;
 }
 
+/**
+ * Distance between two grid levels of a running bot, in % of price.
+ * The stagnation rule compares elapsed time against the geometry the bot was opened with.
+ */
+function botGridStepPct(bot: { minPx: number; maxPx: number; gridNum: number; currentPx: number }): number {
+  const minPx = Number(bot.minPx) || 0;
+  const maxPx = Number(bot.maxPx) || 0;
+  const gridNum = Number(bot.gridNum) || 0;
+  const mid = Number(bot.currentPx) > 0 ? Number(bot.currentPx) : (minPx + maxPx) / 2;
+  if (!(maxPx > minPx) || gridNum < 2 || !(mid > 0)) return 0;
+  return ((maxPx - minPx) / gridNum / mid) * 100;
+}
+
 function makeId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -233,6 +266,12 @@ export class DeepSeekAgent {
   private loopActive: boolean = false;
   private nextRunAt?: number;
   private inFlightCycle: Promise<DeepSeekAgentDecision> | null = null;
+  /**
+   * Result of the agent's OWN universe scan for the cycle currently being decided.
+   * `undefined` = no own scan performed (use the app list); `[]` = own scan ran but
+   * produced nothing, which must NOT silently fall back to app-scored candidates.
+   */
+  private lastOwnScan?: NativeGridOpportunity[];
 
   constructor(deps: DeepSeekAgentDeps, options?: DeepSeekAgentStoreOptions) {
     this.deps = deps;
@@ -277,23 +316,29 @@ export class DeepSeekAgent {
     next.maxTokens = clamp(Math.round(Number(next.maxTokens) || 1600), 400, 8000);
     next.runIntervalSec = clamp(Math.round(Number(next.runIntervalSec) || 300), 60, 3600);
     next.maxActionsPerCycle = clamp(Math.round(Number(next.maxActionsPerCycle) || 2), 1, 5);
-    next.maxConcurrentBots = clamp(Math.round(Number(next.maxConcurrentBots) || 2), 1, 10);
-    next.budgetPerBotUSDT = clamp(Number(next.budgetPerBotUSDT) || 20, 5, 1000);
+    next.maxConcurrentBots = clamp(Math.round(Number(next.maxConcurrentBots) || 1), 1, 2);
+    next.budgetPerBotUSDT = clamp(Number(next.budgetPerBotUSDT) || 12, 10, 50);
     next.minReserveUSDT = clamp(
       Number.isFinite(Number(next.minReserveUSDT)) ? Number(next.minReserveUSDT) : 10,
-      0,
+      10,
       10_000
     );
-    next.maxLeverage = clamp(Math.round(Number(next.maxLeverage) || 5), 1, 20);
+    next.maxLeverage = clamp(Math.round(Number(next.maxLeverage) || 2), 1, 2);
+    next.maxTotalMarginUSDT = clamp(Number(next.maxTotalMarginUSDT) || 40, 10, 40);
+    next.ownUniverseScan = next.ownUniverseScan !== false;
+    next.universeScanSize = clamp(Math.round(Number(next.universeScanSize) || 25), 5, 60);
+    next.minCrossingsPerHour = clamp(Number(next.minCrossingsPerHour) || 0.35, 0.05, 5);
     next.minSuitabilityScore = clamp(Math.round(Number(next.minSuitabilityScore) || 70), 30, 98);
     next.minNetProfitPerGridPct = clamp(Number(next.minNetProfitPerGridPct) || 0.05, 0.01, 5);
+    // 45 min floor: reopening the same contract right after a stop was the other half of
+    // the night-time churn (PUMP was opened 8 times in a row with cooldown=0).
     next.cooldownMinutesPerSymbol = clamp(
       Math.round(
         Number.isFinite(Number(next.cooldownMinutesPerSymbol))
           ? Number(next.cooldownMinutesPerSymbol)
-          : 30
+          : 45
       ),
-      0,
+      45,
       1440
     );
     next.dailyLossLimitUSDT = clamp(Number(next.dailyLossLimitUSDT) || 0, 0, 100_000);
@@ -486,7 +531,11 @@ export class DeepSeekAgent {
 
   private buildContext(cfg: DeepSeekAgentConfig): BuiltContext {
     const snapshot = this.deps.getAccountSnapshot();
-    const allOpportunities = this.deps.getNativeGridOpportunities() || [];
+    const agentRows = this.lastOwnScan;
+    const useOwnScan = Boolean(cfg.ownUniverseScan && agentRows);
+    const allOpportunities = useOwnScan
+      ? agentRows!
+      : this.deps.getNativeGridOpportunities() || [];
     const runningBots = (this.deps.getNativeGridBots() || []).filter(
       (b) => b.state === 'running' || b.state === 'pending_signal'
     );
@@ -502,9 +551,10 @@ export class DeepSeekAgent {
       return true;
     };
 
-    // Eligible + budget-fitting first; still include a few ineligible ones as negative examples.
+    // Eligible + budget-fitting first; AGENT rows are ranked by crossings/hour.
     const sorted = [...allOpportunities].sort((a, b) => {
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+      if (useOwnScan) return (b.crossingsPerHour || 0) - (a.crossingsPerHour || 0);
       return (b.suitabilityScore || 0) - (a.suitabilityScore || 0);
     });
     const shortlist = sorted
@@ -516,6 +566,12 @@ export class DeepSeekAgent {
       base: o.instId.split('-')[0],
       price: rnd(o.price, 6),
       score: o.suitabilityScore,
+      scan: o.agentScan ? 'AGENT' : 'APP',
+      crossings_per_h: o.crossingsPerHour ?? null,
+      round_trips_per_h: o.roundTripsPerHour ?? null,
+      expected_first_fill_min: o.expectedFirstFillMin ?? null,
+      step_pct: o.stepPct ?? null,
+      spread_of_step: o.stepPct ? rnd((o.spreadBps || 0) / 100 / o.stepPct, 3) : null,
       regime: o.regimeLabel,
       atr_pct: rnd(o.atrPct, 2),
       chop: rnd(o.choppinessIndex, 1),
@@ -565,6 +621,10 @@ export class DeepSeekAgent {
     const promptContext = {
       now_utc: new Date().toISOString(),
       desk: 'NEUTRAL_GRID_FUTURES_OKX_EEA',
+      scan_source: useOwnScan ? 'AGENT' : 'APP',
+      scan_note: useOwnScan
+        ? 'Candidates come from the agent own scan: rank by crossings_per_h, ignore score.'
+        : 'Legacy mode: candidates come from the app scanner (suitability score).',
       account: {
         execution_mode: snapshot.executionMode,
         kill_switch_engaged: snapshot.killSwitchEngaged,
@@ -584,8 +644,10 @@ export class DeepSeekAgent {
         min_reserve_usdt: cfg.minReserveUSDT,
         max_leverage: cfg.maxLeverage,
         min_suitability_score: cfg.minSuitabilityScore,
+        min_crossings_per_h: cfg.minCrossingsPerHour,
         min_net_profit_per_grid_pct: cfg.minNetProfitPerGridPct,
         daily_loss_limit_usdt: cfg.dailyLossLimitUSDT,
+        max_total_margin_usdt: cfg.maxTotalMarginUSDT,
         hard_stop_loss_pct: cfg.hardStopLossPct,
         hard_min_liq_distance_pct: cfg.hardMinLiqDistancePct,
         allow_open: cfg.allowOpenBots && snapshot.executionMode === 'LIVE' && !authorityConflict,
@@ -630,7 +692,39 @@ export class DeepSeekAgent {
     const dryRun = cfg.mode !== 'AUTONOMOUS';
 
     // 1. Fresh opportunities (the agent must never decide on a stale scan).
-    if (cfg.scanBeforeDecision) {
+    // 1. Fresh candidates. With ownUniverseScan the agent scans the OKX universe itself
+    //    (crossings/hour); the app scanner is not consulted at all (no scoring, no ranking).
+    const useOwnScan = Boolean(cfg.ownUniverseScan && this.deps.scanAgentUniverse);
+    this.lastOwnScan = undefined;
+    if (useOwnScan) {
+      try {
+        const rows = await this.deps.scanAgentUniverse!({
+          deepScanCount: cfg.universeScanSize,
+          budgetPerBotUSDT: cfg.budgetPerBotUSDT,
+          maxLeverage: cfg.maxLeverage,
+        });
+        this.lastOwnScan = rows;
+        const top = rows
+          .filter((r) => r.isEligible)
+          .slice(0, 3)
+          .map((r) => `${r.instId}=${r.crossingsPerHour}/h`)
+          .join(', ');
+        this.deps.logAudit(
+          'UNIVERSE_REFRESH',
+          `[DEEPSEEK AGENT] Scan propriu: ${rows.length} contracte analizate, ${rows.filter((r) => r.isEligible).length} eligibile. Top: ${top || 'niciunul'}`,
+          { deepScanCount: rows.length, eligible: rows.filter((r) => r.isEligible).length }
+        );
+      } catch (err: any) {
+        // Fail closed: an empty own scan means HOLD, never a silent fall back to app scores.
+        this.lastOwnScan = [];
+        this.deps.logAudit(
+          'AGENT_ERROR',
+          `[DEEPSEEK AGENT] Scanul propriu a eșuat: ${err?.message || err}. Ciclul lucrează fără candidați.`
+        );
+      }
+    }
+
+    if (cfg.scanBeforeDecision && !useOwnScan) {
       try {
         await this.deps.scanNativeGridOpportunities();
       } catch (err: any) {
@@ -726,7 +820,7 @@ export class DeepSeekAgent {
     const { approved, rejected } = this.validateActions(proposed, cfg, ctx);
 
     // 5. Deterministic guardrail stops, merged on top of the model output
-    const guardrailActions = this.buildGuardrailStops(cfg, ctx);
+    const guardrailActions = await this.buildGuardrailStops(cfg, ctx);
     const guardrailApproved: DeepSeekAgentAction[] = [];
     for (const ga of guardrailActions) {
       const algoId = (ga as any).algoId as string;
@@ -914,6 +1008,8 @@ export class DeepSeekAgent {
 
     let slotsLeft = ctx.freeSlots;
     let spendable = Math.max(0, ctx.snapshot.freeBalance - cfg.minReserveUSDT);
+    // Owner hard cap on the margin this desk may engage (sum of the agent's own bots).
+    let marginUsed = ctx.runningBots.reduce((sum, b) => sum + (Number(b.sz) || 0), 0);
     let opensApproved = 0;
 
     const dailyLossBreached =
@@ -985,7 +1081,16 @@ export class DeepSeekAgent {
           reject(`Cooldown activ pe ${candidate.instId} (încă ${leftMin} min).`);
           continue;
         }
-        if ((candidate.suitabilityScore || 0) < cfg.minSuitabilityScore) {
+        if (candidate.agentScan) {
+          const crossings = Number(candidate.crossingsPerHour) || 0;
+          if (crossings < cfg.minCrossingsPerHour) {
+            reject(
+              `Crossings/h ${crossings} sub pragul minim ${cfg.minCrossingsPerHour} pentru ${candidate.instId} (grilă prea deasă sau piață moartă).`
+            );
+            continue;
+          }
+        }
+        if (!candidate.agentScan && (candidate.suitabilityScore || 0) < cfg.minSuitabilityScore) {
           reject(
             `Scor ${candidate.suitabilityScore} sub pragul minim ${cfg.minSuitabilityScore} pentru ${candidate.instId}.`
           );
@@ -1038,6 +1143,12 @@ export class DeepSeekAgent {
           );
           continue;
         }
+        if (marginUsed + sz > cfg.maxTotalMarginUSDT) {
+          reject(
+            `Marja totală ar depăși limita de ${cfg.maxTotalMarginUSDT}$ (folosită ${rnd(marginUsed)}$, necesar ${rnd(sz)}$).`
+          );
+          continue;
+        }
         if (spendable < sz) {
           reject(
             `Fond liber insuficient după rezerva de ${cfg.minReserveUSDT}$ (disponibil ${rnd(spendable)}$, necesar ${rnd(sz)}$).`
@@ -1064,6 +1175,7 @@ export class DeepSeekAgent {
         });
         slotsLeft--;
         spendable -= sz;
+        marginUsed += sz;
         opensApproved++;
         continue;
       }
@@ -1141,7 +1253,10 @@ export class DeepSeekAgent {
    * Deterministic risk layer. These stops do not depend on the model and are never
    * suppressed by a HOLD — that is what makes the agent safe to leave running.
    */
-  private buildGuardrailStops(cfg: DeepSeekAgentConfig, ctx: BuiltContext): DeepSeekAgentAction[] {
+  private async buildGuardrailStops(
+    cfg: DeepSeekAgentConfig,
+    ctx: BuiltContext
+  ): Promise<DeepSeekAgentAction[]> {
     if (!cfg.enforceHardGuardrails || !cfg.allowStopBots) return [];
     const out: DeepSeekAgentAction[] = [];
 
@@ -1162,15 +1277,48 @@ export class DeepSeekAgent {
         reasons.push(`preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(bot.maxPx, 6)}]`);
       }
       const ageMin = Math.max(0, Math.round((Date.now() - (bot.cTime || Date.now())) / 60000));
-      const passive = bot.arbitrageNum === 0 && ageMin >= cfg.hardMaxNoFillMinutes;
-      if (passive && (cfg.stopIfPassive || bot.totalPnl < 0)) {
-        reasons.push(
-          cfg.stopIfPassive
-            ? `0 arbitraje în ${ageMin} min (prag ${cfg.hardMaxNoFillMinutes} min) — bot pasiv, capital imobilizat (PnL ${rnd(bot.totalPnl)} USDT ignorat intenționat)`
-            : `0 arbitraje în ${ageMin} min (prag ${cfg.hardMaxNoFillMinutes} min) cu PnL negativ`
-        );
-      }
+      // --- stagnation rule -------------------------------------------------
+      // Silence alone never stops a bot. We re-read the CURRENT tape, compare the elapsed
+      // time with the expected time to reach the next level, and require that the grid can
+      // no longer be reached. A bot that is not losing money is left alone: killing a
+      // profitable grid because it has not filled yet is pure churn (28 such stops in one
+      // night, all with real arbitrages already booked).
+      const pnlGate = cfg.stopIfPassive ? bot.totalPnl <= 0 : bot.totalPnl < 0;
+      if (bot.arbitrageNum === 0 && pnlGate) {
+        const stepPct = botGridStepPct(bot);
+        const activity = this.deps.getMarketActivity
+          ? await this.deps.getMarketActivity(bot.instId).catch(() => null)
+          : null;
 
+        if (!activity) {
+          // No live data => very conservative: only a clearly stale bot is stopped.
+          const fallbackDeadline = Math.max(cfg.hardMaxNoFillMinutes, 180);
+          if (ageMin >= fallbackDeadline) {
+            reasons.push(
+              `0 arbitraje in ${ageMin} min (prag ${fallbackDeadline} min, fara date live de piata), PnL ${rnd(bot.totalPnl)} USDT`
+            );
+          }
+        } else if (stepPct > 0) {
+          const speedPctPerHour = Math.max(
+            activity.pathPerHourPct * 0.5,
+            activity.atrPct * 0.35,
+            0.0001
+          );
+          const expectedFirstFillMin = (60 * (stepPct / 2)) / speedPctPerHour;
+          const crossingsPerHour = activity.pathPerHourPct / stepPct;
+          const deadlineMin = Math.max(
+            cfg.hardMaxNoFillMinutes,
+            Math.round(expectedFirstFillMin * 2.5)
+          );
+          const tapeDead = crossingsPerHour < 0.5; // < 1 touch per 2 hours
+          if (ageMin >= deadlineMin && tapeDead) {
+            reasons.push(
+              `0 arbitraje in ${ageMin} min; crossings/h=${rnd(crossingsPerHour, 2)} pe un pas de ${rnd(stepPct, 3)}% ` +
+                `(prima umplere estimata ~${rnd(expectedFirstFillMin, 0)} min, termen ${deadlineMin} min) - banda nu mai poate fi atinsa, PnL ${rnd(bot.totalPnl)} USDT`
+            );
+          }
+        }
+      }
       if (reasons.length > 0) {
         out.push({
           type: 'STOP_BOT',
@@ -1199,15 +1347,22 @@ export class DeepSeekAgent {
     const runningIds = new Set(ctx.runningBots.map((b) => b.instId));
 
     if (cfg.allowOpenBots) {
+      const agentRanked = ctx.candidates.some((c) => c.agentScan);
       const pool = ctx.candidates
         .filter(
           (c) =>
             c.isEligible &&
             !runningIds.has(c.instId) &&
-            c.suitabilityScore >= cfg.minSuitabilityScore &&
+            (c.agentScan
+              ? (Number(c.crossingsPerHour) || 0) >= cfg.minCrossingsPerHour
+              : c.suitabilityScore >= cfg.minSuitabilityScore) &&
             c.estimatedNetProfitPerGridPct >= cfg.minNetProfitPerGridPct
         )
-        .sort((a, b) => b.suitabilityScore - a.suitabilityScore)
+        .sort((a, b) =>
+          agentRanked
+            ? (b.crossingsPerHour || 0) - (a.crossingsPerHour || 0)
+            : b.suitabilityScore - a.suitabilityScore
+        )
         .slice(0, cfg.maxActionsPerCycle);
 
       for (const cand of pool) {
@@ -1223,7 +1378,7 @@ export class DeepSeekAgent {
           stopLossPct: 8,
           takeProfitPct: 15,
           rangeVariant: cand.selectedVariant,
-          rationale_ro: `Fallback determinist TB5: ${cand.instId} are scor ${cand.suitabilityScore}/100, regim ${cand.regimeLabel}, profit net ${rnd(cand.estimatedNetProfitPerGridPct, 3)}%/grilă.`,
+          rationale_ro: `Fallback determinist TB5: ${cand.instId} ${cand.agentScan ? `crossings/h ${cand.crossingsPerHour}, prima umplere ~${cand.expectedFirstFillMin} min` : `scor ${cand.suitabilityScore}/100`}, regim ${cand.regimeLabel}, profit net ${rnd(cand.estimatedNetProfitPerGridPct, 3)}%/grilă.`,
         });
       }
     }

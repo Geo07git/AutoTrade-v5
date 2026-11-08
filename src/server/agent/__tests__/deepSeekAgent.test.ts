@@ -181,6 +181,12 @@ function makeAgent(opts?: {
   opportunities?: NativeGridOpportunity[];
   bots?: OKXNativeGridBot[];
   autopilotEnabled?: boolean;
+  /** Rows returned by the agent-owned scan (enables the scanAgentUniverse dependency). */
+  ownScan?: NativeGridOpportunity[];
+  /** When true, the agent-owned scan throws (fail-closed test). */
+  ownScanThrows?: boolean;
+  /** Live tape readings for the stagnation rule (presence enables getMarketActivity). */
+  marketActivity?: { pathPerHourPct: number; atrPct: number } | null;
 }): Harness {
   let snapshot: DeepSeekAccountSnapshot = { ...LIVE_SNAPSHOT, ...(opts?.snapshot || {}) };
   let opportunities = opts?.opportunities ?? [opportunity()];
@@ -245,6 +251,19 @@ function makeAgent(opts?: {
     logAudit: (type, message) => {
       calls.audits.push({ type: String(type), message });
     },
+    // Only attached when the test asks for it: without it the agent uses the app list.
+    ...(opts && ('ownScan' in opts || 'ownScanThrows' in opts)
+      ? {
+          scanAgentUniverse: async () => {
+            calls.scans++;
+            if (opts.ownScanThrows) throw new Error('scan indisponibil');
+            return opts.ownScan ?? [];
+          },
+        }
+      : {}),
+    ...(opts && 'marketActivity' in opts
+      ? { getMarketActivity: async () => opts.marketActivity ?? null }
+      : {}),
     notifyTelegram: async (text: string) => {
       calls.telegram.push(text);
       return true;
@@ -312,7 +331,13 @@ test('OFF mode: a manual cycle still produces a dry-run decision and executes no
 
 test('ADVISOR mode: proposes but never executes', async () => {
   const h = makeAgent();
-  await h.agent.updateConfig({ mode: 'ADVISOR', scanBeforeDecision: false, notifyTelegram: false });
+  await h.agent.updateConfig({
+    mode: 'ADVISOR',
+    scanBeforeDecision: false,
+    notifyTelegram: false,
+    // The fixture's OKX minimum is 18 USDT; the shipped default budget is 12.
+    budgetPerBotUSDT: 20,
+  });
 
   const decision = await h.agent.runCycle('MANUAL');
 
@@ -593,19 +618,56 @@ test('guardrail: a young bot with 0 arbitrages is NOT stopped by the passive rul
   eq(h.calls.stopped.length, 0, 'nothing may be stopped');
 });
 
-test('guardrail: a passive bot is stopped even with a positive PnL', async () => {
+test('guardrail: a PROFITABLE silent bot is never stopped for silence alone', async () => {
   const h = makeAgent({
-    bots: [bot({ arbitrageNum: 0, totalPnl: 0.01, cTime: Date.now() - 200 * 60_000 })],
+    bots: [bot({ arbitrageNum: 0, totalPnl: 0.42, cTime: Date.now() - 400 * 60_000 })],
+    marketActivity: { pathPerHourPct: 0.01, atrPct: 0.05 }, // dead tape
   });
   await armAutonomous(h, { hardMaxNoFillMinutes: 180, stopIfPassive: true });
 
   const decision = await h.agent.runCycle('MANUAL');
 
-  ok(
-    decision.guardrailActions.some((a: any) => /bot pasiv/i.test(a.rationale_ro || '')),
-    'the guardrail must report the passive grid'
+  eq(
+    decision.guardrailActions.length,
+    0,
+    'a bot that is not losing money must not be killed just because it is quiet'
   );
-  eq(h.calls.stopped.length, 1, 'dead capital must be released even on a positive PnL');
+  eq(h.calls.stopped.length, 0, 'nothing may be stopped');
+});
+
+test('guardrail: a losing bot on a DEAD tape is stopped only past the expected-fill deadline', async () => {
+  // bot geometry: [1975, 2025] with 8 grids -> step 0.3125%; tape crawls 0.02%/h =>
+  // expected first fill ~268 min, deadline = max(180, 2.5 x 268) = 670 min.
+  const h = makeAgent({
+    bots: [bot({ arbitrageNum: 0, totalPnl: -0.2, cTime: Date.now() - 700 * 60_000 })],
+    marketActivity: { pathPerHourPct: 0.02, atrPct: 0.1 },
+  });
+  await armAutonomous(h, { hardMaxNoFillMinutes: 180 });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  ok(
+    decision.guardrailActions.some((a: any) => /crossings\/h/i.test(a.rationale_ro || '')),
+    'the guardrail must justify the stop with live crossings/hour'
+  );
+  eq(h.calls.stopped.length, 1, 'dead tape past the deadline must release the capital');
+});
+
+test('guardrail: a losing bot on an ALIVE tape is left alone', async () => {
+  const h = makeAgent({
+    bots: [bot({ arbitrageNum: 0, totalPnl: -0.2, cTime: Date.now() - 700 * 60_000 })],
+    // 1.2%/h of path on a 0.3125% step => ~3.8 crossings/h: the grid is working.
+    marketActivity: { pathPerHourPct: 1.2, atrPct: 1.0 },
+  });
+  await armAutonomous(h, { hardMaxNoFillMinutes: 180 });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(
+    decision.guardrailActions.length,
+    0,
+    'an alive tape must never be stopped merely because no fill happened yet'
+  );
 });
 
 test('guardrail: stopIfPassive=false keeps the old PnL condition', async () => {
@@ -647,6 +709,86 @@ test('guardrail: enforceHardGuardrails=false disables the deterministic layer', 
 // 4. Config sanitisation & panic
 // ===========================================================================
 
+// ---------------------------------------------------------------------------
+// Agent-owned scan: selection belongs to the agent, not to the app scanner
+// ---------------------------------------------------------------------------
+
+const agentRow = (over: Partial<NativeGridOpportunity> = {}): NativeGridOpportunity => ({
+  ...opportunity(),
+  agentScan: true,
+  suitabilityScore: 0, // the agent scan does not score — it ranks by crossings/hour
+  minInvestmentUSDT: 6,
+  gridNum: 8,
+  minPx: 1985,
+  maxPx: 2015,
+  gridSpacingPct: 0.19,
+  lever: 2,
+  crossingsPerHour: 1.4,
+  roundTripsPerHour: 0.7,
+  expectedFirstFillMin: 22,
+  stepPct: 0.19,
+  estimatedNetProfitPerGridPct: 0.15,
+  ...over,
+});
+
+test('own scan: the agent opens its own top-crossings candidate, not the app pick', async () => {
+  const own = agentRow({ instId: OTHER_INST, crossingsPerHour: 1.6 });
+  const h = makeAgent({ ownScan: [own], opportunities: [opportunity()] });
+  await armAutonomous(h, { budgetPerBotUSDT: 12, maxConcurrentBots: 1 });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.scans, 1, 'the agent must run exactly one own scan per cycle');
+  eq(h.calls.created.length, 1, 'exactly one bot must be created');
+  eq(
+    h.calls.created[0].instId,
+    OTHER_INST,
+    'selection must follow crossings/hour, never the app suitability score'
+  );
+  eq(
+    h.calls.created[0].instId === INST,
+    false,
+    'the app-scored candidate must not win just because its score is 82'
+  );
+  ok(h.calls.created[0].lever <= 2, 'leverage must stay within the 2x ceiling');
+  ok(h.calls.created[0].sz <= 12, 'size must stay within the 12 USDC budget');
+});
+
+test('own scan: a candidate below the crossings threshold is refused', async () => {
+  const h = makeAgent({ ownScan: [agentRow({ crossingsPerHour: 0.05 })] });
+  await armAutonomous(h, { minCrossingsPerHour: 0.35 });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 0, 'a grid with 0.05 crossings/h would only immobilise capital');
+});
+
+test('own scan: a failed scan fails closed instead of reusing app scores', async () => {
+  const h = makeAgent({ ownScanThrows: true, opportunities: [opportunity()] });
+  await armAutonomous(h, {});
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 0, 'no candidate may be opened when the own scan failed');
+  ok(
+    h.calls.audits.some((a) => /scanul propriu/i.test(a.message)),
+    'the scan failure must be audited'
+  );
+});
+
+test('guard: the 40 USDC total-margin ceiling blocks a new open', async () => {
+  const h = makeAgent({ bots: [bot({ sz: 35 })], ownScan: [agentRow()] });
+  await armAutonomous(h, {
+    maxConcurrentBots: 2,
+    budgetPerBotUSDT: 12,
+    maxTotalMarginUSDT: 40,
+  });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 0, '35 + 6 USDC would exceed the 40 USDC desk ceiling');
+});
+
 test('config: invalid values are clamped, never trusted', async () => {
   const h = makeAgent();
 
@@ -663,13 +805,32 @@ test('config: invalid values are clamped, never trusted', async () => {
 
   eq(cfg.mode, 'OFF', 'an unknown mode must collapse to OFF');
   eq(cfg.runIntervalSec, 60, 'interval must clamp to the 60s floor');
-  eq(cfg.maxConcurrentBots, 10, 'maxConcurrentBots must clamp to 10');
-  eq(cfg.budgetPerBotUSDT, 20, 'a zero budget must fall back to the 20 USDT default');
-  eq(cfg.maxLeverage, 20, 'leverage must clamp to 20x');
+  eq(cfg.maxConcurrentBots, 2, 'maxConcurrentBots must clamp to the agreed ceiling of 2');
+  eq(cfg.budgetPerBotUSDT, 12, 'a zero budget must fall back to the 12 USDT default');
+  eq(cfg.maxLeverage, 2, 'leverage must clamp to the agreed ceiling of 2x');
   eq(cfg.minSuitabilityScore, 30, 'score floor must clamp to 30');
   eq(cfg.hardStopLossPct, 60, 'hard SL must clamp to 60%');
   eq(cfg.maxActionsPerCycle, 5, 'actions per cycle must clamp to 5');
   ok(DEFAULT_DEEPSEEK_AGENT_CONFIG.mode === 'OFF', 'the shipped default mode must stay OFF');
+});
+
+test('config: the capital envelope is enforced, not suggested', async () => {
+  const h = makeAgent();
+
+  const cfg = h.agent.updateConfig({
+    budgetPerBotUSDT: 500,
+    maxTotalMarginUSDT: 999,
+    minReserveUSDT: 0,
+    cooldownMinutesPerSymbol: 0,
+    universeScanSize: 500,
+  });
+
+  eq(cfg.budgetPerBotUSDT, 50, 'per-bot budget cannot exceed the 50 USDC ceiling');
+  eq(cfg.maxTotalMarginUSDT, 40, 'total margin cannot exceed the 40 USDC ceiling');
+  eq(cfg.minReserveUSDT, 10, 'the 10 USDC reserve is mandatory');
+  eq(cfg.cooldownMinutesPerSymbol, 45, 'a zero cooldown is refused (45 min floor)');
+  eq(cfg.universeScanSize, 60, 'the deep scan is capped at 60 contracts');
+  eq(cfg.ownUniverseScan, true, 'the agent-owned scan is the default selection path');
 });
 
 test('config: the passive-bot threshold cannot be set below 60 min', async () => {

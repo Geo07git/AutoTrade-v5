@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/server/engine/grid/__tests__/gridOptimizer.test.ts && tsx src/server/research/__tests__/gridBacktest.test.ts && tsx src/server/agent/__tests__/deepSeekAgent.test.ts",
+
+    "test": "tsx src/server/engine/grid/__tests__/gridOptimizer.test.ts && tsx src/server/research/__tests__/gridBacktest.test.ts && tsx src/server/agent/__tests__/agentUniverseScan.test.ts && tsx src/server/agent/__tests__/deepSeekAgent.test.ts",
     "electron:dev": "npm run build && electron .",
     "electron:build": "npm run build && electron-builder --win --x64",
     "cap:add:android": "npx cap add android",

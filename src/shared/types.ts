@@ -374,6 +374,16 @@ export interface NativeGridOpportunity {
   adxDelta?: number;              // Change in Wilder ADX(14) since previous scan
   atrDelta?: number;              // Change in ATR(14)% since previous scan
   preScore?: number;              // Universe pre-score across all 257 contracts
+  /** true = row produced by the agent's OWN scan (crossings/h), not by NeutralGridAnalyzer */
+  agentScan?: boolean;
+  /** Estimated grid-level touches per hour = price path per hour / grid step */
+  crossingsPerHour?: number;
+  /** crossingsPerHour / 2 — one full buy->sell cycle */
+  roundTripsPerHour?: number;
+  /** Minutes until the first level is expected to be touched */
+  expectedFirstFillMin?: number;
+  /** Distance between grid levels, in % of price */
+  stepPct?: number;
   updatedAt: number;
 }
 
@@ -572,6 +582,18 @@ export interface DeepSeekAgentConfig {
   minSuitabilityScore: number;
   minNetProfitPerGridPct: number;
   cooldownMinutesPerSymbol: number;
+  /** Absolute margin ceiling for the whole agent desk (owner hard limit: 40 USDC). */
+  maxTotalMarginUSDT: number;
+  /**
+   * Agent-owned universe scan: the agent builds its own candidate list from public OKX
+   * data and ranks it by crossings/hour. When true, the app's scanner
+   * (NeutralGridAnalyzer / UNIVERS SCANNER GRID) is never consulted for selection.
+   */
+  ownUniverseScan: boolean;
+  /** Contracts deep-scanned per cycle (candles + order book). */
+  universeScanSize: number;
+  /** Minimum estimated grid-level touches per hour for an open to be allowed. */
+  minCrossingsPerHour: number;
   allowedSymbols: string[];
   blockedSymbols: string[];
   allowOpenBots: boolean;
