@@ -20,6 +20,16 @@
  */
 
 import type { Kline, NativeGridOpportunity } from '../../shared/types';
+import {
+  deriveGridGeometry,
+  priceDecimals,
+  snapToTick,
+  GRID_FEE_FLOOR_MULTIPLE,
+  GRID_MAX_HALF_RANGE_PCT,
+  GRID_MAX_SPREAD_OF_STEP,
+  GRID_MIN_HALF_RANGE_PCT,
+  GRID_PLAN_MAX_LEVERAGE,
+} from '../engine/grid/gridPlan';
 
 // ---------------------------------------------------------------------------
 // Hard constants (the agent cannot loosen these)
@@ -29,17 +39,22 @@ import type { Kline, NativeGridOpportunity } from '../../shared/types';
 export const AGENT_SCAN_DEFAULT_DEEP_COUNT = 25;
 /** Contracts below this 24h turnover are not even deep-scanned. */
 export const AGENT_SCAN_MIN_TURNOVER_USDT = 3_000_000;
+/**
+ * These are aliases, not copies: the geometry constants live in `engine/grid/gridPlan.ts`,
+ * which the execution path uses too. Two copies of "the fee floor is 3x" is exactly how a
+ * grid ends up ranked on one geometry and opened on another.
+ */
 /** A grid step must clear the maker round-trip at least this many times. */
-export const AGENT_SCAN_FEE_FLOOR_MULTIPLE = 3;
+export const AGENT_SCAN_FEE_FLOOR_MULTIPLE = GRID_FEE_FLOOR_MULTIPLE;
 /** Spread above 25% of the grid step eats the edge. */
-export const AGENT_SCAN_MAX_SPREAD_OF_STEP = 0.25;
+export const AGENT_SCAN_MAX_SPREAD_OF_STEP = GRID_MAX_SPREAD_OF_STEP;
 /** Top-of-book liquidity must cover this multiple of the bot margin. */
 export const AGENT_SCAN_MIN_DEPTH_MULTIPLE = 20;
-/** Absolute leverage ceiling for agent-opened grids. */
-export const AGENT_SCAN_MAX_LEVERAGE = 2;
+/** Absolute leverage ceiling for agent-opened grids (same ceiling the plan builder enforces). */
+export const AGENT_SCAN_MAX_LEVERAGE = GRID_PLAN_MAX_LEVERAGE;
 /** Band half-width bounds, in % of price. */
-export const AGENT_SCAN_MIN_HALF_RANGE_PCT = 0.8;
-export const AGENT_SCAN_MAX_HALF_RANGE_PCT = 6;
+export const AGENT_SCAN_MIN_HALF_RANGE_PCT = GRID_MIN_HALF_RANGE_PCT;
+export const AGENT_SCAN_MAX_HALF_RANGE_PCT = GRID_MAX_HALF_RANGE_PCT;
 
 // ---------------------------------------------------------------------------
 // Data source contract (implemented by TradeBot, i.e. TB5 = OKX connectivity only)
@@ -175,17 +190,16 @@ export function computeAgentGridMetrics(input: {
   const pathPerHourPct = hours > 0 ? (pathSum / hours) * 100 : 0;
 
   // --- geometry -------------------------------------------------------------
-  const roundTripFeePct = Math.max(0, Number(input.roundTripFeePct) || 0);
-  const feeFloor = roundTripFeePct * AGENT_SCAN_FEE_FLOOR_MULTIPLE;
-
-  const halfRangePct = round(
-    clamp(1.6 * atrPct, AGENT_SCAN_MIN_HALF_RANGE_PCT, AGENT_SCAN_MAX_HALF_RANGE_PCT),
-    2
-  );
-  const targetStepPct = clamp(0.9 * atrPct, feeFloor, 3);
-  let gridNum = Math.round((2 * halfRangePct) / Math.max(targetStepPct, 0.01));
-  gridNum = Math.round(clamp(gridNum, 4, 20) / 2) * 2; // even counts keep the pivot centred
-  const stepPct = round((2 * halfRangePct) / gridNum, 4);
+  // Delegated to the plan builder: the band / level count / step formula has exactly one
+  // implementation in this repo, and `gridPlan.test.ts` locks this parity.
+  const geo = deriveGridGeometry({
+    atrPct,
+    roundTripFeePct: input.roundTripFeePct,
+    spreadPct: input.spreadPct,
+    fundingRatePct: input.fundingRatePct,
+  });
+  if (!geo) return null;
+  const { halfRangePct, gridNum, stepPct, netPerGridPct, spreadPctOfStep } = geo;
 
   // --- fill statistics ------------------------------------------------------
   const crossingsPerHour = stepPct > 0 ? round(pathPerHourPct / stepPct, 3) : 0;
@@ -193,13 +207,8 @@ export function computeAgentGridMetrics(input: {
   const speedPctPerHour = Math.max(pathPerHourPct * 0.5, atrPct * 0.35, 0.0001);
   const expectedFirstFillMin = round((60 * (stepPct / 2)) / speedPctPerHour, 1);
 
-  const spreadPct = Math.max(0, Number(input.spreadPct) || 0);
-  const fundingDrag = Math.abs(Number(input.fundingRatePct) || 0) * 0.35;
-  const spreadDrag = spreadPct * 0.5;
-  const netPerGridPct = round(stepPct - roundTripFeePct - fundingDrag - spreadDrag, 4);
-
   return {
-    atrPct: round(atrPct, 3),
+    atrPct: geo.atrPct,
     pathPerHourPct: round(pathPerHourPct, 3),
     halfRangePct,
     stepPct,
@@ -207,7 +216,7 @@ export function computeAgentGridMetrics(input: {
     crossingsPerHour,
     expectedFirstFillMin,
     netPerGridPct,
-    spreadPctOfStep: stepPct > 0 ? round(spreadPct / stepPct, 4) : 0,
+    spreadPctOfStep,
   };
 }
 
@@ -217,14 +226,6 @@ export function computeMinLotNotionalUsd(spec: AgentContractSpec, price: number)
   const ctVal = spec.ctVal > 0 ? spec.ctVal : 1;
   return round(minSz * ctVal * price, 4);
 }
-
-const priceDecimals = (tickSz: number) =>
-  tickSz > 0 && Number.isFinite(tickSz) ? Math.max(0, -Math.floor(Math.log10(tickSz) + 1e-9)) : 6;
-
-const snapToTick = (px: number, tickSz: number) => {
-  if (!(tickSz > 0)) return round(px, 6);
-  return round(Math.round(px / tickSz) * tickSz, priceDecimals(tickSz) + 2);
-};
 
 /**
  * Builds one agent-scan opportunity row. Selection is driven by `crossingsPerHour`;
