@@ -30,6 +30,13 @@ import { GridJournal } from '../engine/grid/GridJournal';
 import { resolveGridEnvGate } from '../engine/grid/gridEnvGate';
 import { GridIntentJournal, type GridIntent } from '../engine/grid/GridIntentJournal';
 import { GridReconciler, type GridReconcilePort } from '../engine/grid/GridReconciler';
+import {
+  GridCommandGateway,
+  type GridVenueCreateResult,
+  type GridVenueOrderState,
+  type GridVenuePort,
+} from '../engine/grid/GridCommandGateway';
+import type { DecidedGridGeometry } from '../engine/grid/gridPlan';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
@@ -132,6 +139,7 @@ export class TradeBot {
   private gridIntentStore = new JsonStore<{ intents: GridIntent[] }>('grid_intents.json', { intents: [] });
   private gridIntentJournalInstance?: GridIntentJournal;
   private gridReconcilerInstance?: GridReconciler;
+  private gridGatewayInstance?: GridCommandGateway;
 
   private activeAdapter: IExecutionAdapter;
   private okxAdapter: OKXAdapter;
@@ -384,9 +392,16 @@ export class TradeBot {
             throw new Error('OKX credentials unavailable — cannot reconcile grid intents');
           }
           // One sync against the exchange, then read the engine's authoritative view.
-          await this.nativeGridEngine.syncAndMonitorActiveBots(
+          const sync = await this.nativeGridEngine.syncAndMonitorActiveBots(
             this.configStore.get().killSwitchEngaged === true
           );
+          // A failed OR skipped sync leaves the bot list stale. Reading it as if it were fresh
+          // venue evidence is how an unresolved intent gets declared absent and resent.
+          if (!sync.ok) {
+            throw new Error(
+              `${sync.skipped ? 'sync in progress' : 'sync failed'}: ${sync.error || 'unknown'} — cannot reconcile grid intents`
+            );
+          }
           const bots = this.nativeGridEngine.getAllBots();
           return bots.map((b) => ({
             algoId: String(b.algoId),
@@ -419,8 +434,80 @@ export class TradeBot {
    * Resolves every grid intent whose outcome is unknown. Called once at boot and then on the
    * monitor tick. Never sends anything: it only reads the venue and rewrites the journal.
    */
-  public async reconcileGridIntents(): Promise<void> {
-    try {
+  /**
+   * The single choke point for grid mutations (D4/D8).
+   *
+   * The venue port wraps `sendNativeGridOpen()` — the exact code path that existed before the
+   * gateway, including the 51000 → AUTO_LIMIT → `registerFallbackBot` fallback. Nothing was
+   * duplicated and nothing was deleted: the fallback now happens BEHIND the journal instead of
+   * in front of it, so a grid created through it is also confirmed and reconciled.
+   */
+  public getGridCommandGateway(): GridCommandGateway {
+    if (!this.gridGatewayInstance) {
+      const venue: GridVenuePort = {
+        createGrid: (params) => this.sendNativeGridOpen(params),
+        stopGrid: async (algoId, stopType, reason) => {
+          const res: any = await this.stopNativeGridBot(algoId, stopType, reason);
+          return { success: Boolean(res?.success), error: res?.error };
+        },
+        getOrderState: (algoId) => this.readNativeGridOrderState(algoId),
+      };
+      this.gridGatewayInstance = new GridCommandGateway({
+        journal: this.getGridIntentJournal(),
+        venue,
+        gates: {
+          // The native grid module always talks to the venue the user configured; the kill
+          // switch that guards it is the LIVE one.
+          isKillSwitchEngaged: () => this.isKillSwitchEngagedForMode('LIVE'),
+          executionEnvironment: () =>
+            this.configStore.get().executionMode === 'LIVE' ? 'LIVE' : 'PAPER',
+        },
+        now: () => Date.now(),
+        log: (level, message, details) => {
+          if (level === 'error') {
+            this.logAudit('GRID_RISK_TRIGGERED', `[GridGateway] ${message}`, details);
+          } else {
+            console.log(`[GridGateway] ${message}`, details ?? '');
+          }
+        },
+      });
+    }
+    return this.gridGatewayInstance;
+  }
+
+  /**
+   * Venue view of ONE bot, for the gateway's confirmation step.
+   *
+   * `unknown` is the honest answer whenever OKX could not be asked; `absent` is never claimed
+   * from a failed query — that verdict belongs to the reconciler, which has its own evidence
+   * rules. A TB5 fallback bot (`grid…` id, AUTO_LIMIT path) has no OKX algo at all, so the
+   * local registry IS its authoritative lifecycle.
+   */
+  private async readNativeGridOrderState(algoId: string): Promise<GridVenueOrderState> {
+    const id = String(algoId || '');
+    if (!id) return { state: 'unknown', error: 'empty algoId' };
+
+    const local = this.nativeGridEngine.getAllBots().find((b) => String(b.algoId) === id);
+    const localState = (): GridVenueOrderState['state'] =>
+      local?.state === 'running' ? 'running' : local?.state === 'stopped' ? 'stopped' : 'unknown';
+
+    if (id.toLowerCase().startsWith('grid')) return { state: localState() };
+
+    if (!this.okxAdapter.hasCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) {
+      return { state: local ? localState() : 'unknown', error: 'OKX credentials unavailable' };
+    }
+
+    const details = await this.okxAdapter
+      .getNativeContractGridDetails(id, false)
+      .catch(() => null);
+    const remoteState = String(details?.state || '').toLowerCase();
+    if (remoteState === 'stopped' || remoteState === 'no_close_position') return { state: 'stopped' };
+    if (remoteState === 'running' || remoteState === 'stopping') return { state: 'running' };
+    // Nothing usable from OKX: fall back to what we know locally, or admit we do not know.
+    return { state: local ? localState() : 'unknown' };
+  }
+
+  public async reconcileGridIntents(): Promise<void> {    try {
       const report = await this.getGridReconciler().reconcile();
       if (report.checked > 0) {
         this.logAudit(
@@ -1102,7 +1189,23 @@ export class TradeBot {
       }
 
       if (activeMode === 'LIVE') {
-        await this.nativeGridEngine.syncAndMonitorActiveBots(true).catch(() => {});
+        // This sync is what actually stops the native bots on OKX. Swallowing its failure would
+        // report "kill switch engaged" while live grids kept working on the venue.
+        const sync = await this.nativeGridEngine
+          .syncAndMonitorActiveBots(true)
+          .catch((err: any) => ({
+            ok: false,
+            skipped: false,
+            error: err?.message || String(err),
+          }));
+        if (!sync.ok) {
+          this.logAudit(
+            'KILL_SWITCH_ENGAGED',
+            `ATENTIE: boții nativi OKX nu au putut fi opriți (${
+              sync.skipped ? 'sync deja în curs' : sync.error
+            }). Verifică manual pe OKX.`
+          );
+        }
       }
     } else {
       this.state = 'TRADING';
@@ -1677,11 +1780,106 @@ export class TradeBot {
   }
 
   public async syncNativeGridBots() {
-    await this.nativeGridEngine.syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'));
+    const sync = await this.nativeGridEngine.syncAndMonitorActiveBots(
+      this.isKillSwitchEngagedForMode('LIVE')
+    );
+    if (!sync.ok) {
+      // A concurrent sync is not a failure — someone else is refreshing the same list. A FAILED
+      // one, though, must not be reported as "synced": the caller would read a stale bot list
+      // and believe it is the venue's current truth.
+      if (!sync.skipped) {
+        throw new Error(`OKX sync failed: ${sync.error || 'unknown error'}`);
+      }
+      console.warn('[TradeBot] native grid sync skipped:', sync.error);
+    }
     return this.nativeGridEngine.getAllBots();
   }
 
+  /**
+   * Opens a neutral grid on OKX — THROUGH the gateway, never around it.
+   *
+   * The agent, the autopilot, the UI and the scheduler all reach this single method, so this is
+   * where the choke point belongs: kill switch, geometry validation, intent journal, duplicate
+   * protection and venue confirmation now apply to EVERY caller, not only to the careful one.
+   *
+   * The return shape is unchanged (`{ success, bot, error }`) plus `codes`, so no caller needed
+   * to change — and a caller that ignores `codes` still gets an honest `error` string.
+   */
   public async createNativeGridBot(params: any) {
+    const res = await this.getGridCommandGateway().openWithGeometry(
+      this.decidedGeometryFromParams(params),
+      {
+        runId: typeof params?.runId === 'string' ? params.runId : undefined,
+        // Everything the gateway does not model (SL/TP triggers, fallback switches) travels as
+        // an override. The plan's geometry always wins over it inside `toVenueParams`.
+        venueOverrides: params,
+      }
+    );
+
+    if (!res.ok) {
+      this.logAudit(
+        'GRID_RISK_TRIGGERED',
+        `[GridGateway] Open refused for ${String(params?.instId || 'unknown')}: ${res.codes.join(', ') || 'REFUSED'}`,
+        { codes: res.codes, detail: res.detail, intentId: res.intentId }
+      );
+      return {
+        success: false,
+        error: res.intentId ? `${res.codes.join(', ') || 'REFUSED'}: ${res.detail}` : res.detail,
+        codes: res.codes,
+        intentId: res.intentId,
+        unknownOutcome: res.unknownOutcome === true,
+      };
+    }
+
+    const bot = this.nativeGridEngine
+      .getAllBots()
+      .find((b) => String(b.algoId) === String(res.algoId));
+    if (!bot) {
+      return {
+        success: false,
+        error: `Bot ${res.algoId} is confirmed on the venue but missing from the local registry`,
+        codes: res.codes,
+        intentId: res.intentId,
+      };
+    }
+    return { success: true, bot, codes: res.codes, intentId: res.intentId };
+  }
+
+  /** The decided geometry, in the shape the gateway validates. Never re-derived from ATR here. */
+  private decidedGeometryFromParams(params: any): DecidedGridGeometry {
+    const instId = String(params?.instId || '');
+    let tickSz = Number(params?.tickSz) || 0;
+    if (tickSz <= 0) {
+      try {
+        tickSz = Number(this.universeManager.getInstrumentMetadata(instId)?.tickSz) || 0;
+      } catch {
+        tickSz = 0;
+      }
+    }
+    return {
+      instId,
+      minPx: Number(params?.minPx),
+      maxPx: Number(params?.maxPx),
+      gridNum: Number(params?.gridNum),
+      runType: params?.runType === '2' ? '2' : '1',
+      lever: Number(params?.lever),
+      szUSDT: Number(params?.sz),
+      tickSz,
+      preferNativeAlgo: params?.executionVariant !== 'AUTO_LIMIT',
+    };
+  }
+
+  /**
+   * The raw send, moved here unchanged from `createNativeGridBot()` so the gateway can wrap it.
+   *
+   * It still owns the 51000/51001 fallback: when /tradingBot/grid/order-algo rejects an
+   * `_UM_XPERP` id, the grid goes out through the limit-order route and is registered as a
+   * fallback bot. Every locally decided refusal now also carries a machine-readable `refusal`
+   * code, so the gateway journals a definite rejection instead of guessing from prose.
+   */
+  private async sendNativeGridOpen(
+    params: any
+  ): Promise<GridVenueCreateResult & { bot?: any }> {
     const cfg = this.configStore.get();
     const res: any = await this.nativeGridEngine.createNativeBot({
       ...params,
@@ -1708,15 +1906,17 @@ export class TradeBot {
         allowFlipToLive: cfg.allowGridEnvFlipToLive === true,
       });
       if (!envGate.allowed) {
+        const code = envGate.code || 'ENV_FLIP_REQUIRED';
         this.logAudit('GRID_RISK_TRIGGERED', 'Grid direct-order fallback refused by environment gate', {
           instId: vp.instId,
-          code: envGate.code,
+          code,
           executionMode: cfg.executionMode,
           detail: envGate.detail,
         });
         return {
           success: false,
-          error: `${envGate.code}: ${envGate.detail}`,
+          error: `${code}: ${envGate.detail}`,
+          refusal: { code },
         };
       }
       if (envGate.flipTo === 'LIVE') {
@@ -1790,7 +1990,7 @@ export class TradeBot {
           uTime: now,
         };
         this.nativeGridEngine.registerFallbackBot(fallbackNativeBot);
-        return { success: true, bot: fallbackNativeBot };
+        return { success: true, algoId: gridRes.bot.botId, bot: fallbackNativeBot };
       }
       return {
         success: false,
@@ -1798,7 +1998,15 @@ export class TradeBot {
       };
     }
 
-    return res;
+    return {
+      success: res.success === true && Boolean(res.bot?.algoId),
+      algoId: res.bot?.algoId,
+      error: res.success === true && !res.bot?.algoId
+        ? 'venue reported success without an algoId'
+        : res.error,
+      refusal: res.refusal,
+      bot: res.bot,
+    };
   }
 
   public async amendNativeGridBot(algoId: string, params: any) {

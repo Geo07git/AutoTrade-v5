@@ -92,10 +92,12 @@ export const isResubmittableState = (state: GridIntentState): boolean =>
 export function makeIntentId(
   action: GridIntentAction,
   instId: string,
-  geometryHash?: string
+  geometryHash?: string,
+  nonce?: string
 ): string {
   const suffix = geometryHash ? String(geometryHash) : 'no-geometry';
-  return `${action}:${String(instId)}:${suffix}`;
+  const base = `${action}:${String(instId)}:${suffix}`;
+  return nonce ? `${base}#${String(nonce)}` : base;
 }
 
 export interface GridIntentJournalOptions {
@@ -129,6 +131,20 @@ export class GridIntentJournal {
     return this.list().find((i) => i.intentId === intentId);
   }
 
+  /**
+   * The intent currently in flight or of unknown outcome for this exact geometry, if any.
+   * This — not the id — is what prevents a second send while the first is unresolved.
+   */
+  public findUnresolvedByGeometry(
+    action: GridIntentAction,
+    instId: string,
+    geometryHash?: string
+  ): GridIntent | undefined {
+    return this.unresolved().find(
+      (i) => i.action === action && i.instId === instId && i.geometryHash === geometryHash
+    );
+  }
+
   public findByAlgoId(algoId: string): GridIntent | undefined {
     return this.list().find((i) => i.algoId === algoId);
   }
@@ -159,8 +175,16 @@ export class GridIntentJournal {
     geometry?: GridIntent['geometry'];
     reasonCodes?: string[];
     detail?: string;
+    /**
+     * Makes the id unique even when the geometry repeats.
+     *
+     * Needed for a real second open of the same band at a later time: without it the id of a
+     * finished grid would collide with the new one forever. Duplicate protection for a send
+     * that is genuinely in flight is `findUnresolvedByGeometry`, not the id.
+     */
+    nonce?: string;
   }): GridIntent {
-    const intentId = makeIntentId(input.action, input.instId, input.geometryHash);
+    const intentId = makeIntentId(input.action, input.instId, input.geometryHash, input.nonce);
     const existing = this.find(intentId);
     if (existing) return existing;
 

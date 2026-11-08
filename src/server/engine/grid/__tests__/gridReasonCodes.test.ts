@@ -367,6 +367,7 @@ test('execution codes are labelled too', () => {
   for (const code of [
     'KILL_SWITCH_ENGAGED',
     'ENV_FLIP_REQUIRED',
+    'CREDENTIALS_MISSING',
     'DRY_RUN',
     'NO_CAPITAL',
     'MAX_BOTS_REACHED',

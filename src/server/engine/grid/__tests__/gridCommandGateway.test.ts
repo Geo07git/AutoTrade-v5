@@ -19,7 +19,8 @@ import {
   type GridVenueOrderState,
 } from '../GridCommandGateway';
 import { GridIntentJournal, MemoryIntentStore } from '../GridIntentJournal';
-import type { GridPlanRequest } from '../gridPlan';
+
+import type { GridPlanRequest, DecidedGridGeometry } from '../gridPlan';
 
 // ---------------------------------------------------------------------------
 // Assertions
@@ -349,6 +350,159 @@ test('unresolvedIntents() exposes exactly what a boot must reconcile', async () 
   eq(unresolved.length, 1, 'one unknown intent');
   eq(unresolved[0].state, 'SUBMITTED_UNKNOWN', 'and it is the unknown one');
   eq(journal.unresolved().length, 1, 'the journal agrees with the gateway');
+});
+
+// ---------------------------------------------------------------------------
+// Decided geometry (the path the agent and the autopilot actually use)
+// ---------------------------------------------------------------------------
+
+const decidedGeometry = (over: Partial<DecidedGridGeometry> = {}): DecidedGridGeometry => ({
+  instId: 'LINK-USD_UM_XPERP-310523',
+  minPx: 95,
+  maxPx: 105,
+  gridNum: 4,
+  runType: '1',
+  lever: 2,
+  szUSDT: 11.51,
+  tickSz: 0.01,
+  ...over,
+});
+
+test('a decided geometry is validated, sent once and confirmed', async () => {
+  const { gateway, journal, fake } = makeHarness();
+  const res = await gateway.openWithGeometry(decidedGeometry(), { runId: 'run-9' });
+
+  eq(res.ok, true, 'the open succeeded');
+  eq(fake.createCalls, 1, 'exactly one create');
+  eq(journal.find(res.intentId)?.state, 'CONFIRMED', 'confirmed');
+  const params = fake.lastParams as Record<string, unknown>;
+  eq(params.minPx, 95, 'the DECIDED band is sent, not a re-derived one');
+  eq(params.maxPx, 105, 'upper band unchanged');
+  eq(params.gridNum, 4, 'level count unchanged — the agent ranked these 4 levels');
+  eq(params.sz, '11.51', 'margin unchanged');
+});
+
+test('refusing bad decided geometry never reaches the venue', async () => {
+  const cases: { geo: Partial<DecidedGridGeometry>; code: string }[] = [
+    { geo: { maxPx: 90 }, code: 'GEOMETRY_INVALID' },
+    { geo: { gridNum: 1 }, code: 'GEOMETRY_INVALID' },
+    { geo: { lever: 0 }, code: 'LEVER_INVALID' },
+    { geo: { szUSDT: 0 }, code: 'BUDGET_INVALID' },
+  ];
+  for (const c of cases) {
+    const { gateway, fake } = makeHarness();
+    const res = await gateway.openWithGeometry(decidedGeometry(c.geo));
+    eq(res.ok, false, `${c.code}: refused`);
+    ok(res.codes.includes(c.code as any), `${c.code}: correct code`);
+    eq(fake.createCalls, 0, `${c.code}: nothing was sent`);
+  }
+});
+
+test('the same geometry can be reopened after the previous grid finished', async () => {
+  const { gateway, fake } = makeHarness();
+
+  const first = await gateway.openWithGeometry(decidedGeometry());
+  eq(first.ok, true, 'the first open succeeded');
+
+  // Same band, same levels, later: a legitimately new bot, not a duplicate of a finished one.
+  const second = await gateway.openWithGeometry(decidedGeometry());
+  eq(second.ok, true, 'the second open is allowed');
+  ok(second.intentId !== first.intentId, 'and gets its own intent');
+  eq(fake.createCalls, 2, 'both were sent');
+});
+
+test('an UNRESOLVED identical geometry still blocks the send', async () => {
+  const { gateway, journal, fake } = makeHarness({
+    createResult: () => {
+      throw new Error('timeout of 20000ms exceeded');
+    },
+  });
+
+  const first = await gateway.openWithGeometry(decidedGeometry());
+  eq(first.unknownOutcome, true, 'the first attempt is unknown');
+
+  const second = await gateway.openWithGeometry(decidedGeometry());
+  eq(second.ok, false, 'the retry is refused');
+  ok(second.codes.includes('INTENT_DUPLICATE'), 'as a duplicate');
+  eq(second.unknownOutcome, true, 'and the caller is told the outcome is unknown');
+  eq(fake.createCalls, 1, 'the venue saw exactly ONE create');
+  eq(journal.unresolved().length, 1, 'one unresolved intent remains for the reconciler');
+});
+
+test('the kill switch blocks the decided path too, before any journal entry', async () => {
+  const { gateway, journal, fake } = makeHarness({ killSwitch: true });
+  const res = await gateway.openWithGeometry(decidedGeometry());
+
+  eq(res.ok, false, 'refused');
+  ok(res.codes.includes('KILL_SWITCH_ENGAGED'), 'with the kill-switch code');
+  eq(fake.createCalls, 0, 'nothing sent');
+  eq(journal.list().length, 0, 'nothing journaled');
+});
+
+test('a locally decided refusal is final, not an unknown outcome', () => {
+  // The env gate refuses BEFORE the network; treating that as "unknown" would leave the desk
+  // waiting for a reconciliation that can never resolve anything.
+  eq(isDefiniteRejection('ENV_FLIP_REQUIRED: nothing was sent'), true, 'coded refusal is final');
+  eq(isDefiniteRejection('KILL_SWITCH_ENGAGED: blocked'), true, 'kill switch is final');
+  eq(isDefiniteRejection('timeout of 20000ms exceeded'), false, 'a timeout is NOT final');
+  eq(isDefiniteRejection('socket hang up'), false, 'a socket error is NOT final');
+});
+
+test('a machine-readable refusal keeps its own code and is never in flight', async () => {
+  const { gateway, journal, fake } = makeHarness({
+    createResult: () => ({
+      success: false,
+      error: 'ENV_FLIP_REQUIRED: LIVE is required but the app is configured for PAPER',
+      refusal: { code: 'ENV_FLIP_REQUIRED' },
+    }),
+  });
+
+  const first = await gateway.openWithGeometry(decidedGeometry());
+  eq(first.ok, false, 'refused');
+  eq(first.codes[0], 'ENV_FLIP_REQUIRED', 'the refusal code travels, not a generic rejection');
+  eq(first.unknownOutcome, undefined, 'a local refusal is never an unknown outcome');
+  eq(journal.find(first.intentId)?.state, 'REJECTED', 'journaled as rejected');
+  ok(
+    journal.find(first.intentId)?.reasonCodes.includes('ENV_FLIP_REQUIRED'),
+    'and the code is in the journal'
+  );
+  eq(fake.createCalls, 1, 'the single call was refused locally, nothing more was sent');
+
+  // Nothing is in flight, so the next attempt is allowed — and it must not be mistaken for a
+  // duplicate of a grid that may exist.
+  const second = await gateway.openWithGeometry(decidedGeometry());
+  eq(fake.createCalls, 2, 'the retry reaches the venue');
+  eq(second.codes[0], 'ENV_FLIP_REQUIRED', 'and is refused again for the same honest reason');
+});
+
+test('an unregistered refusal code degrades to GATEWAY_REJECTED instead of inventing one', async () => {
+  const { gateway, journal } = makeHarness({
+    createResult: () => ({ success: false, error: 'nope', refusal: { code: 'NOT_A_REAL_CODE' } }),
+  });
+  const res = await gateway.openWithGeometry(decidedGeometry());
+  eq(res.codes[0], 'GATEWAY_REJECTED', 'unknown codes are not forwarded to the journal/UI');
+  eq(journal.find(res.intentId)?.state, 'REJECTED', 'still a definite rejection');
+});
+
+test('venue overrides can add fields but never re-point the geometry', async () => {
+  const { gateway, fake } = makeHarness();
+  await gateway.openWithGeometry(decidedGeometry(), {
+    venueOverrides: {
+      slTriggerPx: 90,
+      tpTriggerPx: 110,
+      minPx: 1,
+      maxPx: 999,
+      gridNum: 99,
+      instId: 'SOMEONE-ELSES-INSTRUMENT',
+    },
+  });
+  const params = fake.lastParams as Record<string, unknown>;
+  eq(params.slTriggerPx, 90, 'the stop-loss trigger is carried through');
+  eq(params.tpTriggerPx, 110, 'the take-profit trigger is carried through');
+  eq(params.minPx, 95, 'the validated band wins over a late override');
+  eq(params.maxPx, 105, 'upper band wins too');
+  eq(params.gridNum, 4, 'level count wins');
+  eq(params.instId, 'LINK-USD_UM_XPERP-310523', 'the instrument cannot be swapped at the last moment');
 });
 
 // ---------------------------------------------------------------------------

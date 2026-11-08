@@ -67,6 +67,7 @@ export type GridExecutionCode =
   // gates
   | 'KILL_SWITCH_ENGAGED'
   | 'ENV_FLIP_REQUIRED'
+  | 'CREDENTIALS_MISSING'
   | 'DRY_RUN'
   // budget
   | 'NO_CAPITAL'
@@ -153,6 +154,7 @@ export const GRID_REASON_MESSAGES_RO: Record<GridReasonCode, string> = {
 
   KILL_SWITCH_ENGAGED: 'Kill switch activ',
   ENV_FLIP_REQUIRED: 'Schimbarea mediului de executie cere aprobare explicita',
+  CREDENTIALS_MISSING: 'Cheile API OKX lipsesc sau sunt invalide',
   DRY_RUN: 'Mod simulare: plan validat, nimic trimis',
   NO_CAPITAL: 'Fara capital disponibil dupa rezerva',
   MAX_BOTS_REACHED: 'Numar maxim de boti atins',
@@ -178,6 +180,21 @@ export const GRID_REASON_MESSAGES_RO: Record<GridReasonCode, string> = {
   RECONCILE_AMBIGUOUS: 'Reconciliere ambigua: mai multi candidati, nu se ghiceste',
   RECONCILE_UNAVAILABLE: 'Reconciliere imposibila: venue indisponibil, nimic modificat',
 };
+
+// ---------------------------------------------------------------------------
+// Runtime guard
+// ---------------------------------------------------------------------------
+
+/**
+ * True when a string is one of the registered codes.
+ *
+ * Needed because a refusal can arrive as a plain string from a port that deliberately does not
+ * import this union (the venue port). Validating it HERE keeps the journal and the UI from ever
+ * displaying an unregistered "code" that no classifier can interpret.
+ */
+export function isGridReasonCode(value: unknown): value is GridReasonCode {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(GRID_REASON_MESSAGES_RO, value);
+}
 
 // ---------------------------------------------------------------------------
 // Plan refusal -> execution code

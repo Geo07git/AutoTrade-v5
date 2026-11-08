@@ -305,6 +305,101 @@ const reject = (codes: GridPlanRejectionCode[], detail: string): GridPlanRejecti
 });
 
 /**
+ * Geometry that was already DECIDED upstream (agent, autopilot, operator) and only needs to be
+ * validated, hashed and made sendable.
+ *
+ * Why this is not `buildGridPlan()`: by the time the agent asks to open, it has already chosen
+ * band, level count, leverage and margin from its own scan. Re-deriving them from ATR here would
+ * silently execute a DIFFERENT grid than the one that was ranked and shown to the operator.
+ * This path therefore validates what it was given and refuses nonsense — it never invents.
+ */
+export interface DecidedGridGeometry {
+  instId: string;
+  minPx: number;
+  maxPx: number;
+  gridNum: number;
+  runType?: '1' | '2';
+  lever: number;
+  /** Margin decided upstream, in USDT. */
+  szUSDT: number;
+  /** Price increment, used only for the geometry fingerprint. */
+  tickSz?: number;
+  /** True only when the native algo gateway was observed to accept this instId. */
+  preferNativeAlgo?: boolean;
+}
+
+/**
+ * Validates decided geometry into a plan.
+ *
+ * Deliberately does NOT apply `GRID_PLAN_MAX_LEVERAGE`: that ceiling belongs to the derivation
+ * of a *recommendation*. Refusing an execution because a recommendation rule changed would
+ * block the desk from managing grids it already decided to run.
+ */
+export function buildGridPlanFromGeometry(input: DecidedGridGeometry): GridPlanResult {
+  const instId = String(input.instId || '').trim();
+  if (!instId) return reject(['GEOMETRY_INVALID'], 'Instrument lipsă');
+
+  const minPx = Number(input.minPx);
+  const maxPx = Number(input.maxPx);
+  if (!Number.isFinite(minPx) || !(minPx > 0)) {
+    return reject(['GEOMETRY_INVALID'], `Limită inferioară invalidă (${input.minPx})`);
+  }
+  if (!Number.isFinite(maxPx) || !(maxPx > minPx)) {
+    return reject(['GEOMETRY_INVALID'], `Bandă invalidă [${input.minPx} – ${input.maxPx}]`);
+  }
+
+  const gridNum = Math.round(Number(input.gridNum));
+  if (!Number.isFinite(gridNum) || gridNum < 2 || gridNum > 500) {
+    return reject(['GEOMETRY_INVALID'], `Număr de grile invalid (${input.gridNum})`);
+  }
+
+  const lever = Math.round(Number(input.lever));
+  if (!Number.isFinite(lever) || lever < 1 || lever > 20) {
+    return reject(['LEVER_INVALID'], `Levier invalid (${input.lever})`);
+  }
+
+  const szCents = Math.round(usdToCents(Number(input.szUSDT)));
+  if (szCents <= 0) {
+    return reject(['BUDGET_INVALID'], `Marjă invalidă (${input.szUSDT} USDT)`);
+  }
+
+  const tickSz = Number(input.tickSz) > 0 ? Number(input.tickSz) : 0;
+  const runType: '1' | '2' = input.runType === '2' ? '2' : '1';
+  const midPx = (minPx + maxPx) / 2;
+  const stepPct = midPx > 0 ? round(((maxPx - minPx) / gridNum / midPx) * 100, 4) : 0;
+  const halfRangePct = midPx > 0 ? round((((maxPx - minPx) / 2) / midPx) * 100, 4) : 0;
+
+  const isXPerp = instId.includes('_UM_XPERP');
+  const variant: GridExecutionVariant =
+    input.preferNativeAlgo === true || !isXPerp ? 'NATIVE_ALGO' : 'AUTO_LIMIT';
+
+  return {
+    ok: true,
+    plan: {
+      instId,
+      minPx,
+      maxPx,
+      gridNum,
+      runType,
+      lever,
+      stepPct,
+      halfRangePct,
+      // Bookkeeping only — the decided path does not use volatility for geometry.
+      atrPct: 0,
+      crossingsPerHour: 0,
+      netPerGridPct: 0,
+      spreadPctOfStep: 0,
+      szCents,
+      minInvCents: 0,
+      requestedCents: szCents,
+      availableCapCents: szCents,
+      variant,
+      geometryHash: geometryHash({ instId, minPx, maxPx, gridNum, runType, lever, tickSz }),
+    },
+  };
+}
+
+/**
  * Turns a requested configuration into a sendable plan, or refuses it with codes.
  *
  * Order of evaluation is part of the contract — the cheapest checks run first so a refusal

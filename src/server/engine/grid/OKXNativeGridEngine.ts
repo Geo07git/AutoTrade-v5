@@ -42,6 +42,20 @@ export const DEFAULT_NATIVE_GRID_AUTOPILOT: NativeGridAutopilotConfig = {
   lastDecision: 'Modul OKX Native Futures Grid pregătit (Execuție directă LIVE pe OKX EEA).',
 };
 
+/**
+ * Outcome of one venue sync.
+ *
+ * The bot list is only VENUE EVIDENCE when `ok` is true. A failed sync and a skipped one (a
+ * sync was already running) both leave the list stale; reporting them as success is how the
+ * reconciler used to conclude "the bot is absent" and authorise a resend.
+ */
+export interface NativeGridSyncResult {
+  ok: boolean;
+  /** True when a concurrent sync was already running, so nothing was refreshed. */
+  skipped: boolean;
+  error?: string;
+}
+
 export class OKXNativeGridEngine {
   private okxAdapter: OKXAdapter;
   private universeManager: UniverseManager;
@@ -916,11 +930,19 @@ export class OKXNativeGridEngine {
     error?: string;
     needsDirectOrderFallback?: boolean;
     validatedParams?: any;
+    /**
+     * Set ONLY when nothing was sent: the request was refused by a local rule (kill switch,
+     * missing keys, invalid band, below the venue minimum). Machine-readable so the command
+     * gateway can journal a definite rejection instead of parsing the error prose and treating
+     * a local refusal as a possibly-in-flight order.
+     */
+    refusal?: { code: string };
   }> {
     const cfg = this.getConfig();
     if (params.killSwitchEngaged) {
       return {
         success: false,
+        refusal: { code: 'KILL_SWITCH_ENGAGED' },
         error: 'Kill Switch de urgență este activat. Lansarea boților nativi OKX este blocată.',
       };
     }
@@ -929,6 +951,7 @@ export class OKXNativeGridEngine {
     if (!instId.includes('_UM_XPERP')) {
       return {
         success: false,
+        refusal: { code: 'GEOMETRY_INVALID' },
         error: `Instrument invalid (${instId}): Modulul OKX Native Grid acceptă exclusiv contracte FUTURES X-Perp (_UM_XPERP).`,
       };
     }
@@ -938,6 +961,7 @@ export class OKXNativeGridEngine {
     if (!this.okxAdapter.hasCredentials()) {
       return {
         success: false,
+        refusal: { code: 'CREDENTIALS_MISSING' },
         error: 'Cheile API OKX EEA nu sunt configurate în backend. Configurează-le în tabul [6:API].',
       };
     }
@@ -958,6 +982,7 @@ export class OKXNativeGridEngine {
     if (minPx <= 0 || maxPx <= minPx) {
       return {
         success: false,
+        refusal: { code: 'GEOMETRY_INVALID' },
         error: 'Interval de preț invalid: minPx trebuie să fie pozitiv și mai mic decât maxPx.',
       };
     }
@@ -990,7 +1015,7 @@ export class OKXNativeGridEngine {
         `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy} pentru ${gridNum} grile la ` +
         `${lever}x (minim OKX brut: ${Number(minInv.minInvestmentUSDT).toFixed(4)} ${minInv.ccy}).`;
       this.journal.logAudit('CANDIDATE_REJECTED', `[OKX NATIVE GRID RESPINS] ${instId}: ${msg}`);
-      return { success: false, error: msg };
+      return { success: false, error: msg, refusal: { code: 'BUDGET_BELOW_MIN' } };
     }
 
     // Make the raise visible: the agent journals ITS OWN request (e.g. $7.31) while the live
@@ -1509,8 +1534,17 @@ export class OKXNativeGridEngine {
    * - Evaluates risk triggers (Stop Loss %, Take Profit %, range breakout, liquidation proximity < 3.5%,
    *   and market regime invalidation TRENDING_RISK) and automatically stops the bot on OKX.
    */
-  public async syncAndMonitorActiveBots(killSwitchEngaged: boolean = false): Promise<void> {
-    if (this.isMonitoring || !this.okxAdapter.hasCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) return;
+  public async syncAndMonitorActiveBots(
+    killSwitchEngaged: boolean = false
+  ): Promise<NativeGridSyncResult> {
+    if (!this.okxAdapter.hasCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) {
+      return { ok: false, skipped: false, error: 'OKX credentials unavailable' };
+    }
+    if (this.isMonitoring) {
+      // Not an error, but NOT fresh evidence either: the list this caller is about to read may
+      // be mid-update. Say so instead of returning silently as if the sync had run.
+      return { ok: false, skipped: true, error: 'a sync is already in progress' };
+    }
     this.isMonitoring = true;
 
     try {
@@ -1639,8 +1673,14 @@ export class OKXNativeGridEngine {
       if (changed) {
         this.persistBots();
       }
+
+      return { ok: true, skipped: false };
     } catch (err: any) {
-      console.warn('[OKXNativeGridEngine] Monitor error:', err?.message || err);
+      const message = err?.message || String(err);
+      console.warn('[OKXNativeGridEngine] Monitor error:', message);
+      // Propagate the failure as a VALUE. A caller that turns this into "no bots on the venue"
+      // would be inventing a verdict out of an outage.
+      return { ok: false, skipped: false, error: message };
     } finally {
       this.isMonitoring = false;
     }

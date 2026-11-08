@@ -19,7 +19,14 @@
  * Pure with respect to time/IO: clock and sleep are injected.
  */
 
-import { buildGridPlan, isGridPlanRejection, type GridPlan, type GridPlanRequest } from './gridPlan';
+import {
+  buildGridPlan,
+  buildGridPlanFromGeometry,
+  isGridPlanRejection,
+  type DecidedGridGeometry,
+  type GridPlan,
+  type GridPlanRequest,
+} from './gridPlan';
 import {
   GridIntentJournal,
   makeIntentId,
@@ -27,6 +34,7 @@ import {
   type GridIntentAction,
 } from './GridIntentJournal';
 import {
+  isGridReasonCode,
   planRejectionToReasonCode,
   type GridReasonCode,
 } from './gridReasonCodes';
@@ -39,6 +47,16 @@ export interface GridVenueCreateResult {
   success: boolean;
   algoId?: string;
   error?: string;
+  /**
+   * Set ONLY when the refusal was decided LOCALLY, before anything reached the network
+   * (kill switch, missing credentials, environment gate, band below the venue minimum).
+   *
+   * Why a field and not prose: parsing the error string to guess whether an order could be in
+   * flight is exactly the fragility this gateway exists to remove. `code` is a plain string so
+   * the venue port does not have to import the reason-code union; the gateway validates it with
+   * `isGridReasonCode()` before trusting it.
+   */
+  refusal?: { code: string };
 }
 
 export interface GridVenueStopResult {
@@ -81,6 +99,17 @@ export interface GridCommandGatewayOptions {
   log?: (level: 'info' | 'warn' | 'error', message: string, details?: unknown) => void;
 }
 
+export interface GridOpenMeta {
+  /** Agent cycle / UI action that produced the request. */
+  runId?: string;
+  /**
+   * Fields the gateway does not model and must not invent: stop-loss/take-profit triggers,
+   * fallback switches. They are MERGED UNDER the plan, so a caller can never override the
+   * geometry the gateway validated and journaled.
+   */
+  venueOverrides?: Record<string, unknown>;
+}
+
 export interface GridOpenResult {
   ok: boolean;
   intentId: string;
@@ -91,7 +120,6 @@ export interface GridOpenResult {
   /** True when the venue may or may not hold the bot — reconcile, never resend. */
   unknownOutcome?: boolean;
 }
-
 export interface GridCloseResult {
   ok: boolean;
   intentId: string;
@@ -112,6 +140,8 @@ export class GridCommandGateway {
   private journal: GridIntentJournal;
   private venue: GridVenuePort;
   private gates: GridGatewayGates;
+  /** Makes intent ids unique per open without reusing a finished one. */
+  private openSeq = 0;
 
   constructor(opts: GridCommandGatewayOptions) {
     this.opts = opts;
@@ -142,7 +172,8 @@ export class GridCommandGateway {
    * Order of operations is the safety property: gates → plan → journal → send → confirm.
    * Nothing is sent on the strength of a hope.
    */
-  public async openFromPlan(req: GridPlanRequest, meta: { runId?: string } = {}): Promise<GridOpenResult> {
+
+  public async openFromPlan(req: GridPlanRequest, meta: GridOpenMeta = {}): Promise<GridOpenResult> {
     // 1. Gate: kill switch. No journal entry, no plan, no network.
     if (this.gates.isKillSwitchEngaged()) {
       this.log('warn', 'grid open blocked: kill switch engaged', { instId: req.instId });
@@ -166,9 +197,86 @@ export class GridCommandGateway {
       };
     }
     const plan = built.plan;
+    return this.runOpen(plan, meta, false);
+  }
 
+  /**
+   * Opens a grid whose geometry was already DECIDED upstream (agent, autopilot, operator).
+   *
+   * Difference from `openFromPlan`: the geometry is validated, not derived. The agent ranked
+   * this exact band and level count, so re-deriving them from ATR here would send a different
+   * grid than the one that was approved.
+   *
+   * Duplicate protection differs too, on purpose: the identity is "is there an UNRESOLVED
+   * intent for this geometry right now", not "has this geometry ever been used". A finished
+   * grid must not block the same band from being opened again later — while a timed-out send
+   * still blocks a resend, which is the property that matters.
+   */
+  public async openWithGeometry(
+    geometry: DecidedGridGeometry,
+
+    meta: GridOpenMeta = {}
+  ): Promise<GridOpenResult> {
+    if (this.gates.isKillSwitchEngaged()) {
+      this.log('warn', 'grid open blocked: kill switch engaged', { instId: geometry.instId });
+      return {
+        ok: false,
+        intentId: '',
+        codes: ['KILL_SWITCH_ENGAGED'],
+        detail: 'Kill switch engaged — no grid may be opened',
+      };
+    }
+
+    const built = buildGridPlanFromGeometry(geometry);
+    if (isGridPlanRejection(built)) {
+      this.log('warn', 'grid open refused by geometry', {
+        instId: geometry.instId,
+        codes: built.codes,
+      });
+      return {
+        ok: false,
+        intentId: '',
+        codes: built.codes.map(planRejectionToReasonCode),
+        detail: built.detail,
+      };
+    }
+
+    return this.runOpen(built.plan, meta, true);
+  }
+
+  /**
+   * Steps 3-6, shared by both open entries: journal → gate on the journal → send → confirm.
+   *
+   * `uniqueIntent` selects the identity model (see `openWithGeometry`).
+   */
+  private async runOpen(
+    plan: GridPlan,
+
+    meta: GridOpenMeta,
+    uniqueIntent: boolean
+  ): Promise<GridOpenResult> {
     // 3. Journal BEFORE the network. A crash from here on leaves a record that something
     //    might exist, which is exactly what reconciliation needs.
+    if (uniqueIntent) {
+      const inFlight = this.journal.findUnresolvedByGeometry('OPEN', plan.instId, plan.geometryHash);
+      if (inFlight) {
+        this.log('error', 'grid open blocked: identical geometry already in flight or unknown', {
+          instId: plan.instId,
+          intentId: inFlight.intentId,
+          state: inFlight.state,
+        });
+        return {
+          ok: false,
+          intentId: inFlight.intentId,
+          codes: ['INTENT_DUPLICATE'],
+          detail: `Intent ${inFlight.intentId} is ${inFlight.state} — reconcile before resending`,
+          plan,
+          unknownOutcome: inFlight.state === 'SUBMITTED_UNKNOWN' || inFlight.state === 'SUBMITTING',
+        };
+      }
+    }
+
+    this.openSeq += 1;
     const intent = this.journal.plan({
       action: 'OPEN',
       instId: plan.instId,
@@ -185,6 +293,7 @@ export class GridCommandGateway {
         runType: String(plan.runType),
       },
       detail: `env=${this.gates.executionEnvironment()} sz=${plan.szCents / 100} USDT`,
+      nonce: uniqueIntent ? `${this.opts.now()}#${this.openSeq}` : undefined,
     });
 
     if (!this.journal.canSubmit(intent.intentId)) {
@@ -221,7 +330,9 @@ export class GridCommandGateway {
     this.journal.transition(intent.intentId, 'SUBMITTING');
     let created: GridVenueCreateResult;
     try {
-      created = await this.venue.createGrid(toVenueParams(plan, this.gates.executionEnvironment()));
+      created = await this.venue.createGrid(
+        toVenueParams(plan, this.gates.executionEnvironment(), meta.venueOverrides)
+      );
     } catch (err: any) {
       // A thrown call is the canonical "unknown" case: the request may have been processed.
       return this.markUnknown(intent, 'OPEN', err?.message || 'createGrid threw', plan);
@@ -229,6 +340,25 @@ export class GridCommandGateway {
 
     if (!created?.success) {
       const detail = created?.error || 'venue rejected the grid';
+      // A refusal decided LOCALLY (env gate, kill switch, missing keys, band below the venue
+      // minimum) is final by construction: nothing was sent, so nothing can be in flight.
+      // It is checked BEFORE any string heuristics and keeps its own code.
+      const refusalCode = created?.refusal?.code;
+      if (refusalCode) {
+        const codes: GridReasonCode[] = isGridReasonCode(refusalCode)
+          ? [refusalCode]
+          : ['GATEWAY_REJECTED'];
+        this.journal.settle(intent.intentId, 'REJECTED', {
+          lastError: detail,
+          reasonCodes: codes,
+        });
+        this.log('warn', 'grid open refused before sending', {
+          instId: plan.instId,
+          code: refusalCode,
+          detail,
+        });
+        return { ok: false, intentId: intent.intentId, codes, detail, plan };
+      }
       // Only call it rejected when the venue was explicit; anything vaguer stays unknown.
       if (isDefiniteRejection(detail)) {
         this.journal.settle(intent.intentId, 'REJECTED', {
@@ -471,12 +601,22 @@ export function isDefiniteRejection(error: string | undefined): boolean {
   }
   if (/\b(timeout|timed out|network|unreachable|socket hang up)\b/i.test(text)) return false;
   // Numeric OKX codes and explicit validation failures are final.
-  return /^\d{3,6}\b/.test(text) || /\b(invalid|insufficient|rejected|not allowed|below|exceeds)\b/i.test(text);
+  // A leading `CODE:` is a refusal decided LOCALLY before the network (kill switch, env gate),
+  // so it is final by construction — nothing was sent, nothing can be in flight.
+  return (
+    /^[A-Z][A-Z_]{3,}:/.test(text) ||
+    /^\d{3,6}\b/.test(text) ||
+    /\b(invalid|insufficient|rejected|not allowed|below|exceeds)\b/i.test(text)
+  );
 }
 
 /** The plan, in the shape the venue adapter expects. Kept in one place on purpose. */
-export function toVenueParams(plan: GridPlan, environment: 'LIVE' | 'DEMO' | 'PAPER'): Record<string, unknown> {
-  return {
+export function toVenueParams(
+  plan: GridPlan,
+  environment: 'LIVE' | 'DEMO' | 'PAPER',
+  overrides?: Record<string, unknown>
+): Record<string, unknown> {
+  const params: Record<string, unknown> = {
     instId: plan.instId,
     algoOrdType: 'contract_grid',
     direction: 'neutral',
@@ -492,4 +632,8 @@ export function toVenueParams(plan: GridPlan, environment: 'LIVE' | 'DEMO' | 'PA
     environment,
     geometryHash: plan.geometryHash,
   };
+  // Overrides come FIRST so every field above wins. A caller may add stop-loss triggers or a
+  // fallback switch; it may never re-point the band, the level count or the leverage that the
+  // gateway validated and journaled a moment ago.
+  return overrides ? { ...overrides, ...params } : params;
 }
