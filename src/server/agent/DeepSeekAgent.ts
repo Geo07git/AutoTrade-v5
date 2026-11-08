@@ -1690,12 +1690,23 @@ export class DeepSeekAgent {
           explicitLiveConfirm: true,
         });
         const algoId = res?.bot?.algoId;
-        const adjusted =
-          action.szRequested && Math.abs(action.szRequested - action.sz) > 0.001
-            ? ` — marjă ridicată de la $${rnd(action.szRequested)} la minimul OKX`
-            : '';
+        // The engine may raise sz to OKX's LIVE minimum for this exact geometry (a tighter
+        // range with 4 grids needs more margin than the scan's estimate). Report what was
+        // ACTUALLY sent, never the approved request: the old message printed "$7.31" while
+        // OKX received $11.92, which is what made the rejection look inexplicable.
+        const sentSz = Number(res?.bot?.sz) > 0 ? Number(res.bot.sz) : Number(action.sz);
+        const raiseNotes: string[] = [];
+        if (action.szRequested && Math.abs(action.szRequested - action.sz) > 0.001) {
+          raiseNotes.push(`model $${rnd(action.szRequested)} → $${rnd(action.sz)}`);
+        }
+        if (sentSz > action.sz + 0.001) {
+          raiseNotes.push(
+            `$${rnd(action.sz)} → $${rnd(sentSz)} (minim OKX pentru ${action.gridNum} grile la ${action.lever}x)`
+          );
+        }
+        const adjusted = raiseNotes.length > 0 ? ` — marjă ridicată: ${raiseNotes.join(', ')}` : '';
         const message = res?.success
-          ? `Bot deschis pe ${action.instId} ($${rnd(action.sz)} @ ${action.lever}x, ${action.gridNum} grile)${adjusted}${algoId ? ` — algoId ${algoId}` : ''}.`
+          ? `Bot deschis pe ${action.instId} ($${rnd(sentSz)} @ ${action.lever}x, ${action.gridNum} grile)${adjusted}${algoId ? ` — algoId ${algoId}` : ''}.`
           : `Deschidere respinsă pe ${action.instId}: ${res?.error || 'eroare necunoscută'}`;
         this.deps.logAudit(
           res?.success ? 'GRID_CREATED' : 'ORDER_REJECTED',

@@ -18,6 +18,7 @@ import {
   selectActiveRangeVariant,
 } from './GridRangeVariants';
 import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
+import { resolveNativeGridSize } from './nativeGridSizing';
 
 export const DEFAULT_NATIVE_GRID_AUTOPILOT: NativeGridAutopilotConfig = {
   enabled: false,
@@ -971,25 +972,38 @@ export class OKXNativeGridEngine {
       lever,
     });
 
-    // OKX answers with 4 decimals (e.g. 11.9108). Rounding that DOWN to cents produced
-    // sz = 11.91 < 11.9108, and the strict check below rejected a grid whose two numbers are
-    // identical on screen ("$11.91 sub $11.91"). Every requirement rounds UP, to cents, and
-    // the float noise is stripped first (5.11 * 100 === 510.99999999999994) so a cent-boundary
-    // amount cannot jump a cent above the minimum or above the budget.
-    const toCents = (usd: number) =>
-      Number.isFinite(usd) && usd > 0 ? Math.round(usd * 1e6) / 1e4 : 0;
-    const minInvCents = minInv.minInvestmentUSDT > 0 ? Math.ceil(toCents(minInv.minInvestmentUSDT)) : 0;
-    const budgetCents = Math.round(toCents(Math.max(baseSz, cfg.maxBudgetPerBotUSDT)));
-    const fitsBudget = minInvCents === 0 || minInvCents <= budgetCents;
-    const szCents = Math.max(500, Math.round(toCents(baseSz)), fitsBudget ? minInvCents : 0);
-    const sz = szCents / 100;
+    // Sizing is decided in integer cents — see nativeGridSizing.ts. The OKX minimum is a
+    // FLOOR that must be rounded UP, and the comparison must never mix a rounded sz with a
+    // 4-decimal requirement: that exact combination rejected a grid while printing
+    // "$11.91 sub $11.91" on screen (min 11.9108, sz 11.91).
+    const sizePlan = resolveNativeGridSize({
+      requestedUSDT: baseSz,
+      minInvestmentUSDT: minInv.minInvestmentUSDT,
+      maxBudgetUSDT: cfg.maxBudgetPerBotUSDT,
+    });
+    const sz = sizePlan.szCents / 100;
 
-    if (minInvCents > 0 && szCents < minInvCents) {
-      const msg = `Investiția alocată ($${sz.toFixed(2)}) este sub investiția minimă cerută de OKX ($${Number(
-        minInv.minInvestmentUSDT.toFixed(4)
-      )} ${minInv.ccy}) pentru ${gridNum} grile la ${lever}x.`;
+    if (sizePlan.belowMinimum) {
+      // Both numbers are printed from the SAME unit (cents), so they are always distinct.
+      const msg =
+        `Investiția alocată ($${sz.toFixed(2)}) este sub minimul OKX de ` +
+        `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy} pentru ${gridNum} grile la ` +
+        `${lever}x (minim OKX brut: ${Number(minInv.minInvestmentUSDT).toFixed(4)} ${minInv.ccy}).`;
       this.journal.logAudit('CANDIDATE_REJECTED', `[OKX NATIVE GRID RESPINS] ${instId}: ${msg}`);
       return { success: false, error: msg };
+    }
+
+    // Make the raise visible: the agent journals ITS OWN request (e.g. $7.31) while the live
+    // OKX minimum for this exact geometry demands more. Raising silently is what made the log
+    // look like OKX invented $11.91 out of nowhere.
+    if (sizePlan.raised) {
+      this.journal.logAudit(
+        'CANDIDATE_SELECTED',
+        `[OKX NATIVE GRID SIZING] ${instId}: marjă ridicată de la ` +
+          `$${(sizePlan.requestedCents / 100).toFixed(2)} la $${sz.toFixed(2)} — minimul real ` +
+          `OKX pentru ${gridNum} grile la ${lever}x este ` +
+          `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy}.`
+      );
     }
 
     const stopLossPct = Number(params.stopLossPct ?? cfg.stopLossPct ?? 8.0);
