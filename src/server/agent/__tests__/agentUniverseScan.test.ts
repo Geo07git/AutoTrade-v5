@@ -206,7 +206,10 @@ test('opportunity: a wide spread against the step is rejected', () => {
   ok(/Spread/i.test(row.rejectionReason || ''), `unexpected reason: ${row.rejectionReason}`);
 });
 
-test('opportunity: a minimum lot that does not fit the budget is rejected', () => {
+test('opportunity: an estimated minimum above the budget is ADVISORY, not a rejection', () => {
+  // 1 lot = 100 x 100 USDT, so `1 lot x gridNum / lever` is far above the 12 USDT budget.
+  // That number is a LOCAL estimate, never an OKX answer (ETH 8 grids / 10x estimated $14.55
+  // while OKX ran the grid on $5.00), so it must flag the candidate instead of deleting it.
   const row = buildAgentOpportunity({
     spec: spec({ minSz: 100, ctVal: 1 }),
     ticker: ticker(),
@@ -215,8 +218,14 @@ test('opportunity: a minimum lot that does not fit the budget is rejected', () =
     settings,
   })!;
 
-  eq(row.isEligible, false, '1 lot x gridNum must fit inside the budget');
-  ok(/Marj/i.test(row.rejectionReason || ''), `unexpected reason: ${row.rejectionReason}`);
+  eq(row.requiresLiveProbe, true, 'the estimate must be flagged for a live probe');
+  eq(row.isEligible, true, 'the local 1-lot estimate must not block the candidate');
+  eq(row.rejectionReason, undefined, 'no rejection may come from the estimate');
+  eq(row.fitsMaxBudget, false, 'the estimate is still reported honestly');
+  ok(
+    row.reasons.some((r) => /proba live/i.test(r)),
+    `the reason must say the live probe decides, got: ${row.reasons.join(' | ')}`
+  );
 });
 
 test('opportunity: thin top-of-book liquidity is rejected', () => {

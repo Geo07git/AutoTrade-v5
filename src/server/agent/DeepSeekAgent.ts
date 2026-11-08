@@ -1379,13 +1379,26 @@ export class DeepSeekAgent {
         // budget, and is only ever RAISED to the floor — it is never lowered below it.
         const sizePlan = resolveOpenSize(Number(action.sz), minInv, cfg.budgetPerBotUSDT);
         const sz = sizePlan.sz;
-        if (minInv > 0 && sz < minInv - 1e-9) {
+        if (!candidate.requiresLiveProbe && minInv > 0 && sz < minInv - 1e-9) {
           reject(
             `Investiția ${sz.toFixed(2)}$ este sub minimul OKX de ${minInv.toFixed(2)}$ pentru ${candidate.instId} (buget/bot ${cfg.budgetPerBotUSDT}$, marjă totală rămasă ${rnd(
               Math.max(0, cfg.maxTotalMarginUSDT - marginUsed)
             )}$).`
           );
           continue;
+        }
+        // `minInv` comes from the agent's own scan and is a LOCAL estimate, not an OKX answer —
+        // ETH at 8 grids / 10x estimated $14.55 while OKX ran the grid on $5.00. When the scan
+        // flagged the candidate `requiresLiveProbe`, pre-rejecting on that number would delete
+        // exactly the contracts that fit. The engine probes the live minimum and either opens
+        // (raising sz, never past the budget) or refuses with the venue's own message.
+        if (candidate.requiresLiveProbe) {
+          this.deps.logAudit(
+            'CANDIDATE_SELECTED',
+            `[DEEPSEEK AGENT] ${candidate.instId}: estimarea de marjă $${minInv.toFixed(
+              2
+            )} nu este o limită OKX — trimis la proba live, decide engine-ul (buget ${cfg.budgetPerBotUSDT}$).`
+          );
         }
         if (sizePlan.raised) {
           this.deps.logAudit(

@@ -277,9 +277,21 @@ export function buildAgentOpportunity(input: {
       `Spread ${round(metrics.spreadPctOfStep * 100, 1)}% din pas (max ${AGENT_SCAN_MAX_SPREAD_OF_STEP * 100}%)`
     );
   }
-  if (minGridMarginUsd > budget) {
-    reject(
-      `Marjă minimă ${minGridMarginUsd}$ (1 lot x ${metrics.gridNum} grile / ${lever}x) peste bugetul ${budget}$`
+  // ADVISORY, not a gate.
+  //
+  // This number is `1 lot x gridNum / lever` computed locally — it is NOT an OKX answer. Against
+  // the live venue it is wrong by a wide margin: ETH at 8 grids / 10x estimates $14.55, while OKX
+  // accepted and ran that exact geometry with $5.00 of margin (algoId grid_eth_mw7p6epf).
+  // Rejecting on it deleted every "expensive" contract from the universe before the agent ever
+  // looked at it, which is why the same few cheap symbols were picked forever.
+  //
+  // The engine calls `calculateGridMinInvestment` live at create time and is the only authority on
+  // the real floor, so the scan hands the candidate over instead of pre-judging it.
+  const requiresLiveProbe = minGridMarginUsd > budget;
+  if (requiresLiveProbe) {
+    reasons.push(
+      `marjă estimată ${minGridMarginUsd}$ peste bugetul ${budget}$ (1 lot x ${metrics.gridNum} grile / ${lever}x)` +
+        ` — estimare locală, nu o limită OKX: se trimite la proba live`
     );
   }
   if (book.depthUsd < AGENT_SCAN_MIN_DEPTH_MULTIPLE * budget) {
@@ -341,6 +353,7 @@ export function buildAgentOpportunity(input: {
     minInvestmentCcy: 'USDT',
     recommendedInvestmentUSDT: round(Math.min(budget, Math.max(minGridMarginUsd, budget)), 2),
     fitsMaxBudget: minGridMarginUsd <= budget,
+    requiresLiveProbe,
     estimatedGrossProfitPerGridPct: metrics.stepPct,
     estimatedNetProfitPerGridPct: metrics.netPerGridPct,
     estimatedDailyNetYieldPct: dailyYieldPct,

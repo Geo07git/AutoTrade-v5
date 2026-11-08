@@ -893,6 +893,30 @@ test('own scan: a 4-decimal OKX minimum opens with a size above it', async () =>
   ok(h.calls.created[0].sz <= 12, 'sz must stay within the 12 USDC budget');
 });
 
+test('own scan: a candidate flagged requiresLiveProbe reaches the engine instead of being rejected', async () => {
+  // PUMP-class case: the local 1-lot estimate ($20) sits above the $12 budget, but it is not an
+  // OKX limit. The agent must hand it over and let the engine probe the real minimum.
+  const h = makeAgent({
+    snapshot: { freeBalance: 15, equity: 15, marginInvested: 0 },
+    ownScan: [agentRow({ minInvestmentUSDT: 20, fitsMaxBudget: false, requiresLiveProbe: true })],
+  });
+  await armAutonomous(h, {
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(
+    h.calls.created.length,
+    1,
+    'an estimate above the budget must not pre-reject the candidate: the engine owns the floor'
+  );
+  ok(h.calls.created[0].sz <= 12, 'sz must still respect the budget, live probe or not');
+});
+
 test('tokens: cost is computed from the editable per-1M prices', async () => {
   const prices = {
     pricePer1MInputUSD: 0.27,

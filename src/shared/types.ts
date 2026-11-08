@@ -354,6 +354,12 @@ export interface NativeGridOpportunity {
   minInvestmentCcy: string;
   recommendedInvestmentUSDT: number;
   fitsMaxBudget: boolean;
+  /**
+   * true = `minInvestmentUSDT` is only a LOCAL estimate (1 lot x gridNum / lever) that exceeds
+   * the budget, so it must NOT be used as a rejection gate. The engine probes
+   * `calculateGridMinInvestment` live at create time and owns the decision.
+   */
+  requiresLiveProbe?: boolean;
   estimatedGrossProfitPerGridPct: number;
   estimatedNetProfitPerGridPct: number; // After real OKX maker fee & funding
   estimatedDailyNetYieldPct: number;
