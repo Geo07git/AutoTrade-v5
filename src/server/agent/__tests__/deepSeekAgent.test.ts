@@ -21,6 +21,8 @@ import path from 'path';
 import {
   DeepSeekAgent,
   DEFAULT_DEEPSEEK_AGENT_CONFIG,
+  computeDeepSeekCostUSD,
+  estimateTokensFromText,
   type DeepSeekAccountSnapshot,
   type DeepSeekAgentDeps,
 } from '../DeepSeekAgent';
@@ -40,6 +42,12 @@ const ok = (cond: unknown, msg: string): void => {
 const eq = (actual: unknown, expected: unknown, msg: string): void => {
   if (actual !== expected) {
     throw new Error(`${msg} (expected ${String(expected)}, got ${String(actual)})`);
+  }
+};
+
+const near = (actual: number, expected: number, tolerance: number, msg: string): void => {
+  if (!Number.isFinite(actual) || Math.abs(actual - expected) > tolerance) {
+    throw new Error(`${msg} (expected ~${expected}, got ${actual})`);
   }
 };
 
@@ -294,6 +302,8 @@ async function armAutonomous(h: Harness, over: Record<string, any> = {}) {
     budgetPerBotUSDT: 20,
     minReserveUSDT: 10,
     maxConcurrentBots: 2,
+    // The fixture's OKX minimum (18 USDC) must not trip the desk margin ceiling here.
+    maxTotalMarginUSDT: 200,
     minSuitabilityScore: 70,
     minNetProfitPerGridPct: 0.05,
     maxActionsPerCycle: 2,
@@ -337,6 +347,7 @@ test('ADVISOR mode: proposes but never executes', async () => {
     notifyTelegram: false,
     // The fixture's OKX minimum is 18 USDT; the shipped default budget is 12.
     budgetPerBotUSDT: 20,
+    maxTotalMarginUSDT: 200,
   });
 
   const decision = await h.agent.runCycle('MANUAL');
@@ -805,7 +816,7 @@ test('config: invalid values are clamped, never trusted', async () => {
 
   eq(cfg.mode, 'OFF', 'an unknown mode must collapse to OFF');
   eq(cfg.runIntervalSec, 60, 'interval must clamp to the 60s floor');
-  eq(cfg.maxConcurrentBots, 2, 'maxConcurrentBots must clamp to the agreed ceiling of 2');
+  eq(cfg.maxConcurrentBots, 5, 'maxConcurrentBots must clamp to the 5-slot ceiling');
   eq(cfg.budgetPerBotUSDT, 12, 'a zero budget must fall back to the 12 USDT default');
   eq(cfg.maxLeverage, 2, 'leverage must clamp to the agreed ceiling of 2x');
   eq(cfg.minSuitabilityScore, 30, 'score floor must clamp to 30');
@@ -825,12 +836,95 @@ test('config: the capital envelope is enforced, not suggested', async () => {
     universeScanSize: 500,
   });
 
-  eq(cfg.budgetPerBotUSDT, 50, 'per-bot budget cannot exceed the 50 USDC ceiling');
-  eq(cfg.maxTotalMarginUSDT, 40, 'total margin cannot exceed the 40 USDC ceiling');
-  eq(cfg.minReserveUSDT, 10, 'the 10 USDC reserve is mandatory');
+  eq(cfg.budgetPerBotUSDT, 500, 'per-bot budget is the owner call, capped only at 500 USDC');
+  eq(cfg.maxTotalMarginUSDT, 500, 'desk margin ceiling follows the same ceiling');
+  eq(cfg.minReserveUSDT, 0, 'a zero reserve must be accepted (15 USDC account)');
   eq(cfg.cooldownMinutesPerSymbol, 45, 'a zero cooldown is refused (45 min floor)');
   eq(cfg.universeScanSize, 60, 'the deep scan is capped at 60 contracts');
   eq(cfg.ownUniverseScan, true, 'the agent-owned scan is the default selection path');
+});
+
+test('config: defaults fit a 15 USDC account (12 budget, 1 slot, no reserve)', async () => {
+  const h = makeAgent();
+  const cfg = h.agent.getConfig();
+
+  eq(cfg.budgetPerBotUSDT, 12, 'one grid = 12 USDC');
+  eq(cfg.maxConcurrentBots, 1, 'a single margin slot');
+  eq(cfg.minReserveUSDT, 0, 'no reserve, otherwise 12 + reserve > 15 and nothing opens');
+  eq(cfg.maxTotalMarginUSDT, 12, 'desk ceiling = one grid');
+  eq(cfg.maxLeverage, 2, 'leverage stays at 2x');
+});
+
+test('guard: a 15 USDC account opens a 12 USDC bot (reserve 0, one slot)', async () => {
+  const h = makeAgent({
+    snapshot: { freeBalance: 15, equity: 15, marginInvested: 0 },
+    ownScan: [agentRow()],
+  });
+  await armAutonomous(h, {
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 1, 'the 12 USDC grid must be allowed on a 15 USDC balance');
+  ok(h.calls.created[0].sz <= 12, 'size must stay within the 12 USDC budget');
+});
+
+test('tokens: cost is computed from the editable per-1M prices', async () => {
+  const prices = {
+    pricePer1MInputUSD: 0.27,
+    pricePer1MInputCachedUSD: 0.07,
+    pricePer1MOutputUSD: 1.1,
+  };
+
+  // 100k prompt (20k cached) + 2k completion
+  const cost = computeDeepSeekCostUSD(
+    { promptTokens: 100_000, cachedPromptTokens: 20_000, completionTokens: 2_000 },
+    prices
+  );
+  const expected = (80_000 / 1e6) * 0.27 + (20_000 / 1e6) * 0.07 + (2_000 / 1e6) * 1.1;
+  near(cost, expected, 1e-9, 'cache-hit tokens must be billed at the cheaper tier');
+  const noCacheCost = computeDeepSeekCostUSD(
+    { promptTokens: 100_000, completionTokens: 2_000 },
+    prices
+  );
+  ok(cost < noCacheCost, 'a cache hit must be cheaper than a full miss');
+  near(
+    noCacheCost,
+    (100_000 / 1e6) * 0.27 + (2_000 / 1e6) * 1.1,
+    1e-9,
+    'without cache data the whole prompt is billed as a miss'
+  );
+});
+
+test('tokens: prompt estimate is chars/4 and never zero for a real prompt', async () => {
+  eq(estimateTokensFromText(''), 0, 'an empty prompt has no tokens');
+  eq(estimateTokensFromText('a'.repeat(400)), 100, '4 characters ~ 1 token');
+  ok(estimateTokensFromText('x'.repeat(401)) === 101, 'partial tokens round UP');
+});
+
+test('tokens: status exposes cumulative usage and a monthly estimate', async () => {
+  const h = makeAgent();
+  await armAutonomous(h, { runIntervalSec: 300 });
+
+  const usage = h.agent.getStatus().tokenUsage;
+
+  eq(usage.apiCalls, 0, 'no call yet: the account is clean');
+  eq(usage.totalTokens, 0, 'no tokens spent yet');
+  ok(usage.estimatedPromptTokensPerCycle > 1000, 'the system prompt alone is >1000 tokens');
+  eq(usage.cyclesPerDay, 288, '288 cycles/day at a 5 min cadence (86400/300)');
+  ok(usage.estimatedCostPerMonthUSD > 0, 'a monthly projection must be shown');
+  ok(
+    usage.estimatedCostPerMonthUSD < 30,
+    `the projection must stay realistic for a 288-cycles/day cadence (got ${usage.estimatedCostPerMonthUSD})`
+  );
+  ok(
+    usage.estimatedCostPerCycleUSD < 0.01,
+    `one cycle must cost fractions of a cent (got ${usage.estimatedCostPerCycleUSD})`
+  );
 });
 
 test('config: the passive-bot threshold cannot be set below 60 min', async () => {

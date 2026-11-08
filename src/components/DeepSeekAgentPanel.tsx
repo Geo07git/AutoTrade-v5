@@ -5,6 +5,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   Clock,
+  Coins,
   Eye,
   Key,
   Play,
@@ -38,6 +39,7 @@ interface AgentFormState {
   maxConcurrentBots: string;
   budgetPerBotUSDT: string;
   minReserveUSDT: string;
+  maxTotalMarginUSDT: string;
   maxLeverage: string;
   minSuitabilityScore: string;
   minNetProfitPerGridPct: string;
@@ -48,6 +50,9 @@ interface AgentFormState {
   hardMaxNoFillMinutes: string;
   temperature: string;
   maxTokens: string;
+  pricePer1MInputUSD: string;
+  pricePer1MInputCachedUSD: string;
+  pricePer1MOutputUSD: string;
 }
 
 const n = (v: unknown, fallback = 0): number => {
@@ -121,19 +126,23 @@ const actionLabel = (action: any): string => {
 const formFromConfig = (cfg?: DeepSeekAgentConfig): AgentFormState => ({
   runIntervalSec: String(cfg?.runIntervalSec ?? 300),
   maxActionsPerCycle: String(cfg?.maxActionsPerCycle ?? 1),
-  maxConcurrentBots: String(cfg?.maxConcurrentBots ?? 2),
-  budgetPerBotUSDT: String(cfg?.budgetPerBotUSDT ?? 20),
-  minReserveUSDT: String(cfg?.minReserveUSDT ?? 10),
-  maxLeverage: String(cfg?.maxLeverage ?? 5),
+  maxConcurrentBots: String(cfg?.maxConcurrentBots ?? 1),
+  budgetPerBotUSDT: String(cfg?.budgetPerBotUSDT ?? 12),
+  minReserveUSDT: String(cfg?.minReserveUSDT ?? 0),
+  maxTotalMarginUSDT: String(cfg?.maxTotalMarginUSDT ?? 12),
+  maxLeverage: String(cfg?.maxLeverage ?? 2),
   minSuitabilityScore: String(cfg?.minSuitabilityScore ?? 70),
   minNetProfitPerGridPct: String(cfg?.minNetProfitPerGridPct ?? 0.1),
-  cooldownMinutesPerSymbol: String(cfg?.cooldownMinutesPerSymbol ?? 30),
+  cooldownMinutesPerSymbol: String(cfg?.cooldownMinutesPerSymbol ?? 45),
   dailyLossLimitUSDT: String(cfg?.dailyLossLimitUSDT ?? 25),
   hardStopLossPct: String(cfg?.hardStopLossPct ?? 12),
   hardMinLiqDistancePct: String(cfg?.hardMinLiqDistancePct ?? 15),
   hardMaxNoFillMinutes: String(cfg?.hardMaxNoFillMinutes ?? 180),
   temperature: String(cfg?.temperature ?? 0.2),
-  maxTokens: String(cfg?.maxTokens ?? 1200),
+  maxTokens: String(cfg?.maxTokens ?? 1600),
+  pricePer1MInputUSD: String(cfg?.pricePer1MInputUSD ?? 0.27),
+  pricePer1MInputCachedUSD: String(cfg?.pricePer1MInputCachedUSD ?? 0.07),
+  pricePer1MOutputUSD: String(cfg?.pricePer1MOutputUSD ?? 1.1),
 });
 
 export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
@@ -340,25 +349,30 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
       {
         runIntervalSec: n(form.runIntervalSec, 300),
         maxActionsPerCycle: n(form.maxActionsPerCycle, 1),
-        maxConcurrentBots: n(form.maxConcurrentBots, 2),
-        budgetPerBotUSDT: n(form.budgetPerBotUSDT, 20),
-        minReserveUSDT: n(form.minReserveUSDT, 10),
-        maxLeverage: n(form.maxLeverage, 5),
+        maxConcurrentBots: n(form.maxConcurrentBots, 1),
+        budgetPerBotUSDT: n(form.budgetPerBotUSDT, 12),
+        minReserveUSDT: n(form.minReserveUSDT, 0),
+        maxTotalMarginUSDT: n(form.maxTotalMarginUSDT, 12),
+        maxLeverage: n(form.maxLeverage, 2),
         minSuitabilityScore: n(form.minSuitabilityScore, 70),
         minNetProfitPerGridPct: n(form.minNetProfitPerGridPct, 0.1),
-        cooldownMinutesPerSymbol: n(form.cooldownMinutesPerSymbol, 30),
+        cooldownMinutesPerSymbol: n(form.cooldownMinutesPerSymbol, 45),
         dailyLossLimitUSDT: n(form.dailyLossLimitUSDT, 25),
         hardStopLossPct: n(form.hardStopLossPct, 12),
         hardMinLiqDistancePct: n(form.hardMinLiqDistancePct, 15),
         hardMaxNoFillMinutes: n(form.hardMaxNoFillMinutes, 180),
         temperature: n(form.temperature, 0.2),
-        maxTokens: n(form.maxTokens, 1200),
+        maxTokens: n(form.maxTokens, 1600),
+        pricePer1MInputUSD: n(form.pricePer1MInputUSD, 0.27),
+        pricePer1MInputCachedUSD: n(form.pricePer1MInputCachedUSD, 0.07),
+        pricePer1MOutputUSD: n(form.pricePer1MOutputUSD, 1.1),
       },
       'Limite si guardrails'
     );
   }, [form, saveConfig]);
 
   const snapshot = status?.accountSnapshot;
+  const usage = status?.tokenUsage;
   const decisions = useMemo(() => (status?.decisions || []).slice(0, 6), [status?.decisions]);
   const mode = status?.mode || 'OFF';
   const autonomousOnPaper = mode === 'AUTONOMOUS' && snapshot?.executionMode === 'PAPER';
@@ -683,7 +697,8 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-2">
           {numberField('Interval ciclu (s)', 'runIntervalSec', 'clamp 60-3600s', '30')}
           {numberField('Buget / bot (U)', 'budgetPerBotUSDT', 'plafon dur per grid', '1')}
-          {numberField('Rezerva libera (U)', 'minReserveUSDT', 'cash care nu se atinge', '1')}
+          {numberField('Rezerva libera (U)', 'minReserveUSDT', 'cash care nu se atinge (0 = acceptat)', '1')}
+          {numberField('Marja totala desk (U)', 'maxTotalMarginUSDT', 'plafon cumulat al agentului', '1')}
           {numberField('Max boti simultan', 'maxConcurrentBots', 'sloturi gestionate', '1')}
           {numberField('Levier maxim', 'maxLeverage', 'clamp 1-20x', '1')}
           {numberField('Scor minim', 'minSuitabilityScore', '0-100, prag eligibilitate', '1')}
@@ -725,6 +740,62 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* ================= TOKEN USAGE / API COST ================= */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="text-[11px] font-bold text-violet-300 flex items-center gap-1.5 uppercase tracking-wide">
+            <Coins className="w-3.5 h-3.5" /> Consum tokeni si cost API
+          </h3>
+          <span className="text-[9px] text-zinc-500 font-mono">
+            {usage?.apiCalls ?? 0} apeluri · {usage?.cyclesPerDay ?? 0} cicluri/zi la{' '}
+            {cfg?.runIntervalSec ?? '--'}s
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-1.5">
+          {[
+            [
+              'ULTIMUL CICLU',
+              `${money(usage?.lastPromptTokens, 0)} in / ${money(usage?.lastCompletionTokens, 0)} out`,
+            ],
+            ['COST ULTIMUL CICLU', `$${money(usage?.lastCostUSD, 4)}`],
+            ['TOTAL TOKENI', money(usage?.totalTokens, 0)],
+            ['COST CUMULAT', `$${money(usage?.costUSD, 4)}`],
+            [
+              'ESTIMAT / CICLU',
+              `${money(usage?.estimatedPromptTokensPerCycle, 0)} in + ${money(
+                usage?.estimatedCompletionTokensPerCycle,
+                0
+              )} out · $${money(usage?.estimatedCostPerCycleUSD, 4)}`,
+            ],
+            [
+              'ESTIMAT / ZI · LUNĂ',
+              `$${money(usage?.estimatedCostPerDayUSD, 3)} · $${money(usage?.estimatedCostPerMonthUSD, 2)}`,
+            ],
+          ].map(([k, v]) => (
+            <div key={k} className="bg-black/60 border border-zinc-800 rounded px-1.5 py-1">
+              <div className="text-[9px] text-zinc-500 uppercase">{k}</div>
+              <div className="font-mono text-[10px] text-zinc-300 truncate" title={v}>
+                {v}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-zinc-500 leading-relaxed">
+          Consumul afisat este cel raportat de API (prompt + completion, inclusiv cache hit);
+          costul este o <b className="text-zinc-300">estimare</b> calculata cu preturile de mai
+          jos, nu o factura. Promptul se masoara inainte de apel (~4 caractere/token), deci
+          estimarea apare si daca apelul esueaza.
+        </p>
+
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-800">
+          {numberField('Pret input $/1M', 'pricePer1MInputUSD', 'cache miss', '0.01')}
+          {numberField('Pret input cache $/1M', 'pricePer1MInputCachedUSD', 'cache hit', '0.01')}
+          {numberField('Pret output $/1M', 'pricePer1MOutputUSD', 'completion', '0.01')}
         </div>
       </div>
 
@@ -776,6 +847,9 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
                   <span className="text-zinc-600">
                     tok {d.promptTokens}/{d.completionTokens ?? 0}
                   </span>
+                ) : null}
+                {d.costUSD ? (
+                  <span className="text-violet-400/80">${money(d.costUSD, 4)}</span>
                 ) : null}
                 <span className="text-zinc-500">
                   incredere {Math.round((d.confidence || 0) * 100)}%

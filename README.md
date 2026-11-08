@@ -329,13 +329,14 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `maxTokens` | 1600 | 400-8000 | buget de răspuns |
 | `runIntervalSec` | 300 | 60-3600 | perioada ciclului |
 | `maxActionsPerCycle` | 2 | 1-5 | câte acțiuni poate propune |
-| `maxConcurrentBots` | 2 | 1-10 | câți boți gestionează |
-| `budgetPerBotUSDT` | 20 | 5-1000 | marjă maximă per grid |
-| `minReserveUSDT` | 10 | 0-10000 | cash care nu se atinge |
-| `maxLeverage` | 5 | 1-20 | plafon levier |
+| `maxConcurrentBots` | 1 | 1-5 | câți boți gestionează |
+| `budgetPerBotUSDT` | 12 | 5-500 | marjă maximă per grid |
+| `minReserveUSDT` | 0 | 0-10000 | cash care nu se atinge (0 = acceptat pe un cont de 15 USDC) |
+| `maxTotalMarginUSDT` | 12 | 5-500 | plafon de marjă cumulat al agentului (1 grid) |
+| `maxLeverage` | 2 | 1-2 | plafon levier |
 | `minSuitabilityScore` | 70 | 30-98 | prag eligibilitate |
 | `minNetProfitPerGridPct` | 0.05 | 0.01-5 | profit net minim per grilă |
-| `cooldownMinutesPerSymbol` | 30 | 0-1440 | pauză după deschidere pe simbol |
+| `cooldownMinutesPerSymbol` | 45 | 45-1440 | pauză după stop/deschidere pe simbol |
 | `dailyLossLimitUSDT` | 25 | 0-100000 | blocaj la pierdere pe sesiune |
 | `maxOpportunitiesInPrompt` | 12 | 3-30 | câți candidați intră în prompt |
 | `allowedSymbols` / `blockedSymbols` | `[]` | — | white/blacklist |
@@ -347,8 +348,16 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `hardStopLossPct` | 12 | 2-60 | guardrail SL (% din marjă) |
 | `hardMinLiqDistancePct` | 12 | 3-60 | guardrail distanță lichidare |
 | `hardMaxNoFillMinutes` | 180 | 60-1440 | guardrail „0 arbitraje” (sub 60 min = fals pozitiv garantat) |
+| `ownUniverseScan` | `true` | bool | scan propriu al agentului (crossings/h), nu scorurile aplicației |
+| `universeScanSize` | 25 | 5-60 | câte contracte intră în scanul adânc |
+| `minCrossingsPerHour` | 0.35 | 0.05-5 | prag sub care nu deschide |
+| `stopIfPassive` | `true` | bool | oprește un bot fără arbitraje doar după deadline-ul recalculat |
+| `preferNativeAlgo` | `true` | bool | grid nativ OKX (ignorat pe `_UM_XPERP`) |
+| `pricePer1MInputUSD` / `pricePer1MInputCachedUSD` / `pricePer1MOutputUSD` | 0.27 / 0.07 / 1.10 | 0-1000 | doar pentru **estimarea** costului API din tab |
 
 Contoare read-only: `totalCycles`, `totalActionsExecuted`, `totalErrors`, `consecutiveErrors`, `symbolCooldowns`, `lastDecisionAt`, `lastError`.
+
+Consum API (`usage`, persistat): `apiCalls`, `promptTokens`, `cachedPromptTokens`, `completionTokens`, `costUSD`, `lastCallAt`, `lastPromptTokens`, `lastCompletionTokens`, `lastLatencyMs`, `lastCostUSD`. Statusul expune `tokenUsage` cu totaluri plus estimarea pe ciclu / zi / lună (la `runIntervalSec` curent; ex. 300 s = 288 cicluri/zi).
 
 ---
 

@@ -555,7 +555,12 @@ export interface DeepSeekAgentDecision {
   dryRun: boolean;
   latencyMs: number;
   promptTokens?: number;
+  cachedPromptTokens?: number;
   completionTokens?: number;
+  /** Size of the prompt measured before the call (chars / 4). */
+  estimatedPromptTokens?: number;
+  /** Estimated USD cost of this cycle (prices are editable in the DeepSeek tab). */
+  costUSD?: number;
   marketRegime: string;
   summaryRo: string;
   confidence: number;
@@ -639,6 +644,51 @@ export interface DeepSeekAgentConfig {
   totalErrors: number;
   consecutiveErrors: number;
   symbolCooldowns?: Record<string, number>;
+  /** Persisted DeepSeek API consumption (survives restarts; store is gitignored). */
+  usage?: DeepSeekUsageStats;
+  /** USD per 1M tokens: used ONLY to estimate the API cost shown in the DeepSeek tab. */
+  pricePer1MInputUSD: number;
+  pricePer1MInputCachedUSD: number;
+  pricePer1MOutputUSD: number;
+}
+
+/** Raw, persisted API consumption counters. */
+export interface DeepSeekUsageStats {
+  apiCalls: number;
+  promptTokens: number;
+  cachedPromptTokens: number;
+  completionTokens: number;
+  costUSD: number;
+  lastCallAt?: number;
+  lastPromptTokens?: number;
+  lastCompletionTokens?: number;
+  lastLatencyMs?: number;
+  lastCostUSD?: number;
+}
+
+/** Token / cost view rendered in the DeepSeek tab (actual counters + forward estimate). */
+export interface DeepSeekTokenUsage {
+  apiCalls: number;
+  promptTokens: number;
+  cachedPromptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costUSD: number;
+  lastCallAt?: number;
+  lastPromptTokens: number;
+  lastCompletionTokens: number;
+  lastLatencyMs: number;
+  lastCostUSD: number;
+  /** Prompt size measured before the API call (chars / 4) on the latest cycle. */
+  estimatedPromptTokensPerCycle: number;
+  estimatedCompletionTokensPerCycle: number;
+  estimatedCostPerCycleUSD: number;
+  cyclesPerDay: number;
+  estimatedCostPerDayUSD: number;
+  estimatedCostPerMonthUSD: number;
+  pricePer1MInputUSD: number;
+  pricePer1MInputCachedUSD: number;
+  pricePer1MOutputUSD: number;
 }
 
 export interface DeepSeekAgentStatus {
@@ -663,6 +713,7 @@ export interface DeepSeekAgentStatus {
   };
   lastDecision?: DeepSeekAgentDecision;
   decisions: DeepSeekAgentDecision[];
+  tokenUsage: DeepSeekTokenUsage;
   config: DeepSeekAgentConfig;
 }
 

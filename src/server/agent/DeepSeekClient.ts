@@ -26,7 +26,11 @@ export interface DeepSeekChatResult {
   model: string;
   latencyMs: number;
   promptTokens: number;
+  /** Subset of promptTokens served from DeepSeek's prompt cache (cheaper tier). */
+  cachedPromptTokens: number;
   completionTokens: number;
+  /** Reasoning tokens (deepseek-reasoner only); already included in completionTokens. */
+  reasoningTokens: number;
   finishReason: string;
   attempts: number;
 }
@@ -231,7 +235,12 @@ export class DeepSeekClient {
           model: data?.model || model,
           latencyMs,
           promptTokens: Number(data?.usage?.prompt_tokens) || 0,
+          cachedPromptTokens:
+            Number(data?.usage?.prompt_cache_hit_tokens) ||
+            Number(data?.usage?.prompt_tokens_details?.cached_tokens) ||
+            0,
           completionTokens: Number(data?.usage?.completion_tokens) || 0,
+          reasoningTokens: Number(data?.usage?.completion_tokens_details?.reasoning_tokens) || 0,
           finishReason: String(data?.choices?.[0]?.finish_reason || 'stop'),
           attempts: attempt,
         };

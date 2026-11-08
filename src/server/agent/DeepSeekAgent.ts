@@ -26,6 +26,8 @@ import {
   DeepSeekAgentStatus,
   DeepSeekActionResult,
   DeepSeekRejectedAction,
+  DeepSeekTokenUsage,
+  DeepSeekUsageStats,
   NativeGridOpportunity,
   OKXNativeGridBot,
 } from '../../shared/types';
@@ -100,15 +102,30 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   maxTokens: 1600,
   runIntervalSec: 300,
   maxActionsPerCycle: 2,
-  // 1 slot at launch; the owner may raise it to 2 after the first validated runs.
+  // 1 slot at launch; the owner may raise it later.
   maxConcurrentBots: 1,
   budgetPerBotUSDT: 12,
-  minReserveUSDT: 10,
+  // 0 reserve: the live account holds ~15 USDC, and a 10 USDC reserve on top of a 12 USDC
+  // budget meant the agent could never open anything (12 + 10 > 15).
+  minReserveUSDT: 0,
   maxLeverage: 2,
   minSuitabilityScore: 70,
   minNetProfitPerGridPct: 0.05,
   cooldownMinutesPerSymbol: 45,
-  maxTotalMarginUSDT: 40,
+  // Desk ceiling sized for the real account: one 12 USDC grid. Raise it only with equity.
+  maxTotalMarginUSDT: 12,
+  // DeepSeek list prices, USD per 1M tokens. Editable in the DeepSeek tab — the cost shown
+  // is an ESTIMATE computed from these numbers, never a billed amount.
+  pricePer1MInputUSD: 0.27,
+  pricePer1MInputCachedUSD: 0.07,
+  pricePer1MOutputUSD: 1.1,
+  usage: {
+    apiCalls: 0,
+    promptTokens: 0,
+    cachedPromptTokens: 0,
+    completionTokens: 0,
+    costUSD: 0,
+  },
   ownUniverseScan: true,
   universeScanSize: 25,
   minCrossingsPerHour: 0.35,
@@ -137,6 +154,50 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
 
 const MAX_DECISION_HISTORY = 100;
 const MAX_SYMBOL_COOLDOWNS = 200;
+
+// ---------------------------------------------------------------------------
+// Token / cost helpers (exported for the regression suite)
+// ---------------------------------------------------------------------------
+
+/** Empty consumption counters. */
+export function emptyUsageStats(): DeepSeekUsageStats {
+  return {
+    apiCalls: 0,
+    promptTokens: 0,
+    cachedPromptTokens: 0,
+    completionTokens: 0,
+    costUSD: 0,
+  };
+}
+
+/**
+ * Rough prompt size in tokens. DeepSeek/OpenAI tokenizers average ~4 characters per token
+ * for JSON-heavy English/Romanian text, which is enough to plan a budget before the call.
+ */
+export function estimateTokensFromText(text: string): number {
+  const length = String(text || '').length;
+  return length === 0 ? 0 : Math.ceil(length / 4);
+}
+
+/** USD cost of ONE call, from the (editable) per-1M-token prices. */
+export function computeDeepSeekCostUSD(
+  usage: { promptTokens: number; cachedPromptTokens?: number; completionTokens: number },
+  prices: {
+    pricePer1MInputUSD: number;
+    pricePer1MInputCachedUSD: number;
+    pricePer1MOutputUSD: number;
+  }
+): number {
+  const prompt = Math.max(0, Number(usage.promptTokens) || 0);
+  const cached = Math.min(prompt, Math.max(0, Number(usage.cachedPromptTokens) || 0));
+  const uncached = prompt - cached;
+  const completion = Math.max(0, Number(usage.completionTokens) || 0);
+  const cost =
+    (uncached / 1_000_000) * (Number(prices.pricePer1MInputUSD) || 0) +
+    (cached / 1_000_000) * (Number(prices.pricePer1MInputCachedUSD) || 0) +
+    (completion / 1_000_000) * (Number(prices.pricePer1MOutputUSD) || 0);
+  return Math.round(cost * 1e6) / 1e6;
+}
 
 // =============================================================================
 // PROMPTS
@@ -302,12 +363,14 @@ export class DeepSeekAgent {
       preferNativeAlgo: stored.preferNativeAlgo !== false,
       stopIfPassive: stored.stopIfPassive !== false,
     };
-    return merged;
+    // Clamp on READ as well: a legacy stored file (leverage 10x, cooldown 0, no-fill 20 min)
+    // must never reach the decision pipeline unchecked.
+    return this.normaliseConfig(merged);
   }
 
-  public updateConfig(updates: Partial<DeepSeekAgentConfig>): DeepSeekAgentConfig {
-    const current = this.getConfig();
-    const next: DeepSeekAgentConfig = { ...current, ...updates };
+  /** Single source of truth for the numeric/enum envelopes. Idempotent. */
+  private normaliseConfig(input: DeepSeekAgentConfig): DeepSeekAgentConfig {
+    const next: DeepSeekAgentConfig = { ...input };
 
     if (next.mode !== 'ADVISOR' && next.mode !== 'AUTONOMOUS') next.mode = 'OFF';
     next.model = String(next.model || DEEPSEEK_CHAT_MODEL).trim() || DEEPSEEK_CHAT_MODEL;
@@ -316,22 +379,27 @@ export class DeepSeekAgent {
     next.maxTokens = clamp(Math.round(Number(next.maxTokens) || 1600), 400, 8000);
     next.runIntervalSec = clamp(Math.round(Number(next.runIntervalSec) || 300), 60, 3600);
     next.maxActionsPerCycle = clamp(Math.round(Number(next.maxActionsPerCycle) || 2), 1, 5);
-    next.maxConcurrentBots = clamp(Math.round(Number(next.maxConcurrentBots) || 1), 1, 2);
-    next.budgetPerBotUSDT = clamp(Number(next.budgetPerBotUSDT) || 12, 10, 50);
+    next.maxConcurrentBots = clamp(Math.round(Number(next.maxConcurrentBots) || 1), 1, 5);
+    // Budget is the owner's decision (12 USDC on the current account); we only refuse the
+    // absurd. The old 10..50 window was a hard stop for a 15 USDC account.
+    next.budgetPerBotUSDT = clamp(Number(next.budgetPerBotUSDT) || 12, 5, 500);
     next.minReserveUSDT = clamp(
-      Number.isFinite(Number(next.minReserveUSDT)) ? Number(next.minReserveUSDT) : 10,
-      10,
+      Number.isFinite(Number(next.minReserveUSDT)) ? Number(next.minReserveUSDT) : 0,
+      0,
       10_000
     );
     next.maxLeverage = clamp(Math.round(Number(next.maxLeverage) || 2), 1, 2);
-    next.maxTotalMarginUSDT = clamp(Number(next.maxTotalMarginUSDT) || 40, 10, 40);
+    next.maxTotalMarginUSDT = clamp(Number(next.maxTotalMarginUSDT) || 12, 5, 500);
+    next.pricePer1MInputUSD = clamp(Number(next.pricePer1MInputUSD) || 0.27, 0, 1000);
+    next.pricePer1MInputCachedUSD = clamp(Number(next.pricePer1MInputCachedUSD) || 0.07, 0, 1000);
+    next.pricePer1MOutputUSD = clamp(Number(next.pricePer1MOutputUSD) || 1.1, 0, 1000);
     next.ownUniverseScan = next.ownUniverseScan !== false;
     next.universeScanSize = clamp(Math.round(Number(next.universeScanSize) || 25), 5, 60);
     next.minCrossingsPerHour = clamp(Number(next.minCrossingsPerHour) || 0.35, 0.05, 5);
     next.minSuitabilityScore = clamp(Math.round(Number(next.minSuitabilityScore) || 70), 30, 98);
     next.minNetProfitPerGridPct = clamp(Number(next.minNetProfitPerGridPct) || 0.05, 0.01, 5);
-    // 45 min floor: reopening the same contract right after a stop was the other half of
-    // the night-time churn (PUMP was opened 8 times in a row with cooldown=0).
+    // 45 min floor: reopening the same contract right after a stop was half of the
+    // night-time churn (PUMP was opened 8 times in a row with cooldown=0).
     next.cooldownMinutesPerSymbol = clamp(
       Math.round(
         Number.isFinite(Number(next.cooldownMinutesPerSymbol))
@@ -346,9 +414,9 @@ export class DeepSeekAgent {
     next.hardStopLossPct = clamp(Number(next.hardStopLossPct) || 12, 2, 60);
     next.hardMinLiqDistancePct = clamp(Number(next.hardMinLiqDistancePct) || 12, 3, 60);
     // Lower bound 60 min: a neutral grid only earns when price crosses its levels, and a sane
-  // grid needs ~2-4 crossings/hour in a choppy tape. 15-20 min guarantees a false "passive"
-  // verdict on EVERY bot (28 pointless open->stop cycles in one night).
-  next.hardMaxNoFillMinutes = clamp(Math.round(Number(next.hardMaxNoFillMinutes) || 180), 60, 1440);
+    // grid needs ~2-4 crossings/hour in a choppy tape. 15-20 min guarantees a false "passive"
+    // verdict on EVERY bot (28 pointless open->stop cycles in one night).
+    next.hardMaxNoFillMinutes = clamp(Math.round(Number(next.hardMaxNoFillMinutes) || 180), 60, 1440);
     next.preferNativeAlgo = next.preferNativeAlgo !== false;
     next.stopIfPassive = next.stopIfPassive !== false;
     next.allowedSymbols = Array.isArray(next.allowedSymbols)
@@ -357,6 +425,13 @@ export class DeepSeekAgent {
     next.blockedSymbols = Array.isArray(next.blockedSymbols)
       ? next.blockedSymbols.map((s) => String(s).trim()).filter(Boolean)
       : [];
+
+    return next;
+  }
+
+  public updateConfig(updates: Partial<DeepSeekAgentConfig>): DeepSeekAgentConfig {
+    const current = this.getConfig();
+    const next: DeepSeekAgentConfig = this.normaliseConfig({ ...current, ...updates });
 
     this.configStore.save(next);
     this.configStore.flushSync();
@@ -517,6 +592,7 @@ export class DeepSeekAgent {
       },
       lastDecision: decisions[0],
       decisions,
+      tokenUsage: this.buildTokenUsage(cfg, decisions[0]),
       config: cfg,
     };
   }
@@ -525,6 +601,86 @@ export class DeepSeekAgent {
   public getStatusSummary(): Omit<DeepSeekAgentStatus, 'decisions'> {
     const { decisions, ...rest } = this.getStatus();
     return { ...rest, lastDecision: decisions[0] };
+  }
+
+  // ------------------------------------------------------------- token usage ---
+
+  /**
+   * Persist the consumption of one (or several) API calls. Written straight to the config
+   * store so it survives restarts and is visible in the DeepSeek tab.
+   */
+  private recordTokenUsage(part: {
+    promptTokens: number;
+    cachedPromptTokens: number;
+    completionTokens: number;
+    latencyMs: number;
+  }): DeepSeekUsageStats {
+    const cfg = this.getConfig();
+    const prev = cfg.usage || emptyUsageStats();
+    const costUSD = computeDeepSeekCostUSD(part, cfg);
+    const next: DeepSeekUsageStats = {
+      apiCalls: prev.apiCalls + 1,
+      promptTokens: prev.promptTokens + Math.max(0, part.promptTokens || 0),
+      cachedPromptTokens: prev.cachedPromptTokens + Math.max(0, part.cachedPromptTokens || 0),
+      completionTokens: prev.completionTokens + Math.max(0, part.completionTokens || 0),
+      costUSD: Math.round((prev.costUSD + costUSD) * 1e6) / 1e6,
+      lastCallAt: Date.now(),
+      lastPromptTokens: Math.max(0, part.promptTokens || 0),
+      lastCompletionTokens: Math.max(0, part.completionTokens || 0),
+      lastLatencyMs: Math.max(0, part.latencyMs || 0),
+      lastCostUSD: costUSD,
+    };
+    this.configStore.save({ ...cfg, usage: next });
+    this.configStore.flushSync();
+    return next;
+  }
+
+  /** Actual counters + a forward estimate at the configured cadence. */
+  private buildTokenUsage(
+    cfg: DeepSeekAgentConfig,
+    last?: DeepSeekAgentDecision
+  ): DeepSeekTokenUsage {
+    const stats = cfg.usage || emptyUsageStats();
+    // Prefer the size measured on the last cycle; fall back to the system prompt plus a
+    // typical context so the tab shows something before the first real call.
+    const estimatedPromptTokensPerCycle =
+      Number(last?.estimatedPromptTokens) ||
+      Number(last?.promptTokens) ||
+      estimateTokensFromText(SYSTEM_PROMPT) + 1200;
+    const estimatedCompletionTokensPerCycle =
+      Number(last?.completionTokens) || Math.min(Math.max(200, cfg.maxTokens), 900);
+    const estimatedCostPerCycleUSD = computeDeepSeekCostUSD(
+      {
+        promptTokens: estimatedPromptTokensPerCycle,
+        cachedPromptTokens: Number(last?.cachedPromptTokens) || 0,
+        completionTokens: estimatedCompletionTokensPerCycle,
+      },
+      cfg
+    );
+    const cyclesPerDay = Math.round((86_400 / clamp(cfg.runIntervalSec, 60, 3600)) * 10) / 10;
+
+    return {
+      apiCalls: stats.apiCalls,
+      promptTokens: stats.promptTokens,
+      cachedPromptTokens: stats.cachedPromptTokens,
+      completionTokens: stats.completionTokens,
+      totalTokens: stats.promptTokens + stats.completionTokens,
+      costUSD: stats.costUSD,
+      lastCallAt: stats.lastCallAt,
+      lastPromptTokens: stats.lastPromptTokens || 0,
+      lastCompletionTokens: stats.lastCompletionTokens || 0,
+      lastLatencyMs: stats.lastLatencyMs || 0,
+      lastCostUSD: stats.lastCostUSD || 0,
+      estimatedPromptTokensPerCycle,
+      estimatedCompletionTokensPerCycle,
+      estimatedCostPerCycleUSD,
+      cyclesPerDay,
+      estimatedCostPerDayUSD: Math.round(estimatedCostPerCycleUSD * cyclesPerDay * 1e4) / 1e4,
+      estimatedCostPerMonthUSD: Math.round(estimatedCostPerCycleUSD * cyclesPerDay * 30 * 1e4) / 1e4,
+      pricePer1MInputUSD: cfg.pricePer1MInputUSD,
+      pricePer1MInputCachedUSD: cfg.pricePer1MInputCachedUSD,
+      pricePer1MOutputUSD: cfg.pricePer1MOutputUSD,
+    };
   }
 
   // --------------------------------------------------------------- context ---
@@ -748,20 +904,28 @@ export class DeepSeekAgent {
     let model = cfg.model;
     let latencyMs = 0;
     let promptTokens = 0;
+    let cachedPromptTokens = 0;
     let completionTokens = 0;
+    let estimatedPromptTokens = 0;
+    let cycleCostUSD = 0;
     let rawDecision: any = null;
     let decisionError: string | undefined;
 
     const client = this.buildClient(cfg);
     if (client.isConfigured()) {
       try {
+        const systemPrompt = SYSTEM_PROMPT;
+        const userPrompt = buildUserPrompt(ctx.promptContext);
         const messages: DeepSeekChatMessage[] = [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: buildUserPrompt(ctx.promptContext) },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ];
+        // Measured BEFORE the call, so the estimate never depends on a successful response.
+        estimatedPromptTokens = estimateTokensFromText(systemPrompt + userPrompt);
         let res = await client.chat(messages, { jsonMode: true });
         latencyMs = res.latencyMs;
         promptTokens = res.promptTokens;
+        cachedPromptTokens = res.cachedPromptTokens;
         completionTokens = res.completionTokens;
         model = res.model;
 
@@ -783,9 +947,18 @@ export class DeepSeekAgent {
           );
           latencyMs += repair.latencyMs;
           promptTokens += repair.promptTokens;
+          cachedPromptTokens += repair.cachedPromptTokens;
           completionTokens += repair.completionTokens;
           rawDecision = this.parseModelAnswer(repair.content);
         }
+
+        // Consumption is recorded even when parsing fails afterwards: the tokens were spent.
+        cycleCostUSD = this.recordTokenUsage({
+          promptTokens,
+          cachedPromptTokens,
+          completionTokens,
+          latencyMs,
+        }).lastCostUSD || 0;
       } catch (err: any) {
         decisionError = err?.message || String(err);
         if (!cfg.fallbackEnabled) {
@@ -856,7 +1029,10 @@ export class DeepSeekAgent {
       dryRun,
       latencyMs,
       promptTokens: promptTokens || undefined,
+      cachedPromptTokens: cachedPromptTokens || undefined,
       completionTokens: completionTokens || undefined,
+      estimatedPromptTokens: estimatedPromptTokens || undefined,
+      costUSD: cycleCostUSD || undefined,
       marketRegime: String(rawDecision?.market_regime || 'NECUNOSCUT').slice(0, 160),
       summaryRo: String(rawDecision?.summary_ro || '').slice(0, 1200),
       confidence: clamp(Number(rawDecision?.confidence), 0, 1),
@@ -1558,7 +1734,13 @@ export class DeepSeekAgent {
       rejected: decision.rejectedActions,
       results: decision.results,
       confidence: decision.confidence,
-      tokens: { prompt: decision.promptTokens, completion: decision.completionTokens },
+      tokens: {
+        prompt: decision.promptTokens,
+        cached: decision.cachedPromptTokens,
+        completion: decision.completionTokens,
+        estimatedPrompt: decision.estimatedPromptTokens,
+        costUSD: decision.costUSD,
+      },
       error: decision.error,
     });
     const next = this.getConfig();
