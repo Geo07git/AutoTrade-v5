@@ -497,6 +497,8 @@ export interface DeepSeekOpenGridAction {
   runType: '1' | '2';
   lever: number;
   sz: number;
+  /** Margin the model originally asked for, when the guard raised it to the OKX minimum. */
+  szRequested?: number;
   stopLossPct?: number;
   takeProfitPct?: number;
   rangeVariant?: GridRangeVariantId;

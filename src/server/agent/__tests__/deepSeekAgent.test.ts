@@ -23,6 +23,7 @@ import {
   DEFAULT_DEEPSEEK_AGENT_CONFIG,
   computeDeepSeekCostUSD,
   estimateTokensFromText,
+  resolveOpenSize,
   type DeepSeekAccountSnapshot,
   type DeepSeekAgentDeps,
 } from '../DeepSeekAgent';
@@ -873,6 +874,25 @@ test('guard: a 15 USDC account opens a 12 USDC bot (reserve 0, one slot)', async
   ok(h.calls.created[0].sz <= 12, 'size must stay within the 12 USDC budget');
 });
 
+test('own scan: a 4-decimal OKX minimum opens with a size above it', async () => {
+  const h = makeAgent({
+    snapshot: { freeBalance: 15, equity: 15, marginInvested: 0 },
+    ownScan: [agentRow({ minInvestmentUSDT: 11.9108 })],
+  });
+  await armAutonomous(h, {
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 1, 'a grid whose minimum is 11.9108 must fit a 12 USDC budget');
+  ok(h.calls.created[0].sz >= 11.9108, 'sz must clear the 4-decimal OKX minimum');
+  ok(h.calls.created[0].sz <= 12, 'sz must stay within the 12 USDC budget');
+});
+
 test('tokens: cost is computed from the editable per-1M prices', async () => {
   const prices = {
     pricePer1MInputUSD: 0.27,
@@ -925,6 +945,75 @@ test('tokens: status exposes cumulative usage and a monthly estimate', async () 
     usage.estimatedCostPerCycleUSD < 0.01,
     `one cycle must cost fractions of a cent (got ${usage.estimatedCostPerCycleUSD})`
   );
+});
+
+// ---------------------------------------------------------------------------
+// Sizing: sz is resolved in INTEGER CENTS — never below the OKX floor, never above budget
+// ---------------------------------------------------------------------------
+
+test('sizing: a model size below the OKX minimum is raised and flagged', () => {
+  // PUMP case: the model asked 7.31 USDC, OKX required 11.9108 USDC.
+  const plan = resolveOpenSize(7.31, 11.9108, 12);
+
+  ok(plan.sz >= 11.9108, 'sz must clear the 4-decimal OKX minimum');
+  eq(plan.sz, 11.93, '11.9108 rounds UP to 11.93 (two decimals, never down)');
+  eq(plan.required, 11.93, 'the reported requirement must match what we send');
+  eq(plan.raised, true, 'a raised size must be flagged so the journal can explain it');
+});
+
+test('sizing: two decimals can never land just under a 4-decimal minimum', () => {
+  // 11.9101 -> 11.92 would be enough, but a naive round() gives 11.91 < 11.9101.
+  const exactFloor = resolveOpenSize(11.9101, 11.9101, 20);
+  ok(exactFloor.sz >= 11.9101, 'asking exactly the minimum must still clear it');
+  eq(exactFloor.sz, 11.93, 'the requirement rounds UP to the next whole cent');
+
+  // A minimum just above 5 must not collapse back to the 5 USDC floor.
+  const hair = resolveOpenSize(5, 5.0001, 20);
+  ok(hair.sz >= 5.0001, '5.0001 must not be sent as 5.00');
+  eq(hair.sz, 5.02, 'the OKX floor (5.01) plus one cent of headroom');
+});
+
+test('sizing: sz never exceeds the per-bot budget, even on cent boundaries', () => {
+  // Regression: 5.11 * 100 === 510.99999999999994, so Math.ceil() produced 5.12 > budget.
+  const budgets = [5, 5.11, 5.55, 11.91, 12, 20];
+  const minimums = [5, 5.11, 6, 11.9108, 999];
+  const wanted = [0, 7.31, 12, 999, Number.NaN];
+
+  for (const budget of budgets) {
+    for (const minInv of minimums) {
+      for (const sz of wanted) {
+        const plan = resolveOpenSize(sz, minInv, budget);
+        ok(
+          Number.isFinite(plan.sz),
+          `sz must stay finite (budget ${budget}, minInv ${minInv}, asked ${sz})`
+        );
+        ok(
+          plan.sz <= budget + 1e-9,
+          `sz ${plan.sz} must not exceed the budget ${budget} (minInv ${minInv}, asked ${sz})`
+        );
+        if (minInv <= budget) {
+          ok(
+            plan.sz + 1e-9 >= minInv,
+            `sz ${plan.sz} must clear the minimum ${minInv} when the budget allows it`
+          );
+        }
+      }
+    }
+  }
+
+  eq(resolveOpenSize(0, 5.11, 5.11).sz, 5.11, 'budget == minimum must send exactly the budget');
+});
+
+test('sizing: a missing or absurd model size falls back to the budget, not to NaN', () => {
+  for (const asked of [Number.NaN, -3, 0, Number.POSITIVE_INFINITY]) {
+    const plan = resolveOpenSize(asked, 6, 12);
+    eq(plan.sz, 11.4, 'no usable model size -> 95% of the budget, still above the floor');
+    eq(plan.raised, false, 'a missing model size is not a raise');
+  }
+
+  eq(resolveOpenSize(20, 6, 12).sz, 12, 'a model size above the budget is capped at the budget');
+  eq(resolveOpenSize(9, 6.01, 12).sz, 9, 'a sane model size is honoured unchanged');
+  eq(resolveOpenSize(9, 6.01, 12).raised, false, 'nothing was raised, nothing is journaled');
 });
 
 test('config: the passive-bot threshold cannot be set below 60 min', async () => {

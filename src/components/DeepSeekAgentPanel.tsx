@@ -68,6 +68,20 @@ const money = (v: number | undefined, decimals = 2): string => {
   });
 };
 
+/**
+ * Prices need as many decimals as the instrument: PUMP trades around 0.00x, so a fixed
+ * 2-decimal format printed the range as "[0.00-0.00]" and the journal was unreadable.
+ */
+const price = (v: number | undefined): string => {
+  if (v === undefined || v === null || !Number.isFinite(v)) return '--';
+  const abs = Math.abs(v);
+  const decimals = abs >= 1000 ? 2 : abs >= 10 ? 3 : abs >= 1 ? 4 : abs >= 0.01 ? 5 : 7;
+  return v.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
 const clockTime = (ts?: number): string => {
   if (!ts) return '--';
   try {
@@ -114,7 +128,11 @@ const ACTION_TONE: Record<string, string> = {
 const actionLabel = (action: any): string => {
   if (!action) return 'UNKNOWN';
   if (action.type === 'OPEN_GRID') {
-    return `OPEN ${action.instId} [${money(action.minPx)}-${money(action.maxPx)}] ${action.gridNum} grile ${action.lever}x @${money(action.sz)} U`;
+    const raised =
+      action.szRequested && Math.abs(Number(action.szRequested) - Number(action.sz)) > 0.001
+        ? ` (cerut ${money(action.szRequested)} U)`
+        : '';
+    return `OPEN ${action.instId} [${price(action.minPx)}-${price(action.maxPx)}] ${action.gridNum} grile ${action.lever}x @${money(action.sz)} U${raised}`;
   }
   if (action.type === 'STOP_BOT') return `STOP ${action.algoId} (tip ${action.stopType || '1'})`;
   if (action.type === 'AMEND_BOT') {

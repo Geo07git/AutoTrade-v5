@@ -971,19 +971,23 @@ export class OKXNativeGridEngine {
       lever,
     });
 
-    const sz = parseFloat(
-      Math.max(
-        5.0,
-        baseSz,
-        minInv.minInvestmentUSDT > 0 &&
-          minInv.minInvestmentUSDT <= Math.max(baseSz, cfg.maxBudgetPerBotUSDT)
-          ? minInv.minInvestmentUSDT
-          : 0
-      ).toFixed(2)
-    );
+    // OKX answers with 4 decimals (e.g. 11.9108). Rounding that DOWN to cents produced
+    // sz = 11.91 < 11.9108, and the strict check below rejected a grid whose two numbers are
+    // identical on screen ("$11.91 sub $11.91"). Every requirement rounds UP, to cents, and
+    // the float noise is stripped first (5.11 * 100 === 510.99999999999994) so a cent-boundary
+    // amount cannot jump a cent above the minimum or above the budget.
+    const toCents = (usd: number) =>
+      Number.isFinite(usd) && usd > 0 ? Math.round(usd * 1e6) / 1e4 : 0;
+    const minInvCents = minInv.minInvestmentUSDT > 0 ? Math.ceil(toCents(minInv.minInvestmentUSDT)) : 0;
+    const budgetCents = Math.round(toCents(Math.max(baseSz, cfg.maxBudgetPerBotUSDT)));
+    const fitsBudget = minInvCents === 0 || minInvCents <= budgetCents;
+    const szCents = Math.max(500, Math.round(toCents(baseSz)), fitsBudget ? minInvCents : 0);
+    const sz = szCents / 100;
 
-    if (minInv.minInvestmentUSDT > 0 && sz < minInv.minInvestmentUSDT) {
-      const msg = `Investiția alocată ($${sz.toFixed(2)}) este sub investiția minimă cerută de OKX ($${minInv.minInvestmentUSDT.toFixed(2)} ${minInv.ccy}) pentru ${gridNum} grile la ${lever}x.`;
+    if (minInvCents > 0 && szCents < minInvCents) {
+      const msg = `Investiția alocată ($${sz.toFixed(2)}) este sub investiția minimă cerută de OKX ($${Number(
+        minInv.minInvestmentUSDT.toFixed(4)
+      )} ${minInv.ccy}) pentru ${gridNum} grile la ${lever}x.`;
       this.journal.logAudit('CANDIDATE_REJECTED', `[OKX NATIVE GRID RESPINS] ${instId}: ${msg}`);
       return { success: false, error: msg };
     }

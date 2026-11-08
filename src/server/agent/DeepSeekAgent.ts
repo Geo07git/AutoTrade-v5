@@ -179,6 +179,52 @@ export function estimateTokensFromText(text: string): number {
   return length === 0 ? 0 : Math.ceil(length / 4);
 }
 
+/**
+ * USD -> cents with the binary-float noise removed BEFORE any rounding decision.
+ * `5.11 * 100 === 510.99999999999994`, so a raw `Math.ceil()` charged a whole extra cent
+ * (5.11 became 5.12, i.e. sz > budget). Rounding to 6 decimals first keeps the value on the
+ * cent grid, and the caller then ceiling/floors an integer.
+ */
+function usdToCents(usd: number): number {
+  const n = Number(usd);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n * 1e6) / 1e4;
+}
+
+/**
+ * Deterministic margin for one grid. The LLM never gets to invent this number: an `sz` chosen
+ * by the model was consistently below the OKX minimum on cheap contracts (PUMP: 7.31 requested
+ * vs 11.9108 required), which turned a valid candidate into a rejection.
+ *
+ * Rules (all arithmetic in integer cents, never in floats):
+ *   - required = OKX minimum + 1 cent of headroom (OKX answers with 4 decimals, we send 2);
+ *   - a model value above the floor is honoured, but capped at the budget;
+ *   - everything rounds UP to cents — never down, otherwise `sz < minInv` by a rounding hair;
+ *   - `sz` can never exceed the budget, otherwise the guard's own budget check fires.
+ */
+export function resolveOpenSize(
+  requestedUSDT: number,
+  minInvestmentUSDT: number,
+  budgetUSDT: number
+): { sz: number; required: number; raised: boolean } {
+  const budgetCents = Math.max(500, Math.floor(usdToCents(budgetUSDT)) || 1200);
+  const minCents = Math.ceil(usdToCents(minInvestmentUSDT));
+  // 1 cent of headroom over the OKX floor, but never past the budget.
+  const requiredCents = minCents > 0 ? Math.min(budgetCents, minCents + 1) : 0;
+  const askedCents = Math.round(usdToCents(requestedUSDT));
+  // No usable value from the model -> aim just under the budget, but clear the floor.
+  const targetCents =
+    askedCents > 0
+      ? askedCents
+      : Math.min(budgetCents, Math.max(Math.round(budgetCents * 0.95), requiredCents));
+  const szCents = Math.min(budgetCents, Math.max(targetCents, requiredCents, 500));
+  return {
+    sz: szCents / 100,
+    required: requiredCents / 100,
+    raised: askedCents > 0 && szCents > askedCents,
+  };
+}
+
 /** USD cost of ONE call, from the (editable) per-1M-token prices. */
 export function computeDeepSeekCostUSD(
   usage: { promptTokens: number; cachedPromptTokens?: number; completionTokens: number },
@@ -219,7 +265,7 @@ YOUR JOB, per cycle
 HARD RULES (violating any of them gets your action rejected by the execution guard)
 - Only reference instIds that appear in "candidates". Never invent symbols.
 - Never OPEN_GRID on a candidate with eligible=false.
-- sz must be <= budget_per_bot_usdt and >= the candidate min_inv_usdt; lever <= max_leverage.
+- sz: copy the candidate field sz_usdt verbatim. It is already sized to fit budget_per_bot_usdt and to clear the OKX minimum (min_inv_usdt). Do NOT invent your own margin; if you must change it, stay between min_inv_usdt and sz_usdt. lever <= max_leverage.
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
@@ -740,6 +786,14 @@ export class DeepSeekAgent {
       range: { minPx: rnd(o.minPx, 6), maxPx: rnd(o.maxPx, 6), gridNum: o.gridNum, spacing_pct: rnd(o.gridSpacingPct, 3) },
       lever: o.lever,
       min_inv_usdt: rnd(o.minInvestmentUSDT, 2),
+      // Margin we will actually send: deterministic, budget-safe, and above the OKX floor.
+      sz_usdt: resolveOpenSize(0, o.minInvestmentUSDT, cfg.budgetPerBotUSDT).sz,
+      margin_usage_pct: rnd(
+        (resolveOpenSize(0, o.minInvestmentUSDT, cfg.budgetPerBotUSDT).sz /
+          Math.max(1, cfg.budgetPerBotUSDT)) *
+          100,
+        1
+      ),
       net_per_grid_pct: rnd(o.estimatedNetProfitPerGridPct, 3),
       daily_yield_pct: rnd(o.estimatedDailyNetYieldPct, 3),
       eligible: o.isEligible,
@@ -804,6 +858,8 @@ export class DeepSeekAgent {
         min_net_profit_per_grid_pct: cfg.minNetProfitPerGridPct,
         daily_loss_limit_usdt: cfg.dailyLossLimitUSDT,
         max_total_margin_usdt: cfg.maxTotalMarginUSDT,
+        sizing_note:
+          'Use each candidate sz_usdt verbatim: it is the deterministic margin (budget-safe, above the OKX minimum).',
         hard_stop_loss_pct: cfg.hardStopLossPct,
         hard_min_liq_distance_pct: cfg.hardMinLiqDistancePct,
         allow_open: cfg.allowOpenBots && snapshot.executionMode === 'LIVE' && !authorityConflict,
@@ -1310,14 +1366,25 @@ export class DeepSeekAgent {
         const gridNum = clamp(Math.round(Number(action.gridNum) || candidate.gridNum || 6), 2, 100);
         const lever = clamp(Math.round(Number(action.lever) || candidate.lever || 3), 1, cfg.maxLeverage);
         const minInv = Math.max(5, Number(candidate.minInvestmentUSDT) || 5);
-        let sz = Number(action.sz);
-        if (!Number.isFinite(sz) || sz <= 0) sz = cfg.budgetPerBotUSDT;
-        sz = clamp(sz, minInv, cfg.budgetPerBotUSDT);
-        if (sz < minInv) {
+        // Never trust the model with this number: sz is resolved from the OKX minimum and the
+        // budget, and is only ever RAISED to the floor — it is never lowered below it.
+        const sizePlan = resolveOpenSize(Number(action.sz), minInv, cfg.budgetPerBotUSDT);
+        const sz = sizePlan.sz;
+        if (minInv > 0 && sz < minInv - 1e-9) {
           reject(
-            `Investiția ${rnd(sz)}$ este sub minimul OKX de ${rnd(minInv)}$ pentru ${candidate.instId} (buget/bot ${cfg.budgetPerBotUSDT}$).`
+            `Investiția ${sz.toFixed(2)}$ este sub minimul OKX de ${minInv.toFixed(2)}$ pentru ${candidate.instId} (buget/bot ${cfg.budgetPerBotUSDT}$, marjă totală rămasă ${rnd(
+              Math.max(0, cfg.maxTotalMarginUSDT - marginUsed)
+            )}$).`
           );
           continue;
+        }
+        if (sizePlan.raised) {
+          this.deps.logAudit(
+            'CANDIDATE_SELECTED',
+            `[DEEPSEEK AGENT] sz rezolvat determinist pe ${candidate.instId}: model $${Number(action.sz).toFixed(
+              2
+            )} → $${sz.toFixed(2)} (minim OKX $${minInv.toFixed(2)}, buget $${cfg.budgetPerBotUSDT}).`
+          );
         }
         if (marginUsed + sz > cfg.maxTotalMarginUSDT) {
           reject(
@@ -1344,6 +1411,7 @@ export class DeepSeekAgent {
           runType: action.runType === '2' ? '2' : candidate.runType || '1',
           lever,
           sz: rnd(sz),
+          szRequested: sizePlan.raised ? rnd(Number(action.sz)) : undefined,
           stopLossPct,
           takeProfitPct,
           rangeVariant: action.rangeVariant || candidate.selectedVariant,
@@ -1550,7 +1618,7 @@ export class DeepSeekAgent {
           gridNum: cand.gridNum,
           runType: cand.runType,
           lever: Math.min(cand.lever, cfg.maxLeverage),
-          sz: Math.min(cfg.budgetPerBotUSDT, Math.max(5, cand.minInvestmentUSDT)),
+          sz: resolveOpenSize(cfg.budgetPerBotUSDT, cand.minInvestmentUSDT, cfg.budgetPerBotUSDT).sz,
           stopLossPct: 8,
           takeProfitPct: 15,
           rangeVariant: cand.selectedVariant,
@@ -1622,8 +1690,12 @@ export class DeepSeekAgent {
           explicitLiveConfirm: true,
         });
         const algoId = res?.bot?.algoId;
+        const adjusted =
+          action.szRequested && Math.abs(action.szRequested - action.sz) > 0.001
+            ? ` — marjă ridicată de la $${rnd(action.szRequested)} la minimul OKX`
+            : '';
         const message = res?.success
-          ? `Bot deschis pe ${action.instId} ($${rnd(action.sz)} @ ${action.lever}x, ${action.gridNum} grile)${algoId ? ` — algoId ${algoId}` : ''}.`
+          ? `Bot deschis pe ${action.instId} ($${rnd(action.sz)} @ ${action.lever}x, ${action.gridNum} grile)${adjusted}${algoId ? ` — algoId ${algoId}` : ''}.`
           : `Deschidere respinsă pe ${action.instId}: ${res?.error || 'eroare necunoscută'}`;
         this.deps.logAudit(
           res?.success ? 'GRID_CREATED' : 'ORDER_REJECTED',
