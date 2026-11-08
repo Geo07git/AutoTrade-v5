@@ -21,6 +21,7 @@ import {
   classifyDecisionCodes,
   decisionForCode,
   isBudgetRefusal,
+  isGridReasonCode,
   planRejectionToReasonCode,
   GRID_REASON_MESSAGES_RO,
   type GridDecisionCode,
@@ -382,6 +383,18 @@ test('execution codes are labelled too', () => {
   ] as const) {
     ok(GRID_REASON_MESSAGES_RO[code], `${code} has no label`);
   }
+});
+
+test('isGridReasonCode accepts every registered code and nothing else', () => {
+  // This is the guard the UI and the journal rely on: a code that reaches the screen but that
+  // no classifier can interpret is worse than no code at all.
+  for (const code of ALL_DECISION_CODES) ok(isGridReasonCode(code), `${code} must validate`);
+  ok(isGridReasonCode('GATEWAY_UNKNOWN_OUTCOME'), 'execution codes validate too');
+  ok(isGridReasonCode('RECONCILE_UNAVAILABLE'), 'reconciliation verdicts validate');
+  ok(!isGridReasonCode('NOT_A_CODE'), 'junk is rejected');
+  ok(!isGridReasonCode(''), 'empty is rejected');
+  ok(!isGridReasonCode(undefined), 'undefined is rejected');
+  ok(!isGridReasonCode(42), 'non-strings are rejected');
 });
 
 test('plan refusals travel as execution codes and budget refusals are retryable', () => {

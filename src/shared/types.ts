@@ -879,6 +879,13 @@ export interface GridBotAnalysisSnapshot {
   state: 'running' | 'stopping' | 'stopped' | 'pending_signal';
   decision: GridAnalyzerDecision;
   decisionReason: string;
+  /**
+   * WHY the verdict was reached, as stable codes (see `GridDecisionCode`).
+   *
+   * Kept as `string[]` on purpose: `src/shared` must not depend on `engine/grid`, and the UI only
+   * needs to display them. `gridReasonCodes.isGridReasonCode()` validates them at the boundary.
+   */
+  decisionCodes?: string[];
   riskLevel: 'LOW' | 'ELEVATED' | 'WARNING' | 'CRITICAL';
   reconciliationState:
     | 'CONFIRMED_RUNNING'
@@ -945,6 +952,8 @@ export interface GridAnalyzerStopEvent {
   instId: string;
   eventType: 'STOP' | 'EMERGENCY' | 'OPERATIONAL_ERROR';
   exactStopReason: string;
+  /** Codes behind the stop verdict (why), while `exactStopReason` stays the human reading. */
+  decisionCodes?: string[];
   triggeringIndicators: {
     adx: number;
     choppinessIndex: number;
@@ -1019,6 +1028,8 @@ export interface GridAnalyzerStatusSummary {
   thresholds: GridAnalyzerThresholds;
   botSnapshots: GridBotAnalysisSnapshot[];
   stopEvents: GridAnalyzerStopEvent[];
+  /** How many RUNNING bots currently answer to each code — one glance instead of reading prose. */
+  codeCounts: Record<string, number>;
 }
 
 export interface Position {

@@ -1318,7 +1318,9 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   return snaps.map((s) => (
                     <span
                       key={s.algoId}
-                      title={`${s.instId} (${s.algoId}): ${s.decisionReason}`}
+                      title={`${s.instId} (${s.algoId}): ${s.decisionReason}${
+                        s.decisionCodes?.length ? ` [${s.decisionCodes.join(', ')}]` : ''
+                      }`}
                       className={`px-1.5 py-0.5 rounded text-[9px] font-black ${
                         s.decision === 'CONTINUE'
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
@@ -1334,6 +1336,20 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   ));
                 })()}
               </div>
+              {Object.keys(gridAnalyzer?.codeCounts || {}).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 mt-1 pt-1 border-t border-zinc-800/70">
+                  {Object.entries<number>(gridAnalyzer?.codeCounts || {}).map(([code, count]) => (
+                    <span
+                      key={code}
+                      title={code}
+                      className="px-1 py-0.5 rounded text-[8px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800"
+                    >
+                      {code}
+                      {count > 1 ? ` x${count}` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="bg-zinc-950 border border-zinc-800 rounded p-2">
@@ -2000,6 +2016,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                             </td>
                             <td className="py-1.5 px-2 text-rose-300 max-w-xs">
                               {ev.exactStopReason}
+                              {ev.decisionCodes?.length ? (
+                                <div className="mt-0.5 font-mono text-[9px] text-zinc-400">
+                                  [{ev.decisionCodes.join(', ')}]
+                                </div>
+                              ) : null}
                             </td>
                             <td className="py-1.5 px-2 tabular-nums text-zinc-300 whitespace-nowrap">
                               ADX: {Number(ev.triggeringIndicators?.adx || 0).toFixed(1)} | Chop:{' '}

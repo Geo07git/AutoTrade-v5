@@ -14,6 +14,7 @@ import { JsonStore } from '../../store';
 import { GridJournal } from './GridJournal';
 import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
 import { OKXNativeGridEngine } from './OKXNativeGridEngine';
+import { classifyDecisionCodes, decisionForCode } from './gridReasonCodes';
 
 export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   adxMonitorThreshold: 25,
@@ -1528,6 +1529,7 @@ export class GridBotSupervisor {
       },
       stagnationMetrics: snapshot.stagnation,
       executedDecision: snapshot.decision,
+      decisionCodes: snapshot.decisionCodes,
       stopType,
       stopHttpStatus,
       stopResult,
@@ -1624,6 +1626,7 @@ export class GridBotAnalyzer {
       managedByTB5: true,
       state: bot.state,
       decision: 'CONTINUE',
+      decisionCodes: [],
       decisionReason:
         bot.state === 'running'
           ? 'Monitorizare activă în memorie'
@@ -1779,6 +1782,25 @@ export class GridBotAnalyzer {
           thresholds,
           dueFull15m || hasConfirmedStagnationStop
         );
+        // The verdict's CODES. Derived by the parity-locked classifier rather than by rewriting
+        // `evaluate()`'s fifteen prose branches: the prose is long-standing, human-facing text
+        // and the one thing it must never do is silently change routing. `gridReasonCodes.test.ts`
+        // holds the two together with a fixture per precedence rule.
+        const allowStagnationStop = dueFull15m || hasConfirmedStagnationStop;
+        const decisionCodes = classifyDecisionCodes({
+          bot,
+          snapshot,
+          thresholds,
+          allowStagnationStop,
+        });
+        // Disagreement is a BUG, not a verdict. Log it and keep the engine's decision, because
+        // that is the one the supervisor is about to act on.
+        const classifiedDecision = decisionForCode(decisionCodes[0]);
+        if (classifiedDecision !== evalRes.decision) {
+          console.warn(
+            `[GridBotAnalyzer] reason-code drift on ${bot.algoId}: classifier=${classifiedDecision} engine=${evalRes.decision}`
+          );
+        }
         const isCritical =
           evalRes.decision === 'EMERGENCY' ||
           evalRes.decision === 'STOP' ||
@@ -1787,6 +1809,7 @@ export class GridBotAnalyzer {
         if (isCritical || dueFull15m || dueMarket5m || duePrice1m) {
           snapshot.decision = evalRes.decision;
           snapshot.decisionReason = evalRes.reason;
+          snapshot.decisionCodes = decisionCodes;
           snapshot.riskLevel = evalRes.riskLevel;
           if (dueFull15m) {
             snapshot.cadence.lastFullEval15mAt = now;
@@ -1838,6 +1861,16 @@ export class GridBotAnalyzer {
 
     const conn = this.monitor.getConnectionState();
 
+    // Aggregate what the desk is CURRENTLY thinking, in codes. Prose stays available in
+    // `botSnapshots[].decisionReason`; this is what a banner or a badge can render safely.
+    const codeCounts: Record<string, number> = {};
+    for (const s of snapshots) {
+      if (s.state !== 'running') continue;
+      for (const code of s.decisionCodes || []) {
+        codeCounts[code] = (codeCounts[code] || 0) + 1;
+      }
+    }
+
     return {
       monitoredBotsCount: allBots.length,
       activeNativeBotsCount: activeCount,
@@ -1850,6 +1883,7 @@ export class GridBotAnalyzer {
       thresholds: this.getThresholds(),
       botSnapshots: snapshots,
       stopEvents: this.supervisor.getStopEvents(),
+      codeCounts,
     };
   }
 }
