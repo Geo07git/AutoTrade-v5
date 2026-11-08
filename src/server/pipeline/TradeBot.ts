@@ -1114,6 +1114,13 @@ export class TradeBot {
    * `hardMaxNoFillMinutes` even when it had already booked arbitrages.
    */
   private agentUniverseScanner?: AgentUniverseScanner;
+  /**
+   * Rotation position for the agent's universe scan. Persisted under `.data/` so a restart
+   * resumes where it stopped instead of re-scanning the same first 25 contracts forever.
+   */
+  private agentScanCursorStore = new JsonStore<{ cursor: number }>('agent_scan_cursor.json', {
+    cursor: 0,
+  });
 
   /**
    * AGENT-OWNED SCAN — selection belongs to DeepSeek, not to the app scanner.
@@ -1126,6 +1133,7 @@ export class TradeBot {
     deepScanCount: number;
     budgetPerBotUSDT: number;
     maxLeverage: number;
+    universeScanMode?: 'rotation' | 'turnover';
   }) {
     if (!this.agentUniverseScanner) {
       this.agentUniverseScanner = new AgentUniverseScanner(
@@ -1173,7 +1181,12 @@ export class TradeBot {
             return { depthUsd: total, imbalance: total > 0 ? (bidUsd - askUsd) / total : 0 };
           },
         },
-        (message, details) => this.logAudit('UNIVERSE_REFRESH', message, details)
+        (message, details) => this.logAudit('UNIVERSE_REFRESH', message, details),
+        {
+          load: () => Math.max(0, Math.round(Number(this.agentScanCursorStore.get()?.cursor) || 0)),
+          save: (cursor: number) =>
+            this.agentScanCursorStore.save({ cursor: Math.max(0, Math.round(cursor)) }),
+        }
       );
     }
 
@@ -1183,6 +1196,7 @@ export class TradeBot {
       maxLeverage: Math.min(2, Math.max(1, Number(opts.maxLeverage) || 2)),
       roundTripFeePct: Number(fee.roundTripMakerFeePct) || 0.08,
       deepScanCount: Math.max(1, Number(opts.deepScanCount) || 25),
+      universeScanMode: opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation',
     });
   }
 

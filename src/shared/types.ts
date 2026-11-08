@@ -599,6 +599,13 @@ export interface DeepSeekAgentConfig {
   ownUniverseScan: boolean;
   /** Contracts deep-scanned per cycle (candles + order book). */
   universeScanSize: number;
+  /**
+   * How those `universeScanSize` contracts are chosen.
+   * - 'rotation' (default): the whole `_UM_XPERP` universe is eligible and each cycle takes
+   *   the next alphabetical window, so every contract is eventually seen. No turnover gate.
+   * - 'turnover': legacy top-N by 24h turnover (3M floor), kept for instant rollback.
+   */
+  universeScanMode: 'rotation' | 'turnover';
   /** Minimum estimated grid-level touches per hour for an open to be allowed. */
   minCrossingsPerHour: number;
   allowedSymbols: string[];

@@ -78,6 +78,28 @@ export interface AgentUniverseDataSource {
   fetchBookSnapshot(instId: string, depth: number): Promise<AgentBookSnapshot>;
 }
 
+/**
+ * How the agent picks WHICH contracts to deep-scan each cycle.
+ *
+ * - `rotation` (default): every `_UM_XPERP` contract with a live price is eligible, and each
+ *   cycle takes the next alphabetical window of `deepScanCount`. After
+ *   `ceil(total / deepScanCount)` cycles the ENTIRE universe has been looked at, at no extra
+ *   API cost per cycle. There is deliberately NO turnover gate: 24h turnover measures
+ *   popularity, not whether a neutral grid fills — and ranking by it is exactly why the same
+ *   handful of symbols were scanned forever while the rest of the universe was never seen.
+ * - `turnover` (legacy, kept for rollback): top-N by 24h turnover with the 3M floor.
+ */
+export type AgentUniverseScanMode = 'rotation' | 'turnover';
+
+/**
+ * Persisted rotation position. Injected so the scanner stays free of I/O and testable;
+ * TradeBot backs it with a JsonStore. A failed load must degrade to 0, never throw.
+ */
+export interface AgentScanCursorStore {
+  load(): number;
+  save(cursor: number): void;
+}
+
 export interface AgentScanSettings {
   budgetPerBotUSDT: number;
   maxLeverage: number;
@@ -85,6 +107,8 @@ export interface AgentScanSettings {
   roundTripFeePct: number;
   deepScanCount?: number;
   minTurnover24hUSDT?: number;
+  /** 'rotation' (default) or 'turnover' (legacy rollback mode). */
+  universeScanMode?: AgentUniverseScanMode;
   /** Optional funding drag input, keyed by instId (current 8h funding rate %). */
   fundingRatePctByInstId?: Record<string, number>;
 }
@@ -333,13 +357,67 @@ export function buildAgentOpportunity(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Rotation
+// ---------------------------------------------------------------------------
+
+export interface RotationWindow<T> {
+  items: T[];
+  /** Index this window started at. */
+  start: number;
+  /** Index the next cycle must start at (already wrapped into range). */
+  nextCursor: number;
+  total: number;
+  /** Cycles needed to look at every item once at this window size. */
+  cyclesForFullCoverage: number;
+}
+
+/**
+ * Slice the next window out of a stable, ordered list.
+ *
+ * One "turn" is one exact pass over the list: the final window of a turn is TRUNCATED to what
+ * is left (never wrapped around), so no item is scanned twice in a turn and the cursor always
+ * returns to 0 when the turn ends. With 25/259 that means ten full windows of 25 and a last
+ * window of 9 — drifting into a wrapped window instead (250..274) would overlap and leave the
+ * cursor parked off-zero forever.
+ *
+ * Pure and total: an empty list yields an empty window, an out-of-range cursor is normalised,
+ * and a window larger than the list returns everything.
+ */
+export function selectRotationWindow<T>(
+  items: T[],
+  cursor: number,
+  size: number
+): RotationWindow<T> {
+  const total = items.length;
+  if (total === 0) {
+    return { items: [], start: 0, nextCursor: 0, total: 0, cyclesForFullCoverage: 0 };
+  }
+  const rawSize = Math.round(Number(size) || 0);
+  const count = Math.min(total, Math.max(1, rawSize || 1));
+  const rawCursor = Math.round(Number(cursor) || 0);
+  const start = ((rawCursor % total) + total) % total;
+  // Truncate at the end of the list: this closes the turn instead of wrapping into an overlap.
+  const take = Math.min(count, total - start);
+  const picked = items.slice(start, start + take);
+  const closesTurn = start + take >= total;
+  return {
+    items: picked,
+    start,
+    nextCursor: closesTurn ? 0 : start + take,
+    total,
+    cyclesForFullCoverage: Math.ceil(total / count),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Scanner (network orchestration only — no scoring)
 // ---------------------------------------------------------------------------
 
 export class AgentUniverseScanner {
   constructor(
     private data: AgentUniverseDataSource,
-    private log?: (message: string, details?: any) => void
+    private log?: (message: string, details?: any) => void,
+    private cursorStore?: AgentScanCursorStore
   ) {}
 
   public async scan(settings: AgentScanSettings): Promise<NativeGridOpportunity[]> {
@@ -349,28 +427,51 @@ export class AgentUniverseScanner {
       1,
       60
     );
-    const minTurnover = Math.max(
-      AGENT_SCAN_MIN_TURNOVER_USDT,
-      Number(settings.minTurnover24hUSDT) || 0
-    );
+    const mode: AgentUniverseScanMode =
+      settings.universeScanMode === 'turnover' ? 'turnover' : 'rotation';
 
     const [specs, tickers] = await Promise.all([
       this.data.listXPerpContracts(),
       this.data.fetchTickers(),
     ]);
 
-    // Stage 1 — liquidity gate on raw turnover only (no scoring whatsoever).
-    const stage1 = specs
+    // Contracts that can be priced at all. No turnover gate here — turnover mode applies its
+    // own floor below, rotation mode deliberately applies none.
+    type Stage1Row = { spec: AgentContractSpec; ticker: AgentUniverseTicker };
+    const universe = specs
       .filter((s) => s.instId.includes('_UM_XPERP'))
       .map((spec) => ({ spec, ticker: tickers[spec.instId] }))
       .filter(
-        (r): r is { spec: AgentContractSpec; ticker: AgentUniverseTicker } =>
-          !!r.ticker &&
-          r.ticker.lastPrice > 0 &&
-          r.ticker.turnover24hUSDT >= minTurnover
-      )
-      .sort((a, b) => b.ticker.turnover24hUSDT - a.ticker.turnover24hUSDT)
-      .slice(0, Math.ceil(deepCount * 1.6));
+        (r): r is Stage1Row => !!r.ticker && r.ticker.lastPrice > 0
+      );
+
+    let stage1: Stage1Row[];
+    let rotation: RotationWindow<Stage1Row> | null = null;
+
+    if (mode === 'rotation') {
+      // Alphabetical, NOT by turnover: the ordering must be stable across cycles, otherwise
+      // membership shifts between ticks and a contract can be skipped or scanned twice.
+      universe.sort((a, b) => a.spec.instId.localeCompare(b.spec.instId));
+      let startCursor = 0;
+      try {
+        startCursor = this.cursorStore?.load() ?? 0;
+      } catch (err: any) {
+        this.log?.(
+          `[AGENT SCAN] cursor de rotație ilizibil, repornesc de la 0: ${err?.message || err}`
+        );
+      }
+      rotation = selectRotationWindow(universe, startCursor, deepCount);
+      stage1 = rotation.items;
+    } else {
+      const minTurnover = Math.max(
+        AGENT_SCAN_MIN_TURNOVER_USDT,
+        Number(settings.minTurnover24hUSDT) || 0
+      );
+      stage1 = universe
+        .filter((r) => r.ticker.turnover24hUSDT >= minTurnover)
+        .sort((a, b) => b.ticker.turnover24hUSDT - a.ticker.turnover24hUSDT)
+        .slice(0, Math.ceil(deepCount * 1.6));
+    }
 
     // Stage 2 — deep scan: candles + book, then the agent's own math.
     const rows: NativeGridOpportunity[] = [];
@@ -399,6 +500,18 @@ export class AgentUniverseScanner {
     };
     await Promise.all(Array.from({ length: Math.min(poolSize, stage1.length) }, worker));
 
+    // Advance only after a completed cycle: a crash mid-scan must retry the same window,
+    // never skip it for a full turn.
+    if (rotation) {
+      try {
+        this.cursorStore?.save(rotation.nextCursor);
+      } catch (err: any) {
+        this.log?.(
+          `[AGENT SCAN] nu am putut salva cursorul de rotație: ${err?.message || err}`
+        );
+      }
+    }
+
     // Selection order: crossings per hour first (the only thing that pays), then net edge.
     rows.sort((a, b) => {
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
@@ -409,10 +522,18 @@ export class AgentUniverseScanner {
     });
     rows.forEach((row, idx) => (row.rank = idx + 1));
 
+    const span =
+      rotation && rotation.total > 0
+        ? `rotație ${rotation.start + 1}-${rotation.start + rotation.items.length} din ${
+            rotation.total
+          } (următorul ciclu de la ${rotation.nextCursor + 1},` +
+          ` acoperire completă în ${rotation.cyclesForFullCoverage} cicluri)`
+        : `mod ${mode}`;
+
     this.log?.(
       `[AGENT SCAN] ${rows.length} contracte scanate adânc în ${Date.now() - startedAt} ms, ` +
-        `${rows.filter((r) => r.isEligible).length} eligibile (rank = crossings/h)`,
-      { deep: rows.length, eligible: rows.filter((r) => r.isEligible).length }
+        `${rows.filter((r) => r.isEligible).length} eligibile (rank = crossings/h) — ${span}`,
+      { deep: rows.length, eligible: rows.filter((r) => r.isEligible).length, mode }
     );
 
     return rows;
