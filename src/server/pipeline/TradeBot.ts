@@ -328,6 +328,8 @@ export class TradeBot {
         deepScanCount: number;
         budgetPerBotUSDT: number;
         maxLeverage: number;
+        hardStopLossPct?: number;
+        universeScanMode?: 'rotation' | 'turnover';
       }) => this.scanAgentUniverse(opts),
       getMarketActivity: (instId: string) => this.getMarketActivity(instId),
       getNativeGridOpportunities: () => this.nativeGridEngine.getOpportunities(),
@@ -1335,6 +1337,7 @@ export class TradeBot {
     deepScanCount: number;
     budgetPerBotUSDT: number;
     maxLeverage: number;
+    hardStopLossPct?: number;
     universeScanMode?: 'rotation' | 'turnover';
   }) {
     if (!this.agentUniverseScanner) {
@@ -1401,6 +1404,8 @@ export class TradeBot {
         GRID_PLAN_MAX_LEVERAGE,
         Math.max(1, Number(opts.maxLeverage) || 2)
       ),
+      // The band decides how much of this ceiling is usable (see maxLeverageForBand).
+      hardStopLossPct: Number(opts.hardStopLossPct) || 12,
       roundTripFeePct: Number(fee.roundTripMakerFeePct) || 0.08,
       deepScanCount: Math.max(1, Number(opts.deepScanCount) || 25),
       universeScanMode: opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation',

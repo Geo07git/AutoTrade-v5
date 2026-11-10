@@ -22,6 +22,7 @@
 import type { Kline, NativeGridOpportunity } from '../../shared/types';
 import {
   deriveGridGeometry,
+  maxLeverageForBand,
   priceDecimals,
   snapToTick,
   GRID_FEE_FLOOR_MULTIPLE,
@@ -118,6 +119,8 @@ export interface AgentScanCursorStore {
 export interface AgentScanSettings {
   budgetPerBotUSDT: number;
   maxLeverage: number;
+  /** Hard margin stop (agent guardrail, % of margin). Caps the leverage a wide band can carry. */
+  hardStopLossPct?: number;
   /** Real maker round-trip cost, e.g. 0.04 (%)  */
   roundTripFeePct: number;
   deepScanCount?: number;
@@ -251,7 +254,17 @@ export function buildAgentOpportunity(input: {
   if (!metrics) return null;
 
   const price = ticker.lastPrice;
-  const lever = clamp(Math.round(settings.maxLeverage) || 1, 1, AGENT_SCAN_MAX_LEVERAGE);
+  // Leverage is not a free knob: `stopLossPct` is in % of MARGIN, so at leverage L a 1% adverse
+  // price move costs L% of margin. Walking to the band edge must stay under the hard guardrail,
+  // hence lever <= hardStopLossPct / halfRangePct. Tight bands still get the full ceiling; a
+  // 3x-ETF band like SOXL (+-4.4%) gets ~2x instead of being opened at 10x and stopped inside
+  // one level (live: 8.85% band, 1.11% step, 11.1% of margin per step vs a 2% stop).
+  const riskCeiling = maxLeverageForBand(
+    metrics.halfRangePct,
+    Number(settings.hardStopLossPct) || 12,
+    AGENT_SCAN_MAX_LEVERAGE
+  );
+  const lever = clamp(Math.round(settings.maxLeverage) || 1, 1, riskCeiling);
   const budget = Math.max(1, Number(settings.budgetPerBotUSDT) || 0);
 
   const minLotNotionalUsd = computeMinLotNotionalUsd(spec, price);

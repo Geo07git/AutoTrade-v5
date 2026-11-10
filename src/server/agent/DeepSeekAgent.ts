@@ -33,8 +33,13 @@ import {
 } from '../../shared/types';
 import { JsonStore } from '../store';
 // The leverage ceiling is shared with the plan builder: two copies of "safe up to Nx" is how a
-// decision gets approved at a leverage the execution path then clamps differently.
-import { GRID_PLAN_MAX_LEVERAGE } from '../engine/grid/gridPlan';
+// decision gets approved at a leverage the execution path then clamps differently. The two risk
+// helpers keep the %-of-margin stop and the %-of-price grid in the same unit.
+import {
+  gridStopLossPct,
+  maxLeverageForBand,
+  GRID_PLAN_MAX_LEVERAGE,
+} from '../engine/grid/gridPlan';
 import {
   DeepSeekChatMessage,
   DeepSeekClient,
@@ -75,6 +80,7 @@ export interface DeepSeekAgentDeps {
     deepScanCount: number;
     budgetPerBotUSDT: number;
     maxLeverage: number;
+    hardStopLossPct?: number;
     universeScanMode?: 'rotation' | 'turnover';
   }): Promise<NativeGridOpportunity[]>;
   /** Live price activity for one instrument, in % of price (feeds the stagnation stop). */
@@ -900,6 +906,8 @@ export class DeepSeekAgent {
         max_total_margin_usdt: cfg.maxTotalMarginUSDT,
         sizing_note:
           'Use each candidate sz_usdt verbatim: it is the deterministic margin (sized for one lot per level, capped by budget_per_bot_usdt). min_inv_usdt is a local estimate, not an OKX limit.',
+        sl_unit_note:
+          'stopLossPct is in % of INVESTED MARGIN, not % of price: at leverage L a 1% adverse price move costs L% of margin. It is floored at L x half_band_pct (one full walk to the band edge) and capped at hard_stop_loss_pct; lever itself is capped at hard_stop_loss_pct / half_band_pct. Do not fight those clamps.',
         hard_stop_loss_pct: cfg.hardStopLossPct,
         hard_min_liq_distance_pct: cfg.hardMinLiqDistancePct,
         allow_open: cfg.allowOpenBots && snapshot.executionMode === 'LIVE' && !authorityConflict,
@@ -954,6 +962,7 @@ export class DeepSeekAgent {
           deepScanCount: cfg.universeScanSize,
           budgetPerBotUSDT: cfg.budgetPerBotUSDT,
           maxLeverage: cfg.maxLeverage,
+          hardStopLossPct: cfg.hardStopLossPct,
           universeScanMode: cfg.universeScanMode,
         });
         this.lastOwnScan = rows;
@@ -1405,7 +1414,30 @@ export class DeepSeekAgent {
 
         // --- sizing -------------------------------------------------------
         const gridNum = clamp(Math.round(Number(action.gridNum) || candidate.gridNum || 6), 2, 100);
-        const lever = clamp(Math.round(Number(action.lever) || candidate.lever || 3), 1, cfg.maxLeverage);
+        // The wider side of the band (they are symmetric, the snap can skew them by a tick).
+        const halfRangePct = (Math.max(price - minPx, maxPx - price) / price) * 100;
+        const requestedLever = clamp(
+          Math.round(Number(action.lever) || candidate.lever || 3),
+          1,
+          cfg.maxLeverage
+        );
+        // Leverage cannot exceed what the band+guardrail can survive (see maxLeverageForBand):
+        // `stopLossPct` is in % of margin, so at L x a 1% price move costs L% of margin, and a walk
+        // to the band edge must stay under `hardStopLossPct`. Without this a 8.85% band opened at
+        // 10x is stopped by a single level (11.1% of margin per step vs a 2% stop) - live proof:
+        // SOXL/MSTR/LTC/XRP all stopped at a loss 29-40 min after open on 2026-11-10.
+        const bandLever = maxLeverageForBand(halfRangePct, cfg.hardStopLossPct, cfg.maxLeverage);
+        const lever = Math.min(requestedLever, bandLever);
+        if (lever < requestedLever) {
+          this.deps.logAudit(
+            'CANDIDATE_SELECTED',
+            `[DEEPSEEK AGENT] ${candidate.instId}: levier ${requestedLever}x → ${lever}x — banda ±${halfRangePct.toFixed(
+              2
+            )}% × ${requestedLever}x ar însemna ${(halfRangePct * requestedLever).toFixed(
+              1
+            )}% din marjă până la marginea benzii, peste stop-ul dur de ${cfg.hardStopLossPct}%.`
+          );
+        }
         // `minInvestmentUSDT` is the scan's LOCAL estimate of "one lot on every level"
         // (`minLot x gridNum / lever`) — it is NOT an OKX answer, and for an X-Perp grid it is
         // not even applicable: those ids never reach OKX's grid algo gateway (51000/51001), so
@@ -1451,7 +1483,12 @@ export class DeepSeekAgent {
           continue;
         }
 
-        const stopLossPct = clamp(Number(action.stopLossPct) || 8, 1, cfg.hardStopLossPct);
+        const stopLossPct = gridStopLossPct(
+          halfRangePct,
+          lever,
+          Number(action.stopLossPct) || 0,
+          cfg.hardStopLossPct
+        );
         const takeProfitPct = clamp(Number(action.takeProfitPct) || 15, 1, 300);
 
         approved.push({

@@ -172,6 +172,56 @@ export const GRID_MAX_LEVELS = 20;
  */
 export const GRID_PLAN_MAX_LEVERAGE = 10;
 
+/**
+ * RISK IS IN % OF MARGIN, THE GRID IS IN % OF PRICE — the two units must be tied together.
+ *
+ * `stopLossPct` is "max loss % of invested margin" (types.ts). At leverage L a 1% adverse price
+ * move costs L% of margin, so a CONSTANT margin stop gets L times tighter as leverage rises. Live
+ * evidence (bots opened 2026-11-10, all stopped at a loss within 30-40 min):
+ *
+ *   SOXL 10x, band 8.85%, step 1.11% of price  -> one level = 11.1% of margin, stop was 2%
+ *   MSTR 10x, band 4.60%, step 0.58% of price  -> one level = 5.8% of margin,  stop was 2%
+ *   XRP  10x, band 2.22%, step 0.28% of price  -> one level = 2.8% of margin,  stop was 2%
+ *
+ * So a single adverse level — less than one step of the grid's own geometry — was enough to
+ * trigger the stop. A grid cannot work like that: it is DESIGNED to accumulate inventory as price
+ * walks to the band edge, and that walk is what the stop must tolerate.
+ *
+ * `maxLeverageForBand` derives the leverage a band can carry: keeping the worst case inside the
+ * band (a full walk to the edge = lever x halfRange) under the hard guardrail gives
+ * `lever <= hardStopLossPct / halfRangePct`. Tight bands keep high leverage, wide bands get less,
+ * which is the opposite of the old constant ceiling and is what stops the churn.
+ */
+export function maxLeverageForBand(
+  halfRangePct: number,
+  hardStopLossPct: number,
+  ceiling: number
+): number {
+  const band = Math.max(0.01, Number(halfRangePct) || 0);
+  const guard = Math.max(1, Number(hardStopLossPct) || 12);
+  const cap = Math.max(1, Math.floor(Number(ceiling) || 1));
+  return clamp(Math.floor(guard / band), 1, cap);
+}
+
+/**
+ * Stop for one grid, expressed in % of margin: the model's value may only make it TIGHTER than
+ * the geometry allows, never tighter than a full walk to the band edge (`lever x halfRange`), and
+ * never above the hard guardrail.
+ */
+export function gridStopLossPct(
+  halfRangePct: number,
+  lever: number,
+  configuredPct: number,
+  hardStopLossPct: number
+): number {
+  const band = Math.max(0.01, Number(halfRangePct) || 0);
+  const lev = Math.max(1, Number(lever) || 1);
+  const guard = clamp(Number(hardStopLossPct) || 12, 1, 100);
+  const geometryFloor = lev * band;
+  const configured = Number(configuredPct) > 0 ? Number(configuredPct) : geometryFloor;
+  return round(clamp(Math.max(configured, geometryFloor), 1, guard), 2);
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------

@@ -197,6 +197,13 @@ Rulate la fiecare ciclu, indiferent ce a răspuns modelul. Dacă un bot încalc�
 | Preț în afara `[minPx, maxPx]` | — |
 | 0 arbitraje în ≥ Z min (PnL ignorat dacă `stopIfPassive`) | `hardMaxNoFillMinutes` = 180 min, **minim 60** |
 
+**Stop-urile sunt în % din MARJĂ, grila e în % din PREȚ** — la levier L, o mișcare de 1% a
+prețului costă L% din marjă. De aceea levierul nu e liber: `lever ≤ hardStopLossPct / jumătate de
+bandă`, iar `stopLossPct` are podeaua `levier × jumătate de bandă` (o plimbare completă până la
+marginea benzii). Fără asta, un bot deschis la 10x pe o bandă de ±4.4% (SOXL) e oprit de **o
+singură treaptă** (11.1% din marjă) în timp ce stop-ul era 2% — măsurat pe boții din 2026-11-10,
+opriți cu pierdere în 29–40 de minute.
+
 Acțiunile de guardrail se execută **înaintea** celor propuse de model și nu pot fi anulate de un `HOLD`.
 
 > Numărătoarea de arbitraje vine din **telemetria live TB5** (`getNativeGridBotsSnapshot()`), nu din snapshot-ul static scris la creare pentru boții `AUTO_LIMIT`. Snapshot-ul acela rămâne veșnic la `0 arbitraje / PnL 0` (nu există algo OKX pentru `_UM_XPERP`), deci citit direct ar face ca regula „bot pasiv” să oprească **fiecare** bot exact la prag, inclusiv pe cei care aveau deja round-trip-uri înjumătățite.
@@ -333,7 +340,7 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `budgetPerBotUSDT` | 12 | 5-500 | marjă maximă per grid |
 | `minReserveUSDT` | 0 | 0-10000 | cash care nu se atinge (0 = acceptat pe un cont de 15 USDC) |
 | `maxTotalMarginUSDT` | 12 | 5-500 | plafon de marjă cumulat al agentului (1 grid) |
-| `maxLeverage` | 2 | 1-10 | plafon levier (proprietarul îl ridică din tab; peste ~7x pragul de lichidare se scalează cu levierul) |
+| `maxLeverage` | 2 | 1-10 | plafon levier (proprietarul îl ridică din tab; valoarea reală e `min(setat, 12 / jumătate de bandă)` — vezi relația stop/levier de mai sus) |
 | `minSuitabilityScore` | 70 | 30-98 | prag eligibilitate |
 | `minNetProfitPerGridPct` | 0.05 | 0.01-5 | profit net minim per grilă |
 | `cooldownMinutesPerSymbol` | 45 | 45-1440 | pauză după stop/deschidere pe simbol |

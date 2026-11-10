@@ -23,6 +23,8 @@ import {
   buildGridPlan,
   deriveGridGeometry,
   geometryHash,
+  gridStopLossPct,
+  maxLeverageForBand,
   snapToTick,
   GRID_PLAN_MAX_LEVERAGE,
   GRID_MIN_LEVELS,
@@ -143,6 +145,64 @@ test('deriveGridGeometry matches the agent scan geometry on every ATR band', () 
 test('the leverage ceiling cannot drift from the agent scan ceiling', () => {
   eq(GRID_PLAN_MAX_LEVERAGE, AGENT_SCAN_MAX_LEVERAGE, 'both ceilings must stay equal');
   eq(GRID_PLAN_MAX_LEVERAGE, 10, 'the neutral-grid ceiling is 10x by policy (owner-approved)');
+});
+
+// ---------------------------------------------------------------------------
+// Risk unit: stop in % of MARGIN vs grid in % of PRICE
+// ---------------------------------------------------------------------------
+
+/**
+ * Live data from the bots opened on 2026-11-10 (`.data/native_grid_bots.json`), all of which were
+ * stopped at a loss 29-40 minutes after open because a 2% margin stop is a 0.2% price stop at 10x.
+ */
+const LIVE_BANDS = [
+  { sym: 'XRP', halfRangePct: 1.11, stopWas: 2 },
+  { sym: 'LTC', halfRangePct: 1.465, stopWas: 2 },
+  { sym: 'MSTR', halfRangePct: 2.3, stopWas: 2 },
+  { sym: 'SOXL', halfRangePct: 4.42, stopWas: 2 },
+];
+
+test('leverage is capped by the band so one walk to the edge fits under the guardrail', () => {
+  const guard = 12;
+  for (const b of LIVE_BANDS) {
+    const levers = [1, 2, 5, 10, 20];
+    for (const requested of levers) {
+      const lev = maxLeverageForBand(b.halfRangePct, guard, requested);
+      ok(lev >= 1, `${b.sym}: leverage must stay at least 1x`);
+      ok(lev <= requested, `${b.sym}: the cap may only lower the requested leverage`);
+      ok(
+        lev * b.halfRangePct <= guard + 1e-9,
+        `${b.sym}: ${lev}x x ${b.halfRangePct}% = ${(lev * b.halfRangePct).toFixed(
+          1
+        )}% of margin exceeds the ${guard}% guardrail`
+      );
+    }
+  }
+  // A wide band must NOT keep 10x: the whole point of the cap.
+  eq(maxLeverageForBand(4.42, 12, 10), 2, 'SOXL (+-4.42%) cannot carry 10x under a 12% stop');
+  eq(maxLeverageForBand(1.11, 12, 10), 10, 'XRP (+-1.11%) still gets the full 10x ceiling');
+  eq(maxLeverageForBand(0.8, 12, 10), 10, 'the tightest allowed band keeps the ceiling');
+});
+
+test('the grid stop always covers a full walk to the band edge', () => {
+  for (const b of LIVE_BANDS) {
+    const lev = maxLeverageForBand(b.halfRangePct, 12, 10);
+    const sl = gridStopLossPct(b.halfRangePct, lev, b.stopWas, 12);
+    ok(
+      sl >= lev * b.halfRangePct - 1e-9,
+      `${b.sym}: SL ${sl}% of margin is tighter than one band walk (${(
+        lev * b.halfRangePct
+      ).toFixed(2)}%) - the bot would be stopped inside its own range`
+    );
+    ok(sl <= 12, `${b.sym}: SL ${sl}% must not exceed the hard guardrail`);
+  }
+  // The model may tighten, never enough to be stopped by a single level.
+  eq(gridStopLossPct(1.11, 10, 2, 12), 11.1, 'XRP @10x: the 2% request is floored at one band walk');
+  eq(gridStopLossPct(1.11, 10, 2, 12), gridStopLossPct(1.11, 10, 0, 12), 'missing SL uses the floor');
+  ok(
+    gridStopLossPct(1.11, 10, 30, 12) === 12,
+    'a request above the guardrail is clamped down to it, not accepted'
+  );
 });
 
 test('a mid-vol tape gets a fillable grid, not the 4-level minimum', () => {
