@@ -8,12 +8,16 @@
  */
 
 import {
+  AGENT_SCAN_POOL_REFRESH_MINUTES,
+  AGENT_SCAN_POOL_SIZE,
   AgentUniverseScanner,
   buildAgentOpportunity,
   computeAgentGridMetrics,
   computeMinLotNotionalUsd,
+  rankElitePool,
   selectRotationWindow,
   type AgentContractSpec,
+  type AgentScanPoolState,
   type AgentUniverseDataSource,
   type AgentUniverseTicker,
 } from '../AgentUniverseScan';
@@ -103,6 +107,9 @@ const settings = {
   budgetPerBotUSDT: 12,
   maxLeverage: 2,
   roundTripFeePct: FEE,
+  // The scanner's low-level default stays 'rotation' so the rotation suite below keeps testing
+  // rotation explicitly; the AGENT default is the pool (DeepSeekAgentConfig.universeScanMode).
+  universeScanMode: 'rotation' as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -453,6 +460,192 @@ test('scanner: rotation order is alphabetical, not turnover order', async () => 
   });
   const scanned = rows.map((r) => r.instId.split('-')[0]).sort();
   eq(scanned.join(','), 'AAA,MMM', 'the window must follow instId order, not turnover');
+});
+
+// ---------------------------------------------------------------------------
+// Pool mode — cheap sweep of the WHOLE universe, candles only for the elite
+// ---------------------------------------------------------------------------
+
+const poolContract = (
+  symbol: string,
+  over: { high24h?: number; low24h?: number; spreadPct?: number; turnover24hUSDT?: number } = {}
+) => {
+  const instId = `${symbol}-USD_UM_XPERP-310523`;
+  return {
+    spec: spec({ instId }),
+    ticker: ticker({ instId, ...over }),
+    klines: oscillatingKlines(),
+  };
+};
+
+test('pool ranking: path per unit of spread, gated by spread, total on junk input', () => {
+  const ranked = rankElitePool(
+    [
+      ticker({ instId: 'WIDE', high24h: 110, low24h: 90, spreadPct: 0.01 }), // 20% / 0.01 = 2000
+      ticker({ instId: 'NARROW', high24h: 101, low24h: 99, spreadPct: 0.01 }), // 2% / 0.01 = 200
+      ticker({ instId: 'NO_SPREAD', high24h: 106, low24h: 94, spreadPct: 0 }), // assumed 0.05
+      ticker({ instId: 'TOO_WIDE_SPREAD', high24h: 130, low24h: 70, spreadPct: 0.5 }),
+      ticker({ instId: 'NO_PRICE', lastPrice: 0 }),
+    ],
+    { size: 10 }
+  );
+  eq(ranked[0].instId, 'WIDE', 'the contract with the most path per spread must rank first');
+  eq(ranked[1].instId, 'NO_SPREAD', 'a missing spread is assumed, not silently dropped');
+  eq(ranked[2].instId, 'NARROW', 'the narrow band ranks last of the survivors');
+  ok(
+    !ranked.some((r) => r.instId === 'TOO_WIDE_SPREAD'),
+    'a spread above the ceiling must never earn candles'
+  );
+  ok(!ranked.some((r) => r.instId === 'NO_PRICE'), 'a contract without a price cannot be pooled');
+
+  eq(rankElitePool([], { size: 10 }).length, 0, 'an empty universe yields an empty pool');
+  const capped = rankElitePool(
+    Array.from({ length: 80 }, (_, i) =>
+      ticker({ instId: `S${i}`, high24h: 101 + i, low24h: 99 })
+    ),
+    { size: 50 }
+  );
+  eq(capped.length, 50, 'the pool holds exactly `size` contracts');
+  eq(capped[0].instId, 'S79', 'and they are the best ones');
+});
+
+test('scanner (pool): only the cheap-stage winners get candles', async () => {
+  const data = fakeDataSource([
+    poolContract('WIDE'),
+    poolContract('NARROW', { high24h: 101, low24h: 99 }),
+    // Highest raw range of all, but a spread the desk cannot pay: gated out before any candle.
+    poolContract('EXPENSIVE', { high24h: 130, low24h: 70, spreadPct: 0.5 }),
+  ]);
+
+  const rows = await new AgentUniverseScanner(data).scan({
+    ...settings,
+    universeScanMode: 'pool',
+    deepScanCount: 1,
+    poolSize: 2,
+  });
+  eq(rows.length, 1, 'one contract per cycle at deepScanCount 1');
+  eq(rows[0].instId, 'WIDE-USD_UM_XPERP-310523', 'the best cheap score gets the single slot');
+  ok(
+    !rows.some((r) => r.instId.startsWith('EXPENSIVE')),
+    'the wide-spread contract never reaches the deep scan'
+  );
+});
+
+test('scanner (pool): the pool survives between cycles and is covered in 2 cycles', async () => {
+  const contracts = ['A', 'B', 'C', 'D'].map((s, i) =>
+    poolContract(s, { high24h: 120 - i, low24h: 80 + i })
+  );
+  const data = fakeDataSource(contracts);
+  let saved: AgentScanPoolState | null = null;
+  const store = {
+    load: () => saved,
+    save: (s: AgentScanPoolState) => {
+      saved = s;
+    },
+  };
+  const scanner = new AgentUniverseScanner(data, undefined, undefined, store);
+  const opts = { ...settings, universeScanMode: 'pool' as const, deepScanCount: 2, poolSize: 4 };
+
+  const first = await scanner.scan(opts);
+  eq(saved?.pool.length, 4, 'the whole (small) universe fits the pool');
+  const builtAt = saved!.builtAt;
+  eq(saved?.cursor, 2, 'the cursor advances inside the pool after a completed cycle');
+  const firstIds = first.map((r) => r.instId).sort();
+
+  const second = await scanner.scan(opts);
+  eq(saved!.builtAt, builtAt, 'the pool must NOT be re-picked on the next cycle');
+  eq(saved?.cursor, 0, 'two cycles cover the pool, so the cursor wraps back to 0');
+  ok(
+    second.every((r) => !firstIds.includes(r.instId)),
+    'the second cycle looks at the other half of the pool, not the same contracts'
+  );
+
+  const third = await scanner.scan(opts);
+  eq(
+    third.map((r) => r.instId).sort().join(','),
+    firstIds.join(','),
+    'the third cycle is back on the first window - the pool is fully re-measured every 2 cycles'
+  );
+});
+
+test('scanner (pool): an expired pool is re-picked from the whole universe', async () => {
+  const data = fakeDataSource([
+    poolContract('WIDE'),
+    poolContract('NARROW', { high24h: 101, low24h: 99 }),
+  ]);
+  const logs: string[] = [];
+  let saved: AgentScanPoolState | null = {
+    // Stale by one minute: 180 min + 1.
+    pool: ['NARROW-USD_UM_XPERP-310523', 'WIDE-USD_UM_XPERP-310523'],
+    builtAt: Date.now() - (AGENT_SCAN_POOL_REFRESH_MINUTES + 1) * 60_000,
+    cursor: 1,
+  };
+  const store = {
+    load: () => saved,
+    save: (s: AgentScanPoolState) => {
+      saved = s;
+    },
+  };
+  const scanner = new AgentUniverseScanner(
+    data,
+    (m: string) => logs.push(m),
+    undefined,
+    store
+  );
+
+  await scanner.scan({
+    ...settings,
+    universeScanMode: 'pool',
+    deepScanCount: 2,
+    poolSize: 2,
+  });
+
+  ok(
+    logs.some((m) => m.includes('pool reîmprospătat')),
+    'the rebuild must be visible in the audit trail'
+  );
+  eq(saved!.cursor, 0, 'a rebuild restarts the pool cursor');
+  eq(
+    saved!.pool[0],
+    'WIDE-USD_UM_XPERP-310523',
+    'the rebuilt pool is ordered by the fresh cheap score, not by the old order'
+  );
+  ok(Date.now() - saved!.builtAt < 60_000, 'the rebuild stamps a fresh builtAt');
+});
+
+test('scanner (pool): a pooled contract that left the universe is dropped', async () => {
+  const data = fakeDataSource([
+    poolContract('AAA'),
+    poolContract('BBB'),
+    poolContract('CCC'),
+    poolContract('DDD'),
+    poolContract('EEE'),
+    poolContract('FFF'),
+  ]);
+  let saved: AgentScanPoolState | null = {
+    pool: ['GONE-USD_UM_XPERP-310523', 'AAA-USD_UM_XPERP-310523'],
+    builtAt: Date.now() - 60_000,
+    cursor: 0,
+  };
+  const store = {
+    load: () => saved,
+    save: (s: AgentScanPoolState) => {
+      saved = s;
+    },
+  };
+
+  await new AgentUniverseScanner(data, undefined, undefined, store).scan({
+    ...settings,
+    universeScanMode: 'pool',
+    deepScanCount: 2,
+    poolSize: 50,
+  });
+
+  ok(
+    !saved!.pool.includes('GONE-USD_UM_XPERP-310523'),
+    'a contract that no longer exists must not be scanned forever'
+  );
+  ok(saved!.pool.length >= 5, 'a pool smaller than the minimum target is rebuilt in full');
 });
 
 // ---------------------------------------------------------------------------

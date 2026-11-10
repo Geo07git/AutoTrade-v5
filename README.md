@@ -356,13 +356,45 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `hardMinLiqDistancePct` | 12 | 3-60 | guardrail distanță lichidare |
 | `hardMaxNoFillMinutes` | 180 | 60-1440 | guardrail „0 arbitraje” (sub 60 min = fals pozitiv garantat) |
 | `ownUniverseScan` | `true` | bool | scan propriu al agentului (crossings/h), nu scorurile aplicației |
-| `universeScanSize` | 25 | 5-60 | câte contracte intră în scanul adânc |
+| `universeScanSize` | 25 | 5-60 | câte contracte intră în scanul adânc, per ciclu |
+| `universeScanMode` | `pool` | `pool` / `rotation` / `turnover` | cum se aleg cele `universeScanSize` — vezi mai jos |
+| `poolSize` | 50 | 5-60 | câte contracte din univers țin lumânări (pool-ul de elită) |
+| `poolRefreshMinutes` | 180 | 15-1440 | la cât timp pool-ul e reales din tot universul |
 | `minCrossingsPerHour` | 0.35 | 0.05-5 | prag sub care nu deschide |
 | `stopIfPassive` | `true` | bool | oprește un bot fără arbitraje doar după deadline-ul recalculat |
 | `preferNativeAlgo` | `true` | bool | grid nativ OKX (ignorat pe `_UM_XPERP`) |
 | `pricePer1MInputUSD` / `pricePer1MInputCachedUSD` / `pricePer1MOutputUSD` | 0.27 / 0.07 / 1.10 | 0-1000 | doar pentru **estimarea** costului API din tab |
 
 Contoare read-only: `totalCycles`, `totalActionsExecuted`, `totalErrors`, `consecutiveErrors`, `symbolCooldowns`, `lastDecisionAt`, `lastError`.
+
+### Cum alege agentul ce scanează (`universeScanMode`)
+
+**`pool` (implicit)** — două etape, cu cost asimetric:
+
+1. **Sweep ieftin, pe TOT universul, la fiecare ciclu.** Snapshot-ul de tickers aduce toate cele
+   ~260 contracte `_UM_XPERP` într-o singură cerere, deci tot universul e clasat fără lumânări:
+   `score = (high24h - low24h)% / spread%` — cât drum plătește grila raportat la costul pe care îl
+   traversează. Turnover-ul și spread-ul sunt **filtre**, nu criterii de clasare (clasarea după
+   turnover, modul vechi, răsplătea popularitatea, nu oscilația).
+2. **Pool de elită.** Doar primele `poolSize` (50) primesc lumânări. `universeScanSize` (25) dintre
+   ele sunt scanate adânc pe ciclu, **în rotație în interiorul pool-ului**, deci pool-ul e remăsurat
+   complet la fiecare 2 cicluri (40 min la 50/25), nu la fiecare 11 cicluri (3,7 h).
+
+Pool-ul e **reales din tot universul** la fiecare `poolRefreshMinutes` (180) — sau mai devreme dacă
+peste 20% din membri au dispărut din univers. Între reîmprospătări, componența e stabilă: un simbol
+nu intră/iese la fiecare ciclu, ceea ce ar face cooldown-ul de 45 min inutilizabil.
+
+De ce e mai bun decât rotația pe tot universul: rotația consuma 10 din 11 cicluri scanând adânc
+contracte despre care snapshot-ul ieftin știa deja că nu pot plăti, iar un contract bun era remăsurat
+abia după 3,7 h — timp în care oscilația lui dispăruse deja.
+
+**`rotation`** (rollback): fiecare contract e eligibil, fiecare ciclu ia următoarea fereastră
+alfabetică, un tur complet = `ceil(total / universeScanSize)` cicluri, fără filtru de turnover.
+**`turnover`** (legacy, rollback): top-N după turnover 24h cu prag 3M.
+
+Migrare: un config salvat înainte de `pool` conține `"rotation"`; la prima citire primește
+`scanPolicyVersion: 2` și e comutat pe `pool` (altfel ar rămâne pe turul de 3,7 h pentru totdeauna).
+Un rollback deliberat la `rotation` e respectat după aceea.
 
 Consum API (`usage`, persistat): `apiCalls`, `promptTokens`, `cachedPromptTokens`, `completionTokens`, `costUSD`, `lastCallAt`, `lastPromptTokens`, `lastCompletionTokens`, `lastLatencyMs`, `lastCostUSD`. Statusul expune `tokenUsage` cu totaluri plus estimarea pe ciclu / zi / lună (la `runIntervalSec` curent; ex. 300 s = 288 cicluri/zi).
 

@@ -57,6 +57,15 @@ export const AGENT_SCAN_MAX_LEVERAGE = GRID_PLAN_MAX_LEVERAGE;
 export const AGENT_SCAN_MIN_HALF_RANGE_PCT = GRID_MIN_HALF_RANGE_PCT;
 export const AGENT_SCAN_MAX_HALF_RANGE_PCT = GRID_MAX_HALF_RANGE_PCT;
 
+/** Elite pool size (how many of the whole universe keep their candles). */
+export const AGENT_SCAN_POOL_SIZE = 50;
+/** Pool lifetime before it is re-picked from the whole universe. */
+export const AGENT_SCAN_POOL_REFRESH_MINUTES = 180;
+/** Cheap-stage spread ceiling: above this the grid loses the edge before it fills. */
+export const AGENT_SCAN_POOL_MAX_SPREAD_PCT = 0.25;
+/** Spread assumed when the snapshot does not carry one (so a contract is RANKED, not dropped). */
+export const AGENT_SCAN_POOL_ASSUMED_SPREAD_PCT = 0.05;
+
 // ---------------------------------------------------------------------------
 // Data source contract (implemented by TradeBot, i.e. TB5 = OKX connectivity only)
 // ---------------------------------------------------------------------------
@@ -97,15 +106,24 @@ export interface AgentUniverseDataSource {
 /**
  * How the agent picks WHICH contracts to deep-scan each cycle.
  *
- * - `rotation` (default): every `_UM_XPERP` contract with a live price is eligible, and each
- *   cycle takes the next alphabetical window of `deepScanCount`. After
- *   `ceil(total / deepScanCount)` cycles the ENTIRE universe has been looked at, at no extra
- *   API cost per cycle. There is deliberately NO turnover gate: 24h turnover measures
- *   popularity, not whether a neutral grid fills — and ranking by it is exactly why the same
- *   handful of symbols were scanned forever while the rest of the universe was never seen.
- * - `turnover` (legacy, kept for rollback): top-N by 24h turnover with the 3M floor.
+ * - `pool` (default): TWO stages instead of one long turn.
+ *     1. CHEAP full sweep — the tickers snapshot already contains all ~260 `_UM_XPERP`
+ *        contracts in ONE request, so ranking the whole universe no longer costs 11 cycles. Every
+ *        contract is scored without candles: `(high-low)% / spread%` (path worth crossing per
+ *        unit of spread), gated by a turnover floor and a spread ceiling.
+ *     2. ELITE POOL — the best `poolSize` (50) of that ranking are the only contracts that get
+ *        candles. `deepScanCount` (25) of them are deep-scanned per cycle, rotating inside the
+ *        pool, so the pool is fully re-measured every 2 cycles (40 min) instead of every 11
+ *        cycles (3.7 h). The pool is re-picked from the whole universe every
+ *        `poolRefreshMinutes` (180).
+ *   Why this beats plain rotation: rotation spent 10 of its 11 cycles deep-scanning contracts
+ *   that the cheap snapshot could already tell were unusable, and a good contract was only
+ *   re-measured once every 3.7 h - by which time its chop was gone.
+ * - `rotation` (rollback): every contract is eligible, each cycle takes the next alphabetical
+ *   window, one turn = `ceil(total / deepScanCount)` cycles, no turnover gate.
+ * - `turnover` (legacy rollback): top-N by 24h turnover with the 3M floor.
  */
-export type AgentUniverseScanMode = 'rotation' | 'turnover';
+export type AgentUniverseScanMode = 'pool' | 'rotation' | 'turnover';
 
 /**
  * Persisted rotation position. Injected so the scanner stays free of I/O and testable;
@@ -114,6 +132,23 @@ export type AgentUniverseScanMode = 'rotation' | 'turnover';
 export interface AgentScanCursorStore {
   load(): number;
   save(cursor: number): void;
+}
+
+/** Persisted elite pool (pool mode). Same contract as the cursor: degraded load must not throw. */
+export interface AgentScanPoolState {
+  /** Pooled instIds, best cheap score first. */
+  pool: string[];
+  /** When the pool was picked (Unix ms). */
+  builtAt: number;
+  /** Rotation cursor INSIDE the pool (so the pool is covered in ceil(size / deepScanCount) cycles). */
+  cursor: number;
+  /** Cheap scores, for the audit trail and for explaining a pool rebuild. */
+  scores?: Record<string, number>;
+}
+
+export interface AgentScanPoolStore {
+  load(): AgentScanPoolState | null;
+  save(state: AgentScanPoolState): void;
 }
 
 export interface AgentScanSettings {
@@ -125,8 +160,13 @@ export interface AgentScanSettings {
   roundTripFeePct: number;
   deepScanCount?: number;
   minTurnover24hUSDT?: number;
-  /** 'rotation' (default) or 'turnover' (legacy rollback mode). */
+  /** 'pool' (default) = top-N by cheap 24h ranking, deep-scanned every cycle, pool rebuilt
+   *  every `poolRefreshMinutes`; 'rotation' / 'turnover' kept for instant rollback. */
   universeScanMode?: AgentUniverseScanMode;
+  /** How many contracts the elite pool holds (default 50). */
+  poolSize?: number;
+  /** How long the elite pool lives before it is re-picked from the whole universe (default 180). */
+  poolRefreshMinutes?: number;
   /** Optional funding drag input, keyed by instId (current 8h funding rate %). */
   fundingRatePctByInstId?: Record<string, number>;
 }
@@ -434,6 +474,74 @@ export function selectRotationWindow<T>(
 }
 
 // ---------------------------------------------------------------------------
+// Elite pool (cheap ranking of the WHOLE universe — no candles)
+// ---------------------------------------------------------------------------
+
+export interface AgentPoolCandidate {
+  instId: string;
+  /** 24h range % divided by spread % — path worth crossing per unit of cost. */
+  score: number;
+  range24hPct: number;
+  spreadPct: number;
+  turnover24hUSDT: number;
+}
+
+/**
+ * Rank the ENTIRE universe from a single tickers snapshot and keep the best `size`.
+ *
+ * Deliberately candle-free: one `fetchTickers()` already returns every `_UM_XPERP` contract, so
+ * the whole universe can be scored on every cycle. This is what removes the need for a long
+ * rotation turn — the sweep is complete each cycle, and only the top slice pays for candles.
+ *
+ * Score = 24h range / spread: a neutral grid is paid by the price travelling across its levels
+ * (range) and taxed by the spread it crosses to get there. Turnover and spread are GATES, not
+ * ranking keys — ranking by turnover (the old legacy mode) rewards popularity, not chop.
+ *
+ * Total and pure: a missing/zero spread is scored with a typical value instead of being silently
+ * dropped (the deep stage measures the real book), and an empty result is returned as-is so the
+ * caller can decide to fall back.
+ */
+export function rankElitePool(
+  tickers: AgentUniverseTicker[],
+  opts: { minTurnoverUSDT?: number; maxSpreadPct?: number; size?: number } = {}
+): AgentPoolCandidate[] {
+  const minTurnover = Math.max(0, Number(opts.minTurnoverUSDT) || 0);
+  const maxSpread =
+    Number(opts.maxSpreadPct) > 0
+      ? Number(opts.maxSpreadPct)
+      : AGENT_SCAN_POOL_MAX_SPREAD_PCT;
+  const size = clamp(Math.round(Number(opts.size) || AGENT_SCAN_POOL_SIZE), 1, 260);
+
+  const out: AgentPoolCandidate[] = [];
+  for (const t of tickers || []) {
+    if (!t || !t.instId || !(t.lastPrice > 0)) continue;
+    if (!(t.turnover24hUSDT >= minTurnover)) continue;
+    const spreadPct =
+      t.spreadPct > 0 ? t.spreadPct : AGENT_SCAN_POOL_ASSUMED_SPREAD_PCT;
+    if (spreadPct > maxSpread) continue;
+    const range24hPct =
+      t.high24h > 0 && t.low24h > 0 && t.high24h > t.low24h
+        ? ((t.high24h - t.low24h) / t.lastPrice) * 100
+        : 0;
+    out.push({
+      instId: t.instId,
+      score: round(range24hPct / spreadPct, 4),
+      range24hPct: round(range24hPct, 4),
+      spreadPct: round(spreadPct, 4),
+      turnover24hUSDT: t.turnover24hUSDT,
+    });
+  }
+
+  out.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.turnover24hUSDT - a.turnover24hUSDT ||
+      a.instId.localeCompare(b.instId)
+  );
+  return out.slice(0, size);
+}
+
+// ---------------------------------------------------------------------------
 // Scanner (network orchestration only — no scoring)
 // ---------------------------------------------------------------------------
 
@@ -441,7 +549,8 @@ export class AgentUniverseScanner {
   constructor(
     private data: AgentUniverseDataSource,
     private log?: (message: string, details?: any) => void,
-    private cursorStore?: AgentScanCursorStore
+    private cursorStore?: AgentScanCursorStore,
+    private poolStore?: AgentScanPoolStore
   ) {}
 
   public async scan(settings: AgentScanSettings): Promise<NativeGridOpportunity[]> {
@@ -452,7 +561,11 @@ export class AgentUniverseScanner {
       60
     );
     const mode: AgentUniverseScanMode =
-      settings.universeScanMode === 'turnover' ? 'turnover' : 'rotation';
+      settings.universeScanMode === 'turnover'
+        ? 'turnover'
+        : settings.universeScanMode === 'rotation'
+          ? 'rotation'
+          : 'pool';
 
     const [specs, tickers] = await Promise.all([
       this.data.listXPerpContracts(),
@@ -471,8 +584,24 @@ export class AgentUniverseScanner {
 
     let stage1: Stage1Row[];
     let rotation: RotationWindow<Stage1Row> | null = null;
+    /** Pool state to persist once the cycle completed (pool mode only). */
+    let pendingPoolState: AgentScanPoolState | null = null;
+    /** Human-readable description of how this cycle's window was chosen. */
+    let span = `mod ${mode}`;
 
-    if (mode === 'rotation') {
+    if (mode === 'pool') {
+      const picked = this.pickElitePool(universe, settings, deepCount, startedAt);
+      rotation = picked.window;
+      stage1 = picked.window.items;
+      pendingPoolState = picked.nextState;
+      span =
+        `pool ${picked.pool.length}/${universe.length} (vârstă ${Math.round(
+          picked.ageMinutes
+        )} min, reîmprospătare în ${Math.round(picked.minutesToRefresh)} min)` +
+        ` — fereastră ${picked.window.start + 1}-${
+          picked.window.start + picked.window.items.length
+        }, pool complet în ${picked.window.cyclesForFullCoverage} cicluri`;
+    } else if (mode === 'rotation') {
       // Alphabetical, NOT by turnover: the ordering must be stable across cycles, otherwise
       // membership shifts between ticks and a contract can be skipped or scanned twice.
       universe.sort((a, b) => a.spec.instId.localeCompare(b.spec.instId));
@@ -526,13 +655,20 @@ export class AgentUniverseScanner {
 
     // Advance only after a completed cycle: a crash mid-scan must retry the same window,
     // never skip it for a full turn.
-    if (rotation) {
+    if (rotation && mode === 'rotation') {
       try {
         this.cursorStore?.save(rotation.nextCursor);
       } catch (err: any) {
         this.log?.(
           `[AGENT SCAN] nu am putut salva cursorul de rotație: ${err?.message || err}`
         );
+      }
+    }
+    if (pendingPoolState) {
+      try {
+        this.poolStore?.save(pendingPoolState);
+      } catch (err: any) {
+        this.log?.(`[AGENT SCAN] nu am putut salva pool-ul de scan: ${err?.message || err}`);
       }
     }
 
@@ -546,13 +682,13 @@ export class AgentUniverseScanner {
     });
     rows.forEach((row, idx) => (row.rank = idx + 1));
 
-    const span =
-      rotation && rotation.total > 0
-        ? `rotație ${rotation.start + 1}-${rotation.start + rotation.items.length} din ${
-            rotation.total
-          } (următorul ciclu de la ${rotation.nextCursor + 1},` +
-          ` acoperire completă în ${rotation.cyclesForFullCoverage} cicluri)`
-        : `mod ${mode}`;
+    if (rotation && mode === 'rotation' && rotation.total > 0) {
+      span =
+        `rotație ${rotation.start + 1}-${rotation.start + rotation.items.length} din ${
+          rotation.total
+        } (următorul ciclu de la ${rotation.nextCursor + 1},` +
+        ` acoperire completă în ${rotation.cyclesForFullCoverage} cicluri)`;
+    }
 
     this.log?.(
       `[AGENT SCAN] ${rows.length} contracte scanate adânc în ${Date.now() - startedAt} ms, ` +
@@ -561,5 +697,128 @@ export class AgentUniverseScanner {
     );
 
     return rows;
+  }
+
+  /**
+   * Pick this cycle's window out of the elite pool, rebuilding the pool first when it is missing,
+   * expired or has lost too many members from the universe.
+   *
+   * Two stages, deliberately asymmetric in cost:
+   *   - the CHEAP sweep ranks the WHOLE universe from the tickers snapshot (one request, already
+   *     fetched above) — so "a full turn over all ~260 contracts" happens every cycle, not every
+   *     11 cycles;
+   *   - only the top `poolSize` pay for candles, and the window rotates INSIDE the pool so the
+   *     pool is re-measured every ceil(poolSize / deepScanCount) cycles instead of every full turn.
+   *
+   * The advanced cursor is returned, not saved: a crash mid-scan must retry the same window (the
+   * caller persists after a completed cycle, exactly like the rotation cursor).
+   */
+  private pickElitePool(
+    universe: Array<{ spec: AgentContractSpec; ticker: AgentUniverseTicker }>,
+    settings: AgentScanSettings,
+    deepCount: number,
+    now: number
+  ): {
+    pool: string[];
+    window: RotationWindow<{ spec: AgentContractSpec; ticker: AgentUniverseTicker }>;
+    nextState: AgentScanPoolState;
+    ageMinutes: number;
+    minutesToRefresh: number;
+  } {
+    const poolTarget = clamp(
+      Math.round(Number(settings.poolSize) || AGENT_SCAN_POOL_SIZE),
+      5,
+      60
+    );
+    const refreshMinutes = clamp(
+      Math.round(Number(settings.poolRefreshMinutes) || AGENT_SCAN_POOL_REFRESH_MINUTES),
+      15,
+      1440
+    );
+    const refreshMs = refreshMinutes * 60_000;
+
+    let state: AgentScanPoolState | null = null;
+    try {
+      state = this.poolStore?.load() ?? null;
+    } catch (err: any) {
+      this.log?.(`[AGENT SCAN] pool ilizibil, îl reconstruiesc: ${err?.message || err}`);
+      state = null;
+    }
+
+    const byId = new Map(universe.map((r) => [r.spec.instId, r]));
+    const storedPool = Array.isArray(state?.pool)
+      ? (state!.pool || []).filter((id) => typeof id === 'string' && id.length > 0)
+      : [];
+    const alive = storedPool.filter((id) => byId.has(id));
+    const dropped = storedPool.length - alive.length;
+    const ageMs = state ? Math.max(0, now - (Number(state.builtAt) || 0)) : Number.POSITIVE_INFINITY;
+
+    const stale =
+      !state ||
+      alive.length === 0 ||
+      ageMs >= refreshMs ||
+      // Decay, not absolute size: a pool that came back short because the cheap gates reject most
+      // of the universe must NOT be rebuilt every cycle (that would pin the cursor at 0 and scan
+      // the same contracts forever). Only members actually leaving the universe trigger this.
+      (storedPool.length > 0 && alive.length < Math.ceil(storedPool.length * 0.8));
+
+    let pool = alive;
+    let scores = state?.scores;
+    let builtAt = state ? Number(state.builtAt) || 0 : 0;
+    let rebuilt = false;
+
+    if (stale) {
+      // Cheap stage over EVERY contract, including ones rotation would only reach tomorrow.
+      // No turnover gate on purpose: turnover measures popularity, and the deep stage already
+      // rejects what cannot pay (depth, crossings, spread vs step).
+      const minTurnover = Math.max(0, Number(settings.minTurnover24hUSDT) || 0);
+      let ranked = rankElitePool(
+        universe.map((r) => r.ticker),
+        { minTurnoverUSDT: minTurnover, size: poolTarget }
+      );
+      if (ranked.length === 0) {
+        // Every contract looked too expensive on the snapshot alone: keep the desk alive by
+        // ranking without the spread ceiling instead of returning "nothing to scan".
+        ranked = rankElitePool(universe.map((r) => r.ticker), {
+          minTurnoverUSDT: minTurnover,
+          maxSpreadPct: Number.POSITIVE_INFINITY,
+          size: poolTarget,
+        });
+        if (ranked.length > 0) {
+          this.log?.(
+            `[AGENT SCAN] pool: toate spread-urile peste plafonul de ${AGENT_SCAN_POOL_MAX_SPREAD_PCT}%, ` +
+              `rank fără plafon (${ranked.length} candidați) — stadiul adânc decide.`
+          );
+        }
+      }
+      pool = ranked.map((r) => r.instId);
+      scores = Object.fromEntries(ranked.map((r) => [r.instId, r.score]));
+      builtAt = now;
+      rebuilt = true;
+      this.log?.(
+        `[AGENT SCAN] pool reîmprospătat din ${universe.length} contracte: ${pool.length} ținute ` +
+          `(vârstă veche ${Number.isFinite(ageMs) ? Math.round(ageMs / 60_000) + ' min' : 'n/a'}` +
+          `${dropped > 0 ? `, ${dropped} dispărute din univers` : ''}) — ` +
+          (ranked
+            .slice(0, 5)
+            .map((r) => `${r.instId.split('-')[0]}=${r.score}(range ${r.range24hPct}%/spread ${r.spreadPct}%)`)
+            .join(', ') || 'niciun candidat'),
+        { poolSize: pool.length, mode: 'pool' }
+      );
+    }
+
+    const poolRows = pool
+      .map((id) => byId.get(id))
+      .filter((r): r is { spec: AgentContractSpec; ticker: AgentUniverseTicker } => !!r);
+    const startCursor = Number(state?.cursor) || 0;
+    const window = selectRotationWindow(poolRows, rebuilt ? 0 : startCursor, deepCount);
+
+    return {
+      pool,
+      window,
+      nextState: { pool, builtAt, cursor: window.nextCursor, scores },
+      ageMinutes: rebuilt ? 0 : ageMs / 60_000,
+      minutesToRefresh: rebuilt ? refreshMinutes : Math.max(0, (refreshMs - ageMs) / 60_000),
+    };
   }
 }

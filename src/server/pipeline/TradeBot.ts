@@ -50,6 +50,7 @@ import { ResearchCoordinator } from '../research/ResearchCoordinator';
 import {
   AgentUniverseScanner,
   computeAgentGridMetrics,
+  type AgentScanPoolState,
   type AgentUniverseTicker,
 } from '../agent/AgentUniverseScan';
 import { getLiveFeeRates } from '../../shared/fees';
@@ -329,7 +330,9 @@ export class TradeBot {
         budgetPerBotUSDT: number;
         maxLeverage: number;
         hardStopLossPct?: number;
-        universeScanMode?: 'rotation' | 'turnover';
+        universeScanMode?: 'pool' | 'rotation' | 'turnover';
+        poolSize?: number;
+        poolRefreshMinutes?: number;
       }) => this.scanAgentUniverse(opts),
       getMarketActivity: (instId: string) => this.getMarketActivity(instId),
       getNativeGridOpportunities: () => this.nativeGridEngine.getOpportunities(),
@@ -1325,6 +1328,16 @@ export class TradeBot {
   private agentScanCursorStore = new JsonStore<{ cursor: number }>('agent_scan_cursor.json', {
     cursor: 0,
   });
+  /**
+   * Elite pool of the agent's universe scan (pool mode): the ~50 contracts that keep their candles,
+   * when they were picked, and the rotation cursor inside the pool. Persisted so a restart resumes
+   * the same pool instead of paying for a fresh ranking every boot.
+   */
+  private agentScanPoolStore = new JsonStore<AgentScanPoolState>('agent_scan_pool.json', {
+    pool: [],
+    builtAt: 0,
+    cursor: 0,
+  });
 
   /**
    * AGENT-OWNED SCAN — selection belongs to DeepSeek, not to the app scanner.
@@ -1338,7 +1351,9 @@ export class TradeBot {
     budgetPerBotUSDT: number;
     maxLeverage: number;
     hardStopLossPct?: number;
-    universeScanMode?: 'rotation' | 'turnover';
+    universeScanMode?: 'pool' | 'rotation' | 'turnover';
+    poolSize?: number;
+    poolRefreshMinutes?: number;
   }) {
     if (!this.agentUniverseScanner) {
       this.agentUniverseScanner = new AgentUniverseScanner(
@@ -1391,6 +1406,25 @@ export class TradeBot {
           load: () => Math.max(0, Math.round(Number(this.agentScanCursorStore.get()?.cursor) || 0)),
           save: (cursor: number) =>
             this.agentScanCursorStore.save({ cursor: Math.max(0, Math.round(cursor)) }),
+        },
+        {
+          load: () => {
+            const s = this.agentScanPoolStore.get();
+            if (!s || !Array.isArray(s.pool)) return null;
+            return {
+              pool: s.pool.filter((id) => typeof id === 'string'),
+              builtAt: Number(s.builtAt) || 0,
+              cursor: Math.max(0, Math.round(Number(s.cursor) || 0)),
+              scores: s.scores,
+            };
+          },
+          save: (state: AgentScanPoolState) =>
+            this.agentScanPoolStore.save({
+              pool: Array.isArray(state.pool) ? state.pool.filter((id) => typeof id === 'string') : [],
+              builtAt: Number(state.builtAt) || 0,
+              cursor: Math.max(0, Math.round(Number(state.cursor) || 0)),
+              scores: state.scores,
+            }),
         }
       );
     }

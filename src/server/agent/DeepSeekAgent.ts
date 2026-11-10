@@ -40,6 +40,7 @@ import {
   maxLeverageForBand,
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
+import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
 import {
   DeepSeekChatMessage,
   DeepSeekClient,
@@ -81,7 +82,9 @@ export interface DeepSeekAgentDeps {
     budgetPerBotUSDT: number;
     maxLeverage: number;
     hardStopLossPct?: number;
-    universeScanMode?: 'rotation' | 'turnover';
+    universeScanMode?: 'pool' | 'rotation' | 'turnover';
+    poolSize?: number;
+    poolRefreshMinutes?: number;
   }): Promise<NativeGridOpportunity[]>;
   /** Live price activity for one instrument, in % of price (feeds the stagnation stop). */
   getMarketActivity?(instId: string): Promise<{ pathPerHourPct: number; atrPct: number } | null>;
@@ -141,10 +144,13 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   },
   ownUniverseScan: true,
   universeScanSize: 25,
-  // Rotation: every cycle deep-scans the next 25 contracts of the 259 alphabetically, so the
-  // whole universe is covered in 11 cycles (~55 min) at 50 API calls per cycle. The old
-  // top-40-by-turnover selection scanned the same few symbols forever and never saw the rest.
-  universeScanMode: 'rotation',
+  // Pool: the tickers snapshot ranks the WHOLE universe every cycle (no candles, 1 request), and
+  // only the best 50 get candles — 25 per cycle, rotating inside the pool, so the pool is fully
+  // re-measured every 2 cycles (40 min) instead of once per 3.7 h rotation turn. The pool itself is
+  // re-picked from the whole universe every 3 h; 'rotation' and 'turnover' remain as rollback.
+  universeScanMode: 'pool',
+  poolSize: AGENT_SCAN_POOL_SIZE,
+  poolRefreshMinutes: AGENT_SCAN_POOL_REFRESH_MINUTES,
   minCrossingsPerHour: 0.35,
   allowedSymbols: [],
   blockedSymbols: [],
@@ -483,9 +489,28 @@ export class DeepSeekAgent {
     next.pricePer1MOutputUSD = clamp(Number(next.pricePer1MOutputUSD) || 1.1, 0, 1000);
     next.ownUniverseScan = next.ownUniverseScan !== false;
     next.universeScanSize = clamp(Math.round(Number(next.universeScanSize) || 25), 5, 60);
-    // Anything other than an explicit 'turnover' falls back to rotation — the mode must never
-    // end up undefined and silently restore turnover ranking.
-    next.universeScanMode = next.universeScanMode === 'turnover' ? 'turnover' : 'rotation';
+    next.poolSize = clamp(
+      Math.round(Number(next.poolSize) || AGENT_SCAN_POOL_SIZE),
+      5,
+      60
+    );
+    next.poolRefreshMinutes = clamp(
+      Math.round(Number(next.poolRefreshMinutes) || AGENT_SCAN_POOL_REFRESH_MINUTES),
+      15,
+      1440
+    );
+    // One-time migration: a config saved before the pool existed carries 'rotation' and would keep
+    // the old 3.7 h turn forever, because the sanitiser preserves whatever it finds. Stamp a policy
+    // version once, then respect the stored mode (including a deliberate rollback to 'rotation').
+    if (!(Number(next.scanPolicyVersion) >= 2)) {
+      next.universeScanMode = 'pool';
+      next.scanPolicyVersion = 2;
+    } else {
+      next.universeScanMode =
+        next.universeScanMode === 'rotation' || next.universeScanMode === 'turnover'
+          ? next.universeScanMode
+          : 'pool';
+    }
     next.minCrossingsPerHour = clamp(Number(next.minCrossingsPerHour) || 0.35, 0.05, 5);
     next.minSuitabilityScore = clamp(Math.round(Number(next.minSuitabilityScore) || 70), 30, 98);
     next.minNetProfitPerGridPct = clamp(Number(next.minNetProfitPerGridPct) || 0.05, 0.01, 5);
@@ -964,6 +989,8 @@ export class DeepSeekAgent {
           maxLeverage: cfg.maxLeverage,
           hardStopLossPct: cfg.hardStopLossPct,
           universeScanMode: cfg.universeScanMode,
+          poolSize: cfg.poolSize,
+          poolRefreshMinutes: cfg.poolRefreshMinutes,
         });
         this.lastOwnScan = rows;
         const top = rows

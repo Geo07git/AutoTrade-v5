@@ -888,6 +888,43 @@ test('config: defaults fit a 15 USDC account (12 budget, 1 slot, no reserve)', a
   eq(cfg.maxLeverage, 2, 'leverage stays at 2x');
 });
 
+test('config: a pre-pool config is migrated to the pool scan exactly once', async () => {
+  const h = makeAgent();
+
+  // A file saved before the pool existed: 'rotation', no policy stamp.
+  const migrated = h.agent.updateConfig({
+    universeScanMode: 'rotation',
+    scanPolicyVersion: 1 as any,
+  });
+  eq(
+    migrated.universeScanMode,
+    'pool',
+    'an old rotation config must be moved to the pool, not left on the 3.7 h turn forever'
+  );
+  eq(migrated.scanPolicyVersion, 2, 'the migration must stamp its version');
+  eq(migrated.poolSize, 50, 'the migrated config carries the pool size');
+  eq(migrated.poolRefreshMinutes, 180, 'and the 3 h refresh');
+
+  // Once stamped, a deliberate rollback must be respected.
+  const rolledBack = h.agent.updateConfig({ universeScanMode: 'rotation' });
+  eq(rolledBack.universeScanMode, 'rotation', 'an explicit rollback after migration is honoured');
+  eq(
+    h.agent.updateConfig({ poolSize: 1, poolRefreshMinutes: 0 }).poolSize,
+    5,
+    'the pool size floor is 5'
+  );
+  eq(
+    h.agent.updateConfig({ poolRefreshMinutes: 0 }).poolRefreshMinutes,
+    180,
+    'a zero refresh must not make the pool rebuild every cycle (falls back to 3 h)'
+  );
+  eq(
+    h.agent.updateConfig({ poolRefreshMinutes: 1 }).poolRefreshMinutes,
+    15,
+    'the refresh floor is 15 min'
+  );
+});
+
 test('guard: a 15 USDC account opens a 12 USDC bot (reserve 0, one slot)', async () => {
   const h = makeAgent({
     snapshot: { freeBalance: 15, equity: 15, marginInvested: 0 },

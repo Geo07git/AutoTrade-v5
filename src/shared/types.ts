@@ -613,11 +613,25 @@ export interface DeepSeekAgentConfig {
   universeScanSize: number;
   /**
    * How those `universeScanSize` contracts are chosen.
-   * - 'rotation' (default): the whole `_UM_XPERP` universe is eligible and each cycle takes
-   *   the next alphabetical window, so every contract is eventually seen. No turnover gate.
-   * - 'turnover': legacy top-N by 24h turnover (3M floor), kept for instant rollback.
+   * - 'pool' (default): the tickers snapshot ranks the WHOLE universe every cycle (one request,
+   *   no candles) and only the best `poolSize` (50) get candles; `universeScanSize` of them are
+   *   deep-scanned per cycle, rotating inside the pool, so the pool is fully re-measured every
+   *   `ceil(poolSize / universeScanSize)` cycles (40 min at 50/25). The pool itself is re-picked
+   *   from the whole universe every `poolRefreshMinutes` (180).
+   * - 'rotation': every `_UM_XPERP` contract is eligible and each cycle takes the next
+   *   alphabetical window, so a turn over all ~260 takes `ceil(260/25)` = 11 cycles (3.7 h).
+   * - 'turnover' (legacy, rollback): top-N by 24h turnover with the 3M floor.
    */
-  universeScanMode: 'rotation' | 'turnover';
+  universeScanMode: 'pool' | 'rotation' | 'turnover';
+  /** Elite pool size for 'pool' mode (contracts that keep their candles). */
+  poolSize: number;
+  /** Elite pool lifetime, in minutes, before it is re-picked from the whole universe. */
+  poolRefreshMinutes: number;
+  /**
+   * Internal migration stamp: 2 = the pool scan policy. A config saved before it existed carries
+   * 'rotation' and would otherwise pin the old 3.7 h turn forever.
+   */
+  scanPolicyVersion?: number;
   /** Minimum estimated grid-level touches per hour for an open to be allowed. */
   minCrossingsPerHour: number;
   allowedSymbols: string[];
