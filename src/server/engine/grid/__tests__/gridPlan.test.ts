@@ -142,7 +142,34 @@ test('deriveGridGeometry matches the agent scan geometry on every ATR band', () 
 
 test('the leverage ceiling cannot drift from the agent scan ceiling', () => {
   eq(GRID_PLAN_MAX_LEVERAGE, AGENT_SCAN_MAX_LEVERAGE, 'both ceilings must stay equal');
-  eq(GRID_PLAN_MAX_LEVERAGE, 2, 'the neutral-grid ceiling is 2x by policy');
+  eq(GRID_PLAN_MAX_LEVERAGE, 10, 'the neutral-grid ceiling is 10x by policy (owner-approved)');
+});
+
+test('a mid-vol tape gets a fillable grid, not the 4-level minimum', () => {
+  // step = 0.4 x ATR and band = 1.6 x ATR, i.e. one level every 0.4 ATR. With the old 0.9
+  // multiplier a level sat every 0.9 ATR: the ATR cancelled itself out, so EVERY contract got
+  // the 4-level minimum and the grid could not fill in a normal chop tape — the opposite of
+  // what a neutral grid needs.
+  const geo = deriveGridGeometry({ atrPct: 1.2, roundTripFeePct: 0.04 })!;
+  ok(!!geo, 'geometry must exist for a 1.2% ATR');
+  eq(geo.halfRangePct, 1.92, 'band = 1.6 x ATR');
+  eq(geo.gridNum, 8, '1.92% half band with a 0.48% step needs 8 levels');
+  eq(geo.stepPct, 0.48, 'step = 0.4 x ATR');
+  ok(geo.stepPct >= geo.feeFloorPct, 'the step must clear 3x the maker round-trip');
+});
+
+test('a band clamped to its minimum still yields a payable step', () => {
+  // 0.2% ATR asks for 14 levels on the 0.8% minimum band -> 0.114% steps, under 3x the fee.
+  // The level count is capped at what the floor can pay, so the geometry stays valid instead of
+  // being refused; the dead-tape case is then dropped by the crossings gate, not by arithmetic.
+  const geo = deriveGridGeometry({ atrPct: 0.2, roundTripFeePct: 0.04 })!;
+  eq(geo.halfRangePct, 0.8, 'the band cannot fall under the 0.8% minimum');
+  ok(geo.gridNum >= GRID_MIN_LEVELS, 'the minimum level count still applies');
+  ok(
+    geo.stepPct >= geo.feeFloorPct,
+    `step ${geo.stepPct}% must clear the ${geo.feeFloorPct}% fee floor`
+  );
+  ok(geo.netPerGridPct > 0, 'a payable step must leave a positive net edge');
 });
 
 test('geometry is unusable when ATR cannot describe a band', () => {
@@ -290,7 +317,9 @@ test('a floor lift that would breach the desk remainder is refused', () => {
 // ---------------------------------------------------------------------------
 
 test('unsafe leverage is refused', () => {
-  for (const lever of [3, 5, 20]) {
+  // 10x is the approved ceiling; 11x and above (and a non-positive lever) are refused by the
+  // plan builder itself, so a caller that forgets the agent's clamp cannot build an unsafe plan.
+  for (const lever of [11, 20, 0]) {
     const res = mustReject(buildGridPlan(baseReq({ lever })));
     ok(
       res.codes.includes('LEVER_INVALID'),
@@ -318,7 +347,7 @@ test('a negative edge is refused with an economic code', () => {
 test('every refusal carries at least one code and a human detail', () => {
   const cases: GridPlanRequest[] = [
     baseReq({ currentPx: -1 }),
-    baseReq({ lever: 9 }),
+    baseReq({ lever: 11 }),
     baseReq({ budgetUSDT: -5 }),
     baseReq({ atrPct: 0 }),
     baseReq({ minInvestmentUSDT: 99 }),

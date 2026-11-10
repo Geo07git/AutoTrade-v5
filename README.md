@@ -181,7 +181,7 @@ Fiecare `OPEN_GRID` trece, în ordine, prin regulile de mai jos. Prima care pic�
 | scor | „Scor n sub pragul minim m…” |
 | profit net/grilă | „Profit net/grilă x% sub pragul y%.” |
 | geometrie range | `minPx > 0`, `maxPx > minPx`, **prețul curent în interiorul `[minPx, maxPx]`**, deviație ≤ **25%** pe fiecare parte |
-| sizing | `gridNum` 2-100, `lever` 1-`maxLeverage`, `sz` între minimul OKX și `budgetPerBotUSDT`, fond liber după rezervă |
+| sizing | `gridNum` 2-100, `lever` 1-`maxLeverage`, `sz` = marja calculată determinist (estimată pentru 1 lot/nivel, plafonată la `budgetPerBotUSDT`), fond liber după rezervă; estimarea `min_inv_usdt` este **consultativă** (nu poate refuza deschiderea) |
 | SL/TP | `stopLossPct` 1-`hardStopLossPct`, `takeProfitPct` 1-300 |
 
 `STOP_BOT` / `AMEND_BOT` sunt mult mai permisive (reduc riscul): trebuie doar ca `algoId` să existe între boții gestionați de TB5, iar la `AMEND` SL să fie **sub** preț și TP **peste** preț.
@@ -193,7 +193,7 @@ Rulate la fiecare ciclu, indiferent ce a răspuns modelul. Dacă un bot încalc�
 | Condiție | Prag implicit |
 |---|---|
 | PnL ≤ −X% din marjă | `hardStopLossPct` = 12% |
-| Distanță până la lichidare ≤ Y% | `hardMinLiqDistancePct` = 12% |
+| Distanță până la lichidare ≤ Y% | `hardMinLiqDistancePct` = 12% (plafonat la ~88/levier % ca să rămână posibil la 10x) |
 | Preț în afara `[minPx, maxPx]` | — |
 | 0 arbitraje în ≥ Z min (PnL ignorat dacă `stopIfPassive`) | `hardMaxNoFillMinutes` = 180 min, **minim 60** |
 
@@ -333,7 +333,7 @@ Toate valorile sunt **clamp-ate** de server (`updateConfig`): ce pui în afara i
 | `budgetPerBotUSDT` | 12 | 5-500 | marjă maximă per grid |
 | `minReserveUSDT` | 0 | 0-10000 | cash care nu se atinge (0 = acceptat pe un cont de 15 USDC) |
 | `maxTotalMarginUSDT` | 12 | 5-500 | plafon de marjă cumulat al agentului (1 grid) |
-| `maxLeverage` | 2 | 1-2 | plafon levier |
+| `maxLeverage` | 2 | 1-10 | plafon levier (proprietarul îl ridică din tab; peste ~7x pragul de lichidare se scalează cu levierul) |
 | `minSuitabilityScore` | 70 | 30-98 | prag eligibilitate |
 | `minNetProfitPerGridPct` | 0.05 | 0.01-5 | profit net minim per grilă |
 | `cooldownMinutesPerSymbol` | 45 | 45-1440 | pauză după stop/deschidere pe simbol |

@@ -120,13 +120,13 @@ test('metrics: step comes from ATR, and crossings/hour from the real path', () =
   ok(!!m, 'metrics must be produced for a usable tape');
   near(m.atrPct, 0.4, 0.05, 'ATR15m must reflect the 0.4% true range');
   near(m.halfRangePct, 0.8, 0.01, 'half range = 1.6 x ATR');
-  eq(m.gridNum, 4, 'a 1.6% band with a ~0.36% target step needs 4 grids (even count)');
-  near(m.stepPct, 0.4, 0.01, 'step = 2 x halfRange / gridNum');
-  // 0.4% per bar, 4 bars per hour => ~1.6%/h of path on a 0.4% step.
+  eq(m.gridNum, 10, 'a 1.6% band with a 0.4 x ATR target step needs 10 grids (even count)');
+  near(m.stepPct, 0.16, 0.01, 'step = 2 x halfRange / gridNum');
+  // 0.4% per bar, 4 bars per hour => ~1.6%/h of path on a 0.16% step.
   near(m.pathPerHourPct, 1.6, 0.1, 'path per hour must be measured on the 15m closes');
-  near(m.crossingsPerHour, 4.0, 0.2, 'crossings/h = path per hour / step');
-  near(m.expectedFirstFillMin, 15, 2, 'first fill = half a step at the observed speed');
-  near(m.netPerGridPct, 0.36, 0.01, 'net per grid = step - maker round-trip');
+  near(m.crossingsPerHour, 10, 0.2, 'crossings/h = path per hour / step');
+  near(m.expectedFirstFillMin, 6, 1, 'first fill = half a step at the observed speed');
+  near(m.netPerGridPct, 0.12, 0.01, 'net per grid = step - maker round-trip');
 });
 
 test('metrics: a dead tape cannot produce an edge', () => {
@@ -163,30 +163,53 @@ test('min lot notional respects contract value', () => {
 // Gates
 // ---------------------------------------------------------------------------
 
-test('opportunity: a healthy candidate is eligible and keeps leverage <= 2x', () => {
+test('opportunity: a healthy candidate is eligible and keeps leverage under the ceiling', () => {
   const row = buildAgentOpportunity({
     spec: spec({ tickSz: 0.0001 }),
     ticker: ticker({ lastPrice: 1 }),
     klines15m: oscillatingKlines(1),
     book: book(),
-    settings: { ...settings, maxLeverage: 5 }, // must be clamped down
+    settings: { ...settings, maxLeverage: 5 },
   })!;
 
   eq(row.agentScan, true, 'the row must be flagged as agent-scanned');
   eq(row.isEligible, true, `expected eligible, got rejection "${row.rejectionReason}"`);
-  eq(row.lever, 2, 'leverage is capped at 2x');
+  eq(row.lever, 5, 'the configured leverage is used as-is, up to the 10x ceiling');
   eq(row.suitabilityScore, 0, 'the agent scan deliberately produces no score');
   ok(row.minPx < row.price && row.price < row.maxPx, 'the price must sit inside the band');
   ok((row.crossingsPerHour || 0) > 0, 'crossings/hour must be reported');
 });
 
-test('opportunity: a step under the fee floor is rejected', () => {
+test('opportunity: the level count is capped so the step always clears the fee floor', () => {
+  // A dead tape has its band clamped to the 0.8% minimum, so the step (not the ATR) decides
+  // whether the grid can pay. The scan lowers the LEVEL COUNT to stay above 3x the fees instead
+  // of asking for levels that cannot exist on that band — the open is then refused by the
+  // crossings gate (no path, no fills), not by an unpayable step.
   const row = buildAgentOpportunity({
     spec: spec(),
     ticker: ticker(),
     klines15m: flatKlines(),
     book: book(),
     settings,
+  })!;
+
+  ok(row.stepPct >= FEE * 3, `step ${row.stepPct}% must clear 3x the fees (${FEE * 3}%)`);
+  eq(row.isEligible, true, 'geometry alone does not disqualify a dead tape');
+  ok(
+    (row.crossingsPerHour || 0) < 0.35,
+    `a dead tape must stay under the agent crossings gate, got ${row.crossingsPerHour}/h`
+  );
+});
+
+test('opportunity: a step under the fee floor is rejected', () => {
+  // 8% round-trip => 24% floor: no band derived from a 0.4% ATR can pay even the 4 minimum
+  // levels, so the refusal is genuinely economic.
+  const row = buildAgentOpportunity({
+    spec: spec(),
+    ticker: ticker(),
+    klines15m: oscillatingKlines(),
+    book: book(),
+    settings: { ...settings, roundTripFeePct: 8 },
   })!;
 
   eq(row.isEligible, false, 'a grid whose step cannot clear 3x fees must never be opened');
@@ -208,8 +231,9 @@ test('opportunity: a wide spread against the step is rejected', () => {
 
 test('opportunity: an estimated minimum above the budget is ADVISORY, not a rejection', () => {
   // 1 lot = 100 x 100 USDT, so `1 lot x gridNum / lever` is far above the 12 USDT budget.
-  // That number is a LOCAL estimate, never an OKX answer (ETH 8 grids / 10x estimated $14.55
-  // while OKX ran the grid on $5.00), so it must flag the candidate instead of deleting it.
+  // That number is a LOCAL sizing estimate, never an OKX answer (ETH 8 grids / 10x estimated
+  // $14.55 while OKX ran the grid on $5.00), and an X-Perp grid runs on our own limit orders —
+  // so it must flag the candidate for a smaller/partial grid instead of deleting it.
   const row = buildAgentOpportunity({
     spec: spec({ minSz: 100, ctVal: 1 }),
     ticker: ticker(),
@@ -218,13 +242,13 @@ test('opportunity: an estimated minimum above the budget is ADVISORY, not a reje
     settings,
   })!;
 
-  eq(row.requiresLiveProbe, true, 'the estimate must be flagged for a live probe');
+  eq(row.requiresLiveProbe, true, 'the estimate must be flagged as advisory');
   eq(row.isEligible, true, 'the local 1-lot estimate must not block the candidate');
   eq(row.rejectionReason, undefined, 'no rejection may come from the estimate');
   eq(row.fitsMaxBudget, false, 'the estimate is still reported honestly');
   ok(
-    row.reasons.some((r) => /proba live/i.test(r)),
-    `the reason must say the live probe decides, got: ${row.reasons.join(' | ')}`
+    row.reasons.some((r) => /rămâne virtual/i.test(r)),
+    `the reason must say the grid opens partially, got: ${row.reasons.join(' | ')}`
   );
 });
 

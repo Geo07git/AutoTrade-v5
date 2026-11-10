@@ -987,15 +987,30 @@ export class OKXNativeGridEngine {
       };
     }
 
-    // Verify minimum investment on OKX EEA before sending order-algo
-    const minInv = await this.okxAdapter.calculateGridMinInvestment({
-      instId,
-      maxPx,
-      minPx,
-      gridNum,
-      runType,
-      lever,
-    });
+    // --- Sizing ---------------------------------------------------------------
+    // X-Perp ids never reach OKX's grid algo gateway (51000/51001), so an AUTO_LIMIT grid runs
+    // as OUR OWN limit orders. OKX's `min-investment` answer describes a VENUE-SIDE algo: it is
+    // meaningless for our order set, and asking for it had three costs, all of them visible in
+    // production:
+    //   1. a guaranteed-useless REST call on every open;
+    //   2. the margin being inflated to the venue minimum ("almost always the per-bot cap");
+    //   3. the open being REFUSED whenever that minimum did not fit the budget, even though a
+    //      limit-order grid can always run smaller (a level below one full lot just gets the
+    //      minimum lot and the rest of the grid stays virtual).
+    // So the probe is consulted ONLY for the native algo route, which is the only path where
+    // OKX itself owns the geometry and its floor.
+    const usesOwnLimitOrders = (params as any).executionVariant === 'AUTO_LIMIT';
+
+    const minInv = usesOwnLimitOrders
+      ? { minInvestmentUSDT: 0, ccy: 'USDT', singleAmt: 0 }
+      : await this.okxAdapter.calculateGridMinInvestment({
+          instId,
+          maxPx,
+          minPx,
+          gridNum,
+          runType,
+          lever,
+        });
 
     // Sizing is decided in integer cents — see nativeGridSizing.ts. The OKX minimum is a
     // FLOOR that must be rounded UP, and the comparison must never mix a rounded sz with a
@@ -1028,6 +1043,15 @@ export class OKXNativeGridEngine {
           `$${(sizePlan.requestedCents / 100).toFixed(2)} la $${sz.toFixed(2)} — minimul real ` +
           `OKX pentru ${gridNum} grile la ${lever}x este ` +
           `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy}.`
+      );
+    }
+
+    if (usesOwnLimitOrders) {
+      this.journal.logAudit(
+        'CANDIDATE_SELECTED',
+        `[OKX GRID SIZING LOCAL] ${instId}: marjă $${sz.toFixed(2)} @ ${lever}x pentru ` +
+          `${gridNum} grile — grila rulează pe ordinele noastre Limit, deci minimul de ` +
+          `investiție OKX (algo) nu se interoghează și nu poate ridica/respinge marja.`
       );
     }
 

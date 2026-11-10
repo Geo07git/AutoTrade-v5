@@ -138,8 +138,16 @@ export const GRID_HALF_RANGE_ATR_MULT = 1.6;
 export const GRID_MIN_HALF_RANGE_PCT = 0.8;
 export const GRID_MAX_HALF_RANGE_PCT = 6;
 
-/** Target step before level-count rounding; clamped to the fee floor and to MAX_STEP. */
-export const GRID_TARGET_STEP_ATR_MULT = 0.9;
+/**
+ * Target step before level-count rounding; clamped to the fee floor and to MAX_STEP.
+ *
+ * 0.4 x ATR is deliberate, and it is not a tuning knob: the step is expressed in the SAME unit
+ * as the band (±1.6 x ATR), so the level count is `2 * 1.6 / mult`. At the previous 0.9 that
+ * ratio was a constant — 3.56 levels for EVERY contract, i.e. 4 grids every single time, on a
+ * band barely four steps wide. The ATR cancelled itself out, so volatility (the one thing the
+ * level count must follow) had no effect at all. 0.4 gives ~8 levels on the +-1.6 ATR band.
+ */
+export const GRID_TARGET_STEP_ATR_MULT = 0.4;
 export const GRID_MAX_STEP_PCT = 3;
 
 /** A step must clear the maker round-trip at least this many times. */
@@ -156,8 +164,13 @@ export const GRID_MAX_LEVELS = 20;
  * Defence in depth: this must stay equal to `AGENT_SCAN_MAX_LEVERAGE`, which is asserted by
  * `gridPlan.test.ts`. Declared here as well so a plan can never be built with unsafe leverage
  * even if a caller forgets the agent's ceiling.
+ *
+ * 10x is the owner-approved ceiling (the previous 2x made the desk unable to size a grid at
+ * all: at 2x, `1 lot x gridNum / lever` exceeded the per-bot budget on most contracts, and the
+ * venue minimum then pushed the margin to the cap or refused the open). Higher leverage is the
+ * ONLY dial that lowers the margin a given geometry needs — the per-bot budget does not move.
  */
-export const GRID_PLAN_MAX_LEVERAGE = 2;
+export const GRID_PLAN_MAX_LEVERAGE = 10;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -231,8 +244,19 @@ export function deriveGridGeometry(input: {
 
   const rawLevels = Math.round((2 * halfRangePct) / Math.max(targetStepPct, 0.01));
   // Even counts keep the pivot centred; bounds keep the grid economically legible.
-  const gridNum =
+  const desiredLevels =
     Math.round(clamp(rawLevels, GRID_MIN_LEVELS, GRID_MAX_LEVELS) / 2) * 2;
+  // The band is fixed, so the level count is what decides the step: a level count that pushes
+  // the step under the fee floor makes the grid unpayable and the plan is refused for it. Cap
+  // the count at what the floor can actually pay for, instead of asking for levels that cannot
+  // exist on this band (low vol: ±0.8% band -> 14 levels -> 0.114% steps -> refusal).
+  const levelsAffordable = roundTripFeePct > 0
+    ? Math.floor((2 * halfRangePct) / (roundTripFeePct * GRID_FEE_FLOOR_MULTIPLE))
+    : GRID_MAX_LEVELS;
+  const gridNum = Math.max(
+    GRID_MIN_LEVELS,
+    Math.min(desiredLevels, levelsAffordable - (levelsAffordable % 2))
+  );
 
   const stepPct = round((2 * halfRangePct) / gridNum, 4);
 

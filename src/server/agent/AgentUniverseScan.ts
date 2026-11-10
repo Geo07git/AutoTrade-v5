@@ -278,21 +278,18 @@ export function buildAgentOpportunity(input: {
       `Spread ${round(metrics.spreadPctOfStep * 100, 1)}% din pas (max ${AGENT_SCAN_MAX_SPREAD_OF_STEP * 100}%)`
     );
   }
-  // ADVISORY, not a gate.
+  // ADVISORY, not a gate — and no longer a venue query either.
   //
-  // This number is `1 lot x gridNum / lever` computed locally — it is NOT an OKX answer. Against
-  // the live venue it is wrong by a wide margin: ETH at 8 grids / 10x estimates $14.55, while OKX
-  // accepted and ran that exact geometry with $5.00 of margin (algoId grid_eth_mw7p6epf).
-  // Rejecting on it deleted every "expensive" contract from the universe before the agent ever
-  // looked at it, which is why the same few cheap symbols were picked forever.
-  //
-  // The engine calls `calculateGridMinInvestment` live at create time and is the only authority on
-  // the real floor, so the scan hands the candidate over instead of pre-judging it.
+  // This number is `1 lot x gridNum / lever` computed LOCALLY. An X-Perp grid never reaches
+  // OKX's grid algo gateway (51000/51001), so it runs as our own limit orders and OKX's
+  // `min-investment` answer does not describe it: the margin is a budget decision, and a level
+  // that cannot afford a full lot is placed with the minimum lot while the rest of the grid
+  // stays virtual. Kept on the row so the UI can show the sizing target.
   const requiresLiveProbe = minGridMarginUsd > budget;
   if (requiresLiveProbe) {
     reasons.push(
       `marjă estimată ${minGridMarginUsd}$ peste bugetul ${budget}$ (1 lot x ${metrics.gridNum} grile / ${lever}x)` +
-        ` — estimare locală, nu o limită OKX: se trimite la proba live`
+        ` — nivelurile care nu încap pe un lot primesc lotul minim, restul grilei rămâne virtual`
     );
   }
   if (book.depthUsd < AGENT_SCAN_MIN_DEPTH_MULTIPLE * budget) {
@@ -348,11 +345,11 @@ export function buildAgentOpportunity(input: {
     runType: '1',
     gridSpacingPct: metrics.stepPct,
     lever,
-    // Estimated lower bound (no /min-investment probe in the agent scan); the live create
-    // call still enforces OKX's real minimum.
+    // Estimated lower bound (no venue query in the agent scan); this is the sizing target the
+    // agent uses before the budget cap is applied.
     minInvestmentUSDT: minGridMarginUsd,
     minInvestmentCcy: 'USDT',
-    recommendedInvestmentUSDT: round(Math.min(budget, Math.max(minGridMarginUsd, budget)), 2),
+    recommendedInvestmentUSDT: round(Math.min(budget, Math.max(5, minGridMarginUsd)), 2),
     fitsMaxBudget: minGridMarginUsd <= budget,
     requiresLiveProbe,
     estimatedGrossProfitPerGridPct: metrics.stepPct,

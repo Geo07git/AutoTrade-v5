@@ -37,6 +37,7 @@ import {
   type GridVenuePort,
 } from '../engine/grid/GridCommandGateway';
 import type { DecidedGridGeometry } from '../engine/grid/gridPlan';
+import { GRID_PLAN_MAX_LEVERAGE } from '../engine/grid/gridPlan';
 import { JsonStore } from '../store';
 import { UniverseManager, DEFAULT_UNIVERSE_FILTER } from '../scanner/UniverseManager';
 import { telegramService } from '../telegram/TelegramService';
@@ -1394,7 +1395,12 @@ export class TradeBot {
     const fee = getLiveFeeRates();
     return this.agentUniverseScanner.scan({
       budgetPerBotUSDT: Math.max(1, Number(opts.budgetPerBotUSDT) || 12),
-      maxLeverage: Math.min(2, Math.max(1, Number(opts.maxLeverage) || 2)),
+      // Ceiling shared with the plan builder / agent config (was a hard-coded 2x, which capped
+      // every geometry at the highest margin and made the whole universe look unaffordable).
+      maxLeverage: Math.min(
+        GRID_PLAN_MAX_LEVERAGE,
+        Math.max(1, Number(opts.maxLeverage) || 2)
+      ),
       roundTripFeePct: Number(fee.roundTripMakerFeePct) || 0.08,
       deepScanCount: Math.max(1, Number(opts.deepScanCount) || 25),
       universeScanMode: opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation',

@@ -718,7 +718,7 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
           {numberField('Rezerva libera (U)', 'minReserveUSDT', 'cash care nu se atinge (0 = acceptat)', '1')}
           {numberField('Marja totala desk (U)', 'maxTotalMarginUSDT', 'plafon cumulat al agentului', '1')}
           {numberField('Max boti simultan', 'maxConcurrentBots', 'sloturi gestionate', '1')}
-          {numberField('Levier maxim', 'maxLeverage', 'clamp 1-20x', '1')}
+          {numberField('Levier maxim', 'maxLeverage', '1-10x (plafon agent)', '1')}
           {numberField('Scor minim', 'minSuitabilityScore', '0-100, prag eligibilitate', '1')}
           {numberField('Profit net min %/grila', 'minNetProfitPerGridPct', 'sub prag nu deschide', '0.01')}
           {numberField('Cooldown / simbol (min)', 'cooldownMinutesPerSymbol', 'anti re-deschidere', '5')}

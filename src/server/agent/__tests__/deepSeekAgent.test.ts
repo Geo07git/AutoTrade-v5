@@ -22,6 +22,7 @@ import {
   DeepSeekAgent,
   DEFAULT_DEEPSEEK_AGENT_CONFIG,
   computeDeepSeekCostUSD,
+  effectiveMinLiqDistancePct,
   estimateTokensFromText,
   resolveOpenSize,
   type DeepSeekAccountSnapshot,
@@ -584,6 +585,37 @@ test('guardrail: liquidation proximity produces a STOP_BOT', async () => {
   eq(h.calls.stopped.length, 1, 'the bot must be stopped');
 });
 
+test('guardrail: the liquidation threshold scales with leverage', async () => {
+  // An isolated position at 10x sits ~9% from liquidation the moment it fills, so a flat 12%
+  // floor stopped every high-leverage grid on its first cycle (stop -> 45 min cooldown -> reopen
+  // -> stop). The configured floor stays as-is at low leverage and is capped at the distance the
+  // leverage itself implies above ~7.5x.
+  eq(effectiveMinLiqDistancePct(12, 2), 12, '2x: the configured floor is untouched');
+  eq(effectiveMinLiqDistancePct(12, 5), 12, '5x: the configured floor is untouched');
+  eq(effectiveMinLiqDistancePct(12, 10), 8.8, '10x: the physical ~8.8% distance is the floor');
+  eq(effectiveMinLiqDistancePct(0, 10), 8.8, 'a non-positive config still cannot go under the physical floor');
+
+  // 9% at 10x is the NORMAL state of the position, not a warning.
+  const normal = makeAgent({ bots: [bot({ lever: 10, liqPx: 1820, totalPnl: 0.1 })] });
+  await armAutonomous(normal, { hardMinLiqDistancePct: 12 });
+  const normalDecision = await normal.agent.runCycle('MANUAL');
+  ok(
+    !normalDecision.guardrailActions.some((a: any) => /lichidare/i.test(a.rationale_ro || '')),
+    '9% from liquidation at 10x must not read as "near liquidation"'
+  );
+  eq(normal.calls.stopped.length, 0, 'a 10x bot at its normal distance must keep running');
+
+  // 5% is beyond what 10x can survive -> still a stop.
+  const danger = makeAgent({ bots: [bot({ lever: 10, liqPx: 1900, totalPnl: 0.1 })] }); // 5%
+  await armAutonomous(danger, { hardMinLiqDistancePct: 12 });
+  const dangerDecision = await danger.agent.runCycle('MANUAL');
+  ok(
+    dangerDecision.guardrailActions.some((a: any) => /lichidare/i.test(a.rationale_ro || '')),
+    '5% from liquidation at 10x must still raise the guardrail'
+  );
+  eq(danger.calls.stopped.length, 1, 'a 10x bot 5% from liquidation must be closed');
+});
+
 test('guardrail: a price outside the range produces a STOP_BOT', async () => {
   const h = makeAgent({ bots: [bot({ currentPx: 2060, totalPnl: 0.2 })] });
   await armAutonomous(h);
@@ -819,7 +851,7 @@ test('config: invalid values are clamped, never trusted', async () => {
   eq(cfg.runIntervalSec, 60, 'interval must clamp to the 60s floor');
   eq(cfg.maxConcurrentBots, 5, 'maxConcurrentBots must clamp to the 5-slot ceiling');
   eq(cfg.budgetPerBotUSDT, 12, 'a zero budget must fall back to the 12 USDT default');
-  eq(cfg.maxLeverage, 2, 'leverage must clamp to the agreed ceiling of 2x');
+  eq(cfg.maxLeverage, 10, 'leverage must clamp to the 10x agent ceiling');
   eq(cfg.minSuitabilityScore, 30, 'score floor must clamp to 30');
   eq(cfg.hardStopLossPct, 60, 'hard SL must clamp to 60%');
   eq(cfg.maxActionsPerCycle, 5, 'actions per cycle must clamp to 5');

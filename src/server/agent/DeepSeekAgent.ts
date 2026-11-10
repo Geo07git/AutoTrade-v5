@@ -32,6 +32,9 @@ import {
   OKXNativeGridBot,
 } from '../../shared/types';
 import { JsonStore } from '../store';
+// The leverage ceiling is shared with the plan builder: two copies of "safe up to Nx" is how a
+// decision gets approved at a leverage the execution path then clamps differently.
+import { GRID_PLAN_MAX_LEVERAGE } from '../engine/grid/gridPlan';
 import {
   DeepSeekChatMessage,
   DeepSeekClient,
@@ -109,6 +112,9 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   // 0 reserve: the live account holds ~15 USDC, and a 10 USDC reserve on top of a 12 USDC
   // budget meant the agent could never open anything (12 + 10 > 15).
   minReserveUSDT: 0,
+  // Shipped default stays conservative; the ceiling itself is GRID_PLAN_MAX_LEVERAGE (10x),
+  // which the owner raises from the DeepSeek tab. Leverage is the only dial that lowers the
+  // margin a geometry needs, so a 2x ceiling was itself a hard cap on what could be opened.
   maxLeverage: 2,
   minSuitabilityScore: 70,
   minNetProfitPerGridPct: 0.05,
@@ -270,7 +276,7 @@ YOUR JOB, per cycle
 HARD RULES (violating any of them gets your action rejected by the execution guard)
 - Only reference instIds that appear in "candidates". Never invent symbols.
 - Never OPEN_GRID on a candidate with eligible=false.
-- sz: copy the candidate field sz_usdt verbatim. It is already sized to fit budget_per_bot_usdt and to clear the OKX minimum (min_inv_usdt). Do NOT invent your own margin; if you must change it, stay between min_inv_usdt and sz_usdt. lever <= max_leverage.
+- sz: copy the candidate field sz_usdt verbatim. It is already sized from the lot estimate and capped by budget_per_bot_usdt. Do NOT invent your own margin; if you must change it, stay between 5 and sz_usdt (min_inv_usdt is a LOCAL estimate, not an OKX limit). lever <= max_leverage.
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
@@ -328,6 +334,23 @@ function clamp(value: number, min: number, max: number): number {
 function pctDistance(from: number, to: number): number | null {
   if (!Number.isFinite(from) || !Number.isFinite(to) || from <= 0 || to <= 0) return null;
   return Math.abs(from - to) / from * 100;
+}
+
+/**
+ * Effective liquidation-distance threshold for one bot.
+ *
+ * A flat 12% guardrail cannot coexist with 10x: an isolated position at 10x sits ~9% from
+ * liquidation the moment it fills, so every 10x grid would be stopped on its first cycle —
+ * stop, 45 min cooldown, reopen, stop. The guardrail must stay meaningful (it exists to close a
+ * bot whose margin is nearly wiped) without being physically impossible at high leverage, so it
+ * is capped at the distance the leverage itself implies — ~88 / lever %, i.e. 1/lever minus a
+ * little for maintenance margin and fees. At 2x that is 44% (no effect: the configured 12%
+ * stands); it only bites above ~7x.
+ */
+export function effectiveMinLiqDistancePct(configuredPct: number, lever: number): number {
+  const configured = clamp(Number(configuredPct) || 12, 3, 60);
+  const physical = 88 / Math.max(1, Number(lever) || 1);
+  return clamp(Math.min(configured, physical), 3, 60);
 }
 
 /**
@@ -439,7 +462,15 @@ export class DeepSeekAgent {
       0,
       10_000
     );
-    next.maxLeverage = clamp(Math.round(Number(next.maxLeverage) || 2), 1, 2);
+    // 1..10x. The old hard ceiling of 2x was the reason every grid looked identical: at 2x,
+    // `1 lot x gridNum / lever` exceeded the per-bot budget on most contracts, the venue
+    // minimum then pushed the margin to the cap, and the open was refused when it still did
+    // not fit. 10x is the owner-approved ceiling (same constant the plan builder enforces).
+    next.maxLeverage = clamp(
+      Math.round(Number(next.maxLeverage) || 2),
+      1,
+      GRID_PLAN_MAX_LEVERAGE
+    );
     next.maxTotalMarginUSDT = clamp(Number(next.maxTotalMarginUSDT) || 12, 5, 500);
     next.pricePer1MInputUSD = clamp(Number(next.pricePer1MInputUSD) || 0.27, 0, 1000);
     next.pricePer1MInputCachedUSD = clamp(Number(next.pricePer1MInputCachedUSD) || 0.07, 0, 1000);
@@ -794,7 +825,8 @@ export class DeepSeekAgent {
       range: { minPx: rnd(o.minPx, 6), maxPx: rnd(o.maxPx, 6), gridNum: o.gridNum, spacing_pct: rnd(o.gridSpacingPct, 3) },
       lever: o.lever,
       min_inv_usdt: rnd(o.minInvestmentUSDT, 2),
-      // Margin we will actually send: deterministic, budget-safe, and above the OKX floor.
+      // Margin we will actually send: deterministic, sized from the lot estimate,
+      // capped by the budget.
       sz_usdt: resolveOpenSize(0, o.minInvestmentUSDT, cfg.budgetPerBotUSDT).sz,
       margin_usage_pct: rnd(
         (resolveOpenSize(0, o.minInvestmentUSDT, cfg.budgetPerBotUSDT).sz /
@@ -867,7 +899,7 @@ export class DeepSeekAgent {
         daily_loss_limit_usdt: cfg.dailyLossLimitUSDT,
         max_total_margin_usdt: cfg.maxTotalMarginUSDT,
         sizing_note:
-          'Use each candidate sz_usdt verbatim: it is the deterministic margin (budget-safe, above the OKX minimum).',
+          'Use each candidate sz_usdt verbatim: it is the deterministic margin (sized for one lot per level, capped by budget_per_bot_usdt). min_inv_usdt is a local estimate, not an OKX limit.',
         hard_stop_loss_pct: cfg.hardStopLossPct,
         hard_min_liq_distance_pct: cfg.hardMinLiqDistancePct,
         allow_open: cfg.allowOpenBots && snapshot.executionMode === 'LIVE' && !authorityConflict,
@@ -1374,30 +1406,28 @@ export class DeepSeekAgent {
         // --- sizing -------------------------------------------------------
         const gridNum = clamp(Math.round(Number(action.gridNum) || candidate.gridNum || 6), 2, 100);
         const lever = clamp(Math.round(Number(action.lever) || candidate.lever || 3), 1, cfg.maxLeverage);
-        const minInv = Math.max(5, Number(candidate.minInvestmentUSDT) || 5);
-        // Never trust the model with this number: sz is resolved from the OKX minimum and the
-        // budget, and is only ever RAISED to the floor — it is never lowered below it.
-        const sizePlan = resolveOpenSize(Number(action.sz), minInv, cfg.budgetPerBotUSDT);
+        // `minInvestmentUSDT` is the scan's LOCAL estimate of "one lot on every level"
+        // (`minLot x gridNum / lever`) — it is NOT an OKX answer, and for an X-Perp grid it is
+        // not even applicable: those ids never reach OKX's grid algo gateway (51000/51001), so
+        // the grid runs as OUR OWN limit orders. It is therefore a SIZING TARGET, never a floor
+        // that can refuse an open: when the budget cannot cover one lot per level, the bot is
+        // opened with the budget (levels below a full lot get the minimum lot and the rest of
+        // the grid stays virtual).
+        const lotEstimate = Math.max(5, Number(candidate.minInvestmentUSDT) || 5);
+        // Never trust the model with this number: sz is resolved in cents from the lot estimate
+        // and the budget — RAISED to the estimate when that fits, capped at the budget otherwise.
+        const sizePlan = resolveOpenSize(Number(action.sz), lotEstimate, cfg.budgetPerBotUSDT);
         const sz = sizePlan.sz;
-        if (!candidate.requiresLiveProbe && minInv > 0 && sz < minInv - 1e-9) {
-          reject(
-            `Investiția ${sz.toFixed(2)}$ este sub minimul OKX de ${minInv.toFixed(2)}$ pentru ${candidate.instId} (buget/bot ${cfg.budgetPerBotUSDT}$, marjă totală rămasă ${rnd(
-              Math.max(0, cfg.maxTotalMarginUSDT - marginUsed)
-            )}$).`
-          );
-          continue;
-        }
-        // `minInv` comes from the agent's own scan and is a LOCAL estimate, not an OKX answer —
-        // ETH at 8 grids / 10x estimated $14.55 while OKX ran the grid on $5.00. When the scan
-        // flagged the candidate `requiresLiveProbe`, pre-rejecting on that number would delete
-        // exactly the contracts that fit. The engine probes the live minimum and either opens
-        // (raising sz, never past the budget) or refuses with the venue's own message.
-        if (candidate.requiresLiveProbe) {
+        if (lotEstimate > sz + 0.001) {
+          // Advisory only. Rejecting on this number is what deleted exactly the contracts that
+          // fit (the estimate is a local guess: ETH at 8 grids / 10x estimated $14.55 while OKX
+          // ran that geometry on $5.00).
           this.deps.logAudit(
             'CANDIDATE_SELECTED',
-            `[DEEPSEEK AGENT] ${candidate.instId}: estimarea de marjă $${minInv.toFixed(
-              2
-            )} nu este o limită OKX — trimis la proba live, decide engine-ul (buget ${cfg.budgetPerBotUSDT}$).`
+            `[DEEPSEEK AGENT] ${candidate.instId}: estimare locală "1 lot pe fiecare nivel" ` +
+              `$${lotEstimate.toFixed(2)} > marja $${sz.toFixed(2)} @ ${lever}x — se deschide cu marja ` +
+              `bugetului (${cfg.budgetPerBotUSDT}$), nu se refuză: nivelurile care nu încap pe un lot ` +
+              `se plasează cu lotul minim, restul grilei rămâne virtual.`
           );
         }
         if (sizePlan.raised) {
@@ -1405,7 +1435,7 @@ export class DeepSeekAgent {
             'CANDIDATE_SELECTED',
             `[DEEPSEEK AGENT] sz rezolvat determinist pe ${candidate.instId}: model $${Number(action.sz).toFixed(
               2
-            )} → $${sz.toFixed(2)} (minim OKX $${minInv.toFixed(2)}, buget $${cfg.budgetPerBotUSDT}).`
+            )} → $${sz.toFixed(2)} (estimare 1 lot/nivel $${lotEstimate.toFixed(2)}, buget $${cfg.budgetPerBotUSDT}).`
           );
         }
         if (marginUsed + sz > cfg.maxTotalMarginUSDT) {
@@ -1533,8 +1563,9 @@ export class DeepSeekAgent {
         reasons.push(`PnL ${rnd(pnlPct)}% ≤ -${cfg.hardStopLossPct}% din marjă`);
       }
       const distLiq = bot.liqPx > 0 ? pctDistance(bot.currentPx, bot.liqPx) : null;
-      if (distLiq !== null && distLiq <= cfg.hardMinLiqDistancePct) {
-        reasons.push(`distanță lichidare ${rnd(distLiq, 1)}% ≤ ${cfg.hardMinLiqDistancePct}%`);
+      const minLiqDistancePct = effectiveMinLiqDistancePct(cfg.hardMinLiqDistancePct, bot.lever);
+      if (distLiq !== null && distLiq <= minLiqDistancePct) {
+        reasons.push(`distanță lichidare ${rnd(distLiq, 1)}% ≤ ${rnd(minLiqDistancePct, 1)}%`);
       }
       const outsideRange =
         bot.currentPx > 0 &&
