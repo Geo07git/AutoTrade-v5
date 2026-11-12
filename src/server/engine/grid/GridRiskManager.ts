@@ -100,30 +100,15 @@ export class GridRiskManager {
       };
     }
 
-    // 3. Check Hard Lower / Upper Price Stop Breakout (Direction-Aware)
+    // 3. Check Hard Lower / Upper Price Stop Breakout
     if (risk.stopOnRangeBreakout) {
-      const dir = bot.config.direction || bot.direction || 'neutral';
-
       if (bot.lowerStopPrice > 0 && currentPrice <= bot.lowerStopPrice) {
-        if (dir === 'short') {
-          return {
-            action: 'TAKE_PROFIT',
-            reason: `Target Profit Atins pe Short: Preț curent $${currentPrice} <= Prag Inferior $${bot.lowerStopPrice}`,
-          };
-        }
         return {
           action: 'RANGE_BREAKOUT_STOP',
           reason: `Breakout sub Pragul Stop Inferior: Preț curent $${currentPrice} <= SL Inferior $${bot.lowerStopPrice}`,
         };
       }
-
       if (bot.upperStopPrice > 0 && currentPrice >= bot.upperStopPrice) {
-        if (dir === 'long') {
-          return {
-            action: 'TAKE_PROFIT',
-            reason: `Target Profit Atins pe Long: Preț curent $${currentPrice} >= Prag Superior $${bot.upperStopPrice}`,
-          };
-        }
         return {
           action: 'RANGE_BREAKOUT_STOP',
           reason: `Breakout peste Pragul Stop Superior: Preț curent $${currentPrice} >= SL Superior $${bot.upperStopPrice}`,

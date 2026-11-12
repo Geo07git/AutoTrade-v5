@@ -2,7 +2,6 @@ import {
   ExecutionMode,
   GridArbitrageEvent,
   GridBotInstance,
-  GridDirection,
   GridLevelState,
   NeutralGridBotConfig,
 } from '../../../shared/types';
@@ -104,15 +103,9 @@ export class NeutralGridEngine {
         if (!rawConfig.gridType) gridType = auto.gridType;
       }
 
-      const direction: GridDirection =
-        rawConfig.direction === 'long' || rawConfig.direction === 'short'
-          ? rawConfig.direction
-          : 'neutral';
-
       const fullConfig: NeutralGridBotConfig = {
         symbol,
         platform: rawConfig.platform || 'OKX_EEA',
-        direction,
         mode: rawConfig.mode || 'MANUAL',
         lowerPrice,
         upperPrice,
@@ -167,7 +160,6 @@ export class NeutralGridEngine {
         botId,
         symbol,
         platform: fullConfig.platform,
-        direction,
         executionMode,
         status: 'RUNNING',
         config: fullConfig,
@@ -197,37 +189,6 @@ export class NeutralGridEngine {
         activeBuyOrders,
         activeSellOrders,
       };
-
-      // For directional grids (Long/Short), establish initial base position before setting up limit orders
-      if (opt.initialBaseOrder && opt.initialBaseOrder.qtyContracts > 0) {
-        const baseOrderLinkId = `${botId}_BASE_${Date.now().toString(36)}`;
-        try {
-          if (executionMode === 'LIVE') {
-            await this.adapter.submitOrder({
-              symbol: bot.symbol,
-              side: opt.initialBaseOrder.side,
-              orderType: 'Market',
-              qty: opt.initialBaseOrder.qtyContracts,
-              orderLinkId: baseOrderLinkId,
-              leverage: fullConfig.leverage,
-              marginMode: fullConfig.marginMode,
-            });
-          }
-          const baseQty = opt.initialBaseOrder.qtyContracts;
-          bot.netPositionContracts = opt.initialBaseOrder.side === 'Buy' ? baseQty : -baseQty;
-          bot.netPositionSide = opt.initialBaseOrder.side === 'Buy' ? 'LONG' : 'SHORT';
-          bot.avgHoldPrice = livePrice;
-          this.journal.logAudit(
-            'ORDER_FILLED',
-            `[GRID BAZĂ DIRECȚIE ${direction.toUpperCase()}] Poziție ${opt.initialBaseOrder.side} de ${baseQty} contracte deschisă la ~$${livePrice} pentru bot ${direction.toUpperCase()}`
-          );
-        } catch (baseErr: any) {
-          this.journal.logAudit(
-            'ORDER_REJECTED',
-            `[GRID BASE ORDER EȘUAT] Nu s-a putut deschide poziția de bază pentru ${direction.toUpperCase()}: ${baseErr?.message || baseErr}`
-          );
-        }
-      }
 
       // Lock symbol and register bot BEFORE deploying orders so concurrent ticks/reconciliation never treat the bot's new orders as orphans
       this.processingSymbols.add(symbol);

@@ -1976,7 +1976,6 @@ export class TradeBot {
       const gridRes = await this.createGridBot({
         symbol: vp.instId,
         platform: 'OKX_EEA',
-        direction: vp.direction || 'neutral',
         mode: 'MANUAL',
         lowerPrice: vp.minPx,
         upperPrice: vp.maxPx,
@@ -2008,7 +2007,7 @@ export class TradeBot {
           algoId: gridRes.bot.botId,
           instId: vp.instId,
           algoOrdType: 'contract_grid' as const,
-          direction: (vp.direction || 'neutral') as any,
+          direction: 'neutral' as const,
           environment: 'LIVE' as const,
           state: 'running' as const,
           minPx: vp.minPx,

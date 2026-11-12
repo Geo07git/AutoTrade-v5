@@ -1,5 +1,4 @@
 import {
-  GridDirection,
   GridRangeVariantId,
   NativeGridAutopilotConfig,
   NativeGridOpportunity,
@@ -915,7 +914,6 @@ export class OKXNativeGridEngine {
     runType?: '1' | '2';
     lever: number;
     sz: number;
-    direction?: GridDirection;
     stopLossPct?: number;
     takeProfitPct?: number;
     tpTriggerPx?: number;
@@ -1057,11 +1055,6 @@ export class OKXNativeGridEngine {
       );
     }
 
-    const direction: GridDirection =
-      params.direction === 'long' || params.direction === 'short'
-        ? params.direction
-        : 'neutral';
-
     const stopLossPct = Number(params.stopLossPct ?? cfg.stopLossPct ?? 8.0);
     const takeProfitPct = Number(params.takeProfitPct ?? cfg.takeProfitPct ?? 15.0);
     const stopTypeOnRisk: '1' | '2' =
@@ -1087,7 +1080,6 @@ export class OKXNativeGridEngine {
 
     const validatedParams = {
       instId,
-      direction,
       minPx,
       maxPx,
       gridNum,
@@ -1121,7 +1113,6 @@ export class OKXNativeGridEngine {
     try {
       const created = await this.okxAdapter.createNativeContractGrid({
         instId,
-        direction,
         maxPx,
         minPx,
         gridNum,
@@ -1140,7 +1131,7 @@ export class OKXNativeGridEngine {
         algoId: created.algoId,
         instId,
         algoOrdType: 'contract_grid',
-        direction,
+        direction: 'neutral',
         environment: env,
         state: 'running',
         minPx,
@@ -1173,7 +1164,7 @@ export class OKXNativeGridEngine {
 
       this.journal.logAudit(
         'GRID_CREATED',
-        `[OKX NATIVE BOT CREAT LIVE] ${instId} (algoId: ${bot.algoId}) | Direction: ${direction.toUpperCase()} | Range: $${minPx} – $${maxPx} | ${gridNum} grile (${runType === '1' ? 'Aritmetic' : 'Geometric'}) | Investiție: $${sz.toFixed(2)} @ ${lever}x | SL Trigger: $${slTriggerPx} / TP Trigger: $${tpTriggerPx} | StopType: ${stopTypeOnRisk}`,
+        `[OKX NATIVE BOT CREAT LIVE] ${instId} (algoId: ${bot.algoId}) | Direction: NEUTRAL | Range: $${minPx} – $${maxPx} | ${gridNum} grile (${runType === '1' ? 'Aritmetic' : 'Geometric'}) | Investiție: $${sz.toFixed(2)} @ ${lever}x | SL Trigger: $${slTriggerPx} / TP Trigger: $${tpTriggerPx} | StopType: ${stopTypeOnRisk}`,
         bot
       );
 
@@ -1613,7 +1604,7 @@ export class OKXNativeGridEngine {
             algoId: algoIdStr,
             instId: String(r.instId),
             algoOrdType: 'contract_grid',
-            direction: (['neutral', 'long', 'short'].includes(r.direction) ? r.direction : 'neutral') as GridDirection,
+            direction: 'neutral',
             environment: 'LIVE',
             state: isStopped ? 'stopped' : 'running',
             minPx: parseFloat(r.minPx || '0') || 0,

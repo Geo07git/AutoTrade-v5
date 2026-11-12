@@ -128,12 +128,11 @@ const ACTION_TONE: Record<string, string> = {
 const actionLabel = (action: any): string => {
   if (!action) return 'UNKNOWN';
   if (action.type === 'OPEN_GRID') {
-    const dir = action.direction ? ` [${String(action.direction).toUpperCase()}]` : '';
     const raised =
       action.szRequested && Math.abs(Number(action.szRequested) - Number(action.sz)) > 0.001
         ? ` (cerut ${money(action.szRequested)} U)`
         : '';
-    return `OPEN${dir} ${action.instId} [${price(action.minPx)}-${price(action.maxPx)}] ${action.gridNum} grile ${action.lever}x @${money(action.sz)} U${raised}`;
+    return `OPEN ${action.instId} [${price(action.minPx)}-${price(action.maxPx)}] ${action.gridNum} grile ${action.lever}x @${money(action.sz)} U${raised}`;
   }
   if (action.type === 'STOP_BOT') return `STOP ${action.algoId} (tip ${action.stopType || '1'})`;
   if (action.type === 'AMEND_BOT') {

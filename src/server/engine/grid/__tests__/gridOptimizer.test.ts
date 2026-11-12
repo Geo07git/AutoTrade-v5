@@ -522,38 +522,6 @@ test('variants (d): geometry invariants hold across all three profiles', () => {
   eq(v.COMPACT.gridNum % 2, 0, 'COMPACT gridNum must be even');
 });
 
-// ===========================================================================
-// 6. Directional Grids: NEUTRAL, LONG, SHORT
-// ===========================================================================
-
-test('directional grid: NEUTRAL has no initial base order and brackets liquidation', () => {
-  const r = GridOptimizer.calculateGrid(cfg({ direction: 'neutral' }), 2000, lot());
-  eq(r.direction, 'neutral', 'direction must be neutral');
-  eq(r.initialBaseOrder, undefined, 'neutral grid must have no initial base order');
-  ok(r.estimatedLiquidationPriceLong > 0, 'neutral grid must have long liquidation below range');
-  ok(r.estimatedLiquidationPriceShort > 0, 'neutral grid must have short liquidation above range');
-});
-
-test('directional grid: LONG computes initial Buy base inventory and asymmetric liquidation', () => {
-  const r = GridOptimizer.calculateGrid(cfg({ direction: 'long' }), 2000, lot());
-  eq(r.direction, 'long', 'direction must be long');
-  ok(r.initialBaseOrder !== undefined, 'long grid must compute initial base order');
-  eq(r.initialBaseOrder?.side, 'Buy', 'initial base order for long grid must be Buy');
-  ok((r.initialBaseOrder?.qtyContracts ?? 0) > 0, 'initial base order quantity must be > 0');
-  ok(r.estimatedLiquidationPriceLong > 0, 'long grid must have long liquidation price');
-  eq(r.estimatedLiquidationPriceShort, 0, 'long grid must have 0 short liquidation (no short risk)');
-});
-
-test('directional grid: SHORT computes initial Sell base inventory and asymmetric liquidation', () => {
-  const r = GridOptimizer.calculateGrid(cfg({ direction: 'short' }), 2000, lot());
-  eq(r.direction, 'short', 'direction must be short');
-  ok(r.initialBaseOrder !== undefined, 'short grid must compute initial base order');
-  eq(r.initialBaseOrder?.side, 'Sell', 'initial base order for short grid must be Sell');
-  ok((r.initialBaseOrder?.qtyContracts ?? 0) > 0, 'initial base order quantity must be > 0');
-  ok(r.estimatedLiquidationPriceShort > 0, 'short grid must have short liquidation price');
-  eq(r.estimatedLiquidationPriceLong, 0, 'short grid must have 0 long liquidation (no long risk)');
-});
-
 // ---------------------------------------------------------------------------
 // Execute
 // ---------------------------------------------------------------------------

@@ -28,7 +28,6 @@ import {
   DeepSeekRejectedAction,
   DeepSeekTokenUsage,
   DeepSeekUsageStats,
-  GridDirection,
   NativeGridOpportunity,
   OKXNativeGridBot,
 } from '../../shared/types';
@@ -276,25 +275,19 @@ export function computeDeepSeekCostUSD(
 const SYSTEM_PROMPT = `You are "DeepSeek Grid Agent", the autonomous decision engine of TB5 (TradeBot v5).
 
 DESK
-- Strategy: MULTI-DIRECTIONAL CONTRACT GRID on OKX EEA perpetual FUTURES.
-- Supported directions: "neutral" (default/sideways chop), "long" (bullish momentum / negative funding tailwind), "short" (bearish momentum / high positive funding tailwind).
+- Strategy: NEUTRAL GRID (market-neutral contract grid, direction=neutral) on OKX EEA perpetual FUTURES.
 - Instrument universe: ONLY OKX X-Perp contracts whose id contains "_UM_XPERP".
-- Profit source:
-  * "neutral": buy low / sell high round-trips inside a price range without directional bias.
-  * "long": acquires initial long base inventory at launch, sells limit orders on bounces, buys on dips. Upside breakout = Take Profit; downside breakdown = Stop Loss.
-  * "short": acquires initial short base inventory at launch, buys limit orders on dips, sells on rallies. Downside breakout = Take Profit; upside breakout = Stop Loss.
+- Profit source: buy low / sell high round-trips inside a price range. It requires sideways, choppy price action.
 - Costs per grid include the OKX maker fee round-trip, funding and spread. A grid whose net profit per grid is below the configured minimum is NOT worth opening.
 
 YOUR JOB, per cycle
 1. Read the account + limits + running bots + candidates JSON.
 2. Decide AT MOST max_actions actions.
-3. Select direction: "neutral" | "long" | "short" based on each candidate's recommended_direction, trend, and funding rate, or specify your own analytical choice.
-4. Prefer doing nothing over a mediocre trade. HOLD is a valid, professional answer.
+3. Prefer doing nothing over a mediocre trade. HOLD is a valid, professional answer.
 
 HARD RULES (violating any of them gets your action rejected by the execution guard)
 - Only reference instIds that appear in "candidates". Never invent symbols.
 - Never OPEN_GRID on a candidate with eligible=false.
-- direction: must be "neutral", "long", or "short". If omitted, defaults to "neutral".
 - sz: copy the candidate field sz_usdt verbatim. It is already sized from the lot estimate and capped by budget_per_bot_usdt. Do NOT invent your own margin; if you must change it, stay between 5 and sz_usdt (min_inv_usdt is a LOCAL estimate, not an OKX limit). lever <= max_leverage.
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
@@ -302,8 +295,8 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once.
-- Avoid symbols with adverse funding (e.g. paying high positive funding while in a long grid, or paying high negative funding while in a short grid).
-- STOP_BOT only on clear deterioration: adverse breakout outside range, net PnL <= -6% of margin, distance to liquidation < 15%, or a dead tape re-confirmed by current data.
+- Avoid symbols with high absolute funding when a better candidate exists.
+- STOP_BOT only on clear deterioration: price outside the range, net PnL <= -6% of margin, distance to liquidation < 15%, or a dead tape re-confirmed by current data.
 - Silence alone is NOT a reason to stop. Before stopping a silent bot, re-check current price activity, current ATR, elapsed minutes vs expected_first_fill_min, and the net expected edge: stop only when the tape can no longer reach the next level AND the expected net edge is gone. Never stop a profitable bot merely because it has not filled yet - ask for AMEND_BOT or HOLD instead.
 - Recovery of a loss is analytical only: never average down, never martingale, never raise order size or leverage to win a loss back. If a grid is wrong, close it.
 - AMEND_BOT only to tighten risk (raise SL, lower TP) or to widen TP when the range is clearly holding; never widen SL beyond hard_stop_loss_pct.
@@ -316,14 +309,14 @@ OUTPUT JSON SCHEMA
   "summary_ro": "string: 1-3 sentences in ROMANIAN explaining the decision to the operator",
   "confidence": 0.0,
   "actions": [
-    { "type": "OPEN_GRID", "instId": "SOL-USD_UM_XPERP-310523", "direction": "neutral", "minPx": 0, "maxPx": 0, "gridNum": 6, "runType": "1", "lever": 2, "sz": 12, "stopLossPct": 8, "takeProfitPct": 15, "rangeVariant": "BALANCED", "rationale_ro": "..." },
+    { "type": "OPEN_GRID", "instId": "SOL-USD_UM_XPERP-310523", "minPx": 0, "maxPx": 0, "gridNum": 6, "runType": "1", "lever": 2, "sz": 12, "stopLossPct": 8, "takeProfitPct": 15, "rangeVariant": "BALANCED", "rationale_ro": "..." },
     { "type": "STOP_BOT", "algoId": "1234567890", "stopType": "1", "rationale_ro": "..." },
     { "type": "AMEND_BOT", "algoId": "1234567890", "slTriggerPx": 0, "tpTriggerPx": 0, "rationale_ro": "..." },
     { "type": "HOLD", "rationale_ro": "..." }
   ]
 }
 
-direction: "neutral" | "long" | "short". runType: "1" = arithmetic, "2" = geometric. stopType: "1" = close position at market, "2" = keep position open.
+runType: "1" = arithmetic, "2" = geometric. stopType: "1" = close position at market, "2" = keep position open.
 If there is nothing worth doing, return exactly one HOLD action.`;
 
 function buildUserPrompt(context: any): string {
@@ -874,9 +867,6 @@ export class DeepSeekAgent {
       ),
       net_per_grid_pct: rnd(o.estimatedNetProfitPerGridPct, 3),
       daily_yield_pct: rnd(o.estimatedDailyNetYieldPct, 3),
-      recommended_direction: o.recommendedDirection || 'neutral',
-      trend_direction: o.trendDirection || 'NEUTRAL',
-      trend_slope_pct: o.trendSlopePct ?? 0,
       eligible: o.isEligible,
       reason_if_not: o.isEligible ? undefined : o.rejectionReason,
       already_running: runningBots.some((b) => b.instId === o.instId),
@@ -887,7 +877,6 @@ export class DeepSeekAgent {
       return {
         algoId: b.algoId,
         instId: b.instId,
-        direction: b.direction || 'neutral',
         range: { minPx: rnd(b.minPx, 6), maxPx: rnd(b.maxPx, 6), gridNum: b.gridNum, runType: b.runType },
         lever: b.lever,
         sz_usdt: rnd(b.sz, 2),
@@ -1275,13 +1264,9 @@ export class DeepSeekAgent {
       if (!item || typeof item !== 'object') continue;
       const type = String(item.type || '').toUpperCase();
       if (type === 'OPEN_GRID') {
-        const rawDir = String(item.direction || '').toLowerCase();
-        const direction: GridDirection =
-          rawDir === 'long' || rawDir === 'short' ? rawDir : 'neutral';
         out.push({
           type: 'OPEN_GRID',
           instId: String(item.instId || item.inst_id || '').trim(),
-          direction,
           minPx: Number(item.minPx ?? item.min_px),
           maxPx: Number(item.maxPx ?? item.max_px),
           gridNum: Number(item.gridNum ?? item.grid_num),
@@ -1536,7 +1521,6 @@ export class DeepSeekAgent {
         approved.push({
           type: 'OPEN_GRID',
           instId: candidate.instId,
-          direction: action.direction || candidate.recommendedDirection || 'neutral',
           minPx: rnd(minPx, 8),
           maxPx: rnd(maxPx, 8),
           gridNum,
@@ -1647,35 +1631,11 @@ export class DeepSeekAgent {
       if (distLiq !== null && distLiq <= minLiqDistancePct) {
         reasons.push(`distanță lichidare ${rnd(distLiq, 1)}% ≤ ${rnd(minLiqDistancePct, 1)}%`);
       }
-      const dir = bot.direction || 'neutral';
-      let outsideRange = false;
-      let rangeReason = '';
-      if (bot.currentPx > 0) {
-        if (dir === 'long') {
-          if (bot.minPx > 0 && bot.currentPx < bot.minPx) {
-            outsideRange = true;
-            rangeReason = `preț ${rnd(bot.currentPx, 6)} sub minimul [${rnd(bot.minPx, 6)}] (breakdown SL pentru bot LONG)`;
-          } else if (bot.maxPx > 0 && bot.currentPx > bot.maxPx) {
-            outsideRange = true;
-            rangeReason = `preț ${rnd(bot.currentPx, 6)} peste maximul [${rnd(bot.maxPx, 6)}] (take-profit atins pentru bot LONG)`;
-          }
-        } else if (dir === 'short') {
-          if (bot.maxPx > 0 && bot.currentPx > bot.maxPx) {
-            outsideRange = true;
-            rangeReason = `preț ${rnd(bot.currentPx, 6)} peste maximul [${rnd(bot.maxPx, 6)}] (breakout SL pentru bot SHORT)`;
-          } else if (bot.minPx > 0 && bot.currentPx < bot.minPx) {
-            outsideRange = true;
-            rangeReason = `preț ${rnd(bot.currentPx, 6)} sub minimul [${rnd(bot.minPx, 6)}] (take-profit atins pentru bot SHORT)`;
-          }
-        } else {
-          if ((bot.minPx > 0 && bot.currentPx < bot.minPx) || (bot.maxPx > 0 && bot.currentPx > bot.maxPx)) {
-            outsideRange = true;
-            rangeReason = `preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(bot.maxPx, 6)}]`;
-          }
-        }
-      }
+      const outsideRange =
+        bot.currentPx > 0 &&
+        ((bot.minPx > 0 && bot.currentPx < bot.minPx) || (bot.maxPx > 0 && bot.currentPx > bot.maxPx));
       if (outsideRange) {
-        reasons.push(rangeReason);
+        reasons.push(`preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(bot.maxPx, 6)}]`);
       }
       const ageMin = Math.max(0, Math.round((Date.now() - (bot.cTime || Date.now())) / 60000));
       // --- stagnation rule -------------------------------------------------
@@ -1767,11 +1727,9 @@ export class DeepSeekAgent {
         .slice(0, cfg.maxActionsPerCycle);
 
       for (const cand of pool) {
-        const candDir = cand.recommendedDirection || 'neutral';
         actions.push({
           type: 'OPEN_GRID',
           instId: cand.instId,
-          direction: candDir,
           minPx: cand.minPx,
           maxPx: cand.maxPx,
           gridNum: cand.gridNum,
@@ -1781,7 +1739,7 @@ export class DeepSeekAgent {
           stopLossPct: 8,
           takeProfitPct: 15,
           rangeVariant: cand.selectedVariant,
-          rationale_ro: `Fallback determinist TB5: ${cand.instId} direcție [${candDir.toUpperCase()}] ${cand.agentScan ? `crossings/h ${cand.crossingsPerHour}, prima umplere ~${cand.expectedFirstFillMin} min` : `scor ${cand.suitabilityScore}/100`}, regim ${cand.regimeLabel}, profit net ${rnd(cand.estimatedNetProfitPerGridPct, 3)}%/grilă.`,
+          rationale_ro: `Fallback determinist TB5: ${cand.instId} ${cand.agentScan ? `crossings/h ${cand.crossingsPerHour}, prima umplere ~${cand.expectedFirstFillMin} min` : `scor ${cand.suitabilityScore}/100`}, regim ${cand.regimeLabel}, profit net ${rnd(cand.estimatedNetProfitPerGridPct, 3)}%/grilă.`,
         });
       }
     }
@@ -1831,10 +1789,8 @@ export class DeepSeekAgent {
     const timestamp = Date.now();
     try {
       if (action.type === 'OPEN_GRID') {
-        const dir = action.direction || 'neutral';
         const res = await this.deps.createNativeGridBot({
           instId: action.instId,
-          direction: dir,
           minPx: action.minPx,
           maxPx: action.maxPx,
           gridNum: action.gridNum,
@@ -1867,7 +1823,7 @@ export class DeepSeekAgent {
         }
         const adjusted = raiseNotes.length > 0 ? ` — marjă ridicată: ${raiseNotes.join(', ')}` : '';
         const message = res?.success
-          ? `Bot deschis pe ${action.instId} [${dir.toUpperCase()}] ($${rnd(sentSz)} @ ${action.lever}x, ${action.gridNum} grile)${adjusted}${algoId ? ` — algoId ${algoId}` : ''}.`
+          ? `Bot deschis pe ${action.instId} ($${rnd(sentSz)} @ ${action.lever}x, ${action.gridNum} grile)${adjusted}${algoId ? ` — algoId ${algoId}` : ''}.`
           : `Deschidere respinsă pe ${action.instId}: ${res?.error || 'eroare necunoscută'}`;
         this.deps.logAudit(
           res?.success ? 'GRID_CREATED' : 'ORDER_REJECTED',

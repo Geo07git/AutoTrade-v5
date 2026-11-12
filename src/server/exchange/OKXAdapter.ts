@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import WebSocket from 'ws';
-import { Kline, OKXRawPosition, OrderStatus, OrderSide, OKXFeeTierInfo, GridDirection } from '../../shared/types';
+import { Kline, OKXRawPosition, OrderStatus, OrderSide, OKXFeeTierInfo } from '../../shared/types';
 import { setLiveFeeRates, getLiveFeeRates, calculateVolumeFeeBreakdown } from '../../shared/fees';
 import { IExecutionAdapter, InstrumentLotFilter, ConnectionTestResult } from './IExecutionAdapter';
 
@@ -2494,7 +2494,7 @@ export class OKXAdapter implements IExecutionAdapter {
 
   /**
    * 1. OKX Minimum Investment Calculation: POST /api/v5/tradingBot/grid/min-investment
-   * Supports algoOrdType: 'contract_grid' with direction: 'neutral' | 'long' | 'short'.
+   * Strictly uses algoOrdType: 'contract_grid' and direction: 'neutral'.
    */
   public async calculateGridMinInvestment(params: {
     instId: string;
@@ -2503,7 +2503,6 @@ export class OKXAdapter implements IExecutionAdapter {
     gridNum: number;
     runType: '1' | '2';
     lever: number;
-    direction?: GridDirection;
   }): Promise<{
     minInvestmentUSDT: number;
     ccy: string;
@@ -2518,7 +2517,7 @@ export class OKXAdapter implements IExecutionAdapter {
       minPx: String(params.minPx),
       gridNum: String(Math.max(2, Math.round(params.gridNum))),
       runType: params.runType === '2' ? '2' : '1',
-      direction: params.direction || 'neutral',
+      direction: 'neutral',
       lever: String(Math.max(1, Math.round(params.lever))),
     };
 
@@ -2559,7 +2558,7 @@ export class OKXAdapter implements IExecutionAdapter {
 
   /**
    * 2. Create Native Contract Grid Bot on OKX: POST /api/v5/tradingBot/grid/order-algo
-   * Contract_grid with direction: 'neutral' | 'long' | 'short'.
+   * Exclusively contract_grid with direction: 'neutral' and basePos: false.
    */
   public async createNativeContractGrid(params: {
     instId: string;
@@ -2569,7 +2568,6 @@ export class OKXAdapter implements IExecutionAdapter {
     runType: '1' | '2';
     sz: number;
     lever: number;
-    direction?: GridDirection;
     tpTriggerPx?: number;
     slTriggerPx?: number;
     tpRatio?: number;
@@ -2577,7 +2575,6 @@ export class OKXAdapter implements IExecutionAdapter {
     isDemo?: boolean;
   }): Promise<{ algoId: string; sCode?: string; sMsg?: string }> {
     const instId = this.normalizeSymbol(params.instId);
-    const direction = params.direction || 'neutral';
     const body: Record<string, any> = {
       instId,
       algoOrdType: 'contract_grid',
@@ -2586,9 +2583,9 @@ export class OKXAdapter implements IExecutionAdapter {
       gridNum: String(Math.max(2, Math.round(params.gridNum))),
       runType: params.runType === '2' ? '2' : '1',
       sz: String(params.sz),
-      direction,
+      direction: 'neutral',
       lever: String(Math.max(1, Math.round(params.lever))),
-      basePos: direction === 'long' || direction === 'short',
+      basePos: false,
     };
 
     if (params.tpTriggerPx && params.tpTriggerPx > 0) {
@@ -2786,7 +2783,7 @@ export class OKXAdapter implements IExecutionAdapter {
     try {
       const res = await this.requestWithEnvOverride('GET', endpoint, undefined, true, isDemo);
       if (res?.code === '0' && Array.isArray(res.data)) {
-        return res.data.filter((b: any) => !b.direction || ['neutral', 'long', 'short'].includes(b.direction));
+        return res.data.filter((b: any) => !b.direction || b.direction === 'neutral');
       }
     } catch {}
     return [];

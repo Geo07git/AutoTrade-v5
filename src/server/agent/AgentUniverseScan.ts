@@ -360,40 +360,7 @@ export function buildAgentOpportunity(input: {
     3
   );
 
-  // --- Trend / direction detection ---
-  let trendDirection: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
-  let recommendedDirection: 'neutral' | 'long' | 'short' = 'neutral';
-  let trendSlopePct = 0;
-
-  const validBars = (klines15m || []).filter((k) => k && k.close > 0);
-  if (validBars.length >= 8) {
-    const lastClose = validBars[validBars.length - 1].close;
-    const lookbackBars = Math.min(24, validBars.length - 1);
-    const pastClose = validBars[validBars.length - 1 - lookbackBars].close;
-    if (pastClose > 0) {
-      trendSlopePct = round(((lastClose - pastClose) / pastClose) * 100, 2);
-    }
-
-    const price24h = Number(ticker.priceChange24hPct) || 0;
-    if (trendSlopePct > 0.4 && price24h > 0.2) {
-      trendDirection = 'BULLISH';
-      recommendedDirection = 'long';
-    } else if (trendSlopePct < -0.4 && price24h < -0.2) {
-      trendDirection = 'BEARISH';
-      recommendedDirection = 'short';
-    } else {
-      if (fundingRatePct < -0.02) {
-        recommendedDirection = 'long';
-      } else if (fundingRatePct > 0.04) {
-        recommendedDirection = 'short';
-      } else {
-        recommendedDirection = 'neutral';
-      }
-    }
-  }
-
   reasons.push(
-    `direcție recomandată: ${recommendedDirection.toUpperCase()} (${trendDirection}, pantă ${trendSlopePct}% pe 6h)`,
     `crossings/h=${metrics.crossingsPerHour} (path ${metrics.pathPerHourPct}%/h / pas ${metrics.stepPct}%)`,
     `prima umplere estimată în ~${metrics.expectedFirstFillMin} min`,
     `ATR15m=${metrics.atrPct}% -> bandă ±${metrics.halfRangePct}% cu ${metrics.gridNum} grile`
@@ -449,9 +416,6 @@ export function buildAgentOpportunity(input: {
     roundTripsPerHour: round(roundTripsPerHour, 3),
     expectedFirstFillMin: metrics.expectedFirstFillMin,
     stepPct: metrics.stepPct,
-    trendDirection,
-    recommendedDirection,
-    trendSlopePct,
     updatedAt: Date.now(),
   };
 }

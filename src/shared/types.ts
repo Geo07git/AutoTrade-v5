@@ -100,12 +100,9 @@ export interface GridRiskConfig {
   maxActiveGridBots: number;   // Max concurrent active grid bots
 }
 
-export type GridDirection = 'neutral' | 'long' | 'short';
-
 export interface NeutralGridBotConfig {
   symbol: string;
   platform: ExchangePlatformId;
-  direction?: GridDirection;
   mode: 'AUTO' | 'MANUAL';
   lowerPrice: number;
   upperPrice: number;
@@ -156,7 +153,6 @@ export interface GridBotInstance {
   executionMode: ExecutionMode;
   status: 'RUNNING' | 'STOPPED' | 'STOP_LOSS_HIT' | 'TAKE_PROFIT_HIT' | 'ERROR';
   stopReason?: string;
-  direction?: GridDirection;
   config: NeutralGridBotConfig;
   createdAt: number;
   updatedAt: number;
@@ -400,12 +396,6 @@ export interface NativeGridOpportunity {
   expectedFirstFillMin?: number;
   /** Distance between grid levels, in % of price */
   stepPct?: number;
-  /** Suggested grid direction based on trend & funding ('neutral' | 'long' | 'short') */
-  recommendedDirection?: GridDirection;
-  /** Market regime direction ('BULLISH' | 'BEARISH' | 'NEUTRAL') */
-  trendDirection?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
-  /** Price slope over recent lookback in % */
-  trendSlopePct?: number;
   updatedAt: number;
 }
 
@@ -446,7 +436,7 @@ export interface OKXNativeGridBot {
   algoId: string;
   instId: string;
   algoOrdType: 'contract_grid';
-  direction: GridDirection;
+  direction: 'neutral';
   environment: 'LIVE';
   state: 'running' | 'stopping' | 'stopped' | 'pending_signal';
   minPx: number;
@@ -513,7 +503,6 @@ export type DeepSeekActionType = 'OPEN_GRID' | 'STOP_BOT' | 'AMEND_BOT' | 'HOLD'
 export interface DeepSeekOpenGridAction {
   type: 'OPEN_GRID';
   instId: string;
-  direction?: GridDirection;
   minPx: number;
   maxPx: number;
   gridNum: number;

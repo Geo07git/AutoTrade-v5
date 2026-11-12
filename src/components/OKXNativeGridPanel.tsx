@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   GridAnalyzerStatusSummary,
   GridAnalyzerThresholds,
-  GridDirection,
   GridRangeVariantId,
   GridRangeVariantProfile,
   NativeGridAutopilotConfig,
@@ -115,9 +114,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       opportunities[0]?.minInvestmentUSDT ?? 0,
       opportunities[0]?.recommendedInvestmentUSDT ?? 0
     )
-  );
-  const [direction, setDirection] = useState<GridDirection>(
-    opportunities[0]?.recommendedDirection || 'neutral'
   );
   const [minInvCheck, setMinInvCheck] = useState<{
     minInvestmentUSDT: number;
@@ -597,9 +593,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     setRunType(opp.runType);
     setLever(v.lever);
     setSz(targetInvestUSDT);
-    if (opp.recommendedDirection) {
-      setDirection(opp.recommendedDirection);
-    }
     setMinInvCheck({
       minInvestmentUSDT: v.minInvestmentUSDT,
       ccy: opp.minInvestmentCcy,
@@ -695,8 +688,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     const targetMinPx = Number(overrideParams?.minPx ?? minPx) || 0;
     const targetMaxPx = Number(overrideParams?.maxPx ?? maxPx) || 0;
     const targetGridNum = Number(overrideParams?.gridNum ?? gridNum) || 10;
-    const targetDirection: GridDirection =
-      overrideParams?.recommendedDirection || direction || 'neutral';
     const targetRunType = overrideParams?.runType || runType;
     const targetLever = Number(overrideParams?.lever ?? lever) || 3;
     const minReqSz = Math.max(
@@ -729,7 +720,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         headers: authHeaders(),
         body: JSON.stringify({
           instId: targetInstId,
-          direction: targetDirection,
           minPx: targetMinPx,
           maxPx: targetMaxPx,
           gridNum: targetGridNum,
@@ -752,7 +742,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       if (data.success && data.bot) {
         onNotify({
           type: 'success',
-          text: `GRILĂ [${targetDirection.toUpperCase()}] RAMURA 1 (ORDINE LIMIT OKX) LANSATĂ CU SUCCES: ${data.bot.instId} | ID: ${data.bot.algoId} | Investiție: $${data.bot.sz} @ ${data.bot.lever}x!`,
+          text: `GRILĂ RAMURA 1 (ORDINE LIMIT OKX) LANSATĂ CU SUCCES: ${data.bot.instId} | ID: ${data.bot.algoId} | Investiție: $${data.bot.sz} @ ${data.bot.lever}x!`,
         });
         onRefresh();
       } else {
@@ -2813,74 +2803,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-zinc-400 block font-bold">
-                  Direcție Grilă Bot (direction)
-                </label>
-                {(() => {
-                  const currentOpp = allOpportunities.find((o) => o.instId === instId);
-                  const rec = (currentOpp?.recommendedDirection || 'neutral').toUpperCase();
-                  const trend = currentOpp?.trendDirection || 'NEUTRAL';
-                  return (
-                    <span className="text-[10px] text-cyan-300 font-bold">
-                      💡 Recomandat de algoritm:{' '}
-                      <span
-                        className={
-                          rec === 'LONG'
-                            ? 'text-emerald-400 font-black'
-                            : rec === 'SHORT'
-                              ? 'text-rose-400 font-black'
-                              : 'text-cyan-400 font-black'
-                        }
-                      >
-                        {rec}
-                      </span>{' '}
-                      (trend {trend})
-                    </span>
-                  );
-                })()}
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDirection('neutral')}
-                  className={`py-1.5 px-2 rounded border text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    direction === 'neutral'
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 ring-1 ring-cyan-400/50'
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'
-                  }`}
-                >
-                  <span className="inline-block w-2 h-2 rounded-full bg-cyan-400" />
-                  NEUTRAL (Lateral)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDirection('long')}
-                  className={`py-1.5 px-2 rounded border text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    direction === 'long'
-                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-1 ring-emerald-400/50'
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'
-                  }`}
-                >
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
-                  LONG ↗ (Baza Cumpărată)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDirection('short')}
-                  className={`py-1.5 px-2 rounded border text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    direction === 'short'
-                      ? 'bg-rose-500/20 border-rose-400 text-rose-300 ring-1 ring-rose-400/50'
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'
-                  }`}
-                >
-                  <span className="inline-block w-2 h-2 rounded-full bg-rose-400" />
-                  SHORT ↘ (Baza Vândută)
-                </button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="text-[10px] text-zinc-400 block mb-0.5">
@@ -3228,27 +3150,14 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                         <div className="text-[10px] text-cyan-400 font-mono">
                           algoId: {b.algoId}
                         </div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                          {b.direction === 'long' ? (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-[9px] font-black">
-                              LONG ↗
-                            </span>
-                          ) : b.direction === 'short' ? (
-                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/50 text-rose-300 text-[9px] font-black">
-                              SHORT ↘
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-[9px] font-black">
-                              NEUTRAL
-                            </span>
-                          )}
+                        <div className="mt-0.5">
                           {b.algoId.toLowerCase().startsWith('grid') ? (
                             <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-[9px] font-bold">
-                              ⚡ AUTO-LIMIT OKX
+                              ⚡ AUTO-LIMIT OKX (Open Orders)
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-[9px] font-bold">
-                              🤖 BOT NATIV OKX
+                              🤖 BOT NATIV OKX (Trading Bots)
                             </span>
                           )}
                         </div>

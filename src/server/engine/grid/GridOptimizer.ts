@@ -1,6 +1,5 @@
 import {
   NeutralGridBotConfig,
-  GridDirection,
   GridLevelState,
   GridSpacingType,
   Kline,
@@ -9,7 +8,6 @@ import { InstrumentLotFilter } from '../../exchange/IExecutionAdapter';
 import { MartingaleEngine } from './MartingaleEngine';
 
 export interface GridOptimizationResult {
-  direction?: GridDirection;
   levels: GridLevelState[];
   gridSpacingUSDT: number;
   gridSpacingPct: number;
@@ -19,7 +17,6 @@ export interface GridOptimizationResult {
   estimatedLiquidationPriceShort: number;
   lowerStopPrice: number;
   upperStopPrice: number;
-  initialBaseOrder?: { side: 'Buy' | 'Sell'; qtyContracts: number; notionalUSDT: number };
   warnings: string[];
 }
 
@@ -232,46 +229,17 @@ export class GridOptimizer {
     }
 
     // 4. Liquidation & Stop Price Estimates
-    const direction = config.direction || 'neutral';
     const mmr = 0.008; // ~0.8% maintenance margin buffer
     const maxExcursionPct = Math.max(0.02, 1 / leverage - mmr);
     const avgBuyPx = (lower + refPrice) / 2;
     const avgSellPx = (upper + refPrice) / 2;
 
-    const estimatedLiquidationPriceLong =
-      direction === 'short'
-        ? 0
-        : parseFloat(Math.max(0, avgBuyPx * (1 - maxExcursionPct)).toFixed(priceDecimals));
-    const estimatedLiquidationPriceShort =
-      direction === 'long'
-        ? 0
-        : parseFloat((avgSellPx * (1 + maxExcursionPct)).toFixed(priceDecimals));
-
-    // Initial base position calculation for directional grids:
-    let initialBaseOrder: { side: 'Buy' | 'Sell'; qtyContracts: number; notionalUSDT: number } | undefined;
-    if (direction === 'long') {
-      // Long grid needs initial long inventory to fulfill sell orders above refPrice
-      const sellLevels = levels.filter((l) => l.side === 'Sell');
-      const totalSellContracts = sellLevels.reduce((s, l) => s + l.qtyContracts, 0);
-      if (totalSellContracts > 0) {
-        initialBaseOrder = {
-          side: 'Buy',
-          qtyContracts: parseFloat(totalSellContracts.toFixed(qtyDecimals)),
-          notionalUSDT: parseFloat((totalSellContracts * ctVal * refPrice).toFixed(2)),
-        };
-      }
-    } else if (direction === 'short') {
-      // Short grid needs initial short inventory to fulfill buy orders below refPrice
-      const buyLevels = levels.filter((l) => l.side === 'Buy');
-      const totalBuyContracts = buyLevels.reduce((s, l) => s + l.qtyContracts, 0);
-      if (totalBuyContracts > 0) {
-        initialBaseOrder = {
-          side: 'Sell',
-          qtyContracts: parseFloat(totalBuyContracts.toFixed(qtyDecimals)),
-          notionalUSDT: parseFloat((totalBuyContracts * ctVal * refPrice).toFixed(2)),
-        };
-      }
-    }
+    const estimatedLiquidationPriceLong = parseFloat(
+      Math.max(0, avgBuyPx * (1 - maxExcursionPct)).toFixed(priceDecimals)
+    );
+    const estimatedLiquidationPriceShort = parseFloat(
+      (avgSellPx * (1 + maxExcursionPct)).toFixed(priceDecimals)
+    );
 
     const effectiveSlPct = config.risk?.stopLossPct || (config as any).stopLossPct || 5;
     const stopBufferPct = Math.max(0.005, effectiveSlPct / (100 * Math.max(1, leverage * 0.5)));
@@ -286,7 +254,6 @@ export class GridOptimizer {
         : parseFloat((upper * (1 + stopBufferPct)).toFixed(priceDecimals));
 
     return {
-      direction,
       levels,
       gridSpacingUSDT: parseFloat(avgSpacingUSDT.toFixed(priceDecimals)),
       gridSpacingPct: parseFloat(avgSpacingPct.toFixed(3)),
@@ -296,7 +263,6 @@ export class GridOptimizer {
       estimatedLiquidationPriceShort,
       lowerStopPrice,
       upperStopPrice,
-      initialBaseOrder,
       warnings,
     };
   }
