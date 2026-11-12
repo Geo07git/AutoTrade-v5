@@ -904,7 +904,15 @@ export class OKXNativeGridEngine {
   }
 
   /**
-   * 6. Create & Configure a Native Futures Grid (contract_grid, direction: neutral) directly on OKX EEA.
+   * 6. PLAN a Neutral Futures Grid (contract_grid, direction: neutral).
+   *
+   * This method creates NOTHING on OKX. OKX EEA exposes `_UM_XPERP` contracts only on the
+   * trading side, never on the grid algo gateway: `POST /tradingBot/grid/order-algo` answers
+   * 51000 "Parameter instId error" for every X-Perp id, while the identical call with a
+   * `-SWAP` id is accepted. A grid on this desk therefore always runs as OUR OWN limit
+   * orders, and this method's only job is to validate the geometry and return the parameters
+   * the limit-order engine will execute. The name is kept because every caller (UI, autopilot,
+   * agent, command gateway) refers to it; the return shape signals the handover explicitly.
    */
   public async createNativeBot(params: {
     instId: string;
@@ -956,8 +964,6 @@ export class OKXNativeGridEngine {
       };
     }
 
-    const env: 'LIVE' = 'LIVE';
-
     if (!this.okxAdapter.hasCredentials()) {
       return {
         success: false,
@@ -988,34 +994,21 @@ export class OKXNativeGridEngine {
     }
 
     // --- Sizing ---------------------------------------------------------------
-    // X-Perp ids never reach OKX's grid algo gateway (51000/51001), so an AUTO_LIMIT grid runs
-    // as OUR OWN limit orders. OKX's `min-investment` answer describes a VENUE-SIDE algo: it is
-    // meaningless for our order set, and asking for it had three costs, all of them visible in
-    // production:
+    // X-Perp ids never reach OKX's grid algo gateway (51000/51001), so EVERY grid on this
+    // desk runs as OUR OWN limit orders. OKX's `min-investment` answer describes a
+    // VENUE-SIDE algo: it is meaningless for our order set, and asking for it had three
+    // costs, all of them visible in production:
     //   1. a guaranteed-useless REST call on every open;
     //   2. the margin being inflated to the venue minimum ("almost always the per-bot cap");
     //   3. the open being REFUSED whenever that minimum did not fit the budget, even though a
     //      limit-order grid can always run smaller (a level below one full lot just gets the
     //      minimum lot and the rest of the grid stays virtual).
-    // So the probe is consulted ONLY for the native algo route, which is the only path where
-    // OKX itself owns the geometry and its floor.
-    const usesOwnLimitOrders = (params as any).executionVariant === 'AUTO_LIMIT';
+    const minInv = { minInvestmentUSDT: 0, ccy: 'USDT', singleAmt: 0 };
 
-    const minInv = usesOwnLimitOrders
-      ? { minInvestmentUSDT: 0, ccy: 'USDT', singleAmt: 0 }
-      : await this.okxAdapter.calculateGridMinInvestment({
-          instId,
-          maxPx,
-          minPx,
-          gridNum,
-          runType,
-          lever,
-        });
-
-    // Sizing is decided in integer cents — see nativeGridSizing.ts. The OKX minimum is a
-    // FLOOR that must be rounded UP, and the comparison must never mix a rounded sz with a
-    // 4-decimal requirement: that exact combination rejected a grid while printing
-    // "$11.91 sub $11.91" on screen (min 11.9108, sz 11.91).
+    // Sizing is decided in integer cents - see nativeGridSizing.ts.
+    // `minInvestmentUSDT` is 0 on purpose: there is no venue floor to clear, so the only
+    // floor is OKX's absolute 5 USDC minimum, applied unconditionally inside
+    // resolveNativeGridSize. Rounding is still done in cents, never with toFixed on a float.
     const sizePlan = resolveNativeGridSize({
       requestedUSDT: baseSz,
       minInvestmentUSDT: minInv.minInvestmentUSDT,
@@ -1023,37 +1016,13 @@ export class OKXNativeGridEngine {
     });
     const sz = sizePlan.szCents / 100;
 
-    if (sizePlan.belowMinimum) {
-      // Both numbers are printed from the SAME unit (cents), so they are always distinct.
-      const msg =
-        `Investiția alocată ($${sz.toFixed(2)}) este sub minimul OKX de ` +
-        `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy} pentru ${gridNum} grile la ` +
-        `${lever}x (minim OKX brut: ${Number(minInv.minInvestmentUSDT).toFixed(4)} ${minInv.ccy}).`;
-      this.journal.logAudit('CANDIDATE_REJECTED', `[OKX NATIVE GRID RESPINS] ${instId}: ${msg}`);
-      return { success: false, error: msg, refusal: { code: 'BUDGET_BELOW_MIN' } };
-    }
-
-    // Make the raise visible: the agent journals ITS OWN request (e.g. $7.31) while the live
-    // OKX minimum for this exact geometry demands more. Raising silently is what made the log
-    // look like OKX invented $11.91 out of nowhere.
-    if (sizePlan.raised) {
-      this.journal.logAudit(
-        'CANDIDATE_SELECTED',
-        `[OKX NATIVE GRID SIZING] ${instId}: marjă ridicată de la ` +
-          `$${(sizePlan.requestedCents / 100).toFixed(2)} la $${sz.toFixed(2)} — minimul real ` +
-          `OKX pentru ${gridNum} grile la ${lever}x este ` +
-          `$${(sizePlan.minInvCents / 100).toFixed(2)} ${minInv.ccy}.`
-      );
-    }
-
-    if (usesOwnLimitOrders) {
-      this.journal.logAudit(
-        'CANDIDATE_SELECTED',
-        `[OKX GRID SIZING LOCAL] ${instId}: marjă $${sz.toFixed(2)} @ ${lever}x pentru ` +
-          `${gridNum} grile — grila rulează pe ordinele noastre Limit, deci minimul de ` +
-          `investiție OKX (algo) nu se interoghează și nu poate ridica/respinge marja.`
-      );
-    }
+    // `belowMinimum` can never fire: with no venue floor, the only floor is the 5 USDC one.
+    this.journal.logAudit(
+      'CANDIDATE_SELECTED',
+      `[OKX GRID SIZING LOCAL] ${instId}: marja $${sz.toFixed(2)} @ ${lever}x pentru ` +
+        `${gridNum} grile - grila ruleaza pe ordinele noastre Limit, deci minimul de ` +
+        `investitie OKX (algo) nu se interogheaza si nu poate ridica/respinge marja.`
+    );
 
     const stopLossPct = Number(params.stopLossPct ?? cfg.stopLossPct ?? 8.0);
     const takeProfitPct = Number(params.takeProfitPct ?? cfg.takeProfitPct ?? 15.0);
@@ -1102,92 +1071,13 @@ export class OKXNativeGridEngine {
           : cfg.stopOnTrendInvalidation,
     };
 
-    if ((params as any).executionVariant === 'AUTO_LIMIT') {
-      return {
-        success: false,
-        needsDirectOrderFallback: true,
-        validatedParams,
-      } as any;
-    }
-
-    try {
-      const created = await this.okxAdapter.createNativeContractGrid({
-        instId,
-        maxPx,
-        minPx,
-        gridNum,
-        runType,
-        sz: parseFloat(sz.toFixed(2)),
-        lever,
-        tpTriggerPx,
-        slTriggerPx,
-        isDemo: false,
-      });
-
-      const livePx = (await this.okxAdapter.getTickerPrice(instId)) || (minPx + maxPx) / 2;
-      const now = Date.now();
-
-      const bot: OKXNativeGridBot = {
-        algoId: created.algoId,
-        instId,
-        algoOrdType: 'contract_grid',
-        direction: 'neutral',
-        environment: env,
-        state: 'running',
-        minPx,
-        maxPx,
-        gridNum,
-        runType,
-        lever,
-        sz: parseFloat(sz.toFixed(2)),
-        singleAmt: minInv.singleAmt || 0,
-        currentPx: livePx,
-        liqPx: 0,
-        gridProfit: 0,
-        floatProfit: 0,
-        totalPnl: 0,
-        totalPnlPct: 0,
-        arbitrageNum: 0,
-        tpTriggerPx,
-        slTriggerPx,
-        stopLossPct,
-        takeProfitPct,
-        stopTypeOnRisk,
-        stopOnRangeBreakout: validatedParams.stopOnRangeBreakout,
-        stopOnTrendInvalidation: validatedParams.stopOnTrendInvalidation,
-        cTime: now,
-        uTime: now,
-      };
-
-      this.bots.set(bot.algoId, bot);
-      this.persistBots();
-
-      this.journal.logAudit(
-        'GRID_CREATED',
-        `[OKX NATIVE BOT CREAT LIVE] ${instId} (algoId: ${bot.algoId}) | Direction: NEUTRAL | Range: $${minPx} – $${maxPx} | ${gridNum} grile (${runType === '1' ? 'Aritmetic' : 'Geometric'}) | Investiție: $${sz.toFixed(2)} @ ${lever}x | SL Trigger: $${slTriggerPx} / TP Trigger: $${tpTriggerPx} | StopType: ${stopTypeOnRisk}`,
-        bot
-      );
-
-      return { success: true, bot };
-    } catch (err: any) {
-      const errMsg = err?.message || 'Eroare necunoscută la crearea botului nativ pe OKX';
-      const isOkxGatewayInstIdBug =
-        errMsg.includes('51000') &&
-        errMsg.includes('Parameter instId error') &&
-        instId.includes('-USD_UM');
-      this.journal.logAudit(
-        'ORDER_REJECTED',
-        isOkxGatewayInstIdBug
-          ? `[OKX EEA GATEWAY 51000] Ruta OKX /tradingBot/grid/order-algo respinge sufixul -USD_UM (${instId}) pe API Key; se activează execuția directă pe OKX EEA (/api/v5/trade/order) cu parametrii validați prin min-investment.`
-          : `[OKX NATIVE GRID EROARE CREARE LIVE] ${instId}: ${errMsg}`
-      );
-      return {
-        success: false,
-        error: errMsg,
-        needsDirectOrderFallback: isOkxGatewayInstIdBug,
-        validatedParams,
-      } as any;
-    }
+    // Hand the validated geometry to the limit-order engine. `success: false` is deliberate and
+    // load-bearing: this method created NOTHING on OKX, so no caller may report an open yet.
+    return {
+      success: false,
+      needsDirectOrderFallback: true,
+      validatedParams,
+    } as any;
   }
 
   public registerFallbackBot(bot: OKXNativeGridBot): void {

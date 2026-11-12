@@ -443,10 +443,11 @@ export class TradeBot {
   /**
    * The single choke point for grid mutations (D4/D8).
    *
-   * The venue port wraps `sendNativeGridOpen()` — the exact code path that existed before the
-   * gateway, including the 51000 → AUTO_LIMIT → `registerFallbackBot` fallback. Nothing was
-   * duplicated and nothing was deleted: the fallback now happens BEHIND the journal instead of
-   * in front of it, so a grid created through it is also confirmed and reconciled.
+   * The venue port wraps `sendNativeGridOpen()` - the exact code path that existed before the
+   * gateway. That path never creates a venue-side algo (OKX EEA rejects `_UM_XPERP` on the grid
+   * algo route with 51000), so every grid is registered through `registerFallbackBot`. The
+   * handover now happens BEHIND the journal instead of in front of it, so a grid created that
+   * way is also confirmed and reconciled.
    */
   public getGridCommandGateway(): GridCommandGateway {
     if (!this.gridGatewayInstance) {
@@ -1917,10 +1918,11 @@ export class TradeBot {
   /**
    * The raw send, moved here unchanged from `createNativeGridBot()` so the gateway can wrap it.
    *
-   * It still owns the 51000/51001 fallback: when /tradingBot/grid/order-algo rejects an
-   * `_UM_XPERP` id, the grid goes out through the limit-order route and is registered as a
-   * fallback bot. Every locally decided refusal now also carries a machine-readable `refusal`
-   * code, so the gateway journals a definite rejection instead of guessing from prose.
+   * It never creates a venue-side algo: `createNativeBot()` only plans, because OKX EEA rejects
+   * every `_UM_XPERP` id on /tradingBot/grid/order-algo (51000). The grid therefore always goes
+   * out here through the limit-order route and is registered as a fallback bot. Every locally
+   * decided refusal carries a machine-readable `refusal` code, so the gateway journals a
+   * definite rejection instead of guessing from prose.
    */
   private async sendNativeGridOpen(
     params: any
