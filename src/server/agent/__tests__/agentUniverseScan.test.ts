@@ -15,6 +15,7 @@ import {
   computeAgentGridMetrics,
   computeMinLotNotionalUsd,
   rankElitePool,
+  resolveAgentScanMode,
   selectRotationWindow,
   type AgentContractSpec,
   type AgentScanPoolState,
@@ -511,6 +512,27 @@ test('pool ranking: path per unit of spread, gated by spread, total on junk inpu
   );
   eq(capped.length, 50, 'the pool holds exactly `size` contracts');
   eq(capped[0].instId, 'S79', 'and they are the best ones');
+});
+
+test('scan mode: a valid mode is never rewritten into a different one', () => {
+  // The pipeline used to resolve the mode with
+  // `opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation'`, which collapsed 'pool'
+  // into 'rotation' on its way to the scanner. Nothing crashed and no row was missing - the
+  // rotation cursor just kept advancing while the pool was never built - so the only way to
+  // catch it is to assert the identity of the value that crosses the boundary.
+  eq(resolveAgentScanMode('pool'), 'pool', 'the pool must reach the scanner as a pool');
+  eq(resolveAgentScanMode('rotation'), 'rotation', 'rotation must stay rotation');
+  eq(resolveAgentScanMode('turnover'), 'turnover', 'turnover must stay turnover');
+  eq(resolveAgentScanMode(undefined), 'pool', 'an absent mode falls back to the pool');
+  eq(
+    resolveAgentScanMode('nonsense' as any),
+    'pool',
+    'an unknown mode falls back to the pool, never to a different valid mode'
+  );
+  ok(
+    resolveAgentScanMode('pool') !== 'rotation',
+    'pool must never be served as a rotation (the pool would never be built)'
+  );
 });
 
 test('scanner (pool): only the cheap-stage winners get candles', async () => {

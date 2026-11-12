@@ -50,6 +50,7 @@ import { ResearchCoordinator } from '../research/ResearchCoordinator';
 import {
   AgentUniverseScanner,
   computeAgentGridMetrics,
+  resolveAgentScanMode,
   type AgentScanPoolState,
   type AgentUniverseTicker,
 } from '../agent/AgentUniverseScan';
@@ -1443,7 +1444,14 @@ export class TradeBot {
       hardStopLossPct: Number(opts.hardStopLossPct) || 12,
       roundTripFeePct: Number(fee.roundTripMakerFeePct) || 0.08,
       deepScanCount: Math.max(1, Number(opts.deepScanCount) || 25),
-      universeScanMode: opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation',
+      // Forward the mode and the pool knobs UNCHANGED. This used to be
+      // `opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation'`, which threw away
+      // `poolSize` / `poolRefreshMinutes` and rewrote `'pool'` as `'rotation'`. The agent asked
+      // for the pool, got a rotation, and nothing surfaced it: the rotation cursor advanced
+      // normally while `agent_scan_pool.json` was never built.
+      universeScanMode: resolveAgentScanMode(opts.universeScanMode),
+      poolSize: opts.poolSize,
+      poolRefreshMinutes: opts.poolRefreshMinutes,
     });
   }
 

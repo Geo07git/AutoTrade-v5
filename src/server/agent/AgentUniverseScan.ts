@@ -127,6 +127,21 @@ export interface AgentUniverseDataSource {
 export type AgentUniverseScanMode = 'pool' | 'rotation' | 'turnover';
 
 /**
+ * Normalises a persisted/forwarded scan mode.
+ *
+ * An absent or unrecognised value falls back to `pool` — never to a *different* valid mode.
+ * That distinction is not cosmetic: the pipeline used to collapse every non-`turnover` mode
+ * into `rotation` (`opts.universeScanMode === 'turnover' ? 'turnover' : 'rotation'`), so a
+ * config asking for the pool was silently served a rotation. The scan still produced rows, so
+ * nothing looked broken: `.data/agent_scan_cursor.json` kept advancing while
+ * `.data/agent_scan_pool.json` stayed empty forever. Mapping one valid mode onto another is
+ * indistinguishable from working, which is why the resolution lives in one tested place.
+ */
+export function resolveAgentScanMode(mode?: AgentUniverseScanMode): AgentUniverseScanMode {
+  return mode === 'turnover' || mode === 'rotation' || mode === 'pool' ? mode : 'pool';
+}
+
+/**
  * Persisted rotation position. Injected so the scanner stays free of I/O and testable;
  * TradeBot backs it with a JsonStore. A failed load must degrade to 0, never throw.
  */
@@ -604,12 +619,7 @@ export class AgentUniverseScanner {
       1,
       60
     );
-    const mode: AgentUniverseScanMode =
-      settings.universeScanMode === 'turnover'
-        ? 'turnover'
-        : settings.universeScanMode === 'rotation'
-          ? 'rotation'
-          : 'pool';
+    const mode = resolveAgentScanMode(settings.universeScanMode);
 
     const [specs, tickers] = await Promise.all([
       this.data.listXPerpContracts(),
