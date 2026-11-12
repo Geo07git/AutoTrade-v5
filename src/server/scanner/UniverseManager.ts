@@ -13,6 +13,51 @@ export interface InstrumentMetadata {
   lotSz?: number;
   tickSz?: number;
   maxMktSz?: number;
+  /** OKX's own `instCategory`: 1 crypto, 3 stocks, 4 metals, 5 commodities, 6 FX, 7 bonds. */
+  instCategory?: string;
+}
+
+/**
+ * Categories the venue itself flags as tokenized real-world assets.
+ *
+ * Verified against `/api/v5/public/instruments?instType=FUTURES` on the EEA host: of the 263
+ * live `_UM_XPERP` contracts, 167 are category 1 (crypto), 92 are category 3 (stocks: NVDA,
+ * AAPL, AMD, MSTR, COIN, ...) and 4 are category 4 (BZ, CL, XAG, XAU). Categories 5-7 are
+ * listed for the day OKX adds them; they are not present today.
+ */
+export const NON_CRYPTO_INST_CATEGORIES: ReadonlySet<string> = new Set(['3', '4', '5', '6', '7']);
+
+/**
+ * True when the venue classifies an instrument as a stock/metal/commodity/FX/bond rather than
+ * crypto.
+ *
+ * Keyed on `instCategory` and NOT on symbol names: a name heuristic cannot tell gold (XAU) or
+ * Brent (BZ) from a token, and it would have to be taught every new listing. An ABSENT category
+ * is treated as crypto — dropping a real contract because metadata went missing is worse than
+ * listing one, and the venue always sets this field on `_UM_XPERP`.
+ */
+export function isTokenizedRealWorldInstrument(instCategory: unknown): boolean {
+  return NON_CRYPTO_INST_CATEGORIES.has(String(instCategory ?? '').trim());
+}
+
+/**
+ * The single definition of "a contract this desk may trade": live, an X-Perp, and not a
+ * tokenized real-world asset.
+ *
+ * Exported so the exclusion is testable without a network call, and so every consumer of the
+ * universe (agent scan, app scanner, native grid engine, UI catalog) inherits one rule instead
+ * of each re-deciding what "the universe" means.
+ */
+export function isTradableXPerp(inst: {
+  state?: unknown;
+  instId?: unknown;
+  instCategory?: unknown;
+}): boolean {
+  return (
+    String(inst?.state ?? '') === 'live' &&
+    String(inst?.instId ?? '').includes('_UM_XPERP') &&
+    !isTokenizedRealWorldInstrument(inst?.instCategory)
+  );
 }
 
 export interface MarketTickerInfo {
@@ -132,10 +177,13 @@ export class UniverseManager {
               lotSz: parseFloat(inst.lotSz || '1') || 1,
               tickSz: parseFloat(inst.tickSz || '0.01') || 0.01,
               maxMktSz: parseFloat(inst.maxMktSz || '1000000') || 1000000,
+              instCategory: inst.instCategory || '',
             });
           }
         }
-        const xPerps = data.data.filter((inst: any) => inst.state === 'live' && inst.instId.includes('_UM_XPERP'));
+        // Tokenized stocks/metals are not part of a crypto grid desk's universe: a neutral grid
+        // on NVDA or XAU inherits market hours and corporate actions it was never designed for.
+        const xPerps = data.data.filter(isTradableXPerp);
         symbols.push(...xPerps.map((i: any) => i.instId));
       }
 
@@ -157,6 +205,7 @@ export class UniverseManager {
                 lotSz: parseFloat(inst.lotSz || '1') || 1,
                 tickSz: parseFloat(inst.tickSz || '0.01') || 0.01,
                 maxMktSz: parseFloat(inst.maxMktSz || '1000000') || 1000000,
+                instCategory: inst.instCategory || '',
               });
             }
           }
@@ -287,8 +336,9 @@ export class UniverseManager {
   }
 
   /**
-   * Filters the dynamic universe by liquidity & spread and pre-scores all ~257 _UM_XPERP
-   * contracts using real 24h market range consolidation, centering, amplitude, spread,
+   * Filters the dynamic universe by liquidity & spread and pre-scores every tradable
+   * `_UM_XPERP` contract (crypto only — tokenized stocks/metals are excluded upstream in
+   * `refreshUniverse`) using real 24h market range consolidation, centering, amplitude, spread,
    * logarithmic liquidity, and single-lot margin feasibility (no artificial rotation,
    * no raw-volume monopoly that hides 95% of the universe).
    */
@@ -509,9 +559,10 @@ export class UniverseManager {
   }
 
   /**
-   * Returns the complete catalog of all ~257 active _UM_XPERP contracts on OKX EEA
-   * without excluding any coin by score, volume, or spread, so the user can manually
-   * select and calculate parameters for any coin in the universe.
+   * Returns the complete catalog of every active crypto `_UM_XPERP` contract on OKX EEA
+   * (tokenized stocks/metals are excluded upstream in `refreshUniverse`) without excluding any
+   * coin by score, volume, or spread, so the user can manually select and calculate parameters
+   * for any coin in the universe.
    */
   public async getFullUniverseCatalog(forceRefresh: boolean = false): Promise<UniverseCatalogItem[]> {
     const universe = await this.refreshUniverse(DEFAULT_UNIVERSE_FILTER, forceRefresh);
