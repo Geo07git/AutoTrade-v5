@@ -42,6 +42,15 @@ import {
 } from '../engine/grid/gridPlan';
 import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
 import {
+  SCAN_CONFIRMATION_DEFAULT_MAX_AGE_MINUTES,
+  SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES,
+  SCAN_CONFIRMATION_DEFAULT_TOP_N,
+  applyScanToLedger,
+  resolveConfirmationConfig,
+  type ScanConfirmationLedger,
+  type ScanConfirmationResult,
+} from './agentScanConfirmation';
+import {
   DeepSeekChatMessage,
   DeepSeekClient,
   DEEPSEEK_CHAT_MODEL,
@@ -152,6 +161,13 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   poolSize: AGENT_SCAN_POOL_SIZE,
   poolRefreshMinutes: AGENT_SCAN_POOL_REFRESH_MINUTES,
   minCrossingsPerHour: 0.35,
+  // A grid is opened only after the scanner qualified the contract on its last TWO looks
+  // (see agentScanConfirmation.ts). One snapshot ranks a contract on the last 12 h of candles;
+  // that is a hypothesis, and the second look is what turns it into a decision.
+  requireScanConfirmation: true,
+  confirmationTopN: SCAN_CONFIRMATION_DEFAULT_TOP_N,
+  confirmationMaxAgeMinutes: SCAN_CONFIRMATION_DEFAULT_MAX_AGE_MINUTES,
+  confirmationMinSpacingMinutes: SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES,
   allowedSymbols: [],
   blockedSymbols: [],
   allowOpenBots: true,
@@ -288,6 +304,7 @@ YOUR JOB, per cycle
 HARD RULES (violating any of them gets your action rejected by the execution guard)
 - Only reference instIds that appear in "candidates". Never invent symbols.
 - Never OPEN_GRID on a candidate with eligible=false.
+- Never OPEN_GRID on a candidate with confirmed=false. A confirmed candidate qualified on the last TWO scans; confirmed=false means it has qualified only once (or not at all), and confirm_hint says why. Wait for the next cycle instead of opening early. confirmed=null means the gate is off this cycle.
 - sz: copy the candidate field sz_usdt verbatim. It is already sized from the lot estimate and capped by budget_per_bot_usdt. Do NOT invent your own margin; if you must change it, stay between 5 and sz_usdt (min_inv_usdt is a LOCAL estimate, not an OKX limit). lever <= max_leverage.
 - running_bots + new opens must stay <= max_concurrent_bots, and free_usdt minus the new margin must stay >= min_reserve_usdt.
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
@@ -419,6 +436,14 @@ export class DeepSeekAgent {
    * produced nothing, which must NOT silently fall back to app-scored candidates.
    */
   private lastOwnScan?: NativeGridOpportunity[];
+  /** Per-contract memory of the last two looks, for the confirmation gate. */
+  private scanConfirmation: ScanConfirmationLedger = {};
+  /**
+   * Result of folding the CURRENT scan into the ledger. `null` means the gate is off for
+   * this cycle (own scan disabled or `requireScanConfirmation: false`), in which case
+   * nothing is filtered and the reason strings report the exclusion instead.
+   */
+  private lastConfirmation: ScanConfirmationResult | null = null;
 
   constructor(deps: DeepSeekAgentDeps, options?: DeepSeekAgentStoreOptions) {
     this.deps = deps;
@@ -512,6 +537,26 @@ export class DeepSeekAgent {
           : 'pool';
     }
     next.minCrossingsPerHour = clamp(Number(next.minCrossingsPerHour) || 0.35, 0.05, 5);
+    next.requireScanConfirmation = next.requireScanConfirmation !== false;
+    next.confirmationTopN = clamp(
+      Math.round(Number(next.confirmationTopN) || SCAN_CONFIRMATION_DEFAULT_TOP_N),
+      1,
+      60
+    );
+    next.confirmationMaxAgeMinutes = clamp(
+      Math.round(
+        Number(next.confirmationMaxAgeMinutes) || SCAN_CONFIRMATION_DEFAULT_MAX_AGE_MINUTES
+      ),
+      30,
+      1440
+    );
+    next.confirmationMinSpacingMinutes = clamp(
+      Math.round(
+        Number(next.confirmationMinSpacingMinutes) || SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES
+      ),
+      0,
+      240
+    );
     next.minSuitabilityScore = clamp(Math.round(Number(next.minSuitabilityScore) || 70), 30, 98);
     next.minNetProfitPerGridPct = clamp(Number(next.minNetProfitPerGridPct) || 0.05, 0.01, 5);
     // 45 min floor: reopening the same contract right after a stop was half of the
@@ -833,6 +878,14 @@ export class DeepSeekAgent {
       .filter((o) => isSymbolAllowed(o.instId))
       .slice(0, cfg.maxOpportunitiesInPrompt);
 
+    // Confirmation state for this cycle. `null` on a candidate means the gate does not apply
+    // (own scan off), never "not confirmed".
+    const confirmState = this.lastConfirmation;
+    const confirmedIds = new Set(confirmState?.confirmed || []);
+    const notConfirmedReasons = new Map(
+      (confirmState?.pending || []).map((p) => [p.instId, p.reason])
+    );
+
     const candidates = shortlist.map((o) => ({
       instId: o.instId,
       base: o.instId.split('-')[0],
@@ -869,6 +922,12 @@ export class DeepSeekAgent {
       daily_yield_pct: rnd(o.estimatedDailyNetYieldPct, 3),
       eligible: o.isEligible,
       reason_if_not: o.isEligible ? undefined : o.rejectionReason,
+      // The two-look gate. `null` = not applicable this cycle.
+      confirmed: confirmState ? confirmedIds.has(o.instId) : null,
+      confirm_hint:
+        confirmState && !confirmedIds.has(o.instId)
+          ? notConfirmedReasons.get(o.instId) || 'neconfirmat'
+          : undefined,
       already_running: runningBots.some((b) => b.instId === o.instId),
     }));
 
@@ -1011,6 +1070,54 @@ export class DeepSeekAgent {
           `[DEEPSEEK AGENT] Scanul propriu a eșuat: ${err?.message || err}. Ciclul lucrează fără candidați.`
         );
       }
+    }
+
+    // 1b. Two-look confirmation. A candidate may only be opened if the scanner qualified it on
+    //     its last TWO looks at that contract (see agentScanConfirmation.ts for why "two looks"
+    //     and not "two consecutive cycles": the scan window rotates, so most contracts are not
+    //     measured every cycle and a cycle-id rule could never confirm anything).
+    if (useOwnScan && cfg.requireScanConfirmation) {
+      const confCfg = resolveConfirmationConfig({
+        topN: cfg.confirmationTopN,
+        minNetPerGridPct: cfg.minNetProfitPerGridPct,
+        minCrossingsPerHour: cfg.minCrossingsPerHour,
+        maxAgeMinutes: cfg.confirmationMaxAgeMinutes,
+        minSpacingMinutes: cfg.confirmationMinSpacingMinutes,
+        // The memory only has to outlive the pairing window.
+        ttlMinutes: Math.max(60, cfg.confirmationMaxAgeMinutes * 2),
+      });
+      const applied = applyScanToLedger(
+        this.scanConfirmation,
+        this.lastOwnScan || [],
+        confCfg,
+        Date.now()
+      );
+      this.scanConfirmation = applied.ledger;
+      this.lastConfirmation = applied;
+      const firstPending = applied.pending[0];
+      this.deps.logAudit(
+        'UNIVERSE_REFRESH',
+        `[DEEPSEEK AGENT] Confirmare două scanuri: ${applied.confirmed.length} confirmate, ` +
+          `${applied.pending.length} în așteptare` +
+          (applied.confirmed.length
+            ? ` (${applied.confirmed.slice(0, 3).join(', ')})`
+            : firstPending
+              ? ` — ex. ${firstPending.instId}: ${firstPending.reason}`
+              : '') +
+          (applied.forgotten > 0 ? `, ${applied.forgotten} ieșite din memorie` : ''),
+        {
+          confirmed: applied.confirmed,
+          pending: applied.pending.slice(0, 10),
+          forgotten: applied.forgotten,
+          topN: confCfg.topN,
+          maxAgeMinutes: confCfg.maxAgeMinutes,
+        }
+      );
+    } else {
+      // Gate off this cycle (no own scan, or the operator disabled it): filter nothing. The
+      // ledger is KEPT, so re-enabling does not have to rebuild from zero. A stale entry can
+      // never fake a confirmation: `confirmed` is recomputed from scratch on every look.
+      this.lastConfirmation = null;
     }
 
     if (cfg.scanBeforeDecision && !useOwnScan) {
@@ -1379,6 +1486,18 @@ export class DeepSeekAgent {
           reject(`Candidatul ${candidate.instId} nu este eligibil: ${candidate.rejectionReason || 'motiv necunoscut'}.`);
           continue;
         }
+        if (candidate.agentScan && this.lastConfirmation) {
+          if (!this.lastConfirmation.confirmed.includes(candidate.instId)) {
+            const why =
+              this.lastConfirmation.pending.find((p) => p.instId === candidate.instId)?.reason ||
+              'neconfirmat';
+            reject(
+              `Candidatul ${candidate.instId} nu are confirmarea pe două scanuri — ${why}. ` +
+                'Se poate deschide doar după ce scanul îl califică din nou.'
+            );
+            continue;
+          }
+        }
         if (ctx.runningBots.some((b) => b.instId === candidate.instId)) {
           reject(`Există deja un bot activ pe ${candidate.instId}.`);
           continue;
@@ -1706,6 +1825,11 @@ export class DeepSeekAgent {
   private buildFallbackDecision(cfg: DeepSeekAgentConfig, ctx: BuiltContext): any {
     const actions: any[] = [];
     const runningIds = new Set(ctx.runningBots.map((b) => b.instId));
+    // Same two-look gate the validator enforces, applied here too so the fallback engine does
+    // not spend its limited actions on candidates that would only be rejected.
+    const confirmedIds = new Set(this.lastConfirmation?.confirmed || []);
+    const confirmationApplies = (c: { instId: string; agentScan?: boolean }) =>
+      !this.lastConfirmation || !c.agentScan || confirmedIds.has(c.instId);
 
     if (cfg.allowOpenBots) {
       const agentRanked = ctx.candidates.some((c) => c.agentScan);
@@ -1713,6 +1837,7 @@ export class DeepSeekAgent {
         .filter(
           (c) =>
             c.isEligible &&
+            confirmationApplies(c) &&
             !runningIds.has(c.instId) &&
             (c.agentScan
               ? (Number(c.crossingsPerHour) || 0) >= cfg.minCrossingsPerHour

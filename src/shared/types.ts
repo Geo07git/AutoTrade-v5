@@ -600,6 +600,20 @@ export interface DeepSeekAgentConfig {
   maxLeverage: number;
   minSuitabilityScore: number;
   minNetProfitPerGridPct: number;
+  /**
+   * Two-look confirmation: a candidate found by the agent's own scan may only be opened
+   * after the scanner qualified it on its last TWO looks at that contract, not on one.
+   * A single 48x15m snapshot can rank a contract on one 40-minute burst; opening a grid on
+   * that pays the spread, opens every level and then sits empty. Set false to go back to
+   * opening on a single scan (the pre-2026-11 behaviour).
+   */
+  requireScanConfirmation: boolean;
+  /** A look only counts inside this many top ranks of the scan. */
+  confirmationTopN: number;
+  /** The earlier of the two looks must be no older than this (minutes). */
+  confirmationMaxAgeMinutes: number;
+  /** The two looks must be at least this far apart, so one cycle run twice is not two looks. */
+  confirmationMinSpacingMinutes: number;
   cooldownMinutesPerSymbol: number;
   /** Absolute margin ceiling for the whole agent desk (owner hard limit: 40 USDC). */
   maxTotalMarginUSDT: number;

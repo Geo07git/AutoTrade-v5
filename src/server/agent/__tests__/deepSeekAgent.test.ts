@@ -772,13 +772,21 @@ const agentRow = (over: Partial<NativeGridOpportunity> = {}): NativeGridOpportun
   expectedFirstFillMin: 22,
   stepPct: 0.19,
   estimatedNetProfitPerGridPct: 0.15,
+  // The real scan stamps a rank on every row (1 = best crossings/h); without one the row is
+  // the output of a broken scan and the two-look gate must refuse it, not assume it is good.
+  rank: 1,
   ...over,
 });
 
 test('own scan: the agent opens its own top-crossings candidate, not the app pick', async () => {
   const own = agentRow({ instId: OTHER_INST, crossingsPerHour: 1.6 });
   const h = makeAgent({ ownScan: [own], opportunities: [opportunity()] });
-  await armAutonomous(h, { budgetPerBotUSDT: 12, maxConcurrentBots: 1 });
+  await armAutonomous(h, {
+    // This test is about WHICH candidate wins, not about the two-look gate (own suite below).
+    requireScanConfirmation: false,
+    budgetPerBotUSDT: 12,
+    maxConcurrentBots: 1,
+  });
 
   await h.agent.runCycle('MANUAL');
 
@@ -796,6 +804,75 @@ test('own scan: the agent opens its own top-crossings candidate, not the app pic
   );
   ok(h.calls.created[0].lever <= 2, 'leverage must stay within the 2x ceiling');
   ok(h.calls.created[0].sz <= 12, 'size must stay within the 12 USDC budget');
+});
+
+test('two-look gate: nothing opens on the first scan, the same candidate opens on the second', async () => {
+  const h = makeAgent({ ownScan: [agentRow()] });
+  await armAutonomous(h, {
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  // Only the clock is faked: the gate is a statement about wall-clock spacing, so the test
+  // must be able to advance time without sleeping.
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  try {
+    const first = await h.agent.runCycle('MANUAL');
+    eq(h.calls.created.length, 0, 'one qualifying scan is a hypothesis, not an order');
+    eq(openActions(first).length, 0, 'no OPEN_GRID may be approved on the first look');
+    // The deterministic engine filters unconfirmed rows out of its pool, so there is no action
+    // to reject — the audit line is what tells the operator why nothing opened.
+    ok(
+      h.calls.audits.some(
+        (a) => /confirmare dou[ăa] scanuri/i.test(a.message) && /0 confirmate/i.test(a.message)
+      ),
+      'the cycle must audit a zero-confirmation state so the silence is explainable'
+    );
+
+    clock += 6 * 60_000; // past the 5-minute spacing floor: a genuinely new observation
+    await h.agent.runCycle('MANUAL');
+    eq(h.calls.created.length, 1, 'the second qualifying scan confirms the candidate and opens it');
+    eq(h.calls.created[0].instId, INST, 'the confirmed candidate is the one that was scanned');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('two-look gate: a candidate that fails the second look stays closed', async () => {
+  // The scanner qualified it once; on the second look it fell out of the top N (rank 40).
+  // The row list is mutated IN PLACE: the fake scan closes over this array reference.
+  const rows = [agentRow()];
+  const h = makeAgent({ ownScan: rows });
+  await armAutonomous(h, {
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  try {
+    await h.agent.runCycle('MANUAL');
+    eq(h.calls.created.length, 0, 'the first look alone cannot open');
+    // The fake scan now returns the same instrument, demoted.
+    rows.length = 0;
+    rows.push(agentRow({ rank: 40 }));
+    clock += 15 * 60_000;
+    const second = await h.agent.runCycle('MANUAL');
+    eq(h.calls.created.length, 0, 'a miss on the second look must keep the symbol closed');
+    ok(
+      second.rejectedActions.length > 0 || second.approvedActions.length === 0,
+      'the cycle must not approve an open either'
+    );
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test('own scan: a candidate below the crossings threshold is refused', async () => {
@@ -931,6 +1008,8 @@ test('guard: a 15 USDC account opens a 12 USDC bot (reserve 0, one slot)', async
     ownScan: [agentRow()],
   });
   await armAutonomous(h, {
+    // Sizing test, not a gate test: the opener is meant to fire on the first cycle here.
+    requireScanConfirmation: false,
     maxConcurrentBots: 1,
     budgetPerBotUSDT: 12,
     minReserveUSDT: 0,
@@ -949,6 +1028,8 @@ test('own scan: a 4-decimal OKX minimum opens with a size above it', async () =>
     ownScan: [agentRow({ minInvestmentUSDT: 11.9108 })],
   });
   await armAutonomous(h, {
+    // Sizing test, not a gate test: the opener is meant to fire on the first cycle here.
+    requireScanConfirmation: false,
     maxConcurrentBots: 1,
     budgetPerBotUSDT: 12,
     minReserveUSDT: 0,
@@ -970,6 +1051,8 @@ test('own scan: a candidate flagged requiresLiveProbe reaches the engine instead
     ownScan: [agentRow({ minInvestmentUSDT: 20, fitsMaxBudget: false, requiresLiveProbe: true })],
   });
   await armAutonomous(h, {
+    // Sizing test, not a gate test: the opener is meant to fire on the first cycle here.
+    requireScanConfirmation: false,
     maxConcurrentBots: 1,
     budgetPerBotUSDT: 12,
     minReserveUSDT: 0,

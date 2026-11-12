@@ -43,6 +43,9 @@ interface AgentFormState {
   maxLeverage: string;
   minSuitabilityScore: string;
   minNetProfitPerGridPct: string;
+  confirmationTopN: string;
+  confirmationMaxAgeMinutes: string;
+  confirmationMinSpacingMinutes: string;
   cooldownMinutesPerSymbol: string;
   dailyLossLimitUSDT: string;
   hardStopLossPct: string;
@@ -151,6 +154,9 @@ const formFromConfig = (cfg?: DeepSeekAgentConfig): AgentFormState => ({
   maxLeverage: String(cfg?.maxLeverage ?? 2),
   minSuitabilityScore: String(cfg?.minSuitabilityScore ?? 70),
   minNetProfitPerGridPct: String(cfg?.minNetProfitPerGridPct ?? 0.1),
+  confirmationTopN: String(cfg?.confirmationTopN ?? 10),
+  confirmationMaxAgeMinutes: String(cfg?.confirmationMaxAgeMinutes ?? 180),
+  confirmationMinSpacingMinutes: String(cfg?.confirmationMinSpacingMinutes ?? 5),
   cooldownMinutesPerSymbol: String(cfg?.cooldownMinutesPerSymbol ?? 45),
   dailyLossLimitUSDT: String(cfg?.dailyLossLimitUSDT ?? 25),
   hardStopLossPct: String(cfg?.hardStopLossPct ?? 12),
@@ -374,6 +380,9 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
         maxLeverage: n(form.maxLeverage, 2),
         minSuitabilityScore: n(form.minSuitabilityScore, 70),
         minNetProfitPerGridPct: n(form.minNetProfitPerGridPct, 0.1),
+        confirmationTopN: n(form.confirmationTopN, 10),
+        confirmationMaxAgeMinutes: n(form.confirmationMaxAgeMinutes, 180),
+        confirmationMinSpacingMinutes: n(form.confirmationMinSpacingMinutes, 5),
         cooldownMinutesPerSymbol: n(form.cooldownMinutesPerSymbol, 45),
         dailyLossLimitUSDT: n(form.dailyLossLimitUSDT, 25),
         hardStopLossPct: n(form.hardStopLossPct, 12),
@@ -419,6 +428,11 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
 
   const toggleRows: Array<[keyof DeepSeekAgentConfig, string, string]> = [
     ['allowOpenBots', 'Permite deschiderea de griduri', 'OPEN_GRID'],
+    [
+      'requireScanConfirmation',
+      'Confirma pe 2 scanuri inainte de deschidere',
+      'ANTI-BURST',
+    ],
     ['allowStopBots', 'Permite oprirea botilor', 'STOP_BOT'],
     ['allowAmendBots', 'Permite modificarea SL/TP', 'AMEND_BOT'],
     ['scanBeforeDecision', 'Rescaneaza piata inainte de decizie', 'scan live'],
@@ -721,6 +735,9 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
           {numberField('Levier maxim', 'maxLeverage', '1-10x (plafon agent)', '1')}
           {numberField('Scor minim', 'minSuitabilityScore', '0-100, prag eligibilitate', '1')}
           {numberField('Profit net min %/grila', 'minNetProfitPerGridPct', 'sub prag nu deschide', '0.01')}
+          {numberField('Confirmare: top N', 'confirmationTopN', 'rang maxim ca sa conteze scanul', '1')}
+          {numberField('Confirmare: vechime max (min)', 'confirmationMaxAgeMinutes', 'cat de vechi poate fi primul scan', '15')}
+          {numberField('Confirmare: distanta min (min)', 'confirmationMinSpacingMinutes', 'sub asta = acelasi scan rulat de 2 ori', '1')}
           {numberField('Cooldown / simbol (min)', 'cooldownMinutesPerSymbol', 'anti re-deschidere', '5')}
           {numberField('Limita pierdere sesiune', 'dailyLossLimitUSDT', 'blocheaza deschideri', '1')}
           {numberField('Actiuni / ciclu', 'maxActionsPerCycle', 'clamp 1-5', '1')}
