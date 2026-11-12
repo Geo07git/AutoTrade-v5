@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* Bloomberg Terminal General / Vertical & Horizontal Scrollbar */
+.terminal-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.4) #09090b;
+}
+
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.4);
+  border-radius: 3px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Bloomberg Terminal Horizontal Scrollbar */
+.terminal-scrollbar-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.4) #09090b;
+}
+
+.terminal-scrollbar-x::-webkit-scrollbar {
+  height: 4px;
+}
+
+.terminal-scrollbar-x::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+.terminal-scrollbar-x::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.4);
+  border-radius: 2px;
+}
+
+.terminal-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Monochrome High-Contrast Mode */
+.monochrome {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.monochrome * {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.monochrome .bg-black,
+.monochrome .bg-zinc-900,
+.monochrome .bg-zinc-950,
+.monochrome .bg-amber-950,
+.monochrome .bg-emerald-950,
+.monochrome .bg-rose-950 {
+  background-color: #000000 !important;
+}
+
+.monochrome *:not(.balance-metric):not(.pnl-metric):not(.profit-metric):not(.preserve-amber) {
+  color: #ffffff !important;
+}
+
+.monochrome .balance-metric,
+.monochrome .pnl-metric,
+.monochrome .profit-metric,
+.monochrome .preserve-amber {
+  color: #fbbf24 !important; /* Amber-400 */
+}
+
+/* 10s Auto-Dismiss Progress Bar */
+@keyframes shrinkWidth {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-10s {
+  animation: shrinkWidth 10s linear forwards;
+}
+
