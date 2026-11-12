@@ -127,11 +127,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [isSavingAp, setIsSavingAp] = useState(false);
   const [isSyncingBots, setIsSyncingBots] = useState(false);
-  const [executionVariant, setExecutionVariant] = useState<'AUTO_LIMIT' | 'NATIVE_ASSISTANT'>(
-    'AUTO_LIMIT'
-  );
   const [showInstructions, setShowInstructions] = useState<boolean>(true);
-  const [copiedField, setCopiedField] = useState<string>('');
+  const [, setCopiedField] = useState<string>('');
   const [editingBot, setEditingBot] = useState<OKXNativeGridBot | null>(null);
   const [editTpPx, setEditTpPx] = useState<number>(0);
   const [editSlPx, setEditSlPx] = useState<number>(0);
@@ -579,9 +576,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
       variantOverride || rowVariants[opp.instId] || opp.selectedVariant || defaultRangeVariant || 'BALANCED';
     const v = getVariantProfileForOpp(opp, chosenVariantId);
     const targetInvestUSDT = computeBotInvestmentUSDT(v.minInvestmentUSDT);
-    if (forceRamura1) {
-      setExecutionVariant('AUTO_LIMIT');
-    }
     setInstId(opp.instId);
     setManualSelectedInstId(opp.instId);
     setBuilderVariant(chosenVariantId);
@@ -669,7 +663,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         if (externalSelectedSymbol.gridNum) setGridNum(externalSelectedSymbol.gridNum);
         if (externalSelectedSymbol.runType) setRunType(externalSelectedSymbol.runType);
         if (externalSelectedSymbol.lever) setLever(externalSelectedSymbol.lever);
-        setExecutionVariant('AUTO_LIMIT');
         if (builderSectionRef.current) {
           builderSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
@@ -856,14 +849,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     const safeSz = parseFloat(
       Math.max(5, Number(b.sz) || 0, Number(maxBudgetPerBot) || 5).toFixed(2)
     );
-    if (executionVariant === 'NATIVE_ASSISTANT') {
-      handleLoadStoppedBotToBuilder(b);
-      onNotify({
-        type: 'info',
-        text: `VARIANTA 2 ACTIVĂ: Parametrii botului ${b.instId} au fost încărcați în Cartela Copy 1-Click din stânga. Copiază-i în OKX Trading Bots și apoi apasă "🔄 AM CREAT BOTUL ÎN OKX"!`,
-      });
-      return;
-    }
     await handleCreateNativeBot({
       instId: b.instId,
       minPx: b.minPx,
@@ -1027,32 +1012,8 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-black text-amber-300 uppercase tracking-wide">
-              COMANDĂ CENTRALĂ GRID OKX (_UM_XPERP):
+              COMANDĂ CENTRALĂ GRID OKX (_UM_XPERP) — ORDINE LIMIT OKX (100% AUTOMAT + AUTOPILOT):
             </span>
-            <div className="flex flex-wrap items-center bg-black border border-zinc-700 rounded p-1 gap-1">
-              <button
-                type="button"
-                onClick={() => setExecutionVariant('AUTO_LIMIT')}
-                className={`px-3 py-1.5 rounded font-black text-[11px] cursor-pointer transition-all ${
-                  executionVariant === 'AUTO_LIMIT'
-                    ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-white'
-                }`}
-              >
-                ⚡ RAMURA 1: ORDINE LIMIT OKX (100% AUTOMAT + AUTOPILOT)
-              </button>
-              <button
-                type="button"
-                onClick={() => setExecutionVariant('NATIVE_ASSISTANT')}
-                className={`px-3 py-1.5 rounded font-black text-[11px] cursor-pointer transition-all ${
-                  executionVariant === 'NATIVE_ASSISTANT'
-                    ? 'bg-cyan-400 text-black shadow-[0_0_10px_rgba(34,211,238,0.4)]'
-                    : 'bg-zinc-900 text-zinc-400 hover:text-white'
-                }`}
-              >
-                🤖 RAMURA 2: BOT NATIV ÎN TABUL &quot;TRADING BOTS&quot; OKX (COPY + SUPRAVEGHERE API)
-              </button>
-            </div>
           </div>
 
           <button
@@ -1062,21 +1023,15 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
           >
             {showInstructions
               ? '▲ Ascunde Instrucțiunile de Folosire'
-              : '📖 Instrucțiuni de Folosire (Ramura 1 & Ramura 2)'}
+              : '📖 Instrucțiuni de Folosire'}
           </button>
         </div>
 
         {showInstructions && (
-          <div className="bg-black border border-zinc-800 rounded p-3 grid grid-cols-1 lg:grid-cols-2 gap-3 text-[11px] leading-relaxed">
-            <div
-              className={`p-2.5 rounded border ${
-                executionVariant === 'AUTO_LIMIT'
-                  ? 'border-emerald-500/60 bg-emerald-950/15'
-                  : 'border-zinc-800 bg-zinc-950'
-              }`}
-            >
+          <div className="bg-black border border-zinc-800 rounded p-3 grid grid-cols-1 gap-3 text-[11px] leading-relaxed">
+            <div className="p-2.5 rounded border border-emerald-500/60 bg-emerald-950/15">
               <div className="font-black text-emerald-400 text-xs mb-1">
-                ⚡ CUM FUNCȚIONEAZĂ VARIANTA 1 — EXECUȚIE 100% AUTOMATĂ (ORDINE LIMIT OKX)
+                ⚡ CUM FUNCȚIONEAZĂ — EXECUȚIE 100% AUTOMATĂ (ORDINE LIMIT OKX)
               </div>
               <ul className="list-disc list-inside text-zinc-300 space-y-1">
                 <li>
@@ -1087,36 +1042,11 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                   <ol className="list-decimal list-inside ml-3 text-zinc-400 space-y-0.5 mt-0.5">
                     <li>Selectează o monedă din tabelul de jos (sau activează <strong>AUTOPILOT NATIV: ON</strong>).</li>
                     <li>Apasă <strong>&quot;CREEAZĂ GRILĂ AUTO-LIMIT PE OKX (LIVE)&quot;</strong> (sau <strong>&quot;▶ Repornește&quot;</strong> pe un bot oprit).</li>
-                    <li>TB5 verifică investiția minimă prin API-ul OKX și plasează direct ordinele Limit ale grilei pe OKX EEA.</li>
+                    <li>TB5 validează geometria local și plasează direct ordinele Limit ale grilei pe OKX EEA.</li>
                   </ol>
                 </li>
                 <li>
                   <strong>Unde îl vezi în platforma OKX:</strong> În taburile <strong>Positions + Open Orders (cele 8 ordine Limit)</strong>. În tabelul din dreapta are eticheta verde <code className="text-emerald-300">AUTO-LIMIT OKX</code>.
-                </li>
-              </ul>
-            </div>
-
-            <div
-              className={`p-2.5 rounded border ${
-                executionVariant === 'NATIVE_ASSISTANT'
-                  ? 'border-cyan-400/60 bg-cyan-950/15'
-                  : 'border-zinc-800 bg-zinc-950'
-              }`}
-            >
-              <div className="font-black text-cyan-300 text-xs mb-1">
-                🤖 CUM FUNCȚIONEAZĂ VARIANTA 2 — BOT NATIV ÎN TABUL &quot;TRADING BOTS&quot; OKX
-              </div>
-              <ul className="list-disc list-inside text-zinc-300 space-y-1">
-                <li>
-                  <strong>De ce există:</strong> Pe OKX Europa (EEA), contractele cu levier <code className="text-amber-300">_UM_XPERP</code> pot fi create ca „Bot Nativ” în tabul <em>Trading Bots</em> doar din interfața OKX (Web/Telefon), dar <strong>pot fi citite, modificate (SL/TP) și oprite automat prin API de către TB5</strong>!
-                </li>
-                <li>
-                  <strong>Pași de folosire (10 secunde):</strong>
-                  <ol className="list-decimal list-inside ml-3 text-zinc-400 space-y-0.5 mt-0.5">
-                    <li>Apasă <strong>&quot;În Builder&quot;</strong> pe o oportunitate eligibilă din tabelul de jos.</li>
-                    <li>În panoul din stânga îți apar valorile gata calculate cu butoane <strong>[Copiază]</strong>: deschide în OKX → <em>Trading Bots → Futures Grid → Neutral → Manual</em> și lipește <code className="text-white">Lower Price</code>, <code className="text-white">Upper Price</code>, <code className="text-white">Grids</code>, <code className="text-white">Leverage</code> și <code className="text-white">Margin</code>.</li>
-                    <li>Apasă butonul albastru <strong>&quot;🔄 AM CREAT BOTUL ÎN OKX — PREIA &amp; SUPRAVEGHEAZĂ ACUM&quot;</strong>. TB5 îl importă imediat în tabelul din dreapta (eticheta <code className="text-cyan-300">BOT NATIV OKX</code>) și îi supraveghează autonom PnL-ul, lichidarea, ieșirea din range și oprirea la risc!</li>
-                  </ol>
                 </li>
               </ul>
             </div>
@@ -2595,15 +2525,13 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
         ref={builderSectionRef}
         className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
       >
-        {/* LEFT 4 COLS: BUILDER CU VALIDARE LIVE POST /api/v5/tradingBot/grid/min-investment */}
+        {/* LEFT 4 COLS: BUILDER PENTRU GRILA CU ORDINE LIMIT (execuție proprie, fără algo la bursă) */}
         <div className="lg:col-span-4 bg-zinc-950 border border-amber-500/40 rounded p-3 space-y-2.5">
           <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
             <div className="flex items-center space-x-1.5">
               <Settings className="w-4 h-4 text-amber-400" />
               <h3 className="font-bold text-xs text-amber-400">
-                {executionVariant === 'AUTO_LIMIT'
-                  ? '⚡ RAMURA 1: LANSARE GRILĂ ORDINE LIMIT OKX'
-                  : '🤖 RAMURA 2: BUILDER BOT NATIV OKX (COPY 1-CLICK)'}
+                ⚡ LANSARE GRILĂ ORDINE LIMIT OKX
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">
@@ -2971,79 +2899,24 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
               </div>
             </div>
 
-            {executionVariant === 'AUTO_LIMIT' ? (
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleCreateNativeBot()}
-                  disabled={isCreating || !instId || minPx <= 0 || maxPx <= minPx}
-                  className="w-full py-2 px-3 rounded bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.4)]"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>
-                    {isCreating
-                      ? 'SE LANSEAZĂ GRILA PE OKX...'
-                      : '⚡ CREEAZĂ GRILĂ AUTO-LIMIT PE OKX (LIVE)'}
-                  </span>
-                </button>
-                <p className="text-[10px] text-zinc-400 text-center">
-                  Varianta 1 activă: Plasează și gestionează automat ordinele Limit ale grilei direct pe OKX EEA.
-                </p>
-              </div>
-            ) : (
-              <div className="bg-black border border-cyan-500/50 rounded p-2.5 space-y-2">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-1">
-                  <span className="text-[10px] font-black text-cyan-300">
-                    🤖 CARTELĂ COPIERE 1-CLICK PENTRU OKX &quot;TRADING BOTS&quot;
-                  </span>
-                  {copiedField && (
-                    <span className="text-[10px] text-emerald-400 font-bold">
-                      ✓ Copiat: {copiedField}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                  {[
-                    { label: 'Contract', val: instId },
-                    { label: 'Direcție / Tip', val: `Neutral / ${runType === '1' ? 'Arithmetic' : 'Geometric'}` },
-                    { label: 'Lower Price (minPx)', val: minPx },
-                    { label: 'Upper Price (maxPx)', val: maxPx },
-                    { label: 'Grids (Nr. Grile)', val: gridNum },
-                    { label: 'Leverage', val: `${lever}x` },
-                    { label: 'Margin (USD)', val: sz },
-                    { label: 'SL / TP Ratio (%)', val: `-${stopLossPct || 8}% / +${takeProfitPct || 15}%` },
-                    { label: 'SL Trigger Price ($)', val: formatPrice(calcSlTriggerPx) },
-                    { label: 'TP Trigger Price ($)', val: formatPrice(calcTpTriggerPx) },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      onClick={() => handleCopyField(item.label, item.val)}
-                      className="bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 rounded px-2 py-1 flex items-center justify-between cursor-pointer"
-                      title="Click pentru a copia valoarea"
-                    >
-                      <div>
-                        <span className="text-zinc-500 block text-[9px]">{item.label}</span>
-                        <span className="text-white font-bold">{item.val}</span>
-                      </div>
-                      <span className="text-[9px] text-cyan-400 font-bold">Copy</span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSyncNativeBotsNow}
-                  disabled={isSyncingBots}
-                  className="w-full py-2 px-3 rounded bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 text-black font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-[0_0_12px_rgba(34,211,238,0.4)]"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBots ? 'animate-spin' : ''}`} />
-                  <span>
-                    {isSyncingBots
-                      ? 'SE CAUTĂ BOTUL ÎN OKX TRADING BOTS...'
-                      : '🔄 AM CREAT BOTUL ÎN OKX — PREIA & SUPRAVEGHEAZĂ ACUM'}
-                  </span>
-                </button>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => handleCreateNativeBot()}
+                disabled={isCreating || !instId || minPx <= 0 || maxPx <= minPx}
+                className="w-full py-2 px-3 rounded bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-black text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-[0_0_12px_rgba(16,185,129,0.4)]"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>
+                  {isCreating
+                    ? 'SE LANSEAZĂ GRILA PE OKX...'
+                    : '⚡ CREEAZĂ GRILĂ AUTO-LIMIT PE OKX (LIVE)'}
+                </span>
+              </button>
+              <p className="text-[10px] text-zinc-400 text-center">
+                Plasează și gestionează automat ordinele Limit ale grilei direct pe OKX EEA.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -3729,7 +3602,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                       >
                         În Builder
                       </button>
-                      {executionVariant === 'AUTO_LIMIT' ? (
                         <button
                           type="button"
                           disabled={
@@ -3760,15 +3632,6 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                         >
                           ⚡ Lansează Auto-Limit
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleLoadOpportunity(opp, activeVarId)}
-                          className="px-2.5 py-1 rounded bg-cyan-400 hover:bg-cyan-300 text-black text-[10px] font-black cursor-pointer"
-                        >
-                          🤖 Pregătește Copy OKX
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>

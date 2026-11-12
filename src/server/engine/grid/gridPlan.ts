@@ -444,8 +444,7 @@ export function buildGridPlanFromGeometry(input: DecidedGridGeometry): GridPlanR
   const halfRangePct = midPx > 0 ? round((((maxPx - minPx) / 2) / midPx) * 100, 4) : 0;
 
   const isXPerp = instId.includes('_UM_XPERP');
-  const variant: GridExecutionVariant =
-    input.preferNativeAlgo === true || !isXPerp ? 'NATIVE_ALGO' : 'AUTO_LIMIT';
+  const variant: GridExecutionVariant = !isXPerp ? 'NATIVE_ALGO' : 'AUTO_LIMIT';
 
   return {
     ok: true,
@@ -583,12 +582,13 @@ export function buildGridPlan(req: GridPlanRequest): GridPlanResult {
     return reject([...new Set(rejectionCodes)], rejectionNotes.join(' | '));
   }
 
-  // 5. Execution variant. X-Perp ids are unknown to the grid algo gateway (51001), so the
-  //    limit-order path is the default truth unless a caller proved otherwise.
+  // 5. Execution variant. Native algo creation is no longer attempted anywhere: every
+  //    instrument this module accepts is an `_UM_XPERP` id, and the grid algo gateway does
+  //    not know those (51001). `preferNativeAlgo` therefore cannot change an X-Perp plan;
+  //    the `!isXPerp` arm only preserves the meaning for an id this module refuses anyway.
   const runType: '1' | '2' = req.runType === '2' ? '2' : '1';
   const isXPerp = String(req.instId).includes('_UM_XPERP');
-  const variant: GridExecutionVariant =
-    req.preferNativeAlgo === true || !isXPerp ? 'NATIVE_ALGO' : 'AUTO_LIMIT';
+  const variant: GridExecutionVariant = !isXPerp ? 'NATIVE_ALGO' : 'AUTO_LIMIT';
 
   return {
     ok: true,

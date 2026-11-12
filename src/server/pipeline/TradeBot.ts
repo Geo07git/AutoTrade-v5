@@ -1911,7 +1911,6 @@ export class TradeBot {
       lever: Number(params?.lever),
       szUSDT: Number(params?.sz),
       tickSz,
-      preferNativeAlgo: params?.executionVariant !== 'AUTO_LIMIT',
     };
   }
 

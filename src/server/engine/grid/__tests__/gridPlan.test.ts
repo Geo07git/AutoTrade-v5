@@ -437,8 +437,8 @@ test('X-Perp plans default to the limit-order path, others to the native algo', 
   );
   eq(
     mustPlan(buildGridPlan(baseReq({ preferNativeAlgo: true }))).variant,
-    'NATIVE_ALGO',
-    'an explicit probe result wins'
+    'AUTO_LIMIT',
+    'the switch cannot resurrect a variant nothing can execute (native creation is gone)'
   );
 });
 
