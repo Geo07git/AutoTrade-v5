@@ -2820,7 +2820,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
                 </label>
                 {(() => {
                   const currentOpp = allOpportunities.find((o) => o.instId === instId);
-                  const rec = (currentOpp?.recommendedDirection || direction || 'neutral').toUpperCase();
+                  const rec = (currentOpp?.recommendedDirection || 'neutral').toUpperCase();
                   const trend = currentOpp?.trendDirection || 'NEUTRAL';
                   return (
                     <span className="text-[10px] text-cyan-300 font-bold">

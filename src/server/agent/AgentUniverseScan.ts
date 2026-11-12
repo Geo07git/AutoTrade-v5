@@ -375,16 +375,16 @@ export function buildAgentOpportunity(input: {
     }
 
     const price24h = Number(ticker.priceChange24hPct) || 0;
-    if (trendSlopePct > 1.2 && price24h > 0.5) {
+    if (trendSlopePct > 0.4 && price24h > 0.2) {
       trendDirection = 'BULLISH';
       recommendedDirection = 'long';
-    } else if (trendSlopePct < -1.2 && price24h < -0.5) {
+    } else if (trendSlopePct < -0.4 && price24h < -0.2) {
       trendDirection = 'BEARISH';
       recommendedDirection = 'short';
     } else {
-      if (fundingRatePct < -0.05) {
+      if (fundingRatePct < -0.02) {
         recommendedDirection = 'long';
-      } else if (fundingRatePct > 0.08) {
+      } else if (fundingRatePct > 0.04) {
         recommendedDirection = 'short';
       } else {
         recommendedDirection = 'neutral';
