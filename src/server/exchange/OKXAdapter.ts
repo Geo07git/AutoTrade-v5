@@ -2048,7 +2048,12 @@ export class OKXAdapter implements IExecutionAdapter {
         rawStatus,
       };
     } catch (err: any) {
-      console.error(`[OKXAdapter] Failed to query order status for ${instId}:`, err?.message || err);
+      const msg = err?.message || String(err);
+      if (msg.includes('timeout')) {
+        console.warn(`[OKXAdapter] Transient timeout querying order status for ${instId}: ${msg}`);
+      } else {
+        console.error(`[OKXAdapter] Failed to query order status for ${instId}:`, msg);
+      }
       return null;
     }
   }
