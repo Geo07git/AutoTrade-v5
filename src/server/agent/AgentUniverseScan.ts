@@ -31,6 +31,7 @@ import {
   GRID_MIN_HALF_RANGE_PCT,
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
+import { buildConstructedBand } from './gridBand';
 
 // ---------------------------------------------------------------------------
 // Hard constants (the agent cannot loosen these)
@@ -294,13 +295,30 @@ export function buildAgentOpportunity(input: {
   if (!metrics) return null;
 
   const price = ticker.lastPrice;
+
+  // WHERE the band sits is a market-structure question, not a rounding of the last tick.
+  // `price +- halfRange` centred the window on one trade: the edges were arbitrary and could
+  // land straight on the 24 h low/high, so one breakout filled every level in one direction at
+  // the moment the desk was maximally wrong. The step is UNTOUCHED (width = gridNum * step), so
+  // every fill statistic above keeps the exact value it was ranked on; only the placement moves.
+  const band = buildConstructedBand({
+    price,
+    low24h: ticker.low24h,
+    high24h: ticker.high24h,
+    widthPct: metrics.halfRangePct * 2,
+    gridNum: metrics.gridNum,
+    tickSz: spec.tickSz,
+    klines15m,
+  });
+
   // Leverage is not a free knob: `stopLossPct` is in % of MARGIN, so at leverage L a 1% adverse
   // price move costs L% of margin. Walking to the band edge must stay under the hard guardrail,
-  // hence lever <= hardStopLossPct / halfRangePct. Tight bands still get the full ceiling; a
-  // 3x-ETF band like SOXL (+-4.4%) gets ~2x instead of being opened at 10x and stopped inside
-  // one level (live: 8.85% band, 1.11% step, 11.1% of margin per step vs a 2% stop).
+  // hence lever <= hardStopLossPct / walk. A CONSTRUCTED band can sit off-centre, so the walk is
+  // no longer `halfRangePct`: if price sits near the lower edge, the distance the leverage must
+  // survive is the UPPER side, and `maxSidePct` is exactly that number.
+  const adverseWalkPct = band.ok ? band.maxSidePct : metrics.halfRangePct;
   const riskCeiling = maxLeverageForBand(
-    metrics.halfRangePct,
+    adverseWalkPct,
     Number(settings.hardStopLossPct) || 12,
     AGENT_SCAN_MAX_LEVERAGE
   );
@@ -351,9 +369,23 @@ export function buildAgentOpportunity(input: {
     );
   }
 
+  // The hard placement rule is a GATE, not a note in the prompt: a band whose edge lands within
+  // the proximity margin of the 24 h extreme breaks out on the next new high/low and fills every
+  // level at once. If no legal window exists the candidate is refused, not silently re-centred.
+  if (!band.ok) {
+    reject(
+      `Bandă refuzată: ${band.reason || 'fără fereastră legală față de extremele de 24h'}`
+    );
+  }
+
   const isEligible = !rejectionReason;
-  const minPx = snapToTick(price * (1 - metrics.halfRangePct / 100), spec.tickSz);
-  const maxPx = snapToTick(price * (1 + metrics.halfRangePct / 100), spec.tickSz);
+  // Kept displayable even when refused: the row still shows the geometry it would have used.
+  const minPx = band.ok
+    ? band.minPx
+    : snapToTick(price * (1 - metrics.halfRangePct / 100), spec.tickSz);
+  const maxPx = band.ok
+    ? band.maxPx
+    : snapToTick(price * (1 + metrics.halfRangePct / 100), spec.tickSz);
   const roundTripsPerHour = metrics.crossingsPerHour / 2;
   const dailyYieldPct = round(
     Math.min(200, metrics.netPerGridPct * roundTripsPerHour * 24),
@@ -365,6 +397,13 @@ export function buildAgentOpportunity(input: {
     `prima umplere estimată în ~${metrics.expectedFirstFillMin} min`,
     `ATR15m=${metrics.atrPct}% -> bandă ±${metrics.halfRangePct}% cu ${metrics.gridNum} grile`
   );
+  reasons.push(
+    band.ok
+      ? `bandă ${band.method === 'CONSTRUCTED' ? 'construită pe zona de oscilație' : 'simetrică (fallback)'}: ` +
+          `${round(minPx, 6)}..${round(maxPx, 6)} (jos ${band.lowerSidePct}% / sus ${band.upperSidePct}% față de preț)`
+      : `bandă refuzată: ${band.reason || 'fără fereastră legală'}`
+  );
+  reasons.push(...band.notes);
   if (!rejectionReason) reasons.push('trece toate porțile agentului');
 
   return {
@@ -394,6 +433,11 @@ export function buildAgentOpportunity(input: {
     halfRangePct: metrics.halfRangePct,
     minPx,
     maxPx,
+    // The extremes travel with the row: the execution guard re-checks the MODEL's band against
+    // them with a function that shares no assumptions with this builder.
+    low24h: ticker.low24h,
+    high24h: ticker.high24h,
+    bandMethod: band.method,
     gridNum: metrics.gridNum,
     runType: '1',
     gridSpacingPct: metrics.stepPct,

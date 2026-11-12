@@ -44,8 +44,29 @@ const round = (v: number, d: number) => {
   return Math.round(v * f) / f;
 };
 
-/** How far an edge must stay from the 24 h low/high, in % of that extreme. */
-export const BAND_EXTREME_PROXIMITY_PCT = 2.5;
+/**
+ * How far an edge must stay from the 24 h low/high, in % of that extreme.
+ *
+ * MEASURED, not guessed. All 266 live `_UM_XPERP` contracts were replayed through the real
+ * placement interval at four band widths (261 with usable extremes):
+ *
+ *   prox   W=1.6%  W=3.2%  W=4.0%  W=5.0%     band width ~= 2 x 1.6 x ATR15m
+ *   2.5%     26%     16%     14%     12%
+ *   1.5%     52%     42%     33%     25%
+ *   1.0%     65%     54%     45%     36%      <- this one
+ *   0.5%     77%     68%     62%     50%
+ *
+ * 2.5% left ONE contract in six openable. The median 24 h range is only 7.07% (p10 2.88%), so a
+ * 2.5% margin per side eats two thirds of a typical range and the median legal window collapses
+ * to 1.84% - narrower than the band itself. That is not a guard, it is an outage: the desk
+ * reports "nothing to open" and the refusal is indistinguishable from a dead market.
+ *
+ * 1.0% still rejects any edge landing within 1% of the extreme - ~14% of the median 24 h range,
+ * and orders of magnitude above a tick - while leaving over half the universe tradeable. The
+ * safety margin is NOT the only defence: `minStepsFromEdge` additionally keeps price one full
+ * grid step inside each edge, so an edge can never be parked on the extreme even on a narrow band.
+ */
+export const BAND_EXTREME_PROXIMITY_PCT = 1;
 /** How many grid steps the price must be inside each edge. */
 export const BAND_MIN_STEPS_FROM_EDGE = 1;
 /** Percentiles that define the robust oscillation zone. */

@@ -41,6 +41,7 @@ import {
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
 import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
+import { inspectBandLegality } from './gridBand';
 import {
   SCAN_CONFIRMATION_DEFAULT_MAX_AGE_MINUTES,
   SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES,
@@ -311,7 +312,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
-- Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once.
+- Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
 - Avoid symbols with high absolute funding when a better candidate exists.
 - STOP_BOT only on clear deterioration: price outside the range, net PnL <= -6% of margin, distance to liquidation < 15%, or a dead tape re-confirmed by current data.
 - Silence alone is NOT a reason to stop. Before stopping a silent bot, re-check current price activity, current ATR, elapsed minutes vs expected_first_fill_min, and the net expected edge: stop only when the tape can no longer reach the next level AND the expected net edge is gone. Never stop a profitable bot merely because it has not filled yet - ask for AMEND_BOT or HOLD instead.
@@ -1555,6 +1556,23 @@ export class DeepSeekAgent {
           reject(
             `Range prea larg față de prețul curent (${rnd(lowerDev, 1)}% / ${rnd(upperDev, 1)}% > 25%).`
           );
+          continue;
+        }
+
+        // --- band legality (independent of whatever produced this band) -----
+        // The scan places its own band, but the numbers that actually reach the venue are the
+        // ones the MODEL wrote into the decision. This re-checks them against the 24 h extremes
+        // with `inspectBandLegality`, which deliberately shares no assumptions with the builder
+        // in `gridBand.ts` — a shared helper could only prove the builder agrees with itself.
+        const bandRefusal = inspectBandLegality({
+          price,
+          minPx,
+          maxPx,
+          low24h: candidate.low24h,
+          high24h: candidate.high24h,
+        });
+        if (bandRefusal) {
+          reject(`Bandă ilegală: ${bandRefusal}.`);
           continue;
         }
 

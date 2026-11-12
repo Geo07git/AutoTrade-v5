@@ -173,7 +173,11 @@ test('min lot notional respects contract value', () => {
 test('opportunity: a healthy candidate is eligible and keeps leverage under the ceiling', () => {
   const row = buildAgentOpportunity({
     spec: spec({ tickSz: 0.0001 }),
-    ticker: ticker({ lastPrice: 1 }),
+    // A 1-dollar contract, so the 24 h extremes MUST be 1-dollar extremes too. A previous version
+    // overrode only `lastPrice` and inherited 97..103 from the fixture factory: price 97% below
+    // its own 24 h low is not a scenario, it is a broken fixture, and the band gate was right to
+    // refuse it (the old failure message claimed price sat -9842% from the 24 h low).
+    ticker: ticker({ lastPrice: 1, high24h: 1.03, low24h: 0.97 }),
     klines15m: oscillatingKlines(1),
     book: book(),
     settings: { ...settings, maxLeverage: 5 },
@@ -262,7 +266,7 @@ test('opportunity: an estimated minimum above the budget is ADVISORY, not a reje
 test('opportunity: thin top-of-book liquidity is rejected', () => {
   const row = buildAgentOpportunity({
     spec: spec({ tickSz: 0.0001 }),
-    ticker: ticker({ lastPrice: 1 }),
+    ticker: ticker({ lastPrice: 1, high24h: 1.03, low24h: 0.97 }),
     klines15m: oscillatingKlines(1),
     book: book(50), // 50 USD vs 20 x 12 USD required
     settings,

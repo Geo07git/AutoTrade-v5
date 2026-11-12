@@ -396,6 +396,19 @@ export interface NativeGridOpportunity {
   expectedFirstFillMin?: number;
   /** Distance between grid levels, in % of price */
   stepPct?: number;
+  /**
+   * 24 h extremes carried off the ticker so the EXECUTION guard can re-check a band offline.
+   * The scan places its own band, but the numbers that reach the venue are the ones the model
+   * wrote into the decision, and those must be checked against the same extremes.
+   */
+  low24h?: number;
+  high24h?: number;
+  /**
+   * How the band was placed: 'CONSTRUCTED' = window centred on the measured oscillation zone,
+   * 'SYMMETRIC_FALLBACK' = construction had no legal window, price-centred band still legal.
+   * Kept as a literal union on purpose: `src/shared` must not depend on `src/server`.
+   */
+  bandMethod?: 'CONSTRUCTED' | 'SYMMETRIC_FALLBACK';
   updatedAt: number;
 }
 
