@@ -33,6 +33,12 @@ import {
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
 import { buildConstructedBand } from './gridBand';
+import {
+  efficiencyRatioFromKlines,
+  isDisplacedRegime,
+  GRID_ER_SCAN_BARS,
+  GRID_ER_TREND_THRESHOLD,
+} from '../engine/grid/gridRegime';
 
 // ---------------------------------------------------------------------------
 // Hard constants (the agent cannot loosen these)
@@ -232,6 +238,16 @@ export interface AgentGridMetrics {
   gridNum: number;
   /** Level touches per hour (path / step). */
   crossingsPerHour: number;
+  /**
+   * Kaufman efficiency ratio of the 15m tape over the holding horizon (0..1), `null` when it
+   * cannot be measured.
+   *
+   * `crossingsPerHour` counts DISTANCE travelled, which is large in chop AND in a pump — that is
+   * how H / LINK / HYPE ranked #1 and died in 2-6 minutes. ER is the same window's NET
+   * displacement over that path: near 0 = oscillation (what a neutral grid needs), near 1 = a
+   * one-way move (what kills it).
+   */
+  efficiencyRatio: number | null;
   /** Expected minutes until the first level is touched. */
   expectedFirstFillMin: number;
   /** Step minus maker round-trip, funding drag and half-spread. */
@@ -290,6 +306,11 @@ export function computeAgentGridMetrics(input: {
   const hours = (pathBars.length - 1) * 0.25;
   const pathPerHourPct = hours > 0 ? (pathSum / hours) * 100 : 0;
 
+  // --- direction: how much of that path went somewhere ----------------------
+  // Same tape, same idea, but measuring DISPLACEMENT instead of distance. Window = the holding
+  // horizon, because that is the question the band is sized on: "does it oscillate for 8h?".
+  const efficiencyRatio = efficiencyRatioFromKlines(bars, GRID_ER_SCAN_BARS);
+
   // --- geometry -------------------------------------------------------------
   // Delegated to the plan builder: the band / level count / step formula has exactly one
   // implementation in this repo, and `gridPlan.test.ts` locks this parity.
@@ -316,6 +337,7 @@ export function computeAgentGridMetrics(input: {
     targetHoldingHours: geo.targetHoldingHours,
     expectedLifetimeHours: geo.expectedLifetimeHours,
     pathPerHourPct: round(pathPerHourPct, 3),
+    efficiencyRatio,
     halfRangePct,
     stepPct,
     gridNum,
@@ -402,8 +424,24 @@ export function buildAgentOpportunity(input: {
     if (!rejectionReason) rejectionReason = reason;
   };
 
-  if (metrics.stepPct < feeFloor) {
+  // REGIME gate — the one the live run was missing.
+  //
+  // `crossingsPerHour` measures DISTANCE, so a pump ranks exactly as high as a chop. The audit's
+  // worst live bots (H: 2 minutes, LINK: 6, HYPE: 4, PIEVERSE: -2.25 USDT) were all selected on
+  // huge paths produced by a ONE-WAY move: the grid opened and the price walked out of it. ER > 0.4
+  // means 40% of the travel went in a single direction — a trend, not an oscillation — and no
+  // number of crossings inside a trend ever pays for the exit it forces.
+  //
+  // Deliberately the FIRST gate: when a candidate is refused, the reason shown in the scan
+  // diagnostics must be the structural one, not a downstream consequence.
+  if (isDisplacedRegime(metrics.efficiencyRatio)) {
     reject(
+      `Regim de deplasare: ER ${metrics.efficiencyRatio} > ${GRID_ER_TREND_THRESHOLD} — prețul ` +
+        `călătorește într-o direcție în loc să oscileze (gridul neutru e scurt pe această mișcare)`
+    );
+  }
+
+  if (metrics.stepPct < feeFloor) {    reject(
       `Pas ${metrics.stepPct}% sub podeaua de comision (${round(feeFloor, 4)}% = 3x round-trip maker)`
     );
   } else if (metrics.netPerGridPct <= 0) {
@@ -475,6 +513,8 @@ export function buildAgentOpportunity(input: {
 
   reasons.push(
     `crossings/h=${metrics.crossingsPerHour} (path ${metrics.pathPerHourPct}%/h / pas ${metrics.stepPct}%)`,
+    `ER=${metrics.efficiencyRatio === null ? 'n/a' : metrics.efficiencyRatio} ` +
+      `(${isDisplacedRegime(metrics.efficiencyRatio) ? 'deplasare' : 'oscilație'}, prag ${GRID_ER_TREND_THRESHOLD})`,
     `prima umplere estimată în ~${metrics.expectedFirstFillMin} min`,
     `bandă dimensionată pe orizontul de ${metrics.targetHoldingHours}h: ATR1h=${metrics.atrPct1h}% -> ` +
       `±${metrics.halfRangePct}% (atingerea marginii în ~${metrics.expectedLifetimeHours}h)`,
@@ -511,12 +551,14 @@ export function buildAgentOpportunity(input: {
     orderBookImbalance: round(book.imbalance, 3),
     orderBookDepthUSD: round(book.depthUsd, 0),
     suitabilityScore: 0,
-    regimeLabel:
-      metrics.crossingsPerHour >= 0.5 && metrics.spreadPctOfStep <= AGENT_SCAN_MAX_SPREAD_OF_STEP
+    regimeLabel: isDisplacedRegime(metrics.efficiencyRatio)
+      ? 'TRENDING_RISK'
+      : metrics.crossingsPerHour >= 0.5 && metrics.spreadPctOfStep <= AGENT_SCAN_MAX_SPREAD_OF_STEP
         ? 'IDEAL_RANGE'
         : metrics.atrPct >= 2
           ? 'HIGH_VOL_RANGE'
           : 'LOW_VOLATILITY',
+    efficiencyRatio: metrics.efficiencyRatio,
     halfRangePct: metrics.halfRangePct,
     minPx,
     maxPx,

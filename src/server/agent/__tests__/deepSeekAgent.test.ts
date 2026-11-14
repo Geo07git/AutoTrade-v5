@@ -195,8 +195,8 @@ function makeAgent(opts?: {
   ownScan?: NativeGridOpportunity[];
   /** When true, the agent-owned scan throws (fail-closed test). */
   ownScanThrows?: boolean;
-  /** Live tape readings for the stagnation rule (presence enables getMarketActivity). */
-  marketActivity?: { pathPerHourPct: number; atrPct: number } | null;
+  /** Live tape readings for the stagnation + breakout rules (presence enables getMarketActivity). */
+  marketActivity?: { pathPerHourPct: number; atrPct: number; efficiencyRatio?: number | null } | null;
 }): Harness {
   let snapshot: DeepSeekAccountSnapshot = { ...LIVE_SNAPSHOT, ...(opts?.snapshot || {}) };
   let opportunities = opts?.opportunities ?? [opportunity()];
@@ -616,8 +616,13 @@ test('guardrail: the liquidation threshold scales with leverage', async () => {
   eq(danger.calls.stopped.length, 1, 'a 10x bot 5% from liquidation must be closed');
 });
 
-test('guardrail: a price outside the range produces a STOP_BOT', async () => {
-  const h = makeAgent({ bots: [bot({ currentPx: 2060, totalPnl: 0.2 })] });
+test('guardrail: a CONFIRMED breakout (displacement) produces a STOP_BOT', async () => {
+  // 2060 is beyond the ATR/buffer break price (2025 * 1.005 = 2035.1), and the tape is displaced:
+  // the price is travelling, not wicking. That is a breakout the desk must exit.
+  const h = makeAgent({
+    bots: [bot({ currentPx: 2060, totalPnl: 0.2 })],
+    marketActivity: { pathPerHourPct: 3, atrPct: 1.5, efficiencyRatio: 0.72 },
+  });
   await armAutonomous(h);
 
   const decision = await h.agent.runCycle('MANUAL');
@@ -626,7 +631,43 @@ test('guardrail: a price outside the range produces a STOP_BOT', async () => {
     decision.guardrailActions.some((a: any) => /afara range-ului/i.test(a.rationale_ro || '')),
     'the guardrail must explain the range breakout'
   );
-  eq(h.calls.stopped.length, 1, 'the bot must be stopped on a breakout');
+  eq(h.calls.stopped.length, 1, 'the bot must be stopped on a confirmed breakout');
+});
+
+test('guardrail: a WICK beyond the edge does NOT stop the bot', async () => {
+  // The same price excursion, on a tape that is still oscillating (ER 0.2). Closing here is the
+  // live bug this rule exists to prevent: 70 of 89 stops filled on exactly this shape.
+  const h = makeAgent({
+    bots: [bot({ currentPx: 2060, totalPnl: 0.2 })],
+    marketActivity: { pathPerHourPct: 3, atrPct: 1.5, efficiencyRatio: 0.2 },
+  });
+  await armAutonomous(h);
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(
+    decision.guardrailActions.filter((a: any) => /afara range-ului/i.test(a.rationale_ro || '')).length,
+    0,
+    'an unconfirmed breach must not raise a breakout guardrail'
+  );
+  eq(h.calls.stopped.length, 0, 'a wick must never close a bot');
+});
+
+test('guardrail: a break INSIDE the buffer does not stop the bot', async () => {
+  // 2030 is outside [1975, 2025] but inside the 0.5% buffer (2035.1) — the old rule stopped here.
+  const h = makeAgent({
+    bots: [bot({ currentPx: 2030, totalPnl: 0.2 })],
+    marketActivity: { pathPerHourPct: 3, atrPct: 1.5, efficiencyRatio: 0.8 },
+  });
+  await armAutonomous(h);
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.stopped.length, 0, 'a tick past the edge is not a breakout');
+  ok(
+    !decision.guardrailActions.some((a: any) => /afara range-ului/i.test(a.rationale_ro || '')),
+    'nor may it be reported as one'
+  );
 });
 
 test('guardrail: no arbitrages for too long with negative PnL produces a STOP_BOT', async () => {

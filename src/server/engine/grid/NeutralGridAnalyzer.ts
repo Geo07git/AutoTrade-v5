@@ -1,6 +1,7 @@
 import { GridCandidateAnalysis, Kline } from '../../../shared/types';
 import { IExecutionAdapter } from '../../exchange/IExecutionAdapter';
 import { GridOptimizer } from './GridOptimizer';
+import { efficiencyRatioFromKlines, GRID_ER_EXIT_BARS } from './gridRegime';
 
 export class NeutralGridAnalyzer {
   /**
@@ -154,6 +155,12 @@ export class NeutralGridAnalyzer {
       // 3. True Wilder ADX(14) on 15m candles (0..100)
       const adxTrendStrength = NeutralGridAnalyzer.computeWilderAdx14(klines, 14);
 
+      // 3b. Kaufman efficiency ratio over the exit window (4h): displacement vs oscillation.
+      //     ADX and Choppiness both look at range expansion; ER looks at DIRECTION, which is what
+      //     decides whether a neutral grid's short side gets run over. Feeds the breakout
+      //     confirmation in the analyzer (`assessRangeBreakout`).
+      const efficiencyRatio = efficiencyRatioFromKlines(klines, GRID_ER_EXIT_BARS);
+
       // 4. Live Volume, Spread, Funding & Lot Filter
       const lotFilter = await adapter.getInstrumentFilter(symbol);
       const ctVal = lotFilter?.ctVal && lotFilter.ctVal > 0 ? lotFilter.ctVal : 1;
@@ -234,6 +241,7 @@ export class NeutralGridAnalyzer {
       const reasons: string[] = [
         `Choppiness ${choppinessIndex} (${choppinessIndex >= 55 ? 'Consolidare laterală ideală' : 'Lateral moderat'})`,
         `Wilder ADX(14) ${adxTrendStrength} (${adxTrendStrength < 25 ? 'Fără trend direcțional' : 'Atenție la trend'})`,
+        `Efficiency Ratio ${efficiencyRatio === null ? 'n/a' : efficiencyRatio} (${efficiencyRatio !== null && efficiencyRatio > 0.4 ? 'deplasare, nu oscilație' : 'oscilație'})`,
         `ATR(15m) ${atrPct.toFixed(2)}% | Range 24h ${range24hPct.toFixed(1)}% (Poz ${(posIn24hRange * 100).toFixed(0)}%)`,
       ];
 
@@ -248,6 +256,7 @@ export class NeutralGridAnalyzer {
         atrPct: parseFloat(atrPct.toFixed(2)),
         choppinessIndex,
         adxTrendStrength,
+        efficiencyRatio,
         spreadPct: parseFloat(spreadPct.toFixed(3)),
         fundingRatePct: parseFloat(fundingRatePct.toFixed(4)),
         gridSuitabilityScore,

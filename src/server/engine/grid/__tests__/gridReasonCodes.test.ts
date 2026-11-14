@@ -128,6 +128,10 @@ function makeSnapshot(
       trendPersistent: false,
       choppinessIndex: 50,
       chopConsecutiveBelowStop: 0,
+      efficiencyRatio: 0.2,
+      rangeOutsideMinutes: 0,
+      rangeOutsideSinceAt: 0,
+      falseBreaks: 0,
       initialAtrPct: 1,
       currentAtrPct: 1,
       atrChangePct: 0,
@@ -199,7 +203,33 @@ interface Fixture {
 const FIXTURES: Fixture[] = [
   { name: 'liquidation proximity', snapshot: { risk: { liqPx: 90, distToLiqPct: 3 } }, expected: 'RISK_LIQ_PROXIMITY' },
   { name: 'drawdown stop', snapshot: { risk: { drawdownPct: 9 } }, expected: 'RISK_DRAWDOWN_STOP' },
-  { name: 'breakout confirmed', bot: { currentPx: 106 }, expected: 'RISK_RANGE_BREAKOUT_CONFIRMED' },
+  // The breakout rule: the buffer is 0.5% (105 * 1.005 = 105.525), and beyond it the breach must be
+  // CORROBORATED. The old engine stopped on the first tick past 105.1575 — that single rule filled
+  // 70 of 89 live stops on bots whose median life was 50 minutes.
+  {
+    name: 'breakout confirmed by persistence',
+    bot: { currentPx: 106 },
+    snapshot: { market: { rangeOutsideMinutes: 45 } },
+    expected: 'RISK_RANGE_BREAKOUT_CONFIRMED',
+  },
+  {
+    name: 'breakout confirmed by efficiency ratio',
+    bot: { currentPx: 106 },
+    snapshot: { market: { efficiencyRatio: 0.6, rangeOutsideMinutes: 1 } },
+    expected: 'RISK_RANGE_BREAKOUT_CONFIRMED',
+  },
+  {
+    name: 'breakout confirmed by a persistent ADX',
+    bot: { currentPx: 106 },
+    snapshot: { market: { adx: 32, adxConsecutiveAboveStop: 3, rangeOutsideMinutes: 1 } },
+    expected: 'RISK_RANGE_BREAKOUT_CONFIRMED',
+  },
+  {
+    name: 'a single tick beyond the buffer is NOT a breakout',
+    bot: { currentPx: 106 },
+    snapshot: { market: { efficiencyRatio: 0.2, rangeOutsideMinutes: 0 } },
+    expected: 'RISK_RANGE_BREAKOUT_UNCONFIRMED',
+  },
   { name: 'breakout inside buffer', bot: { currentPx: 105.05 }, expected: 'RISK_RANGE_BREAKOUT_BUFFER' },
   {
     name: 'trend confirmed on both indicators',

@@ -40,6 +40,7 @@ import {
   maxLeverageForBand,
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
+import { GRID_ER_TREND_THRESHOLD, assessRangeBreakout } from '../engine/grid/gridRegime';
 import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
 import { inspectBandLegality } from './gridBand';
 import {
@@ -97,7 +98,12 @@ export interface DeepSeekAgentDeps {
     poolRefreshMinutes?: number;
   }): Promise<NativeGridOpportunity[]>;
   /** Live price activity for one instrument, in % of price (feeds the stagnation stop). */
-  getMarketActivity?(instId: string): Promise<{ pathPerHourPct: number; atrPct: number } | null>;
+  getMarketActivity?(instId: string): Promise<{
+    pathPerHourPct: number;
+    atrPct: number;
+    /** Kaufman efficiency ratio of the same 15m tape (0..1), `null` when unmeasurable. */
+    efficiencyRatio?: number | null;
+  } | null>;
   createNativeGridBot(params: any): Promise<{ success: boolean; bot?: any; error?: string }>;
   stopNativeGridBot(
     algoId: string,
@@ -311,6 +317,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
+- er is the efficiency ratio of the 15m tape over the holding horizon: |net move| / |path travelled|, 0..1. Low (<= 0.4) = the price goes nowhere and travels a lot, which is what a neutral grid needs. High (> 0.4) = the price is GOING somewhere in one direction, so the grid is short that move and the exit eats the profit. Candidates with er > 0.4 are already eligible=false; never argue your way past that, and treat er close to the threshold as a tie-breaker AGAINST the candidate. null means unmeasured, not calm.
 - The scan's band is now sized on the HOLDING HORIZON (target_holding_hours, 8h): 0.674 x ATR(1h) x sqrt(T), floored at +/-2% and capped at +/-6%. band_lifetime_hours is the median time until the band edge is touched, so it says what the band actually buys: ~ target_holding_hours is an honest band, much less means the +/-6% ceiling clamped a wild tape (the horizon will NOT be reached and the exit will eat the grid profit) - prefer HOLD there. A range much narrower than the scan's band is the same mistake from the other side: it will be crossed in minutes.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
@@ -895,6 +902,9 @@ export class DeepSeekAgent {
       score: o.suitabilityScore,
       scan: o.agentScan ? 'AGENT' : 'APP',
       crossings_per_h: o.crossingsPerHour ?? null,
+      // Displacement measure: crossings count DISTANCE, er counts DIRECTION. A pump scores high on
+      // the first and is fatal on the second.
+      er: o.efficiencyRatio ?? null,
       round_trips_per_h: o.roundTripsPerHour ?? null,
       expected_first_fill_min: o.expectedFirstFillMin ?? null,
       step_pct: o.stepPct ?? null,
@@ -1525,6 +1535,17 @@ export class DeepSeekAgent {
             );
             continue;
           }
+          // Displacement guard. The scan already marks these `eligible=false`, but the model can be
+          // talked into a candidate and THIS layer is the one that must not be: ER is a statement
+          // about the tape, not a preference. `undefined`/`null` = unmeasured, never "calm".
+          const er = candidate.efficiencyRatio;
+          if (typeof er === 'number' && Number.isFinite(er) && er > GRID_ER_TREND_THRESHOLD) {
+            reject(
+              `Regim de deplasare pe ${candidate.instId}: ER ${rnd(er, 3)} > ${GRID_ER_TREND_THRESHOLD} ` +
+                '(prețul merge într-o singură direcție, gridul neutru e scurt pe mișcare).'
+            );
+            continue;
+          }
         }
         if (!candidate.agentScan && (candidate.suitabilityScore || 0) < cfg.minSuitabilityScore) {
           reject(
@@ -1775,11 +1796,37 @@ export class DeepSeekAgent {
       if (distLiq !== null && distLiq <= minLiqDistancePct) {
         reasons.push(`distanță lichidare ${rnd(distLiq, 1)}% ≤ ${rnd(minLiqDistancePct, 1)}%`);
       }
-      const outsideRange =
-        bot.currentPx > 0 &&
-        ((bot.minPx > 0 && bot.currentPx < bot.minPx) || (bot.maxPx > 0 && bot.currentPx > bot.maxPx));
-      if (outsideRange) {
-        reasons.push(`preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(bot.maxPx, 6)}]`);
+      // Range breakout: the SAME rule the analyzer enforces (`assessRangeBreakout`), so the two
+      // layers cannot disagree about what a breakout IS. The raw band is no longer a stop trigger:
+      // 70 of 89 live stops came from closing on a single tick beyond the edge. A breach must first
+      // clear the ATR-proportional buffer, then be corroborated — this layer keeps no persistence
+      // state, so it corroborates on the tape's efficiency ratio rather than on elapsed minutes.
+      const bandProbe = assessRangeBreakout({
+        currentPx: bot.currentPx,
+        minPx: bot.minPx,
+        maxPx: bot.maxPx,
+      });
+      if (bandProbe.outsideBand) {
+        const tape = this.deps.getMarketActivity
+          ? await this.deps.getMarketActivity(bot.instId).catch(() => null)
+          : null;
+        const breakout = assessRangeBreakout({
+          currentPx: bot.currentPx,
+          minPx: bot.minPx,
+          maxPx: bot.maxPx,
+          atrPct: tape?.atrPct,
+          efficiencyRatio: tape?.efficiencyRatio ?? null,
+          // No excursion clock here — persistence lives in GridBotAnalyzer.
+          outsideMinutes: 0,
+        });
+        if (breakout.beyondBuffer && breakout.confirmed) {
+          reasons.push(
+            `preț ${rnd(bot.currentPx, 6)} în afara range-ului [${rnd(bot.minPx, 6)}, ${rnd(
+              bot.maxPx,
+              6
+            )}] — deplasare confirmată (ER ${rnd(Number(tape?.efficiencyRatio) || 0, 2)})`
+          );
+        }
       }
       const ageMin = Math.max(0, Math.round((Date.now() - (bot.cTime || Date.now())) / 60000));
       // --- stagnation rule -------------------------------------------------

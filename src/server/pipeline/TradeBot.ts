@@ -1459,10 +1459,15 @@ export class TradeBot {
     });
   }
 
-  /** Current price activity for a running bot (input for the agent's stagnation rule). */
+  /** Current price activity for a running bot (input for the agent's stagnation + breakout rules). */
   public async getMarketActivity(
     instId: string
-  ): Promise<{ pathPerHourPct: number; atrPct: number } | null> {
+  ): Promise<{
+    pathPerHourPct: number;
+    atrPct: number;
+    /** Same tape, same window: is the price travelling or oscillating? */
+    efficiencyRatio: number | null;
+  } | null> {
     try {
       const klines = await this.okxAdapter.getKlines(instId, '15m', 48);
       const last = klines?.[klines.length - 1];
@@ -1472,7 +1477,11 @@ export class TradeBot {
         roundTripFeePct: 0,
       });
       if (!metrics) return null;
-      return { pathPerHourPct: metrics.pathPerHourPct, atrPct: metrics.atrPct };
+      return {
+        pathPerHourPct: metrics.pathPerHourPct,
+        atrPct: metrics.atrPct,
+        efficiencyRatio: metrics.efficiencyRatio,
+      };
     } catch {
       return null;
     }

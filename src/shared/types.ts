@@ -210,6 +210,13 @@ export interface GridCandidateAnalysis {
   atrPct: number;
   choppinessIndex: number;      // 0..100 (>61.8 = sideways/consolidation ideal for Neutral Grid)
   adxTrendStrength: number;     // 0..100 (<25 = weak trend / range-bound ideal for Neutral Grid)
+  /**
+   * Kaufman efficiency ratio of the 15m tape (0..1).
+   *
+   * 0 = pure oscillation (the grid's ideal), 1 = one-way displacement (poison for a neutral grid).
+   * `null`/absent = could not be measured, which callers must treat as unknown, never as "calm".
+   */
+  efficiencyRatio?: number | null;
   spreadPct: number;
   fundingRatePct: number;       // 8h funding rate %
   gridSuitabilityScore: number; // 0..100 composite score for Neutral Grid
@@ -360,6 +367,8 @@ export interface NativeGridOpportunity {
   targetHoldingHours?: number;
   /** Agent scan only: median hours until the band edge is touched at the measured 15m ATR. */
   expectedLifetimeHours?: number;
+  /** Agent scan only: Kaufman efficiency ratio of the 15m tape (0..1), the oscillation test. */
+  efficiencyRatio?: number | null;
   choppinessIndex: number;
   adxTrendStrength: number;
   spreadBps: number;
@@ -915,6 +924,12 @@ export interface GridAnalyzerThresholds {
   atrSpikeMonitorPct: number;
   rangeEdgeWarningPct: number;
   rangeBreakoutBufferPct?: number;
+  /**
+   * Minutes price must stay outside the band before a breakout stop is CONFIRMED.
+   * Missing -> `GRID_BREAKOUT_CONFIRM_MINUTES`. Time-based on purpose: a tick count means a
+   * different duration at each of the analyzer's three cadences.
+   */
+  rangeBreakoutConfirmMinutes?: number;
   warningDrawdownPct: number;
   stopDrawdownPct: number;
   minLiqSafetyPct: number;
@@ -962,6 +977,19 @@ export interface GridBotAnalysisSnapshot {
     trendPersistent: boolean;
     choppinessIndex: number;
     chopConsecutiveBelowStop: number;
+    /**
+     * Kaufman efficiency ratio of the 15m tape, 0 when it could not be measured.
+     *
+     * Feeds the breakout confirmation: an unambiguous displacement (ER > 0.45) stops a bot without
+     * waiting for the persistence window, because a neutral grid is SHORT that move.
+     */
+    efficiencyRatio: number;
+    /** Minutes price has been continuously outside [minPx, maxPx]; 0 while inside. */
+    rangeOutsideMinutes: number;
+    /** ms timestamp the current outside-band excursion started; 0 while inside. */
+    rangeOutsideSinceAt: number;
+    /** Excursions outside the band that reverted inside within two hours (wick survival). */
+    falseBreaks: number;
     initialAtrPct: number;
     currentAtrPct: number;
     atrChangePct: number;
@@ -1025,7 +1053,18 @@ export interface GridAnalyzerStopEvent {
     orderBookDepthUSD: number;
     fundingRatePct: number;
     priceDirection: string;
+    /** Kaufman efficiency ratio at the moment of the stop (the displacement measure). */
+    efficiencyRatio?: number;
+    /** Minutes price had been outside the band when the stop fired. */
+    rangeOutsideMinutes?: number;
   };
+  /**
+   * How many band excursions this bot survived before this stop.
+   *
+   * The audit could only ESTIMATE the false-break rate because nothing counted it. Persisted here
+   * so `falseBreakCount / stops` becomes a measured number after the next live run.
+   */
+  falseBreakCount?: number;
   botParameters: {
     minPx: number;
     maxPx: number;

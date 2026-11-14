@@ -803,6 +803,106 @@ test('scanner (pool): a pooled contract that left the universe is dropped', asyn
 });
 
 // ---------------------------------------------------------------------------
+// Regime: distance vs displacement
+// ---------------------------------------------------------------------------
+
+/** 48 bars of a one-way pump: +0.4% per bar, with a realistic bar range. */
+function pumpKlines(base = 100, stepPct = 0.4, n = 48): Kline[] {
+  return Array.from({ length: n }, (_, i) => {
+    const close = base * (1 + (stepPct / 100) * i);
+    return {
+      timestamp: Date.now() - (n - i) * 900_000,
+      open: close / (1 + stepPct / 100),
+      high: close * 1.002,
+      low: close * 0.998,
+      close,
+      volume: 1000,
+    };
+  });
+}
+
+test('regime: the efficiency ratio separates a pump from a chop', () => {
+  const pumped = computeAgentGridMetrics({
+    price: 118,
+    klines15m: pumpKlines(),
+    spreadPct: 0,
+    roundTripFeePct: FEE,
+  })!;
+  const chopped = computeAgentGridMetrics({
+    price: 100,
+    klines15m: oscillatingKlines(),
+    spreadPct: 0,
+    roundTripFeePct: FEE,
+  })!;
+
+  ok(pumped.efficiencyRatio !== null, 'ER must be measured on a usable tape');
+  ok(
+    pumped.efficiencyRatio! > 0.9,
+    `a monotone pump must read as displacement, got ${pumped.efficiencyRatio}`
+  );
+  ok(
+    chopped.efficiencyRatio! < 0.2,
+    `a sawtooth must read as oscillation, got ${chopped.efficiencyRatio}`
+  );
+});
+
+test('regime: a pumping tape is REFUSED even though its crossings/h are excellent', () => {
+  // This is the live failure (H: 2 min, LINK: 6 min, HYPE: 4 min): the pump produces a huge path,
+  // so it ranked #1 on crossings/hour, and the grid died as the price walked out of the band.
+  const pumped = pumpKlines();
+  const m = computeAgentGridMetrics({
+    price: pumped[pumped.length - 1].close,
+    klines15m: pumped,
+    spreadPct: 0.01,
+    roundTripFeePct: FEE,
+  })!;
+  ok(m.crossingsPerHour > 0, 'the tape is busy — the crossings metric alone would rank it highly');
+
+  const opp = buildAgentOpportunity({
+    spec: spec({ instId: 'PUMP-USD_UM_XPERP-310523' }),
+    ticker: ticker({
+      instId: 'PUMP-USD_UM_XPERP-310523',
+      lastPrice: pumped[pumped.length - 1].close,
+      low24h: 100,
+      high24h: 120,
+    }),
+    klines15m: pumped,
+    book: book(),
+    settings,
+  })!;
+
+  ok(!!opp, 'the row is still built so the operator can see why it was refused');
+  eq(opp.isEligible, false, 'a displaced tape must not be eligible');
+  eq(opp.regimeLabel, 'TRENDING_RISK', 'and the label must say so');
+  ok(
+    (opp.rejectionReason || '').includes('ER'),
+    `the refusal must name the measure, got: ${opp.rejectionReason}`
+  );
+  ok(
+    (opp.rejectionReason || '').includes('deplasare'),
+    'the refusal must explain that the price is travelling, not oscillating'
+  );
+});
+
+test('regime: an oscillating tape is not refused by the regime gate', () => {
+  const opp = buildAgentOpportunity({
+    spec: spec(),
+    ticker: ticker(),
+    klines15m: oscillatingKlines(),
+    book: book(),
+    settings,
+  })!;
+
+  ok(!!opp, 'the oscillating fixture must produce a row');
+  ok(opp.efficiencyRatio !== null && opp.efficiencyRatio! < 0.4, 'ER must be low on the sawtooth');
+  eq(opp.regimeLabel === 'TRENDING_RISK', false, 'the sawtooth is not a trend');
+  ok(
+    !(opp.rejectionReason || '').includes('ER'),
+    `the regime gate must not fire on chop, got: ${opp.rejectionReason}`
+  );
+});
+
+// ---------------------------------------------------------------------------
 // Execute
 // ---------------------------------------------------------------------------
 

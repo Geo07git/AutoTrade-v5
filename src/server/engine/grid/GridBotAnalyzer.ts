@@ -15,6 +15,7 @@ import { GridJournal } from './GridJournal';
 import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
 import { OKXNativeGridEngine } from './OKXNativeGridEngine';
 import { classifyDecisionCodes, decisionForCode } from './gridReasonCodes';
+import { advanceOutsideBandState, assessRangeBreakout } from './gridRegime';
 
 export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   adxMonitorThreshold: 25,
@@ -25,7 +26,11 @@ export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   chopStopConsecutiveCount: 2,
   atrSpikeMonitorPct: 50,
   rangeEdgeWarningPct: 10,
-  rangeBreakoutBufferPct: 0.15,
+  // 0.5%, not 0.15%: on a ±1% band, 0.15% was a sixth of one 15m bar — a formality, not a buffer.
+  rangeBreakoutBufferPct: 0.5,
+  // 30 min, not "the first tick beyond the edge": see `assessRangeBreakout`. The drawdown stop is
+  // evaluated BEFORE the breakout rule, so waiting here cannot skip an expensive breakout.
+  rangeBreakoutConfirmMinutes: 30,
   warningDrawdownPct: 5,
   stopDrawdownPct: 8,
   minLiqSafetyPct: 4.0,
@@ -735,6 +740,22 @@ export class GridBotMonitor {
       bot.currentPx = livePx;
     }
 
+    // Breakout bookkeeping (audit §7.3): how long price has been CONTINUOUSLY outside the band,
+    // and how many excursions reverted (wick survival). `assessRangeBreakout` reads these, and
+    // `falseBreaks` is the measurement the audit could only estimate. Time-based so the
+    // analyzer's 30s/1m/5m cadences cannot change what they mean.
+    const outsideBand = advanceOutsideBandState(
+      {
+        sinceAt: snapshot.market.rangeOutsideSinceAt,
+        outsideMinutes: snapshot.market.rangeOutsideMinutes,
+        falseBreaks: snapshot.market.falseBreaks,
+      },
+      { currentPx: bot.currentPx, minPx: bot.minPx, maxPx: bot.maxPx, now }
+    );
+    snapshot.market.rangeOutsideSinceAt = outsideBand.sinceAt;
+    snapshot.market.rangeOutsideMinutes = outsideBand.outsideMinutes;
+    snapshot.market.falseBreaks = outsideBand.falseBreaks;
+
     const rangeWidth = Math.max(1e-8, bot.maxPx - bot.minPx);
     const distToLowerLimitPct =
       bot.currentPx > 0
@@ -890,6 +911,12 @@ export class GridMarketAnalyzer {
             adx > thresholds.adxStopThreshold,
           choppinessIndex: chop,
           chopConsecutiveBelowStop,
+          // Displacement measure for the breakout confirmation (0 when it cannot be measured).
+          efficiencyRatio: baseAnalysis.efficiencyRatio ?? 0,
+          // Carried over: these are advanced by the 1m price cadence, not by this 5m refresh.
+          rangeOutsideMinutes: snapshot.market.rangeOutsideMinutes,
+          rangeOutsideSinceAt: snapshot.market.rangeOutsideSinceAt,
+          falseBreaks: snapshot.market.falseBreaks,
           initialAtrPct: initAtr,
           currentAtrPct: curAtr,
           atrChangePct,
@@ -954,33 +981,50 @@ export class GridDecisionEngine {
       };
     }
 
-    // 3. CRITICAL STOP: Confirmed Range Breakout outside [minPx, maxPx] (with anti-wick buffer) when stopOnRangeBreakout is active
-    if (bot.stopOnRangeBreakout && bot.currentPx > 0 && bot.minPx > 0 && bot.maxPx > bot.minPx) {
-      const bufferPct =
-        typeof thresholds.rangeBreakoutBufferPct === 'number' && thresholds.rangeBreakoutBufferPct >= 0
-          ? thresholds.rangeBreakoutBufferPct
-          : 0.15;
-      const lowerBreakPx =
-        bot.slTriggerPx && bot.slTriggerPx > 0 && bot.slTriggerPx < bot.minPx
-          ? Math.max(bot.slTriggerPx, bot.minPx * (1 - bufferPct / 100))
-          : bot.minPx * (1 - bufferPct / 100);
-      const upperBreakPx =
-        bot.tpTriggerPx && bot.tpTriggerPx > bot.maxPx
-          ? Math.min(bot.tpTriggerPx, bot.maxPx * (1 + bufferPct / 100))
-          : bot.maxPx * (1 + bufferPct / 100);
+    // 3. Range breakout: the band edge PLUS an ATR-proportional buffer, and only on CONFIRMATION.
+    //
+    // Was: `currentPx > maxPx * 1.0015` -> STOP. That rule could not tell a 4-minute wick from a
+    // 17-hour rally, and it filled 70 of 89 stops on bots whose median life was 50 minutes. The
+    // band was being EXITED, not BROKEN — see audit §7.3. Now a breach must be corroborated by
+    // persistence (30 min outside), a decisive efficiency ratio, or a persistent ADX; otherwise it
+    // is a WARNING. An expensive breakout is still caught earlier by rule 2 (drawdown), which is
+    // why waiting here is safe rather than merely optimistic.
+    if (bot.stopOnRangeBreakout) {
+      const breakout = assessRangeBreakout({
+        currentPx: bot.currentPx,
+        minPx: bot.minPx,
+        maxPx: bot.maxPx,
+        slTriggerPx: bot.slTriggerPx,
+        tpTriggerPx: bot.tpTriggerPx,
+        configuredBufferPct: thresholds.rangeBreakoutBufferPct,
+        atrPct: snapshot.market.currentAtrPct,
+        outsideMinutes: snapshot.market.rangeOutsideMinutes,
+        efficiencyRatio: snapshot.market.efficiencyRatio,
+        adx: snapshot.market.adx,
+        adxEvalsAboveStop: snapshot.market.adxConsecutiveAboveStop,
+        confirmMinutes: thresholds.rangeBreakoutConfirmMinutes,
+      });
 
-      if (bot.currentPx < lowerBreakPx || bot.currentPx > upperBreakPx) {
+      if (breakout.beyondBuffer && breakout.confirmed) {
         return {
           decision: 'STOP',
-          reason: `Range Breakout confirmat: Preț curent ($${bot.currentPx}) a depășit intervalul grilei [$${bot.minPx} – $${bot.maxPx}] (peste bufferul de ${bufferPct}%)`,
+          reason: `Range Breakout CONFIRMAT (${breakout.confirmedBy}): Preț curent ($${bot.currentPx}) în afara intervalului [$${bot.minPx} – $${bot.maxPx}] de ${breakout.outsideMinutes} min (buffer ${breakout.bufferPct.toFixed(2)}%, ER ${snapshot.market.efficiencyRatio.toFixed(2)})`,
           riskLevel: 'CRITICAL',
         };
       }
 
-      if (bot.currentPx < bot.minPx || bot.currentPx > bot.maxPx) {
+      if (breakout.beyondBuffer) {
         return {
           decision: 'WARNING',
-          reason: `Preț curent ($${bot.currentPx}) la limita grilei [$${bot.minPx} – $${bot.maxPx}] — monitorizare în interiorul bufferului anti-wick (${bufferPct}%)`,
+          reason: `Ruptură NECONFIRMATA: Preț curent ($${bot.currentPx}) a depășit bufferul de ${breakout.bufferPct.toFixed(2)}% dar stă în afara benzii de doar ${breakout.outsideMinutes} min (prag confirmare ${thresholds.rangeBreakoutConfirmMinutes ?? 30} min, ER ${snapshot.market.efficiencyRatio.toFixed(2)}) — nu se închide pe un wick`,
+          riskLevel: 'WARNING',
+        };
+      }
+
+      if (breakout.outsideBand) {
+        return {
+          decision: 'WARNING',
+          reason: `Preț curent ($${bot.currentPx}) la limita grilei [$${bot.minPx} – $${bot.maxPx}] — monitorizare în interiorul bufferului anti-wick (${breakout.bufferPct.toFixed(2)}%)`,
           riskLevel: 'WARNING',
         };
       }
@@ -1498,7 +1542,12 @@ export class GridBotSupervisor {
         orderBookDepthUSD: snapshot.market.orderBookDepthUSD,
         fundingRatePct: snapshot.market.fundingRatePct,
         priceDirection: snapshot.market.priceDirection,
+        efficiencyRatio: snapshot.market.efficiencyRatio,
+        rangeOutsideMinutes: snapshot.market.rangeOutsideMinutes,
       },
+      // How many band excursions this bot survived before this stop. Without it the false-break
+      // rate stays an estimate (audit §7.3); with it, `falseBreakCount / stops` is measurable.
+      falseBreakCount: snapshot.market.falseBreaks,
       botParameters: {
         minPx: bot.minPx,
         maxPx: bot.maxPx,
@@ -1645,6 +1694,10 @@ export class GridBotAnalyzer {
         trendPersistent: false,
         choppinessIndex: 52,
         chopConsecutiveBelowStop: 0,
+        efficiencyRatio: 0,
+        rangeOutsideMinutes: 0,
+        rangeOutsideSinceAt: 0,
+        falseBreaks: 0,
         initialAtrPct: 0,
         currentAtrPct: 0,
         atrChangePct: 0,

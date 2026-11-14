@@ -163,7 +163,7 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
     chopStopConsecutiveCount: gridAnalyzer?.thresholds?.chopStopConsecutiveCount ?? 2,
     atrSpikeMonitorPct: gridAnalyzer?.thresholds?.atrSpikeMonitorPct ?? 50,
     rangeEdgeWarningPct: gridAnalyzer?.thresholds?.rangeEdgeWarningPct ?? 10,
-    rangeBreakoutBufferPct: gridAnalyzer?.thresholds?.rangeBreakoutBufferPct ?? 0.15,
+    rangeBreakoutBufferPct: gridAnalyzer?.thresholds?.rangeBreakoutBufferPct ?? 0.5,
     warningDrawdownPct: gridAnalyzer?.thresholds?.warningDrawdownPct ?? 5,
     stopDrawdownPct: gridAnalyzer?.thresholds?.stopDrawdownPct ?? 8,
     minLiqSafetyPct: gridAnalyzer?.thresholds?.minLiqSafetyPct ?? 4.0,

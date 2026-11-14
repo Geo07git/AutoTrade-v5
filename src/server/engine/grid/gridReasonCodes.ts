@@ -27,6 +27,7 @@ import type {
   OKXNativeGridBot,
 } from '../../../shared/types';
 import type { GridPlanRejectionCode } from './gridPlan';
+import { assessRangeBreakout } from './gridRegime';
 
 // ---------------------------------------------------------------------------
 // Market verdict codes
@@ -37,6 +38,7 @@ export type GridDecisionCode =
   | 'RISK_LIQ_PROXIMITY'
   | 'RISK_DRAWDOWN_STOP'
   | 'RISK_RANGE_BREAKOUT_CONFIRMED'
+  | 'RISK_RANGE_BREAKOUT_UNCONFIRMED'
   | 'RISK_RANGE_BREAKOUT_BUFFER'
   // CRITICAL — regime invalidation
   | 'REGIME_TREND_CONFIRMED'
@@ -107,6 +109,7 @@ const DECISION_BY_CODE: Record<GridDecisionCode, GridAnalyzerDecision> = {
   RISK_LIQ_PROXIMITY: 'EMERGENCY',
   RISK_DRAWDOWN_STOP: 'STOP',
   RISK_RANGE_BREAKOUT_CONFIRMED: 'STOP',
+  RISK_RANGE_BREAKOUT_UNCONFIRMED: 'WARNING',
   RISK_RANGE_BREAKOUT_BUFFER: 'WARNING',
   REGIME_TREND_CONFIRMED: 'STOP',
   REGIME_TREND_MULTI_INDICATOR: 'STOP',
@@ -135,6 +138,7 @@ export const GRID_REASON_MESSAGES_RO: Record<GridReasonCode, string> = {
   RISK_LIQ_PROXIMITY: 'Prea aproape de lichidare',
   RISK_DRAWDOWN_STOP: 'Drawdown peste pragul de stop',
   RISK_RANGE_BREAKOUT_CONFIRMED: 'Iesire confirmata din banda grilei',
+  RISK_RANGE_BREAKOUT_UNCONFIRMED: 'Ruptura de banda neconfirmata (wick sau tranzitoriu)',
   RISK_RANGE_BREAKOUT_BUFFER: 'Pret la limita benzii (buffer anti-wick)',
   REGIME_TREND_CONFIRMED: 'Trend directional confirmat multi-indicator',
   REGIME_TREND_MULTI_INDICATOR: 'Regim neutral invalidat multi-indicator',
@@ -225,8 +229,6 @@ export interface GridDecisionInput {
   allowStagnationStop?: boolean;
 }
 
-const RANGE_BREAKOUT_DEFAULT_BUFFER_PCT = 0.15;
-
 /**
  * Returns the codes behind the analyzer's verdict, highest precedence first.
  *
@@ -256,27 +258,27 @@ export function classifyDecisionCodes(input: GridDecisionInput): GridDecisionCod
     return ['RISK_DRAWDOWN_STOP'];
   }
 
-  // 3. Range breakout, with the anti-wick buffer
-  if (bot.stopOnRangeBreakout && bot.currentPx > 0 && bot.minPx > 0 && bot.maxPx > bot.minPx) {
-    const bufferPct =
-      typeof thresholds.rangeBreakoutBufferPct === 'number' && thresholds.rangeBreakoutBufferPct >= 0
-        ? thresholds.rangeBreakoutBufferPct
-        : RANGE_BREAKOUT_DEFAULT_BUFFER_PCT;
-    const lowerBreakPx =
-      bot.slTriggerPx && bot.slTriggerPx > 0 && bot.slTriggerPx < bot.minPx
-        ? Math.max(bot.slTriggerPx, bot.minPx * (1 - bufferPct / 100))
-        : bot.minPx * (1 - bufferPct / 100);
-    const upperBreakPx =
-      bot.tpTriggerPx && bot.tpTriggerPx > bot.maxPx
-        ? Math.min(bot.tpTriggerPx, bot.maxPx * (1 + bufferPct / 100))
-        : bot.maxPx * (1 + bufferPct / 100);
+  // 3. Range breakout — buffered and CONFIRMED. Shares `assessRangeBreakout` with the engine's
+  //    `evaluate()`, so "confirmed" cannot mean two different things in two places.
+  if (bot.stopOnRangeBreakout) {
+    const breakout = assessRangeBreakout({
+      currentPx: bot.currentPx,
+      minPx: bot.minPx,
+      maxPx: bot.maxPx,
+      slTriggerPx: bot.slTriggerPx,
+      tpTriggerPx: bot.tpTriggerPx,
+      configuredBufferPct: thresholds.rangeBreakoutBufferPct,
+      atrPct: snapshot.market.currentAtrPct,
+      outsideMinutes: snapshot.market.rangeOutsideMinutes,
+      efficiencyRatio: snapshot.market.efficiencyRatio,
+      adx: snapshot.market.adx,
+      adxEvalsAboveStop: snapshot.market.adxConsecutiveAboveStop,
+      confirmMinutes: thresholds.rangeBreakoutConfirmMinutes,
+    });
 
-    if (bot.currentPx < lowerBreakPx || bot.currentPx > upperBreakPx) {
-      return ['RISK_RANGE_BREAKOUT_CONFIRMED'];
-    }
-    if (bot.currentPx < bot.minPx || bot.currentPx > bot.maxPx) {
-      return ['RISK_RANGE_BREAKOUT_BUFFER'];
-    }
+    if (breakout.beyondBuffer && breakout.confirmed) return ['RISK_RANGE_BREAKOUT_CONFIRMED'];
+    if (breakout.beyondBuffer) return ['RISK_RANGE_BREAKOUT_UNCONFIRMED'];
+    if (breakout.outsideBand) return ['RISK_RANGE_BREAKOUT_BUFFER'];
   }
 
   // 4. Regime invalidation
