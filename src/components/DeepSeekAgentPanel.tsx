@@ -25,6 +25,7 @@ import type {
   DeepSeekAgentMode,
   DeepSeekAgentStatus,
 } from '../shared/types';
+import { AgentDesk } from './AgentDesk';
 
 interface DeepSeekAgentPanelProps {
   agentStatus?: DeepSeekAgentStatus;
@@ -538,6 +539,18 @@ export const DeepSeekAgentPanel: React.FC<DeepSeekAgentPanelProps> = ({
           </div>
         )}
       </div>
+
+      {/* ================= BIR OUL AGENTULUI (countdown + personaje sincronizate cu faza reala) ===== */}
+      <AgentDesk
+        lastRunAt={cfg?.lastRunAt}
+        nextRunAt={status?.nextRunAt}
+        runIntervalSec={cfg?.runIntervalSec}
+        loopActive={status?.loopActive}
+        mode={mode}
+        runningBots={snapshot?.runningBots ?? 0}
+        totalCycles={cfg?.totalCycles}
+        lastSummary={cfg?.lastDecisionSummary}
+      />
 
       {/* ================= WARNING BANNERS ================= */}
       {status?.authorityConflict && (

@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { DeepSeekAgentStatus } from '../shared/types';
+import { AgentDesk } from './AgentDesk';
 
 interface DeepSeekApiKeyCardProps {
   agentStatus?: Omit<DeepSeekAgentStatus, 'decisions'> | null;
@@ -128,6 +129,17 @@ export const DeepSeekApiKeyCard: React.FC<DeepSeekApiKeyCardProps> = ({
           )}
         </div>
       </div>
+
+      <AgentDesk
+        compact
+        lastRunAt={agentStatus?.config?.lastRunAt}
+        nextRunAt={agentStatus?.nextRunAt}
+        runIntervalSec={agentStatus?.config?.runIntervalSec}
+        loopActive={agentStatus?.loopActive}
+        mode={mode}
+        runningBots={agentStatus?.accountSnapshot?.runningBots ?? 0}
+        totalCycles={agentStatus?.config?.totalCycles}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {[
