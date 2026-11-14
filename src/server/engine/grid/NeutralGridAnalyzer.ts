@@ -1,12 +1,17 @@
 import { GridCandidateAnalysis, Kline } from '../../../shared/types';
 import { IExecutionAdapter } from '../../exchange/IExecutionAdapter';
 import { GridOptimizer } from './GridOptimizer';
-import { efficiencyRatioFromKlines, GRID_ER_EXIT_BARS } from './gridRegime';
+import { efficiencyRatioFromKlines, GRID_ER_EXIT_BARS, choppinessIndex as computeChoppinessIndex } from './gridRegime';
 
 export class NeutralGridAnalyzer {
   /**
    * Computes true Wilder ADX(14) (+DI, -DI, DX, smoothed ADX) on 15m candles
    * instead of a 24h net-displacement proxy that artificially compressed ADX to 5..12.
+   *
+   * Same maths as `gridRegime.wilderAdx`, which the agent scan uses — a parity test runs both
+   * over one fixture so the two numbers cannot drift apart. The `20` fallback is this method's
+   * own contract for an unusable series (the caller's score depends on it); `wilderAdx` returns
+   * `null` instead, because a selection gate must not read "unknown" as "no pressure".
    */
   public static computeWilderAdx14(klines: Kline[], period: number = 14): number {
     if (!klines || klines.length < period + 2) return 20;
@@ -120,39 +125,30 @@ export class NeutralGridAnalyzer {
       const range24h = Math.max(1e-9, high24h - low24h);
       const range24hPct = (range24h / lastClose) * 100;
 
-      // 1. ATR(14) & Sum of True Ranges for Choppiness Index
+      // 1. ATR(14) — the sum of true ranges over the same window the Choppiness Index uses
       const period = 14;
       const slice = klines.slice(-period);
       let sumTr = 0;
-      let highest14 = -Infinity;
-      let lowest14 = Infinity;
 
       for (let i = 0; i < slice.length; i++) {
         const cur = slice[i];
         const prevClose = i > 0 ? slice[i - 1].close : cur.open;
-        const tr = Math.max(
+        sumTr += Math.max(
           cur.high - cur.low,
           Math.abs(cur.high - prevClose),
           Math.abs(cur.low - prevClose)
         );
-        sumTr += tr;
-        if (cur.high > highest14) highest14 = cur.high;
-        if (cur.low < lowest14) lowest14 = cur.low;
       }
 
       const atr14 = sumTr / period;
       const atrPct = (atr14 / lastClose) * 100;
 
-      // 2. Choppiness Index (0..100):
-      // 100 * LOG10( SUM(TR, 14) / (MaxHigh14 - MinLow14) ) / LOG10(14)
-      // Values > 61.8 indicate strong sideways consolidation (ideal for Neutral Grid!)
-      // Values < 38.2 indicate strong directional breakout (dangerous for Neutral Grid)
-      const hlRange14 = Math.max(1e-9, highest14 - lowest14);
-      const rawChop =
-        (100 * Math.log10(Math.max(1.0001, sumTr / hlRange14))) / Math.log10(period);
-      const choppinessIndex = Math.max(10, Math.min(95, parseFloat(rawChop.toFixed(1))));
+      // 2. Choppiness Index (0..100): values > 61.8 = strong sideways consolidation (ideal for a
+      //    Neutral Grid), values < 38.2 = directional breakout (dangerous). One implementation,
+      //    shared with the agent's own scan — which used to send 0 instead of this number.
+      const choppinessIndex = computeChoppinessIndex(klines, period) ?? 50;
 
-      // 3. True Wilder ADX(14) on 15m candles (0..100)
+      // 3. True Wilder ADX(14) on 15m candles (0..100), same shared implementation.
       const adxTrendStrength = NeutralGridAnalyzer.computeWilderAdx14(klines, 14);
 
       // 3b. Kaufman efficiency ratio over the exit window (4h): displacement vs oscillation.

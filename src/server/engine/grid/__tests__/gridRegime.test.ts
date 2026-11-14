@@ -12,15 +12,19 @@
 import {
   advanceOutsideBandState,
   assessRangeBreakout,
+  choppinessIndex,
   efficiencyRatio,
   efficiencyRatioFromKlines,
+  hasDirectionalPressure,
   isDisplacedRegime,
+  wilderAdx,
   GRID_BREAKOUT_CONFIRM_MINUTES,
   GRID_BREAKOUT_MIN_BUFFER_PCT,
   GRID_ER_EXIT_BARS,
   GRID_ER_TREND_THRESHOLD,
   INITIAL_OUTSIDE_BAND_STATE,
 } from '../gridRegime';
+import { NeutralGridAnalyzer } from '../NeutralGridAnalyzer';
 import type { Kline } from '../../../../shared/types';
 
 // ---------------------------------------------------------------------------
@@ -221,6 +225,61 @@ test('false breaks: counter is monotone and survives a missing price', () => {
   const missing = advanceOutsideBandState(seeded, { currentPx: 0, minPx: 95, maxPx: 105, now: t0 });
   eq(missing.falseBreaks, 3, 'an unreadable price must not reset the tally');
   eq(missing.sinceAt, 0, 'nor start an excursion');
+});
+
+// ---------------------------------------------------------------------------
+// ADX and Choppiness (the two numbers the agent used to fabricate as 0)
+// ---------------------------------------------------------------------------
+
+/** Bars with a real high/low envelope, so true range and directional movement exist. */
+const barKlines = (closes: number[], rangePct = 0.4): Kline[] =>
+  closes.map((c, i) => ({
+    timestamp: 1_700_000_000_000 + i * 3_600_000,
+    open: i > 0 ? closes[i - 1] : c,
+    high: c * (1 + rangePct / 200),
+    low: c * (1 - rangePct / 200),
+    close: c,
+    volume: 100,
+  }));
+
+test('ADX: a one-way tape has directional pressure, a sawtooth does not', () => {
+  const trending = wilderAdx(barKlines(ramp(48, 100, 20)), 14)!;
+  const sideways = wilderAdx(barKlines(chop(48)), 14)!;
+
+  ok(trending !== null && sideways !== null, 'both fixtures must be measurable');
+  ok(trending > 25, `a straight climb must read as a trend, got ${trending}`);
+  ok(sideways <= 25, `a sawtooth must not read as a trend, got ${sideways}`);
+  ok(hasDirectionalPressure(trending, null), 'high ADX alone is directional pressure');
+  ok(!hasDirectionalPressure(sideways, null), 'a low ADX is not, on its own');
+});
+
+test('ADX: unusable input reports null, never a fabricated 20', () => {
+  // The analyzer's static wrapper keeps returning 20 for its own contract; the pure function must
+  // not, or a selection gate cannot tell "unknown" from "no pressure".
+  eq(wilderAdx([], 14), null, 'no bars -> null');
+  eq(wilderAdx(barKlines(chop(10)), 14), null, 'fewer bars than the period -> null');
+});
+
+test('ADX: the analyzer and the agent scan cannot drift apart (parity)', () => {
+  // Two callers, two numbers on the same tape, is how a desk ends up arguing about which one is
+  // real. Same fixture, same answer — the analyzer's `20` fallback is the only difference.
+  for (const fixture of [barKlines(ramp(48, 100, 20)), barKlines(chop(48)), barKlines(chop(20))]) {
+    eq(
+      wilderAdx(fixture, 14),
+      NeutralGridAnalyzer.computeWilderAdx14(fixture, 14),
+      'gridRegime.wilderAdx and NeutalGridAnalyzer.computeWilderAdx14 must agree'
+    );
+  }
+});
+
+test('Choppiness: high on a range, low on a one-way move, null without data', () => {
+  const ranging = choppinessIndex(barKlines(chop(48), 1.2), 14)!;
+  const trending = choppinessIndex(barKlines(ramp(48, 100, 20), 1.2), 14)!;
+
+  ok(ranging > trending, `a range must read choppier than a climb (${ranging} vs ${trending})`);
+  ok(trending < 45, `a straight climb must read as directional, got ${trending}`);
+  ok(ranging <= 95 && ranging >= 10, 'the index stays inside its clamp');
+  eq(choppinessIndex(barKlines(chop(5)), 14), null, 'too few bars -> null, not 0');
 });
 
 // ---------------------------------------------------------------------------

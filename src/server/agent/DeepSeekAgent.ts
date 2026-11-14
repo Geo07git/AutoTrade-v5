@@ -295,7 +295,9 @@ export function computeDeepSeekCostUSD(
 // PROMPTS
 // =============================================================================
 
-const SYSTEM_PROMPT = `You are "DeepSeek Grid Agent", the autonomous decision engine of TB5 (TradeBot v5).
+// Exported so the regression suite can assert the rules the model actually receives: a rule that
+// is not in the prompt is not a rule, and a prompt rule nobody can inspect is a wish.
+export const SYSTEM_PROMPT = `You are "DeepSeek Grid Agent", the autonomous decision engine of TB5 (TradeBot v5).
 
 DESK
 - Strategy: NEUTRAL GRID (market-neutral contract grid, direction=neutral) on OKX EEA perpetual FUTURES.
@@ -318,6 +320,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
 - er is the efficiency ratio of the 15m tape over the holding horizon: |net move| / |path travelled|, 0..1. Low (<= 0.4) = the price goes nowhere and travels a lot, which is what a neutral grid needs. High (> 0.4) = the price is GOING somewhere in one direction, so the grid is short that move and the exit eats the profit. Candidates with er > 0.4 are already eligible=false; never argue your way past that, and treat er close to the threshold as a tie-breaker AGAINST the candidate. null means unmeasured, not calm.
+- chop and adx are MEASURED, not placeholders: Choppiness Index(14) and Wilder ADX(14) on the 1h regime tape (15m when the hourly fetch degraded). High chop (> 61.8) = the range is being travelled both ways = grid weather. adx > 25 or chop < 45 = the range is covered in ONE direction, so DO NOT OPEN on that candidate, whatever crossings_per_h says - crossings counts distance, and a one-way move maximises it. null means unmeasured, not calm. The execution guard enforces er for you; it does NOT enforce these two, so respecting them is your job, not a formality.
 - The scan's band is now sized on the HOLDING HORIZON (target_holding_hours, 8h): 0.674 x ATR(1h) x sqrt(T), floored at +/-2% and capped at +/-6%. band_lifetime_hours is the median time until the band edge is touched, so it says what the band actually buys: ~ target_holding_hours is an honest band, much less means the +/-6% ceiling clamped a wild tape (the horizon will NOT be reached and the exit will eat the grid profit) - prefer HOLD there. A range much narrower than the scan's band is the same mistake from the other side: it will be crossed in minutes.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
@@ -917,8 +920,8 @@ export class DeepSeekAgent {
       atr_pct_1h: o.atrPct1h != null ? rnd(o.atrPct1h, 2) : null,
       target_holding_hours: o.targetHoldingHours ?? null,
       band_lifetime_hours: o.expectedLifetimeHours ?? null,
-      chop: rnd(o.choppinessIndex, 1),
-      adx: rnd(o.adxTrendStrength, 1),
+      chop: o.choppinessIndex == null ? null : rnd(o.choppinessIndex, 1),
+      adx: o.adxTrendStrength == null ? null : rnd(o.adxTrendStrength, 1),
       spread_bps: rnd(o.spreadBps, 2),
       oi_musd: rnd((o.openInterestUSD || 0) / 1e6, 2),
       funding_pct: rnd(o.fundingRatePct, 4),

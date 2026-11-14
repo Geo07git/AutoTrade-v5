@@ -92,6 +92,162 @@ export function isDisplacedRegime(er: number | null, threshold = GRID_ER_TREND_T
 }
 
 // ---------------------------------------------------------------------------
+// Directional pressure — ADX and Choppiness
+// ---------------------------------------------------------------------------
+
+/**
+ * Wilder ADX(14).
+ *
+ * Lives here, not in the analyzer, because TWO paths need it: the app's candidate analyzer and
+ * the agent's own scan. The agent used to send `adxTrendStrength: 0` to the model (audit §6.2),
+ * which reads as "no trend at all" — worse than sending nothing, because it looks like data.
+ *
+ * Returns `null` when the series cannot support a 14-period smoothing: the caller decides what
+ * "unknown" means, and a selection gate must never read unknown as a pass.
+ */
+export function wilderAdx(bars: Kline[], period = 14): number | null {
+  const usable = (bars || []).filter(
+    (k) => k && Number.isFinite(k.high) && Number.isFinite(k.low) && Number.isFinite(k.close)
+  );
+  if (usable.length < period + 2) return null;
+
+  const trList: number[] = [];
+  const plusDmList: number[] = [];
+  const minusDmList: number[] = [];
+
+  for (let i = 1; i < usable.length; i++) {
+    const cur = usable[i];
+    const prev = usable[i - 1];
+    const upMove = cur.high - prev.high;
+    const downMove = prev.low - cur.low;
+
+    trList.push(
+      Math.max(cur.high - cur.low, Math.abs(cur.high - prev.close), Math.abs(cur.low - prev.close))
+    );
+    plusDmList.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDmList.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  if (trList.length < period) return null;
+
+  let smoothTr = 0;
+  let smoothPlusDm = 0;
+  let smoothMinusDm = 0;
+  for (let i = 0; i < period; i++) {
+    smoothTr += trList[i];
+    smoothPlusDm += plusDmList[i];
+    smoothMinusDm += minusDmList[i];
+  }
+
+  const dxValues: number[] = [];
+  const pushDx = (trVal: number, pDm: number, mDm: number) => {
+    if (trVal <= 1e-12) {
+      dxValues.push(0);
+      return;
+    }
+    const plusDi = (pDm / trVal) * 100;
+    const minusDi = (mDm / trVal) * 100;
+    const diSum = plusDi + minusDi;
+    dxValues.push(diSum > 1e-9 ? (Math.abs(plusDi - minusDi) / diSum) * 100 : 0);
+  };
+
+  pushDx(smoothTr, smoothPlusDm, smoothMinusDm);
+  for (let i = period; i < trList.length; i++) {
+    smoothTr = smoothTr - smoothTr / period + trList[i];
+    smoothPlusDm = smoothPlusDm - smoothPlusDm / period + plusDmList[i];
+    smoothMinusDm = smoothMinusDm - smoothMinusDm / period + minusDmList[i];
+    pushDx(smoothTr, smoothPlusDm, smoothMinusDm);
+  }
+
+  if (dxValues.length === 0) return null;
+  // Not enough DX readings to smooth: the raw average is the honest answer, not a fabricated ADX.
+  if (dxValues.length < period) {
+    const avgDx = dxValues.reduce((a, b) => a + b, 0) / dxValues.length;
+    return clampAdx(avgDx);
+  }
+
+  let adx = 0;
+  for (let i = 0; i < period; i++) adx += dxValues[i];
+  adx /= period;
+  for (let i = period; i < dxValues.length; i++) adx = (adx * (period - 1) + dxValues[i]) / period;
+
+  return clampAdx(adx);
+}
+
+const clampAdx = (v: number): number =>
+  Number.isFinite(v) ? Math.min(95, Math.max(5, parseFloat(v.toFixed(1)))) : 5;
+
+/**
+ * Choppiness Index(14): `100 * log10(sum(TR) / (maxHigh - minLow)) / log10(period)`.
+ *
+ * High (> 61.8) = the range is being travelled back and forth = grid weather.
+ * Low  (< 45)   = the range is being covered in one direction = grid poison.
+ * The same 61.8/38.2 Fibonacci reading the app analyzer already used; the agent scan was sending 0.
+ *
+ * The window convention is the analyzer's, deliberately: `period` bars, the first true range
+ * measured against that bar's own open (there is no earlier close inside the window). Two
+ * implementations that "should" agree but differ by a window are how a desk ends up arguing
+ * about which number is real, so this one mirrors the existing maths exactly.
+ */
+export function choppinessIndex(bars: Kline[], period = 14): number | null {
+  const usable = (bars || []).filter(
+    (k) => k && Number.isFinite(k.high) && Number.isFinite(k.low) && Number.isFinite(k.close)
+  );
+  if (usable.length < period) return null;
+
+  const slice = usable.slice(-period);
+  let sumTr = 0;
+  let highest = -Infinity;
+  let lowest = Infinity;
+
+  for (let i = 0; i < slice.length; i++) {
+    const cur = slice[i];
+    const prevClose = i > 0 ? slice[i - 1].close : cur.open;
+    sumTr += Math.max(
+      cur.high - cur.low,
+      Math.abs(cur.high - prevClose),
+      Math.abs(cur.low - prevClose)
+    );
+    if (cur.high > highest) highest = cur.high;
+    if (cur.low < lowest) lowest = cur.low;
+  }
+
+  const hlRange = Math.max(1e-9, highest - lowest);
+  const raw = (100 * Math.log10(Math.max(1.0001, sumTr / hlRange))) / Math.log10(period);
+  return Number.isFinite(raw) ? Math.max(10, Math.min(95, parseFloat(raw.toFixed(1)))) : null;
+}
+
+/**
+ * Above this ADX the tape has real directional pressure; below this Choppiness it is going
+ * somewhere rather than round in circles. Both are the plan's numbers (P1.1).
+ */
+export const GRID_ADX_TREND_SELECTION = 25;
+export const GRID_CHOP_TREND_SELECTION = 45;
+/** The stricter pair the app analyzer already uses to LABEL a candidate `TRENDING_RISK`. */
+export const GRID_ADX_TRENDING_LABEL = 30;
+export const GRID_CHOP_TRENDING_LABEL = 40;
+
+/**
+ * Does directional pressure make this tape a bad host for a neutral grid?
+ *
+ * `null` on either measure is NOT a trend: this is used both as a label and as prompt guidance,
+ * and a refusal built on missing data deletes legitimate candidates instead of protecting them.
+ */
+export function hasDirectionalPressure(
+  adx: number | null,
+  chop: number | null,
+  adxThreshold = GRID_ADX_TREND_SELECTION,
+  chopThreshold = GRID_CHOP_TREND_SELECTION
+): boolean {
+  // No `Number(x)` coercion here, on purpose: `Number(null)` is 0, and 0 < 45, so a missing
+  // reading would have been reported as "the chop is 0 = extreme trend". That is the same
+  // fabricated-value bug this whole module exists to remove, so `null` is checked explicitly.
+  const adxHot = adx !== null && Number.isFinite(adx) && adx > adxThreshold;
+  const chopCold = chop !== null && Number.isFinite(chop) && chop < chopThreshold;
+  return adxHot || chopCold;
+}
+
+// ---------------------------------------------------------------------------
 // Range breakout — is the price EDGE-BREACHING or REGIME-CHANGING?
 // ---------------------------------------------------------------------------
 

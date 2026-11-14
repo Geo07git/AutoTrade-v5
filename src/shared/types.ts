@@ -369,8 +369,15 @@ export interface NativeGridOpportunity {
   expectedLifetimeHours?: number;
   /** Agent scan only: Kaufman efficiency ratio of the 15m tape (0..1), the oscillation test. */
   efficiencyRatio?: number | null;
-  choppinessIndex: number;
-  adxTrendStrength: number;
+  /**
+   * Choppiness Index(14) on the regime tape (0..100, >61.8 = sideways, <45 = directional).
+   *
+   * `null` = not measured. The agent scan used to send a literal 0 here, which reads as extreme
+   * directional pressure — a value that looked like data and was not.
+   */
+  choppinessIndex: number | null;
+  /** Wilder ADX(14) on the same regime tape (0..100, >25 = directional). `null` = not measured. */
+  adxTrendStrength: number | null;
   spreadBps: number;
   openInterestUSD: number;
   fundingRatePct: number;         // Current 8h funding rate %

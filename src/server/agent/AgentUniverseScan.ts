@@ -34,8 +34,13 @@ import {
 } from '../engine/grid/gridPlan';
 import { buildConstructedBand } from './gridBand';
 import {
+  choppinessIndex,
   efficiencyRatioFromKlines,
+  hasDirectionalPressure,
   isDisplacedRegime,
+  wilderAdx,
+  GRID_ADX_TRENDING_LABEL,
+  GRID_CHOP_TRENDING_LABEL,
   GRID_ER_SCAN_BARS,
   GRID_ER_TREND_THRESHOLD,
 } from '../engine/grid/gridRegime';
@@ -248,6 +253,16 @@ export interface AgentGridMetrics {
    * one-way move (what kills it).
    */
   efficiencyRatio: number | null;
+  /**
+   * Choppiness Index(14) on the REGIME bars (1h, 15m when there are too few), `null` if
+   * unmeasurable.
+   *
+   * Audit §6.2: this scan sent a literal `choppinessIndex: 0` to the model, which reads as
+   * "extreme directional pressure" — the worst possible lie, because it looks like data.
+   */
+  choppinessIndex: number | null;
+  /** Wilder ADX(14) on the same regime bars, `null` if unmeasurable. Same audit finding. */
+  adxTrendStrength: number | null;
   /** Expected minutes until the first level is touched. */
   expectedFirstFillMin: number;
   /** Step minus maker round-trip, funding drag and half-spread. */
@@ -297,6 +312,15 @@ export function computeAgentGridMetrics(input: {
     : 0;
   const atrPct1h = Number.isFinite(regimeAtr) && regimeAtr > 0 ? regimeAtr : undefined;
 
+  // --- directional pressure: measured, never assumed -------------------------
+  // Same bars the band is sized on: "does this regime suit a grid?" is a question about the
+  // holding horizon, not about the last 15 minutes. Falls back to the 15m tape when the 1h fetch
+  // degraded, and reports `null` (not 0) when neither can answer — a gate must tell "unknown"
+  // from "no pressure".
+  const pressureBars = regimeBars.length >= 16 ? regimeBars : bars;
+  const chop = choppinessIndex(pressureBars, 14);
+  const adx = wilderAdx(pressureBars, 14);
+
   // --- activity: absolute path travelled per hour ---------------------------
   const pathBars = bars.slice(-8); // 8 x 15m = 2h
   let pathSum = 0;
@@ -338,6 +362,8 @@ export function computeAgentGridMetrics(input: {
     expectedLifetimeHours: geo.expectedLifetimeHours,
     pathPerHourPct: round(pathPerHourPct, 3),
     efficiencyRatio,
+    choppinessIndex: chop,
+    adxTrendStrength: adx,
     halfRangePct,
     stepPct,
     gridNum,
@@ -515,6 +541,9 @@ export function buildAgentOpportunity(input: {
     `crossings/h=${metrics.crossingsPerHour} (path ${metrics.pathPerHourPct}%/h / pas ${metrics.stepPct}%)`,
     `ER=${metrics.efficiencyRatio === null ? 'n/a' : metrics.efficiencyRatio} ` +
       `(${isDisplacedRegime(metrics.efficiencyRatio) ? 'deplasare' : 'oscilație'}, prag ${GRID_ER_TREND_THRESHOLD})`,
+    `Choppiness(14)=${metrics.choppinessIndex ?? 'n/a'} / ADX(14)=${metrics.adxTrendStrength ?? 'n/a'} ` +
+      `pe tape-ul de regim (1h, fallback 15m) ` +
+      `(presiune direcțională dacă ADX>${GRID_ADX_TRENDING_LABEL} sau Chop<${GRID_CHOP_TRENDING_LABEL})`,
     `prima umplere estimată în ~${metrics.expectedFirstFillMin} min`,
     `bandă dimensionată pe orizontul de ${metrics.targetHoldingHours}h: ATR1h=${metrics.atrPct1h}% -> ` +
       `±${metrics.halfRangePct}% (atingerea marginii în ~${metrics.expectedLifetimeHours}h)`,
@@ -541,9 +570,10 @@ export function buildAgentOpportunity(input: {
     atrPct1h: metrics.atrPct1h,
     targetHoldingHours: metrics.targetHoldingHours,
     expectedLifetimeHours: metrics.expectedLifetimeHours,
-    // Not computed by this scan on purpose: the agent does not rank by these.
-    choppinessIndex: 0,
-    adxTrendStrength: 0,
+    // Measured on the regime tape (1h, 15m when the hourly fetch degraded). Audit §6.2: these
+    // two were hardcoded to 0, i.e. "no trend at all" on every single candidate.
+    choppinessIndex: metrics.choppinessIndex,
+    adxTrendStrength: metrics.adxTrendStrength,
     spreadBps: round(ticker.spreadPct * 100, 2),
     openInterestUSD: 0,
     fundingRatePct: round(fundingRatePct, 4),
@@ -553,11 +583,18 @@ export function buildAgentOpportunity(input: {
     suitabilityScore: 0,
     regimeLabel: isDisplacedRegime(metrics.efficiencyRatio)
       ? 'TRENDING_RISK'
-      : metrics.crossingsPerHour >= 0.5 && metrics.spreadPctOfStep <= AGENT_SCAN_MAX_SPREAD_OF_STEP
-        ? 'IDEAL_RANGE'
-        : metrics.atrPct >= 2
-          ? 'HIGH_VOL_RANGE'
-          : 'LOW_VOLATILITY',
+      : hasDirectionalPressure(
+            metrics.adxTrendStrength,
+            metrics.choppinessIndex,
+            GRID_ADX_TRENDING_LABEL,
+            GRID_CHOP_TRENDING_LABEL
+          )
+        ? 'TRENDING_RISK'
+        : metrics.crossingsPerHour >= 0.5 && metrics.spreadPctOfStep <= AGENT_SCAN_MAX_SPREAD_OF_STEP
+          ? 'IDEAL_RANGE'
+          : metrics.atrPct >= 2
+            ? 'HIGH_VOL_RANGE'
+            : 'LOW_VOLATILITY',
     efficiencyRatio: metrics.efficiencyRatio,
     halfRangePct: metrics.halfRangePct,
     minPx,

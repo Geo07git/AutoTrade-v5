@@ -903,6 +903,96 @@ test('regime: an oscillating tape is not refused by the regime gate', () => {
 });
 
 // ---------------------------------------------------------------------------
+// P1.1 — ADX and Choppiness: measured, never placeholders
+// ---------------------------------------------------------------------------
+
+/**
+ * 48 bars of a steady climb with shallow retraces: directional pressure (high ADX, low chop)
+ * without the vertical slope of `pumpKlines`, which the ER gate already refuses on its own.
+ */
+function climbingKlines(base = 100, stepPct = 0.3, n = 48): Kline[] {
+  return Array.from({ length: n }, (_, i) => {
+    const close = base * (1 + (stepPct / 100) * i);
+    return {
+      timestamp: Date.now() - (n - i) * 3_600_000,
+      open: close * 0.999,
+      high: close * 1.0005,
+      low: close * 0.9985,
+      close,
+      volume: 1000,
+    };
+  });
+}
+
+/** The sawtooth as HOURLY regime bars: alternating closes, wide bars = chop weather. */
+function oscillatingHourly(base = 100): Kline[] {
+  return Array.from({ length: 48 }, (_, i) => {
+    const close = i % 2 === 0 ? base : base * 1.004;
+    return {
+      timestamp: Date.now() - (48 - i) * 3_600_000,
+      open: close,
+      high: close * 1.002,
+      low: close * 0.998,
+      close,
+      volume: 1000,
+    };
+  });
+}
+
+test('P1.1: the scan reports real ADX(14) and Choppiness instead of the old hardcoded zeros', () => {
+  // Audit §6.2: every candidate reached the model with `choppinessIndex: 0, adxTrendStrength: 0`
+  // — a fabricated "no trend at all" on 100% of rows. Zero must never appear again.
+  const opp = buildAgentOpportunity({
+    spec: spec(),
+    ticker: ticker(),
+    klines15m: oscillatingKlines(),
+    klines1h: oscillatingHourly(),
+    book: book(),
+    settings,
+  })!;
+
+  ok(!!opp, 'the fixture must produce a row');
+  ok(opp.adxTrendStrength !== 0, `adx must be measured, got ${opp.adxTrendStrength}`);
+  ok(opp.choppinessIndex !== 0, `chop must be measured, got ${opp.choppinessIndex}`);
+  ok(opp.adxTrendStrength !== null && opp.adxTrendStrength! > 0, 'adx must be present, not null');
+  ok(opp.choppinessIndex !== null && opp.choppinessIndex! > 0, 'chop must be present, not null');
+  ok(
+    (opp.reasons || []).some((r) => r.includes('Choppiness(14)')),
+    'the measurement must be visible in the row reasons'
+  );
+});
+
+test('P1.1: a chop tape reads as chop — high Choppiness, low ADX, still IDEAL_RANGE', () => {
+  const opp = buildAgentOpportunity({
+    spec: spec(),
+    ticker: ticker(),
+    klines15m: oscillatingKlines(),
+    klines1h: oscillatingHourly(),
+    book: book(),
+    settings,
+  })!;
+
+  ok(opp.choppinessIndex! >= 45, `chop must read as chop, got ${opp.choppinessIndex}`);
+  ok(opp.adxTrendStrength! <= 25, `a sawtooth has no directional pressure, got ${opp.adxTrendStrength}`);
+  eq(opp.regimeLabel === 'TRENDING_RISK', false, 'chop must not be labelled a trend');
+});
+
+test('P1.1: an hourly climb reads as TRENDING_RISK from ADX alone, before the ER gate', () => {
+  const opp = buildAgentOpportunity({
+    spec: spec(),
+    ticker: ticker(),
+    klines15m: oscillatingKlines(),
+    klines1h: climbingKlines(),
+    book: book(),
+    settings,
+  })!;
+
+  ok(!!opp, 'the fixture must produce a row');
+  ok(opp.adxTrendStrength! > 25, `a one-way hourly climb must show ADX > 25, got ${opp.adxTrendStrength}`);
+  eq(opp.regimeLabel, 'TRENDING_RISK', 'directional pressure must label the regime, not decorate it');
+});
+
+// ---------------------------------------------------------------------------
 // Execute
 // ---------------------------------------------------------------------------
 

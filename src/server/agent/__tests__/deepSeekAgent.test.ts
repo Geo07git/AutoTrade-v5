@@ -21,6 +21,7 @@ import path from 'path';
 import {
   DeepSeekAgent,
   DEFAULT_DEEPSEEK_AGENT_CONFIG,
+  SYSTEM_PROMPT,
   computeDeepSeekCostUSD,
   effectiveMinLiqDistancePct,
   estimateTokensFromText,
@@ -1287,6 +1288,42 @@ test('history: decisions are persisted newest-first and capped', async () => {
 // ---------------------------------------------------------------------------
 // Execute + cleanup
 // ---------------------------------------------------------------------------
+// ===========================================================================
+// P1.1 — the model receives measured ADX/Choppiness, and a rule about them
+// ===========================================================================
+
+test('prompt: the system rules state that chop/adx are measured AND veto an open', () => {
+  // A rule that is not in the prompt is not a rule. Audit §6.2: the agent used to send
+  // `chop: 0, adx: 0` while the prompt said nothing about either, so the model could not act
+  // on directional pressure even in principle.
+  ok(/chop and adx are MEASURED/.test(SYSTEM_PROMPT), 'the prompt must say the values are real');
+  ok(/adx > 25 or chop < 45/.test(SYSTEM_PROMPT), 'the prompt must name both thresholds');
+  ok(/DO NOT OPEN on that candidate/.test(SYSTEM_PROMPT), 'the rule must be a veto, not advice');
+});
+
+test('payload: a candidate carries its measured chop/adx to the model, never a hardcoded 0', () => {
+  const h = makeAgent({
+    opportunities: [
+      opportunity({ instId: INST, choppinessIndex: 58.4, adxTrendStrength: 21.7 }),
+      opportunity({ instId: OTHER_INST, choppinessIndex: null, adxTrendStrength: null }),
+    ],
+  });
+
+  // buildContext is the single place where the row becomes prompt data; calling it directly is
+  // the only way to assert what the model sees without a network round-trip.
+  const ctx = (h.agent as any).buildContext(h.agent.getConfig());
+  const rows = ctx.promptContext.candidates;
+
+  const measured = rows.find((r: any) => r.instId === INST);
+  eq(measured.chop, 58.4, 'chop must reach the prompt unrounded-wrong');
+  eq(measured.adx, 21.7, 'adx must reach the prompt');
+
+  // `null` must stay `null`: rnd(null) used to return 0, which reads as "no trend at all".
+  const unmeasured = rows.find((r: any) => r.instId === OTHER_INST);
+  eq(unmeasured.chop, null, 'an unmeasured chop must be null, not 0');
+  eq(unmeasured.adx, null, 'an unmeasured adx must be null, not 0');
+});
+
 const run = async (): Promise<void> => {
   let failed = 0;
   for (const t of registered) {
