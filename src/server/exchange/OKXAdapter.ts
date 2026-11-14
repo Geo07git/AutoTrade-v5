@@ -48,6 +48,47 @@ export class OKXAdapter implements IExecutionAdapter {
     unrealizedPnl: number;
   }> | null = null;
   private static readonly BALANCE_CACHE_TTL_MS = 8_000;
+
+  // ---------------------------------------------------------------------------
+  // Public market-data pacing
+  // ---------------------------------------------------------------------------
+  // OKX allows ~40 requests / 2 s per IP on /market/candles. The agent universe scan used to fire
+  // 5 workers x 4 requests concurrently (~20 in flight) and collected a 429/50011 storm: every
+  // cycle still completed, but each throttle added 1.2-2.2 s of backoff and a second failed retry
+  // silently drops a symbol, which then fails the two-scan confirmation for reasons unrelated to
+  // the market. One token bucket per process keeps every caller (scanner, analyzer, reconciler)
+  // under the limit instead of relying on each of them to be polite.
+  private static readonly PUBLIC_RATE_PER_SEC = 15;
+  private static readonly PUBLIC_RATE_BURST = 20;
+  private publicTokens = OKXAdapter.PUBLIC_RATE_BURST;
+  private publicTokensAt = Date.now();
+  private publicPaceChain: Promise<unknown> = Promise.resolve();
+
+  /** Serialised token bucket: concurrent callers queue here instead of bursting into a 429. */
+  private async pacePublicRequest(): Promise<void> {
+    const step = this.publicPaceChain.then(async () => {
+      const now = Date.now();
+      this.publicTokens = Math.min(
+        OKXAdapter.PUBLIC_RATE_BURST,
+        this.publicTokens + ((now - this.publicTokensAt) / 1000) * OKXAdapter.PUBLIC_RATE_PER_SEC
+      );
+      this.publicTokensAt = now;
+      if (this.publicTokens < 1) {
+        const waitMs = Math.ceil(((1 - this.publicTokens) / OKXAdapter.PUBLIC_RATE_PER_SEC) * 1000);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        this.publicTokens = 0;
+        this.publicTokensAt = Date.now();
+      } else {
+        this.publicTokens -= 1;
+      }
+    });
+    this.publicPaceChain = step.catch(() => undefined);
+    await step;
+  }
+
+  /** Short-TTL candle cache: the analyzer re-reads the same (instId, bar) every ~16 s. */
+  private static readonly KLINES_CACHE_TTL_MS = 20_000;
+  private klinesCache = new Map<string, { at: number; klines: any[] }>();
   private lastFillsFetchTime: number = 0;
   private cachedFillsSummary: {
     realizedPnlUSDT: number;
@@ -284,6 +325,11 @@ export class OKXAdapter implements IExecutionAdapter {
   ): Promise<any> {
     if (signal?.aborted) {
       throw new Error(`OKX request aborted: ${path}`);
+    }
+
+    // Pace public market-data reads only: order placement must never queue behind a candle fetch.
+    if (!isAuth && (path.startsWith('/api/v5/market/') || path.startsWith('/api/v5/public/'))) {
+      await this.pacePublicRequest();
     }
 
     const timestamp = new Date().toISOString();
@@ -1162,6 +1208,11 @@ export class OKXAdapter implements IExecutionAdapter {
     else if (norm === 'D' || norm === '1D') bar = '1D';
 
     try {
+      const cacheKey = `${instId}|${bar}|${limit}`;
+      const cached = this.klinesCache.get(cacheKey);
+      if (!signal && cached && Date.now() - cached.at < OKXAdapter.KLINES_CACHE_TTL_MS) {
+        return cached.klines as Kline[];
+      }
       const fetchSignal = signal || AbortSignal.timeout(7500);
       const res = await this.request('GET', `/api/v5/market/candles?instId=${instId}&bar=${bar}&limit=${limit}`, undefined, false, fetchSignal);
       if (process.env.OKX_DEBUG === '1') {
@@ -1169,7 +1220,7 @@ export class OKXAdapter implements IExecutionAdapter {
       }
       if (res.code === '0' && Array.isArray(res.data)) {
         // OKX returns newest candles first; reverse so oldest is index 0
-        return res.data
+        const out: Kline[] = res.data
           .map((k: any[]) => ({
             timestamp: parseInt(k[0]),
             open: parseFloat(k[1]),
@@ -1180,6 +1231,9 @@ export class OKXAdapter implements IExecutionAdapter {
             volume: parseFloat(k[5]) || parseFloat(k[6]) || 0,
           }))
           .reverse();
+        if (this.klinesCache.size > 400) this.klinesCache.clear();
+        this.klinesCache.set(cacheKey, { at: Date.now(), klines: out });
+        return out;
       }
       console.warn(`[OKXAdapter] getKlines returned no data for ${instId}: code=${res.code}, data=${typeof res.data}, msg=${res.msg}`);
       return [];

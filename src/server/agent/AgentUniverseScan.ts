@@ -833,7 +833,9 @@ export class AgentUniverseScanner {
 
     // Stage 2 — deep scan: candles + book, then the agent's own math.
     const rows: NativeGridOpportunity[] = [];
-    const poolSize = 5;
+    // Concurrency 3 (was 5): with the adapter token bucket this keeps at most ~12 requests in
+    // flight, under OKX's 40-per-2s candle budget, so a scan never collects a 429 storm.
+    const poolSize = 3;
     let cursor = 0;
     const worker = async () => {
       while (cursor < stage1.length) {
