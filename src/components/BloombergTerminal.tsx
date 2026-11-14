@@ -2450,7 +2450,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                           </div>
 
                           {/* Bot Metrics Row */}
-                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1 text-[11px] bg-zinc-950 p-2 rounded border border-zinc-900">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px] bg-zinc-950 p-2 rounded border border-zinc-900">
                             <div>
                               <span className="text-zinc-500 block text-[10px]">Buget Alocat</span>
                               <span className="text-white font-bold tabular-nums">
@@ -2458,12 +2458,42 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               </span>
                             </div>
                             <div>
-                              <span className="text-zinc-500 block text-[10px]">Profit Grilă</span>
+                              <span className="text-zinc-500 block text-[10px]">Captură Grilă</span>
                               <span className="text-emerald-400 font-bold tabular-nums">
-                                +${bot.gridProfitUSDT.toFixed(3)}
+                                {(bot.gridCaptureUSDT || 0) >= 0 ? '+' : ''}$
+                                {(bot.gridCaptureUSDT || 0).toFixed(3)}
                               </span>
                               <span className="text-[9px] text-zinc-500 block tabular-nums">
-                                Fee: -${(bot.totalFeesUSDT || 0).toFixed(3)}
+                                {bot.completedArbitrages} round-trip-uri
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500 block text-[10px]">Cost Ieșire</span>
+                              <span
+                                className={`font-bold tabular-nums ${
+                                  (bot.exitCostUSDT || 0) < 0 ? 'text-rose-400' : 'text-zinc-400'
+                                }`}
+                              >
+                                {(bot.exitCostUSDT || 0) >= 0 ? '+' : ''}$
+                                {(bot.exitCostUSDT || 0).toFixed(3)}
+                              </span>
+                              <span className="text-[9px] text-zinc-500 block tabular-nums">
+                                închideri la piață
+                              </span>
+                            </div>
+                            <div>
+                              <span
+                                className="text-zinc-500 block text-[10px]"
+                                title="Maker pe fill-urile grilei + taker pe închideri"
+                              >
+                                Fees
+                              </span>
+                              <span className="text-amber-300 font-bold tabular-nums">
+                                -${(bot.totalFeesUSDT || 0).toFixed(3)}
+                              </span>
+                              <span className="text-[9px] text-zinc-500 block tabular-nums">
+                                agregat {(bot.gridProfitUSDT || 0) >= 0 ? '+' : ''}$
+                                {(bot.gridProfitUSDT || 0).toFixed(3)}
                               </span>
                             </div>
                             <div>

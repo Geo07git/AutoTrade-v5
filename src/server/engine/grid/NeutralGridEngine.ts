@@ -10,6 +10,16 @@ import { IExecutionAdapter } from '../../exchange/IExecutionAdapter';
 import { GridJournal } from './GridJournal';
 import { GridOptimizer } from './GridOptimizer';
 import { GridRiskManager } from './GridRiskManager';
+import {
+  addToCounter,
+  chargeExitCost,
+  computeNetPnl,
+  countersFromBot,
+  creditGridCapture,
+  legacyGridProfit,
+  splitIsIntact,
+  splitLegacyRealized,
+} from './gridPnlAccounting';
 
 export class NeutralGridEngine {
   private adapter: IExecutionAdapter;
@@ -17,6 +27,7 @@ export class NeutralGridEngine {
   private bots: Map<string, GridBotInstance> = new Map();
   private lastKnownPrices: Map<string, number> = new Map();
   private lastWarnedDiscrepancyByBot: Map<string, number> = new Map();
+  private lastWarnedSplitDiffByBot: Map<string, number> = new Map();
   private processingSymbols: Set<string> = new Set();
   private isReconciling: boolean = false;
 
@@ -26,12 +37,70 @@ export class NeutralGridEngine {
 
     // Restore persisted bots
     const saved = this.journal.getBots();
+    const migrated = this.migratePnlSplit(saved);
     for (const b of saved) {
       this.bots.set(b.botId, b);
       if (b.currentPrice > 0) {
         this.lastKnownPrices.set(b.symbol, b.currentPrice);
       }
     }
+    if (migrated.backfilled > 0 || migrated.repaired > 0) {
+      this.journal.logAudit(
+        'RECOVERY',
+        `[MIGRARE PNL] ${migrated.backfilled} boți fără split captură/ieșire (derivat din jurnalul de arbitraje: +$${migrated.captureUSDT.toFixed(4)} / $${migrated.exitCostUSDT.toFixed(4)}), ${migrated.repaired} boți cu agregat stal (reparat din split).`,
+        migrated
+      );
+    }
+  }
+
+  /**
+   * Idempotent migration/repair for persisted bots. Two cases, both safe to run on every boot:
+   *
+   * 1. Pre-P0.3 bot, only `gridProfitUSDT` known -> the capture is recoverable from the arbitrage
+   *    journal (every round-trip was journalled with its own netProfitUSDT) and whatever remains of
+   *    `gridProfitUSDT` is, by elimination, the close. `backfilled` counts these.
+   * 2. Bot that already carries the split -> the split is the truth, so a stale aggregate (a process
+   *    killed between a fill credit and the next accounting pass) is repaired here. `repaired` counts these.
+   *
+   * Nothing is recomputed from the journal once the counters exist: a bot's history must not move
+   * because the journal is capped at 500 events.
+   */
+  private migratePnlSplit(bots: GridBotInstance[]): {
+    backfilled: number;
+    repaired: number;
+    captureUSDT: number;
+    exitCostUSDT: number;
+  } {
+    const arbitrageTotals = new Map<string, number>();
+    for (const arb of this.journal.getArbitrages(500)) {
+      const net = Number(arb?.netProfitUSDT) || 0;
+      if (!arb?.botId || net === 0) continue;
+      arbitrageTotals.set(arb.botId, addToCounter(arbitrageTotals.get(arb.botId) || 0, net));
+    }
+
+    let backfilled = 0;
+    let repaired = 0;
+    let captureUSDT = 0;
+    let exitCostUSDT = 0;
+    for (const bot of bots) {
+      if (typeof bot.gridCaptureUSDT === 'number' && typeof bot.exitCostUSDT === 'number') {
+        if (!splitIsIntact(Number(bot.gridProfitUSDT) || 0, bot)) {
+          bot.gridProfitUSDT = legacyGridProfit(bot);
+          repaired += 1;
+        }
+        continue;
+      }
+      const split = splitLegacyRealized(
+        Number(bot.gridProfitUSDT) || 0,
+        arbitrageTotals.get(bot.botId) || 0
+      );
+      bot.gridCaptureUSDT = split.gridCaptureUSDT;
+      bot.exitCostUSDT = split.exitCostUSDT;
+      backfilled += 1;
+      captureUSDT = addToCounter(captureUSDT, split.gridCaptureUSDT);
+      exitCostUSDT = addToCounter(exitCostUSDT, split.exitCostUSDT);
+    }
+    return { backfilled, repaired, captureUSDT, exitCostUSDT };
   }
 
   public setAdapter(adapter: IExecutionAdapter) {
@@ -179,6 +248,8 @@ export class NeutralGridEngine {
         netPositionContracts: 0,
         netPositionSide: 'FLAT',
         avgHoldPrice: livePrice,
+        gridCaptureUSDT: 0,
+        exitCostUSDT: 0,
         gridProfitUSDT: 0,
         floatingPnlUSDT: 0,
         totalFeesUSDT: 0,
@@ -653,7 +724,7 @@ export class NeutralGridEngine {
     lvl.fillCount += 1;
     lvl.lastFilledAt = Date.now();
     lvl.status = 'IDLE'; // Filled, now becomes the pivot level
-    bot.totalFeesUSDT = parseFloat((bot.totalFeesUSDT + fee).toFixed(4));
+    bot.totalFeesUSDT = addToCounter(bot.totalFeesUSDT, fee);
 
     // Mark order as FILLED in journal with real fee paid
     if (lvl.activeOrderLinkId) {
@@ -717,8 +788,9 @@ export class NeutralGridEngine {
       const pairFeeUSDT = parseFloat((openLegFee + closeLegFee).toFixed(4));
 
       bot.completedArbitrages += 1;
-      bot.gridProfitUSDT = parseFloat((bot.gridProfitUSDT + netProfit).toFixed(4));
-      lvl.realizedGridProfitUSDT = parseFloat((lvl.realizedGridProfitUSDT + netProfit).toFixed(4));
+      // The grid mechanic earned this. Fees are charged separately, the exit is untouched here.
+      creditGridCapture(bot, netProfit);
+      lvl.realizedGridProfitUSDT = addToCounter(lvl.realizedGridProfitUSDT, netProfit);
 
       const arbEvent: GridArbitrageEvent = {
         id: `arb_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -832,9 +904,9 @@ export class NeutralGridEngine {
       bot.floatingPnlUSDT = 0;
     }
 
-    bot.totalNetPnlUSDT = parseFloat(
-      (bot.gridProfitUSDT + bot.floatingPnlUSDT - bot.totalFeesUSDT + bot.fundingEstimateUSDT).toFixed(4)
-    );
+    // The legacy aggregate is derived, never accumulated: the split does not change equity.
+    bot.gridProfitUSDT = legacyGridProfit(bot);
+    bot.totalNetPnlUSDT = computeNetPnl(countersFromBot(bot));
     const margin = Math.max(1, bot.config.marginInvestedUSDT);
     bot.totalNetPnlPct = parseFloat(((bot.totalNetPnlUSDT / margin) * 100).toFixed(2));
 
@@ -847,6 +919,8 @@ export class NeutralGridEngine {
    * within $0.01 tolerance.
    */
   private verifyBotAccountingInvariant(bot: GridBotInstance, currentPrice: number, ctVal: number) {
+    this.verifyPnlSplit(bot);
+
     const filledOrders = this.journal.getFilledOrdersByBot(bot.botId);
     if (filledOrders.length === 0) return;
 
@@ -897,6 +971,38 @@ export class NeutralGridEngine {
     } else {
       this.lastWarnedDiscrepancyByBot.delete(bot.botId);
     }
+  }
+
+  /**
+   * Post-condition on the split: `gridCaptureUSDT + exitCostUSDT` must still equal the aggregate
+   * `gridProfitUSDT` that readers trust. Drift is structurally impossible now — the aggregate is
+   * derived, not accumulated, and the two counters have a single writer each — so this is not a
+   * drift detector. It is an assertion that fails loudly if a future edit writes one of the three
+   * fields behind the accounting's back, or if the two derivations ever stop agreeing.
+   */
+  private verifyPnlSplit(bot: GridBotInstance) {
+    if (splitIsIntact(bot.gridProfitUSDT, bot)) {
+      this.lastWarnedSplitDiffByBot.delete(bot.botId);
+      return;
+    }
+
+    const aggregate = Number(bot.gridProfitUSDT) || 0;
+    const splitSum = legacyGridProfit(bot);
+    const diff = Math.abs(splitSum - aggregate);
+    const prevWarnedDiff = this.lastWarnedSplitDiffByBot.get(bot.botId) || 0;
+    if (Math.abs(diff - prevWarnedDiff) <= 0.005) return;
+    this.lastWarnedSplitDiffByBot.set(bot.botId, diff);
+
+    const msg = `[SPLIT PNL RUPT] ${bot.symbol} (${bot.botId}): gridCaptureUSDT ($${bot.gridCaptureUSDT.toFixed(4)}) + exitCostUSDT ($${bot.exitCostUSDT.toFixed(4)}) = $${splitSum.toFixed(4)} != gridProfitUSDT ($${aggregate.toFixed(4)}), diferență $${diff.toFixed(4)}`;
+    console.warn(msg);
+    this.journal.logAudit('RECONCILIATION_DISCREPANCY', msg, {
+      botId: bot.botId,
+      symbol: bot.symbol,
+      gridCaptureUSDT: bot.gridCaptureUSDT,
+      exitCostUSDT: bot.exitCostUSDT,
+      gridProfitUSDT: aggregate,
+      diff: parseFloat(diff.toFixed(4)),
+    });
   }
 
   /**
@@ -1001,8 +1107,9 @@ export class NeutralGridEngine {
         ((closePrice - closeAvgHold) * closeQty * ctVal * (prevNet > 0 ? 1 : -1)).toFixed(4)
       );
 
-      bot.totalFeesUSDT = parseFloat((bot.totalFeesUSDT + closeFee).toFixed(4));
-      bot.gridProfitUSDT = parseFloat((bot.gridProfitUSDT + closeRealized).toFixed(4));
+      bot.totalFeesUSDT = addToCounter(bot.totalFeesUSDT, closeFee);
+      // The exit policy paid this. It must never land in gridCaptureUSDT.
+      chargeExitCost(bot, closeRealized);
 
       this.journal.recordOrder({
         id: closeLinkId,
@@ -1034,7 +1141,7 @@ export class NeutralGridEngine {
 
     this.journal.logAudit(
       finalStatus === 'STOPPED' ? 'GRID_STOPPED' : 'GRID_RISK_TRIGGERED',
-      `[BOT GRID OPRIT] ${bot.symbol} (${bot.botId}) | Status: ${finalStatus} | Motiv: ${reason} | Profit Grilă: $${bot.gridProfitUSDT.toFixed(2)} | PnL Total Net: $${bot.totalNetPnlUSDT.toFixed(2)} (${bot.totalNetPnlPct >= 0 ? '+' : ''}${bot.totalNetPnlPct}%)`
+      `[BOT GRID OPRIT] ${bot.symbol} (${bot.botId}) | Status: ${finalStatus} | Motiv: ${reason} | Captură Grilă: $${bot.gridCaptureUSDT.toFixed(2)} | Cost Ieșire: $${bot.exitCostUSDT.toFixed(2)} | PnL Total Net: $${bot.totalNetPnlUSDT.toFixed(2)} (${bot.totalNetPnlPct >= 0 ? '+' : ''}${bot.totalNetPnlPct}%)`
     );
 
     const runExchangeCleanup = async () => {

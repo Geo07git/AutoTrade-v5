@@ -172,11 +172,26 @@ export interface GridBotInstance {
   netPositionContracts: number;
   netPositionSide: 'LONG' | 'SHORT' | 'FLAT';
   avgHoldPrice: number;
-  gridProfitUSDT: number;       // Realized profit from completed grid buy-low/sell-high pairs
+  /**
+   * What the grid mechanic earned: sum of completed buy-low/sell-high round-trips, gross of fees.
+   * Never receives the result of a forced close — that belongs in `exitCostUSDT`.
+   */
+  gridCaptureUSDT: number;
+  /**
+   * What the exit policy cost: realized PnL of forced market closes of the leftover inventory
+   * (signed, normally negative). Kept apart so "the grid works, the exits don't" is visible.
+   */
+  exitCostUSDT: number;
+  /**
+   * Legacy aggregate = gridCaptureUSDT + exitCostUSDT, maintained (never accumulated into)
+   * so every existing reader — TradeBot, GridBotAnalyzer, the UI, `grid_bots.json` — keeps
+   * one total while the two counters above stay the truth. See `engine/grid/gridPnlAccounting.ts`.
+   */
+  gridProfitUSDT: number;
   floatingPnlUSDT: number;      // Unrealized PnL on currently held inventory
   totalFeesUSDT: number;
   fundingEstimateUSDT: number;
-  totalNetPnlUSDT: number;      // gridProfitUSDT + floatingPnlUSDT - totalFeesUSDT + fundingEstimateUSDT
+  totalNetPnlUSDT: number;      // gridCaptureUSDT + exitCostUSDT - totalFeesUSDT + fundingEstimateUSDT + floatingPnlUSDT
   totalNetPnlPct: number;       // % return on marginInvestedUSDT
   completedArbitrages: number;  // Total matched grid round-trips
   activeBuyOrders: number;
