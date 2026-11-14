@@ -311,6 +311,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The current price MUST lie strictly inside [minPx, maxPx], and the range must stay within +/-25% of the current price.
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
+- The scan's band is now sized on the HOLDING HORIZON (target_holding_hours, 8h): 0.674 x ATR(1h) x sqrt(T), floored at +/-2% and capped at +/-6%. band_lifetime_hours is the median time until the band edge is touched, so it says what the band actually buys: ~ target_holding_hours is an honest band, much less means the +/-6% ceiling clamped a wild tape (the horizon will NOT be reached and the exit will eat the grid profit) - prefer HOLD there. A range much narrower than the scan's band is the same mistake from the other side: it will be crossed in minutes.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
 - Avoid symbols with high absolute funding when a better candidate exists.
@@ -900,6 +901,12 @@ export class DeepSeekAgent {
       spread_of_step: o.stepPct ? rnd((o.spreadBps || 0) / 100 / o.stepPct, 3) : null,
       regime: o.regimeLabel,
       atr_pct: rnd(o.atrPct, 2),
+      // The band is sized on the HOLDING HORIZON from the hourly regime, so the model gets the two
+      // numbers that decided it plus the lifetime the band actually buys - a clamp on either bound
+      // would otherwise be invisible in the payload.
+      atr_pct_1h: o.atrPct1h != null ? rnd(o.atrPct1h, 2) : null,
+      target_holding_hours: o.targetHoldingHours ?? null,
+      band_lifetime_hours: o.expectedLifetimeHours ?? null,
       chop: rnd(o.choppinessIndex, 1),
       adx: rnd(o.adxTrendStrength, 1),
       spread_bps: rnd(o.spreadBps, 2),

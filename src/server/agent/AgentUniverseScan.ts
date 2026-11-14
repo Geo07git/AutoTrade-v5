@@ -25,6 +25,7 @@ import {
   maxLeverageForBand,
   priceDecimals,
   snapToTick,
+  GRID_DEFAULT_TARGET_HOLDING_HOURS,
   GRID_FEE_FLOOR_MULTIPLE,
   GRID_MAX_HALF_RANGE_PCT,
   GRID_MAX_SPREAD_OF_STEP,
@@ -57,6 +58,23 @@ export const AGENT_SCAN_MAX_LEVERAGE = GRID_PLAN_MAX_LEVERAGE;
 /** Band half-width bounds, in % of price. */
 export const AGENT_SCAN_MIN_HALF_RANGE_PCT = GRID_MIN_HALF_RANGE_PCT;
 export const AGENT_SCAN_MAX_HALF_RANGE_PCT = GRID_MAX_HALF_RANGE_PCT;
+
+/**
+ * Holding horizon the band is sized for, in hours. Alias of the plan builder's default so the
+ * scan cannot rank a band that the execution path would size differently.
+ */
+export const AGENT_SCAN_TARGET_HOLDING_HOURS = GRID_DEFAULT_TARGET_HOLDING_HOURS;
+/**
+ * A candidate must fit at least this many round-trips inside the holding horizon.
+ *
+ * Three because the accounting is asymmetric: every round-trip is taxed by the maker round-trip
+ * and the grid ALSO pays a half-spread and (eventually) a forced exit. Two round-trips do not
+ * clear that; the number that separates "a bot that trades" from "a bot that locks 12 USDT and
+ * pays an exit" is three, which is also what the live sample showed was never reached.
+ */
+export const AGENT_SCAN_MIN_ROUND_TRIPS_IN_HORIZON = 3;
+/** 1h bars fetched per contract for the regime ATR (24 = one day of hourly bars). */
+export const AGENT_SCAN_REGIME_BARS_1H = 24;
 
 /** Elite pool size (how many of the whole universe keep their candles). */
 export const AGENT_SCAN_POOL_SIZE = 50;
@@ -101,6 +119,11 @@ export interface AgentUniverseDataSource {
   listXPerpContracts(): Promise<AgentContractSpec[]>;
   fetchTickers(): Promise<Record<string, AgentUniverseTicker>>;
   fetchKlines15m(instId: string, bars: number): Promise<Kline[]>;
+  /**
+   * 1h candles: the REGIME the band is sized on. The 15m tape decides the step, but a band that
+   * has to survive several hours is measured in hourly movement — the two are not interchangeable.
+   */
+  fetchKlines1h(instId: string, bars: number): Promise<Kline[]>;
   fetchBookSnapshot(instId: string, depth: number): Promise<AgentBookSnapshot>;
 }
 
@@ -192,8 +215,14 @@ export interface AgentScanSettings {
 // ---------------------------------------------------------------------------
 
 export interface AgentGridMetrics {
-  /** Wilder-lite true-range average over 15m bars, in % of price. */
+  /** Wilder-lite true-range average over 15m bars, in % of price. Drives the step. */
   atrPct: number;
+  /** True-range average over 1h bars, in % of price. Drives the band. */
+  atrPct1h: number;
+  /** Holding horizon the band was sized for, in hours. */
+  targetHoldingHours: number;
+  /** Median hours until the band edge is touched at the measured 15m ATR. */
+  expectedLifetimeHours: number;
   /** Absolute price path travelled per hour, in % of price. */
   pathPerHourPct: number;
   /** Half of the grid band, in % of price. */
@@ -218,12 +247,18 @@ const round = (v: number, d: number) => {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
 
 /**
- * Derives the grid geometry and the fill statistics from raw 15m candles.
+ * Derives the grid geometry and the fill statistics from raw candles.
  * Returns null when the tape is unusable (too few bars / non-positive price).
+ *
+ * `klines1h` is the REGIME input: the band is sized on hourly movement over the holding horizon,
+ * the step on 15m movement. When it is absent the plan builder scales the 15m ATR by sqrt(4),
+ * which is the same random-walk assumption the horizon maths already makes.
  */
 export function computeAgentGridMetrics(input: {
   price: number;
   klines15m: Kline[];
+  klines1h?: Kline[];
+  targetHoldingHours?: number;
   spreadPct?: number;
   roundTripFeePct: number;
   fundingRatePct?: number;
@@ -235,9 +270,16 @@ export function computeAgentGridMetrics(input: {
   if (bars.length < 16) return null;
 
   // --- volatility: average true range, in % of price -------------------------
-  const trPct = bars.slice(-14).map((k) => ((k.high - k.low) / k.close) * 100);
-  const atrPct = mean(trPct.filter((v) => Number.isFinite(v) && v > 0));
+  const trueRangePct = (k: Kline): number => ((k.high - k.low) / k.close) * 100;
+  const atrPct = mean(bars.slice(-14).map(trueRangePct).filter((v) => Number.isFinite(v) && v > 0));
   if (!Number.isFinite(atrPct) || atrPct <= 0) return null;
+
+  // --- regime: the same measure on 1h bars (ignored when there are too few) --
+  const regimeBars = (input.klines1h || []).filter((k) => k && k.close > 0);
+  const regimeAtr = regimeBars.length >= 8
+    ? mean(regimeBars.slice(-14).map(trueRangePct).filter((v) => Number.isFinite(v) && v > 0))
+    : 0;
+  const atrPct1h = Number.isFinite(regimeAtr) && regimeAtr > 0 ? regimeAtr : undefined;
 
   // --- activity: absolute path travelled per hour ---------------------------
   const pathBars = bars.slice(-8); // 8 x 15m = 2h
@@ -253,6 +295,8 @@ export function computeAgentGridMetrics(input: {
   // implementation in this repo, and `gridPlan.test.ts` locks this parity.
   const geo = deriveGridGeometry({
     atrPct,
+    atrPct1h,
+    targetHoldingHours: input.targetHoldingHours,
     roundTripFeePct: input.roundTripFeePct,
     spreadPct: input.spreadPct,
     fundingRatePct: input.fundingRatePct,
@@ -268,6 +312,9 @@ export function computeAgentGridMetrics(input: {
 
   return {
     atrPct: geo.atrPct,
+    atrPct1h: geo.atrPct1h,
+    targetHoldingHours: geo.targetHoldingHours,
+    expectedLifetimeHours: geo.expectedLifetimeHours,
     pathPerHourPct: round(pathPerHourPct, 3),
     halfRangePct,
     stepPct,
@@ -294,6 +341,7 @@ export function buildAgentOpportunity(input: {
   spec: AgentContractSpec;
   ticker: AgentUniverseTicker;
   klines15m: Kline[];
+  klines1h?: Kline[];
   book: AgentBookSnapshot;
   settings: AgentScanSettings;
 }): NativeGridOpportunity | null {
@@ -303,6 +351,8 @@ export function buildAgentOpportunity(input: {
   const metrics = computeAgentGridMetrics({
     price: ticker.lastPrice,
     klines15m,
+    klines1h: input.klines1h,
+    targetHoldingHours: AGENT_SCAN_TARGET_HOLDING_HOURS,
     spreadPct: ticker.spreadPct,
     roundTripFeePct: settings.roundTripFeePct,
     fundingRatePct,
@@ -364,6 +414,22 @@ export function buildAgentOpportunity(input: {
       `Spread ${round(metrics.spreadPctOfStep * 100, 1)}% din pas (max ${AGENT_SCAN_MAX_SPREAD_OF_STEP * 100}%)`
     );
   }
+  // HORIZON gate: the band is now wide enough to survive the holding horizon, so a tape that is
+  // too slow to cross it inside that horizon has to be refused here — otherwise the bot simply
+  // sits on locked margin until the stagnation stop rescues it (the live failure: 0-3
+  // arbitrages in a 50-minute life, every round-trip eaten by the exit).
+  //
+  // One round-trip is one STEP of travel, and the first touch happens after HALF a step, so the
+  // expected duration of a round-trip is twice `expectedFirstFillMin` — not once.
+  const horizonMinutes = round(metrics.targetHoldingHours * 60, 2);
+  const expectedRoundTripMin = Math.max(0.02, metrics.expectedFirstFillMin * 2);
+  const roundTripsInHorizon = round(horizonMinutes / expectedRoundTripMin, 2);
+  if (roundTripsInHorizon < AGENT_SCAN_MIN_ROUND_TRIPS_IN_HORIZON) {
+    reject(
+      `Prea puține round-trip-uri în orizontul de ${metrics.targetHoldingHours}h: prima umplere la ` +
+        `~${metrics.expectedFirstFillMin} min (încape ${roundTripsInHorizon}x, minim ${AGENT_SCAN_MIN_ROUND_TRIPS_IN_HORIZON})`
+    );
+  }
   // ADVISORY, not a gate — and no longer a venue query either.
   //
   // This number is `1 lot x gridNum / lever` computed LOCALLY. An X-Perp grid never reaches
@@ -410,7 +476,9 @@ export function buildAgentOpportunity(input: {
   reasons.push(
     `crossings/h=${metrics.crossingsPerHour} (path ${metrics.pathPerHourPct}%/h / pas ${metrics.stepPct}%)`,
     `prima umplere estimată în ~${metrics.expectedFirstFillMin} min`,
-    `ATR15m=${metrics.atrPct}% -> bandă ±${metrics.halfRangePct}% cu ${metrics.gridNum} grile`
+    `bandă dimensionată pe orizontul de ${metrics.targetHoldingHours}h: ATR1h=${metrics.atrPct1h}% -> ` +
+      `±${metrics.halfRangePct}% (atingerea marginii în ~${metrics.expectedLifetimeHours}h)`,
+    `ATR15m=${metrics.atrPct}% -> pas ${metrics.stepPct}% cu ${metrics.gridNum} grile`
   );
   reasons.push(
     band.ok
@@ -429,6 +497,10 @@ export function buildAgentOpportunity(input: {
     range24hPct:
       ticker.low24h > 0 ? round(((ticker.high24h - ticker.low24h) / ticker.low24h) * 100, 2) : 0,
     atrPct: metrics.atrPct,
+    // The regime the band was sized on, and what the band actually buys in hours.
+    atrPct1h: metrics.atrPct1h,
+    targetHoldingHours: metrics.targetHoldingHours,
+    expectedLifetimeHours: metrics.expectedLifetimeHours,
     // Not computed by this scan on purpose: the agent does not rank by these.
     choppinessIndex: 0,
     adxTrendStrength: 0,
@@ -688,14 +760,16 @@ export class AgentUniverseScanner {
       while (cursor < stage1.length) {
         const item = stage1[cursor++];
         try {
-          const [klines, book] = await Promise.all([
+          const [klines, klines1h, book] = await Promise.all([
             this.data.fetchKlines15m(item.spec.instId, 48),
+            this.fetchRegimeKlines(item.spec.instId),
             this.data.fetchBookSnapshot(item.spec.instId, 20),
           ]);
           const row = buildAgentOpportunity({
             spec: item.spec,
             ticker: item.ticker,
             klines15m: klines,
+            klines1h,
             book,
             settings,
           });
@@ -751,6 +825,26 @@ export class AgentUniverseScanner {
     );
 
     return rows;
+  }
+
+  /**
+   * 1h candles for the regime ATR, with a LOUD fallback.
+   *
+   * A failed 1h fetch must not delete an otherwise valid candidate (the 15m tape alone still
+   * describes the step), but it must not pass for a real measurement either: the plan builder
+   * then falls back to `sqrt(4) x ATR(15m)`, which is the same random-walk assumption the horizon
+   * maths makes. Logged so "we sized 12 bands on an assumption" is answerable after the fact.
+   */
+  private async fetchRegimeKlines(instId: string): Promise<Kline[]> {
+    try {
+      return await this.data.fetchKlines1h(instId, AGENT_SCAN_REGIME_BARS_1H);
+    } catch (err: any) {
+      this.log?.(
+        `[AGENT SCAN] ${instId}: klines 1h indisponibile (${err?.message || err}) — ` +
+          `regimul cade pe ATR(15m) x sqrt(4)`
+      );
+      return [];
+    }
   }
 
   /**

@@ -1392,6 +1392,10 @@ export class TradeBot {
           },
           fetchKlines15m: (instId: string, bars: number) =>
             this.okxAdapter.getKlines(instId, '15m', bars),
+          // 1h candles: the REGIME the band is sized on. The 15m tape alone only describes the
+          // step, and a band that has to survive hours is measured in hourly movement.
+          fetchKlines1h: (instId: string, bars: number) =>
+            this.okxAdapter.getKlines(instId, '1H', bars),
           fetchBookSnapshot: async (instId: string, depth: number) => {
             const book = await this.okxAdapter.getOrderBook(instId, depth);
             const ctVal = this.universeManager.getInstrumentMetadata(instId)?.ctVal || 1;

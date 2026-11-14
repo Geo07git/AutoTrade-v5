@@ -38,8 +38,12 @@ export interface GridPlanRequest {
   currentPx: number;
   /** Price increment of the contract; 0 or missing degrades to 6-decimal snapping. */
   tickSz: number;
-  /** Average true range over 15m bars, in % of price. */
+  /** Average true range over 15m bars, in % of price (drives the step). */
   atrPct: number;
+  /** Average true range over 1h bars, in % of price (drives the band). Missing -> 2 x `atrPct`. */
+  atrPct1h?: number;
+  /** Holding horizon the band is sized for, in hours. Defaults to 8. */
+  targetHoldingHours?: number;
   /** Live top-of-book spread, in % of price. */
   spreadPct: number;
   /** Real maker round-trip cost, in % (e.g. 0.04). */
@@ -131,11 +135,54 @@ export function isGridPlanRejection(result: GridPlanResult): result is GridPlanR
 // ---------------------------------------------------------------------------
 
 /**
- * Band half-width as a multiple of ATR, clamped to [MIN, MAX] % of price.
- * 1.6x ATR keeps ~93% of 15m bars inside the band over the horizons that matter here.
+ * BAND WIDTH IS SIZED ON THE HOLDING HORIZON, NOT ON ONE 15m BAR
+ * =============================================================================
+ * The old ruler was `1.6 x ATR(15m)`, which answers "how wide is this band relative to a single
+ * bar" — a question nobody asks. What decides whether a neutral grid is worth opening is how
+ * long it survives: the round-trip fees, the half-spread and (above all) the forced exit have to
+ * be paid back before the price walks out of the band. For a band edge `a` away against a per-bar
+ * sigma `s`, the MEDIAN time to the first touch is `2.2 x (a/s)^2` bars (driftless random-walk
+ * first-passage, 4.4 x (a/s)^2 mean). With the old ruler that is ~50 minutes at ANY volatility,
+ * because the band was defined as a fixed multiple of the very thing that moves: measure it on
+ * live bots and the median lifetime came out at 50 min, 0-3 arbitrages, ~1 USDT of fees against
+ * ~0.3 USDT of grid capture.
+ *
+ * So the horizon is the REQUIREMENT and the ATR is the market's ANSWER:
+ *
+ *     halfRangePct = z * ATR(1h) * sqrt(T)        T = target holding hours
+ *
+ * `ATR(1h) * sqrt(T)` is the standard deviation of price over the horizon (a random walk grows
+ * by sqrt(time)), i.e. "T hours of movement wide", and `z` is derived rather than tuned: we want
+ * the band edge touched, at the median, exactly when the horizon expires, so
+ * `2.2 x z^2 = 1` -> `z = 1/sqrt(2.2) = 0.674` (the 75th percentile of the normal). Any other z
+ * silently means "the horizon you asked for is not the horizon you get", which is why
+ * `GridGeometry.expectedLifetimeHours` reports the lifetime the numbers actually buy.
+ *
+ * Consequences, all intended:
+ *   - a calm tape gets a band that looks WIDE in ATR terms (the 2.0% floor): 0.674 x ATR(1h) x
+ *     sqrt(8h) is only 1.9% on a 1% hourly range, i.e. touched inside an hour — too tight to hold;
+ *   - a wild tape gets a wider band in price terms and therefore LESS leverage through
+ *     `maxLeverageForBand()`, which is the coupling a stop expressed in % of margin requires;
+ *   - the step still follows volatility (`0.4 x ATR(15m)`) and the level count still follows the
+ *     step, so a wide horizon band becomes more levels, not one enormous step.
  */
-export const GRID_HALF_RANGE_ATR_MULT = 1.6;
-export const GRID_MIN_HALF_RANGE_PCT = 0.8;
+
+/** Holding horizon the band is sized for, in hours (the bot must live long enough to be paid). */
+export const GRID_DEFAULT_TARGET_HOLDING_HOURS = 8;
+/** Median first-passage time of a driftless walk, in bars, for a level `a/sigma` away. */
+export const GRID_MEDIAN_TOUCH_BARS = 2.2;
+/** z for a median first touch exactly at the horizon: 1 / sqrt(GRID_MEDIAN_TOUCH_BARS). */
+export const GRID_HOLDING_SIGMA_Z =
+  Math.round((1 / Math.sqrt(GRID_MEDIAN_TOUCH_BARS)) * 1000) / 1000;
+/** 1h bars are 4 x 15m bars, so a random walk scales the range by sqrt(4) = 2. */
+export const GRID_ATR_1H_PER_15M = 2;
+
+/**
+ * Band half-width bounds, in % of price. The 2.0% floor is the smallest band that can carry a
+ * multi-hour holding at all: at 0.674 x ATR(1h) x sqrt(8h) a 1% hourly range only asks for 1.9%,
+ * and anything tighter is touched faster than the fees can be earned back.
+ */
+export const GRID_MIN_HALF_RANGE_PCT = 2;
 export const GRID_MAX_HALF_RANGE_PCT = 6;
 
 /**
@@ -251,8 +298,22 @@ export function snapToTick(px: number, tickSz: number): number {
 // ---------------------------------------------------------------------------
 
 export interface GridGeometry {
-  /** ATR used, in % of price (rounded to 3 decimals for reporting). */
+  /** ATR(15m) used for the step, in % of price (rounded to 3 decimals for reporting). */
   atrPct: number;
+  /**
+   * ATR(1h) used for the band, in % of price. When the caller supplied no 1h bars this is the
+   * sqrt(4)-scaled 15m ATR — the SAME random-walk assumption the horizon maths already makes,
+   * not a second opinion.
+   */
+  atrPct1h: number;
+  /** Horizon the band was sized for, in hours. */
+  targetHoldingHours: number;
+  /**
+   * Median hours until price touches the band edge at the measured 15m ATR.
+   * Reports what the geometry actually buys, so a floor or ceiling clamp is visible instead of
+   * silently turning an 8-hour band into a 90-minute one.
+   */
+  expectedLifetimeHours: number;
   halfRangePct: number;
   gridNum: number;
   stepPct: number;
@@ -264,13 +325,18 @@ export interface GridGeometry {
 }
 
 /**
- * Band half-width, level count and step, from volatility alone.
+ * Band half-width, level count and step: band from the holding horizon, step from volatility.
  *
  * This is the ONLY implementation of the neutral-grid geometry. Returns null when the input
  * cannot describe a grid at all (non-positive or non-finite ATR).
  */
 export function deriveGridGeometry(input: {
+  /** ATR over 15m bars, in % of price. Drives the step (and the level count). */
   atrPct: number;
+  /** ATR over 1h bars, in % of price. Drives the band. Missing -> sqrt(4) x `atrPct`. */
+  atrPct1h?: number;
+  /** Holding horizon in hours. Defaults to `GRID_DEFAULT_TARGET_HOLDING_HOURS`. */
+  targetHoldingHours?: number;
   roundTripFeePct: number;
   spreadPct?: number;
   fundingRatePct?: number;
@@ -281,8 +347,31 @@ export function deriveGridGeometry(input: {
   const roundTripFeePct = Math.max(0, Number(input.roundTripFeePct) || 0);
   const feeFloorPct = roundTripFeePct * GRID_FEE_FLOOR_MULTIPLE;
 
+  const requestedHours = Number(input.targetHoldingHours);
+  const targetHoldingHours = round(
+    clamp(requestedHours > 0 ? requestedHours : GRID_DEFAULT_TARGET_HOLDING_HOURS, 1, 72),
+    2
+  );
+
+  // Regime volatility, in the unit the horizon is expressed in. Four 15m bars make one 1h bar,
+  // so a random walk scales the range by sqrt(4) = 2; that is the fallback, not a guess.
+  const rawAtr1h = Number(input.atrPct1h);
+  const atrPct1h = Number.isFinite(rawAtr1h) && rawAtr1h > 0 ? rawAtr1h : atrPct * GRID_ATR_1H_PER_15M;
+
   const halfRangePct = round(
-    clamp(GRID_HALF_RANGE_ATR_MULT * atrPct, GRID_MIN_HALF_RANGE_PCT, GRID_MAX_HALF_RANGE_PCT),
+    clamp(
+      GRID_HOLDING_SIGMA_Z * atrPct1h * Math.sqrt(targetHoldingHours),
+      GRID_MIN_HALF_RANGE_PCT,
+      GRID_MAX_HALF_RANGE_PCT
+    ),
+    2
+  );
+
+  // What the clamped band actually buys, in hours. `halfRange / atrPct` is the edge in 15m-bar
+  // sigmas; 2.2 x (edge)^2 is its median first-touch time, in bars (0.25h each).
+  const edgeInBars = halfRangePct / atrPct;
+  const expectedLifetimeHours = round(
+    Math.min(999, GRID_MEDIAN_TOUCH_BARS * edgeInBars * edgeInBars * 0.25),
     2
   );
 
@@ -299,7 +388,7 @@ export function deriveGridGeometry(input: {
   // The band is fixed, so the level count is what decides the step: a level count that pushes
   // the step under the fee floor makes the grid unpayable and the plan is refused for it. Cap
   // the count at what the floor can actually pay for, instead of asking for levels that cannot
-  // exist on this band (low vol: ±0.8% band -> 14 levels -> 0.114% steps -> refusal).
+  // exist on this band (low vol: ±2.0% band -> 33 levels -> 0.12% steps -> refusal).
   const levelsAffordable = roundTripFeePct > 0
     ? Math.floor((2 * halfRangePct) / (roundTripFeePct * GRID_FEE_FLOOR_MULTIPLE))
     : GRID_MAX_LEVELS;
@@ -317,6 +406,9 @@ export function deriveGridGeometry(input: {
 
   return {
     atrPct: round(atrPct, 3),
+    atrPct1h: round(atrPct1h, 3),
+    targetHoldingHours,
+    expectedLifetimeHours,
     halfRangePct,
     gridNum,
     stepPct,
@@ -506,6 +598,8 @@ export function buildGridPlan(req: GridPlanRequest): GridPlanResult {
   // 2. Geometry — one implementation, shared with the scanner.
   const geo = deriveGridGeometry({
     atrPct: req.atrPct,
+    atrPct1h: req.atrPct1h,
+    targetHoldingHours: req.targetHoldingHours,
     roundTripFeePct: req.roundTripFeePct,
     spreadPct: req.spreadPct,
     fundingRatePct: req.fundingRatePct,

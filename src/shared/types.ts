@@ -354,6 +354,12 @@ export interface NativeGridOpportunity {
   priceChange24hPct: number;
   range24hPct: number;
   atrPct: number;
+  /** Agent scan only: ATR over 1h bars, the regime the band is sized on (% of price). */
+  atrPct1h?: number;
+  /** Agent scan only: holding horizon the band was sized for, in hours. */
+  targetHoldingHours?: number;
+  /** Agent scan only: median hours until the band edge is touched at the measured 15m ATR. */
+  expectedLifetimeHours?: number;
   choppinessIndex: number;
   adxTrendStrength: number;
   spreadBps: number;

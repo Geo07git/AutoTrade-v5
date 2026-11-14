@@ -82,6 +82,21 @@ function flatKlines(base = 100): Kline[] {
   }));
 }
 
+/**
+ * `n` bars whose true range is exactly `trPct` % of close. Used as 1h REGIME bars, where the
+ * only thing under test is that hourly movement (not the 15m tape) sizes the band.
+ */
+function barsWithTr(trPct: number, n = 24, base = 100): Kline[] {
+  return Array.from({ length: n }, (_, i) => ({
+    timestamp: Date.now() - (n - i) * 3_600_000,
+    open: base,
+    high: base * (1 + trPct / 200),
+    low: base * (1 - trPct / 200),
+    close: base,
+    volume: 1000,
+  }));
+}
+
 const spec = (over: Partial<AgentContractSpec> = {}): AgentContractSpec => ({
   instId: 'ETH-USD_UM_XPERP-310523',
   minSz: 1,
@@ -96,8 +111,11 @@ const ticker = (over: Partial<AgentUniverseTicker> = {}): AgentUniverseTicker =>
   lastPrice: 100,
   turnover24hUSDT: 50_000_000,
   priceChange24hPct: 0.5,
-  high24h: 103,
-  low24h: 97,
+  // A ±6% day: the horizon-sized band is ~4% wide, so a ±3% day would put the legal band window
+  // (24h extremes shrunk by the 1% proximity margin) exactly on the band's own width — a fixture
+  // sitting on the boundary rather than a scenario.
+  high24h: 106,
+  low24h: 94,
   spreadPct: 0.01,
   ...over,
 });
@@ -117,7 +135,7 @@ const settings = {
 // Geometry + fill statistics
 // ---------------------------------------------------------------------------
 
-test('metrics: step comes from ATR, and crossings/hour from the real path', () => {
+test('metrics: band follows the holding horizon, step follows the 15m ATR', () => {
   const m = computeAgentGridMetrics({
     price: 100,
     klines15m: oscillatingKlines(),
@@ -127,14 +145,53 @@ test('metrics: step comes from ATR, and crossings/hour from the real path', () =
 
   ok(!!m, 'metrics must be produced for a usable tape');
   near(m.atrPct, 0.4, 0.05, 'ATR15m must reflect the 0.4% true range');
-  near(m.halfRangePct, 0.8, 0.01, 'half range = 1.6 x ATR');
-  eq(m.gridNum, 10, 'a 1.6% band with a 0.4 x ATR target step needs 10 grids (even count)');
-  near(m.stepPct, 0.16, 0.01, 'step = 2 x halfRange / gridNum');
-  // 0.4% per bar, 4 bars per hour => ~1.6%/h of path on a 0.16% step.
+  // No 1h bars: the regime is the sqrt(4)-scaled 15m ATR (a random walk grows by sqrt(time)).
+  near(m.atrPct1h, 0.8, 0.01, '1h regime falls back to 2 x ATR15m');
+  eq(m.targetHoldingHours, 8, 'the band is sized on an 8h holding horizon');
+  // The band is NOT 1.6 x ATR any more: 0.674 x 0.8 x sqrt(8) = 1.91%, floored at 2.0% because a
+  // 1.9% band on a 0.4% ATR tape is first touched in ~2h, i.e. a quarter of the horizon.
+  near(m.halfRangePct, 2.0, 0.01, 'half range = the 2.0% horizon floor on this tape');
+  eq(m.gridNum, 20, 'a 4% wide band with a 0.4 x ATR target step needs 20 grids (even count)');
+  near(m.stepPct, 0.2, 0.01, 'step = 2 x halfRange / gridNum');
+  ok(
+    m.expectedLifetimeHours > 6,
+    `the band must survive most of the horizon, got ${m.expectedLifetimeHours}h`
+  );
+  // 0.4% per bar, 4 bars per hour => ~1.6%/h of path on a 0.2% step.
   near(m.pathPerHourPct, 1.6, 0.1, 'path per hour must be measured on the 15m closes');
-  near(m.crossingsPerHour, 10, 0.2, 'crossings/h = path per hour / step');
-  near(m.expectedFirstFillMin, 6, 1, 'first fill = half a step at the observed speed');
-  near(m.netPerGridPct, 0.12, 0.01, 'net per grid = step - maker round-trip');
+  near(m.crossingsPerHour, 8, 0.2, 'crossings/h = path per hour / step');
+  near(m.expectedFirstFillMin, 7.5, 1, 'first fill = half a step at the observed speed');
+  near(m.netPerGridPct, 0.16, 0.01, 'net per grid = step - maker round-trip');
+});
+
+test('metrics: 1h candles override the sqrt(4) fallback and widen the band', () => {
+  const calm = computeAgentGridMetrics({
+    price: 100,
+    klines15m: oscillatingKlines(),
+    klines1h: barsWithTr(0.3),
+    roundTripFeePct: FEE,
+  })!;
+  // A calm hourly regime: 0.674 x 0.3 x sqrt(8) = 0.57%, still floored at 2.0%.
+  near(calm.atrPct1h, 0.3, 0.001, 'the 1h ATR is measured, not derived, when bars are supplied');
+  eq(calm.halfRangePct, 2.0, 'the horizon floor still applies on a calm regime');
+
+  const wild = computeAgentGridMetrics({
+    price: 100,
+    klines15m: oscillatingKlines(),
+    klines1h: barsWithTr(2.4),
+    roundTripFeePct: FEE,
+  })!;
+  near(wild.atrPct1h, 2.4, 0.001, 'a wild hourly regime must be measured as such');
+  near(wild.halfRangePct, 4.57, 0.02, 'band = 0.674 x 2.4 x sqrt(8) = 4.57%');
+  eq(
+    wild.atrPct,
+    calm.atrPct,
+    'the 15m tape (and therefore the step) is unchanged by the regime'
+  );
+  ok(
+    wild.gridNum >= calm.gridNum,
+    'a wider band becomes more levels, not one huge step'
+  );
 });
 
 test('metrics: a dead tape cannot produce an edge', () => {
@@ -145,6 +202,11 @@ test('metrics: a dead tape cannot produce an edge', () => {
     roundTripFeePct: FEE,
   })!;
 
+  eq(m.halfRangePct, 2.0, 'even a dead tape gets the horizon floor (it is a minimum, not a fit)');
+  ok(
+    m.expectedLifetimeHours > 100,
+    `a dead tape sits inside the band for days, got ${m.expectedLifetimeHours}h`
+  );
   ok(m.pathPerHourPct < 0.01, 'a flat tape must report ~0 path per hour');
   eq(m.crossingsPerHour, 0, 'no path means no crossings');
   ok(m.expectedFirstFillMin > 240, 'first fill must be pushed hours into the future');
@@ -178,7 +240,7 @@ test('opportunity: a healthy candidate is eligible and keeps leverage under the 
     // overrode only `lastPrice` and inherited 97..103 from the fixture factory: price 97% below
     // its own 24 h low is not a scenario, it is a broken fixture, and the band gate was right to
     // refuse it (the old failure message claimed price sat -9842% from the 24 h low).
-    ticker: ticker({ lastPrice: 1, high24h: 1.03, low24h: 0.97 }),
+    ticker: ticker({ lastPrice: 1, high24h: 1.06, low24h: 0.94 }),
     klines15m: oscillatingKlines(1),
     book: book(),
     settings: { ...settings, maxLeverage: 5 },
@@ -186,17 +248,23 @@ test('opportunity: a healthy candidate is eligible and keeps leverage under the 
 
   eq(row.agentScan, true, 'the row must be flagged as agent-scanned');
   eq(row.isEligible, true, `expected eligible, got rejection "${row.rejectionReason}"`);
-  eq(row.lever, 5, 'the configured leverage is used as-is, up to the 10x ceiling');
+  eq(row.lever, 5, 'the configured leverage is used as-is, up to the band-capped ceiling');
   eq(row.suitabilityScore, 0, 'the agent scan deliberately produces no score');
   ok(row.minPx < row.price && row.price < row.maxPx, 'the price must sit inside the band');
   ok((row.crossingsPerHour || 0) > 0, 'crossings/hour must be reported');
+  near(row.halfRangePct, 2.0, 0.01, 'the band is the horizon floor, not 1.6 x ATR any more');
+  eq(row.targetHoldingHours, 8, 'the row must expose the horizon it was sized for');
+  ok(
+    (row.expectedLifetimeHours || 0) > 6,
+    `the band must survive most of the horizon, got ${row.expectedLifetimeHours}h`
+  );
 });
 
-test('opportunity: the level count is capped so the step always clears the fee floor', () => {
-  // A dead tape has its band clamped to the 0.8% minimum, so the step (not the ATR) decides
-  // whether the grid can pay. The scan lowers the LEVEL COUNT to stay above 3x the fees instead
-  // of asking for levels that cannot exist on that band — the open is then refused by the
-  // crossings gate (no path, no fills), not by an unpayable step.
+test('opportunity: a tape too slow for the horizon is rejected', () => {
+  // The band is now wide enough to survive the horizon, so "wide enough" alone is no longer a
+  // reason to open: a dead tape crosses it once every several hours and would sit on locked
+  // margin until the stagnation stop rescued it (the live failure: 0-3 arbitrages in a 50-minute
+  // life, every round-trip eaten by the exit). The horizon gate is what refuses it.
   const row = buildAgentOpportunity({
     spec: spec(),
     ticker: ticker(),
@@ -205,12 +273,13 @@ test('opportunity: the level count is capped so the step always clears the fee f
     settings,
   })!;
 
-  ok(row.stepPct >= FEE * 3, `step ${row.stepPct}% must clear 3x the fees (${FEE * 3}%)`);
-  eq(row.isEligible, true, 'geometry alone does not disqualify a dead tape');
-  ok(
-    (row.crossingsPerHour || 0) < 0.35,
-    `a dead tape must stay under the agent crossings gate, got ${row.crossingsPerHour}/h`
+  ok(row.stepPct >= FEE * 3, `step ${row.stepPct}% must still clear 3x the fees (${FEE * 3}%)`);
+  eq(
+    row.isEligible,
+    false,
+    'a tape that cannot fill twice inside the horizon must never be opened'
   );
+  ok(/orizont/i.test(row.rejectionReason || ''), `unexpected reason: ${row.rejectionReason}`);
 });
 
 test('opportunity: a step under the fee floor is rejected', () => {
@@ -229,16 +298,23 @@ test('opportunity: a step under the fee floor is rejected', () => {
 });
 
 test('opportunity: a wide spread against the step is rejected', () => {
+  // 0.06% of spread on a 0.2% step is 30% of the edge: over the 25% ceiling, while the net edge
+  // (0.2 - 0.04 - 0.03) is still positive - so the SPREAD gate is what has to fire here, not the
+  // net-edge gate that merely mentions the word "spread" in its message.
   const row = buildAgentOpportunity({
     spec: spec(),
-    ticker: ticker({ spreadPct: 0.5 }),
+    ticker: ticker({ spreadPct: 0.06 }),
     klines15m: oscillatingKlines(),
     book: book(),
     settings,
   })!;
 
+  ok(
+    row.estimatedNetProfitPerGridPct > 0,
+    'the net edge must still be positive, or this tests the wrong gate'
+  );
   eq(row.isEligible, false, 'spread > 25% of the step must block the open');
-  ok(/Spread/i.test(row.rejectionReason || ''), `unexpected reason: ${row.rejectionReason}`);
+  ok(/^Spread /i.test(row.rejectionReason || ''), `unexpected reason: ${row.rejectionReason}`);
 });
 
 test('opportunity: an estimated minimum above the budget is ADVISORY, not a rejection', () => {
@@ -267,7 +343,7 @@ test('opportunity: an estimated minimum above the budget is ADVISORY, not a reje
 test('opportunity: thin top-of-book liquidity is rejected', () => {
   const row = buildAgentOpportunity({
     spec: spec({ tickSz: 0.0001 }),
-    ticker: ticker({ lastPrice: 1, high24h: 1.03, low24h: 0.97 }),
+    ticker: ticker({ lastPrice: 1, high24h: 1.06, low24h: 0.94 }),
     klines15m: oscillatingKlines(1),
     book: book(50), // 50 USD vs 20 x 12 USD required
     settings,
@@ -282,7 +358,13 @@ test('opportunity: thin top-of-book liquidity is rejected', () => {
 // ---------------------------------------------------------------------------
 
 const fakeDataSource = (
-  contracts: Array<{ spec: AgentContractSpec; ticker: AgentUniverseTicker; klines: Kline[] }>
+  contracts: Array<{
+    spec: AgentContractSpec;
+    ticker: AgentUniverseTicker;
+    klines: Kline[];
+    /** 1h regime bars. Absent -> the scan falls back to sqrt(4) x ATR15m. */
+    klines1h?: Kline[];
+  }>
 ): AgentUniverseDataSource => ({
   listXPerpContracts: async () => contracts.map((c) => c.spec),
   fetchTickers: async () => {
@@ -292,7 +374,53 @@ const fakeDataSource = (
   },
   fetchKlines15m: async (instId: string) =>
     contracts.find((c) => c.spec.instId === instId)!.klines,
+  fetchKlines1h: async (instId: string) =>
+    contracts.find((c) => c.spec.instId === instId)?.klines1h || [],
   fetchBookSnapshot: async () => book(),
+});
+
+test('scanner: the 1h regime reaches the geometry on every deep-scanned contract', async () => {
+  const id = 'AAA-USD_UM_XPERP-310523';
+  const data = fakeDataSource([
+    {
+      spec: spec({ instId: id }),
+      ticker: ticker({ instId: id }),
+      klines: oscillatingKlines(),
+      // A calm 15m tape (0.4% ATR) on a wild hourly regime (2.4% ATR).
+      klines1h: barsWithTr(2.4),
+    },
+  ]);
+
+  const rows = await new AgentUniverseScanner(data).scan({ ...settings, deepScanCount: 25 });
+  eq(rows.length, 1, 'the contract must be scanned');
+  near(rows[0].atrPct1h || 0, 2.4, 0.01, 'the band must follow the measured 1h regime');
+  near(rows[0].halfRangePct, 4.57, 0.02, 'band = 0.674 x ATR1h x sqrt(8h)');
+  eq(rows[0].targetHoldingHours, 8, 'the horizon must be reported with the row');
+});
+
+test('scanner: a failing 1h fetch degrades to the 15m fallback, it does not drop the row', async () => {
+  const id = 'AAA-USD_UM_XPERP-310523';
+  const base = fakeDataSource([
+    { spec: spec({ instId: id }), ticker: ticker({ instId: id }), klines: oscillatingKlines() },
+  ]);
+  const logs: string[] = [];
+  const data: AgentUniverseDataSource = {
+    ...base,
+    fetchKlines1h: async () => {
+      throw new Error('history-candles timeout');
+    },
+  };
+
+  const rows = await new AgentUniverseScanner(data, (m: string) => logs.push(m)).scan({
+    ...settings,
+    deepScanCount: 25,
+  });
+  eq(rows.length, 1, 'an unreadable regime must not delete a candidate that the 15m tape supports');
+  near(rows[0].atrPct1h || 0, 0.8, 0.01, 'the fallback is sqrt(4) x ATR15m, and it is reported');
+  ok(
+    logs.some((m) => m.includes('klines 1h indisponibile')),
+    'the degradation must be logged, not silent'
+  );
 });
 
 test('scanner (turnover mode): ranks by crossings/hour and drops illiquid contracts', async () => {
