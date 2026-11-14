@@ -131,21 +131,40 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   maxTokens: 1600,
   runIntervalSec: 300,
   maxActionsPerCycle: 2,
-  // 1 slot at launch; the owner may raise it later.
-  maxConcurrentBots: 1,
+  // --- Capital envelope, sized for a 45 USDT account -------------------------
+  // Every number here is derived from the real balance of ~45 USDT, not copied from a larger
+  // account. Three of the audit's failures came precisely from settings that only made sense at
+  // 10x the balance: a 25 USDT daily limit (= 55% of this account), 45 USDT of margin in a single
+  // grid (the whole balance in one walk), and a 180 min no-fill rule below the measured 171 min
+  // wait for a first fill.
   budgetPerBotUSDT: 12,
-  // 0 reserve: the live account holds ~15 USDC, and a 10 USDC reserve on top of a 12 USDC
-  // budget meant the agent could never open anything (12 + 10 > 15).
-  minReserveUSDT: 0,
+  // Two 12 USDT grids = 24 USDT of margin, 21 left free. A full 12% stop then costs 1.44 USDT
+  // instead of the 2.25 the audit measured when one 45 USDT grid carried the whole account.
+  maxConcurrentBots: 2,
+  // Exactly `budgetPerBotUSDT x maxConcurrentBots`, so the ceiling can never be the reason a
+  // paid-for slot is refused (the audit's 45 x 2 > 46 configuration did exactly that).
+  maxTotalMarginUSDT: 24,
+  // The guard refuses an open when `free - newMargin < reserve`. 8 USDT on a 45 USDT balance still
+  // allows both slots today (45 - 24 = 21) and blocks the second one once the account thins out.
+  minReserveUSDT: 8,
   // Shipped default stays conservative; the ceiling itself is GRID_PLAN_MAX_LEVERAGE (10x),
   // which the owner raises from the DeepSeek tab. Leverage is the only dial that lowers the
   // margin a geometry needs, so a 2x ceiling was itself a hard cap on what could be opened.
   maxLeverage: 2,
+  // 2 x GRID_MAX_HALF_RANGE_PCT (6) = 12: `stopLossPct` is in % of MARGIN, so at 2x a full walk to
+  // a 6% band edge costs 12% of margin. Lowering the stop below that makes the geometry itself
+  // stop the bot mid-band (2026-11-10: SOXL, MSTR, LTC, XRP all stopped 29-40 min after open).
+  // `maxLeverageForBand` enforces the pair; these two defaults are the pair.
+  hardStopLossPct: 12,
+  hardMinLiqDistancePct: 12,
   minSuitabilityScore: 70,
-  minNetProfitPerGridPct: 0.05,
-  cooldownMinutesPerSymbol: 45,
-  // Desk ceiling sized for the real account: one 12 USDC grid. Raise it only with equity.
-  maxTotalMarginUSDT: 12,
+  // A level must pay at least 0.1% of margin after fees, otherwise the grid exists only to
+  // generate churn. Bands are now >= 4% wide (P0.1), so this filters thin grids, not normal ones.
+  minNetProfitPerGridPct: 0.1,
+  // 90 min, not the 45 floor: PUMP was reopened 8 times in a row at 45, and 45% of the audit's
+  // bots ended with zero completed round-trips. On a 45 USDT balance a re-entry right after a
+  // stop is the most expensive trade available, so the symbol is made to rest.
+  cooldownMinutesPerSymbol: 90,
   // DeepSeek list prices, USD per 1M tokens. Editable in the DeepSeek tab — the cost shown
   // is an ESTIMATE computed from these numbers, never a billed amount.
   pricePer1MInputUSD: 0.27,
@@ -167,7 +186,10 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   universeScanMode: 'pool',
   poolSize: AGENT_SCAN_POOL_SIZE,
   poolRefreshMinutes: AGENT_SCAN_POOL_REFRESH_MINUTES,
-  minCrossingsPerHour: 0.35,
+  // 0.3/h, not 0.35: P0.1 widened the band to the holding horizon (ATR 1h x sqrt(T), 2-6%), and a
+  // wider band is touched less often, so the old threshold would quietly empty the candidate pool.
+  // 0.3 keeps a pool alive; the ER gate (P1.2) is now what refuses dead tapes, not this number.
+  minCrossingsPerHour: 0.3,
   // A grid is opened only after the scanner qualified the contract on its last TWO looks
   // (see agentScanConfirmation.ts). One snapshot ranks a contract on the last 12 h of candles;
   // that is a hypothesis, and the second look is what turns it into a decision.
@@ -182,13 +204,15 @@ export const DEFAULT_DEEPSEEK_AGENT_CONFIG: DeepSeekAgentConfig = {
   allowAmendBots: true,
   scanBeforeDecision: true,
   notifyTelegram: true,
-  dailyLossLimitUSDT: 25,
+  // 3 USDT = 6.7% of the balance: two full 12% stops (2 x 1.44) or a cluster of partial ones, and
+  // the day is over. The shipped 25 was 55% of a 45 USDT account.
+  dailyLossLimitUSDT: 3,
   maxOpportunitiesInPrompt: 12,
   fallbackEnabled: true,
   enforceHardGuardrails: true,
-  hardStopLossPct: 12,
-  hardMinLiqDistancePct: 12,
-  hardMaxNoFillMinutes: 180,
+  // 240 min, not 180: the audit measured a 171 min wait for the first fill at 0.35 crossings/hour,
+  // so a 180 min rule stopped every passive grid BEFORE it could ever fill.
+  hardMaxNoFillMinutes: 240,
   preferNativeAlgo: true,
   stopIfPassive: true,
   totalCycles: 0,

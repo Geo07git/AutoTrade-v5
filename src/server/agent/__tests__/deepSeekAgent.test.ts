@@ -34,6 +34,7 @@ import type {
   NativeGridOpportunity,
   OKXNativeGridBot,
 } from '../../../shared/types';
+import { GRID_MAX_HALF_RANGE_PCT } from '../../engine/grid/gridPlan';
 
 // ---------------------------------------------------------------------------
 // Assertions
@@ -996,15 +997,73 @@ test('config: the capital envelope is enforced, not suggested', async () => {
   eq(cfg.ownUniverseScan, true, 'the agent-owned scan is the default selection path');
 });
 
-test('config: defaults fit a 15 USDC account (12 budget, 1 slot, no reserve)', async () => {
+test('config: defaults fit a 45 USDT account (24 margin, 8 reserve, 3 daily cap)', async () => {
   const h = makeAgent();
   const cfg = h.agent.getConfig();
 
-  eq(cfg.budgetPerBotUSDT, 12, 'one grid = 12 USDC');
-  eq(cfg.maxConcurrentBots, 1, 'a single margin slot');
-  eq(cfg.minReserveUSDT, 0, 'no reserve, otherwise 12 + reserve > 15 and nothing opens');
-  eq(cfg.maxTotalMarginUSDT, 12, 'desk ceiling = one grid');
+  eq(cfg.budgetPerBotUSDT, 12, 'one grid = 12 USDT');
+  eq(cfg.maxConcurrentBots, 2, 'two slots: a 45 USDT account cannot afford a 45 USDT grid');
+  eq(cfg.maxTotalMarginUSDT, 24, 'the desk ceiling covers both slots, so it never eats one');
+  eq(cfg.minReserveUSDT, 8, 'the balance keeps a buffer above the margin');
   eq(cfg.maxLeverage, 2, 'leverage stays at 2x');
+  eq(cfg.dailyLossLimitUSDT, 3, 'a day may cost at most ~6.7% of a 45 USDT balance');
+  eq(cfg.mode, 'OFF', 'shipping defaults still require an explicit opt-in');
+});
+
+test('config: the defaults are a coherent 45 USDT envelope, not a pile of numbers', async () => {
+  const cfg = makeAgent().agent.getConfig();
+  const BALANCE = 45;
+
+  // 1. No paid-for slot is ever refused by the ceiling (the audit's 45 x 2 > 46 configuration
+  //    kept a second slot configured that could never open).
+  eq(
+    cfg.maxTotalMarginUSDT,
+    cfg.budgetPerBotUSDT * cfg.maxConcurrentBots,
+    'the margin ceiling must equal budget x slots'
+  );
+
+  // 2. The whole envelope fits the real balance with room for fees and funding.
+  ok(
+    cfg.maxTotalMarginUSDT + cfg.minReserveUSDT <= BALANCE,
+    `margin ${cfg.maxTotalMarginUSDT} + reserve ${cfg.minReserveUSDT} must fit ${BALANCE} USDT`
+  );
+
+  // 3. A day may cost two full stops and not the account: the old 25 USDT limit was 55% of it.
+  const fullStopUSDT = cfg.budgetPerBotUSDT * ((cfg.hardStopLossPct || 0) / 100);
+  ok(
+    cfg.dailyLossLimitUSDT >= 2 * fullStopUSDT,
+    `the daily cap (${cfg.dailyLossLimitUSDT}) must survive two full stops (2 x ${fullStopUSDT.toFixed(2)})`
+  );
+  ok(
+    cfg.dailyLossLimitUSDT <= 0.1 * BALANCE,
+    `the daily cap (${cfg.dailyLossLimitUSDT}) must stay under 10% of the balance`
+  );
+
+  // 4. The stop covers a full walk to the widest band at max leverage; otherwise the geometry
+  //    itself closes the bot mid-band (the 2026-11-10 cluster).
+  ok(
+    (cfg.hardStopLossPct || 0) >= cfg.maxLeverage * GRID_MAX_HALF_RANGE_PCT,
+    `hard SL ${cfg.hardStopLossPct}% must cover ${cfg.maxLeverage}x a ${GRID_MAX_HALF_RANGE_PCT}% band edge`
+  );
+
+  // 5. A no-fill stop below the measured 171 min wait for a first fill closes every grid before it
+  //    can trade (the shipped 180 did).
+  ok(
+    (cfg.hardMaxNoFillMinutes || 0) > 171,
+    `the no-fill window (${cfg.hardMaxNoFillMinutes}) must exceed the measured 171 min first fill`
+  );
+
+  // 6. Cooldown above the 45 floor that let PUMP reopen eight times in a row.
+  ok(
+    (cfg.cooldownMinutesPerSymbol || 0) >= 90,
+    `cooldown ${cfg.cooldownMinutesPerSymbol} must rest a symbol after a stop`
+  );
+
+  // 7. Two slots are meaningless if only one action per cycle can ever fire.
+  ok(
+    (cfg.maxActionsPerCycle || 0) >= 2,
+    'two slots need at least two actions per cycle'
+  );
 });
 
 test('config: a pre-pool config is migrated to the pool scan exactly once', async () => {
