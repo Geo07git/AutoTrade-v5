@@ -133,9 +133,12 @@ export function resolveConfirmationConfig(input: {
   minSpacingMinutes?: number;
   ttlMinutes?: number;
 }): ScanConfirmationConfig {
+  // Reject only values OUTSIDE the documented range. The old `n <= 0` guard made min 0
+  // unreachable: `minSpacingMinutes: 0` ("two looks this close still count") silently became 5,
+  // so a threshold that is documented as configurable was in fact hardcoded.
   const num = (v: number | undefined, fallback: number, min: number, max: number): number => {
     const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return fallback;
+    if (!Number.isFinite(n) || n < min) return fallback;
     return Math.min(max, Math.max(min, n));
   };
   const ttl = num(

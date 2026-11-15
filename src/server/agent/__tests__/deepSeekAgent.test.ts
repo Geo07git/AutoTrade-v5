@@ -203,6 +203,8 @@ function makeAgent(opts?: {
   ownScanThrows?: boolean;
   /** Live tape readings for the stagnation + breakout rules (presence enables getMarketActivity). */
   marketActivity?: { pathPerHourPct: number; atrPct: number; efficiencyRatio?: number | null } | null;
+  /** Share a confirmation ledger between two instances (simulates a restart). */
+  scanLedgerFile?: string;
 }): Harness {
   let snapshot: DeepSeekAccountSnapshot = { ...LIVE_SNAPSHOT, ...(opts?.snapshot || {}) };
   let opportunities = opts?.opportunities ?? [opportunity()];
@@ -291,6 +293,7 @@ function makeAgent(opts?: {
     configFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_config.json`,
     credentialsFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_credentials.json`,
     decisionsFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_decisions.json`,
+    ...(opts?.scanLedgerFile ? { scanLedgerFile: opts.scanLedgerFile } : {}),
   };
   createdStores.push(...Object.values(files));
 
@@ -1527,6 +1530,45 @@ test('regime gate: a cycle blocked entirely by the regime is explained in the jo
     h.calls.audits.some((a) => /2\/2 candida[tț]i eligibili refuza[tț]i/.test(a.message)),
     'an empty cycle must say WHY it was empty, otherwise it reads as a broken scan'
   );
+});
+
+// ---------------------------------------------------------------------------
+// The two-look ledger must survive a restart
+// ---------------------------------------------------------------------------
+
+test('confirmation: a restart keeps the first look, so the second one still confirms', async () => {
+  // Live evidence, 2026-11-15: the desk was restarted to pick up a prompt fix, and the very next
+  // cycle reported "niciun candidat nu are confirmed=true" - because the ledger lived in a plain
+  // instance field. A restart is not a market event; it must not reset the desk's memory of the
+  // tape, and it definitely must not look like "the market gave us nothing".
+  const ledgerFile = `${TEST_STORE_PREFIX}${RUN_ID}_shared_ledger.json`;
+  const rows = [agentRow()];
+  const config = {
+    requireScanConfirmation: true,
+    // Two cycles a millisecond apart must still count as two looks here: the spacing rule guards
+    // against a tight polling loop, and this test is not measuring that.
+    confirmationMinSpacingMinutes: 0,
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+  };
+
+  const first = makeAgent({ ownScan: rows, scanLedgerFile: ledgerFile });
+  await armAutonomous(first, config);
+  const d1 = await first.agent.runCycle('MANUAL');
+  eq(openActions(d1).length, 0, 'the first look can never confirm a candidate on its own');
+
+  // The restart: a brand-new instance on the same ledger file.
+  const second = makeAgent({ ownScan: rows, scanLedgerFile: ledgerFile });
+  await armAutonomous(second, config);
+  const d2 = await second.agent.runCycle('MANUAL');
+  eq(
+    openActions(d2).length,
+    1,
+    'the second look must confirm - otherwise every deploy blinds the desk for half an hour ' +
+      `(rejected: ${JSON.stringify(d2.rejectedActions.map((r) => r.reason))}; ` +
+      `audits: ${JSON.stringify(second.calls.audits.map((a) => a.message).slice(-3))})`
+  );
+  eq(second.calls.created.length, 1, 'and the confirmed candidate must actually be opened');
 });
 
 const run = async (): Promise<void> => {

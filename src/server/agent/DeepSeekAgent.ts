@@ -460,6 +460,8 @@ export interface DeepSeekAgentStoreOptions {
   configFile?: string;
   credentialsFile?: string;
   decisionsFile?: string;
+  /** The two-look confirmation ledger. Persisted so a restart does not blind the desk. */
+  scanLedgerFile?: string;
 }
 
 export class DeepSeekAgent {
@@ -467,6 +469,13 @@ export class DeepSeekAgent {
   private configStore: JsonStore<DeepSeekAgentConfig>;
   private credentialStore: JsonStore<{ apiKey: string }>;
   private decisionStore: JsonStore<DeepSeekAgentDecision[]>;
+  /**
+   * The two-look ledger, PERSISTED. It used to be a plain in-memory field, so every restart
+   * silently erased which contracts the scanner had already qualified — and the first cycles
+   * after a deploy came back "niciun candidat nu are confirmed=true", which reads exactly like a
+   * dead market. A restart must not change the desk's opinion of the tape.
+   */
+  private ledgerStore: JsonStore<ScanConfirmationLedger>;
 
   private loopTimer?: NodeJS.Timeout;
   private loopActive: boolean = false;
@@ -479,8 +488,7 @@ export class DeepSeekAgent {
    */
   private lastOwnScan?: NativeGridOpportunity[];
   /** Per-contract memory of the last two looks, for the confirmation gate. */
-  private scanConfirmation: ScanConfirmationLedger = {};
-  /**
+  private scanConfirmation: ScanConfirmationLedger = {};  /**
    * Result of folding the CURRENT scan into the ledger. `null` means the gate is off for
    * this cycle (own scan disabled or `requireScanConfirmation: false`), in which case
    * nothing is filtered and the reason strings report the exclusion instead.
@@ -501,6 +509,18 @@ export class DeepSeekAgent {
       options?.decisionsFile || 'deepseek_agent_decisions.json',
       []
     );
+    this.ledgerStore = new JsonStore<ScanConfirmationLedger>(
+      options?.scanLedgerFile || 'deepseek_agent_scan_ledger.json',
+      {}
+    );
+    // A ledger written by an older build (or a half-written file) must never crash a cycle: the
+    // gate is worth nothing if it can turn a restart into an exception. Entries are re-validated
+    // by timestamp on every scan, so a stale file can never fake a confirmation.
+    const storedLedger = this.ledgerStore.get();
+    this.scanConfirmation =
+      storedLedger && typeof storedLedger === 'object' && !Array.isArray(storedLedger)
+        ? storedLedger
+        : {};
   }
 
   // ---------------------------------------------------------------- config ---
@@ -592,9 +612,15 @@ export class DeepSeekAgent {
       30,
       1440
     );
+    // `|| default` here swallowed an explicit 0 (0 is falsy), so "no minimum spacing" was not
+    // configurable at all: asking for 0 silently produced 5. Number.isFinite keeps 0 and only
+    // replaces a genuinely missing/garbage value.
+    const spacingRaw = Number(next.confirmationMinSpacingMinutes);
     next.confirmationMinSpacingMinutes = clamp(
       Math.round(
-        Number(next.confirmationMinSpacingMinutes) || SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES
+        Number.isFinite(spacingRaw)
+          ? spacingRaw
+          : SCAN_CONFIRMATION_DEFAULT_MIN_SPACING_MINUTES
       ),
       0,
       240
@@ -1144,6 +1170,11 @@ export class DeepSeekAgent {
         Date.now()
       );
       this.scanConfirmation = applied.ledger;
+      // Persisted synchronously: this is ONE small write per cycle (every 15 min), not a hot path,
+      // and the debounced save() would lose up to 200 ms of it to a kill -9. Losing the ledger is
+      // not a lost byte - it is half an hour in which no contract can be confirmed.
+      this.ledgerStore.save(applied.ledger);
+      this.ledgerStore.flushSync();
       this.lastConfirmation = applied;
       const firstPending = applied.pending[0];
       this.deps.logAudit(
