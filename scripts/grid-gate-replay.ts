@@ -184,6 +184,17 @@ interface DayBucket {
   const perSymbol: string[] = [];
   /** Openable windows split by chop band: the 45-61.8 band is what the OLD prose refused. */
   const bands = new Map<string, { hours: number; runs: number }>();
+  /** Symbol-hours that failed ONLY on the regime, and what they printed. */
+  const regimeMissAdx: number[] = [];
+  const regimeMissChop: number[] = [];
+  const whatIf = new Map<string, number>();
+  const WHAT_IF = [
+    { adx: 25, chop: 45 },
+    { adx: 28, chop: 45 },
+    { adx: 30, chop: 45 },
+    { adx: 25, chop: 40 },
+    { adx: 30, chop: 40 },
+  ];
   const chopBand = (chop: number | null | undefined): string => {
     if (chop == null || !Number.isFinite(chop)) return 'chop necunoscut';
     return chop >= 61.8 ? 'chop >= 61.8 (se deschidea si inainte)' : 'chop 45-61.8 (blocat doar de proza)';
@@ -259,6 +270,24 @@ interface DayBucket {
           const erOk = !(typeof er === 'number' && Number.isFinite(er) && er > 0.4);
           const regimeOk = !hasDirectionalPressure(row.adxTrendStrength, row.choppinessIndex);
           openable = crossings >= MIN_CROSSINGS && erOk && regimeOk && !isDisplacedRegime(er);
+          // Everything except the regime already passes: this is the only population where the
+          // adx/chop threshold is the deciding number, so it is where a "it is too strict" claim
+          // can be measured instead of argued.
+          const restOk = crossings >= MIN_CROSSINGS && erOk && !isDisplacedRegime(er);
+          const adx = row.adxTrendStrength;
+          const chop = row.choppinessIndex;
+          if (restOk && Number.isFinite(adx as number) && Number.isFinite(chop as number)) {
+            if (!regimeOk) {
+              regimeMissAdx.push(adx as number);
+              regimeMissChop.push(chop as number);
+            }
+            for (const w of WHAT_IF) {
+              if ((adx as number) <= w.adx && (chop as number) >= w.chop) {
+                const k = `adx<=${w.adx} & chop>=${w.chop}`;
+                whatIf.set(k, (whatIf.get(k) || 0) + 1);
+              }
+            }
+          }
           if (openable) {
             fully++;
             bucket.fullyOpenable++;
@@ -309,13 +338,28 @@ interface DayBucket {
     console.log(`  ${String(v).padStart(6)}  ${pct(v, totals.hours).padStart(6)}  ${k}`);
   }
 
-  console.log(`\nFEREASTRE PE BENZI DE CHOP — cat bloca proza "chop > 61.8", care nu exista in cod:`);
-  for (const [band, v] of [...bands.entries()].sort((a, b) => b[1].runs - a[1].runs)) {
+  console.log(`\nFEREASTRE PE BENZI DE CHOP — cat bloca proza "chop > 61.8", care nu exista in cod:`);  for (const [band, v] of [...bands.entries()].sort((a, b) => b[1].runs - a[1].runs)) {
     console.log(
       `  ${band.padEnd(38)} ${String(v.hours).padStart(5)}h  ${String(v.runs).padStart(4)} ferestre  ` +
         `~${(v.runs / Math.max(1, DAYS)).toFixed(1)}/zi`
     );
   }
+
+  const med = (xs: number[]): string => {
+    if (!xs.length) return 'n/a';
+    const s = [...xs].sort((a, b) => a - b);
+    return String(Math.round(s[Math.floor(s.length / 2)] * 10) / 10);
+  };
+  console.log(
+    `\nCE AR FI CU ALT PRAG (symbol-ore cu TOATE celelalte porti trecute; azi e adx<=25 & chop>=45):`
+  );
+  for (const [k, v] of [...whatIf.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    console.log(`  ${k.padEnd(22)} ${String(v).padStart(5)}h`);
+  }
+  console.log(
+    `  ratate DOAR de regim: ${regimeMissAdx.length}h — adx median ${med(regimeMissAdx)}, ` +
+      `chop median ${med(regimeMissChop)}`
+  );
 
   const ordered = [...days.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   console.log(`\nZILE  ora-UTC   symbol-ore  scan-eligibil  deschizabil  ferestre`);

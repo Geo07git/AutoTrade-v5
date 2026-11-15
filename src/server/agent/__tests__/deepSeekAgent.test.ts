@@ -293,7 +293,11 @@ function makeAgent(opts?: {
     configFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_config.json`,
     credentialsFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_credentials.json`,
     decisionsFile: `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_decisions.json`,
-    ...(opts?.scanLedgerFile ? { scanLedgerFile: opts.scanLedgerFile } : {}),
+    // ALWAYS isolated, like the three above. Defaulting to the production filename let one test's
+    // ledger leak into the next (and into the live app's own file), which made the two-look suite
+    // pass or fail depending on run order.
+    scanLedgerFile:
+      opts?.scanLedgerFile || `${TEST_STORE_PREFIX}${RUN_ID}_${seq}_scan_ledger.json`,
   };
   createdStores.push(...Object.values(files));
 
@@ -1386,6 +1390,22 @@ test('prompt: a candidate that passes every rule must be opened, not waited on',
   ok(
     /no second, stricter chop line/.test(SYSTEM_PROMPT),
     'the prompt must forbid a stricter self-imposed threshold'
+  );
+  // Live evidence, 2026-11-15 16:38 and 17:08: the model proposed INJ while the payload said
+  // adx 28.7 / 28, announced "ZEC ramane rezerva daca INJ e respins" - there is no such retry -
+  // and at 17:08 even claimed "adx sub 25" about a candidate the guard then refused at 28.
+  // Two cycles, zero actions, and the guard was right both times.
+  ok(
+    /rejects is NOT retried and NOT replaced/.test(SYSTEM_PROMPT),
+    'the prompt must say a rejected action costs the whole cycle - there is no fallback proposal'
+  );
+  ok(
+    /propose the next candidate that passes instead/.test(SYSTEM_PROMPT),
+    'the prompt must tell the model to spend the cycle on the next valid candidate'
+  );
+  ok(
+    /never describe it as "sub 25"/.test(SYSTEM_PROMPT),
+    'the summary must not contradict the numbers in the payload'
   );
   // The 61.8 Fibonacci reading is a DESCRIPTION of a strong sideways tape elsewhere in the app
   // (analyzer label, research panel). In the prompt it became an entry requirement, so it is gone.
