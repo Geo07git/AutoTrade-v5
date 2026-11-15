@@ -1334,7 +1334,26 @@ export class OKXNativeGridEngine {
     };
 
     if (!cfg.enabled) {
-      return { launched: [], decision: cfg.lastDecision || 'Autopilot OKX Native Grid este OPRIT.' };
+      // A DISABLED module must say that it is disabled.
+      //
+      // Returning the stored `lastDecision` verbatim meant the UI kept showing whatever blocked
+      // the last ENABLED cycle. In production that string was "Blocat: Kill Switch de urgență
+      // este activat." while `killSwitchEngaged` was false and the real state was merely
+      // `enabled: false` — a stale refusal rendered as a live one, which is indistinguishable
+      // from a bug in the kill switch itself. The old reason is still kept, but clearly labelled
+      // as historical, and it is rewritten so the panel cannot keep serving it as current.
+      const stale = String(cfg.lastDecision || '').trim();
+      const offLabel = 'Autopilot OKX Native Grid este OPRIT (enabled=false) — nu lansează nimic.';
+      const decision =
+        stale && !stale.startsWith('Autopilot OKX Native Grid este OPRIT')
+          ? `${offLabel} Ultima decizie dinainte de oprire: ${stale}`
+          : offLabel;
+      const latest = this.getConfig();
+      if (latest.lastDecision !== decision) {
+        latest.lastDecision = decision;
+        this.configStore.save(latest);
+      }
+      return { launched: [], decision };
     }
     if (killSwitchEngaged) {
       return {
