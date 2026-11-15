@@ -35,6 +35,10 @@ import type {
   OKXNativeGridBot,
 } from '../../../shared/types';
 import { GRID_MAX_HALF_RANGE_PCT } from '../../engine/grid/gridPlan';
+import {
+  GRID_ADX_TREND_SELECTION,
+  GRID_CHOP_TREND_SELECTION,
+} from '../../engine/grid/gridRegime';
 
 // ---------------------------------------------------------------------------
 // Assertions
@@ -1361,6 +1365,40 @@ test('prompt: the system rules state that chop/adx are measured AND veto an open
   ok(
     /enforces er AND the adx\/chop rule/.test(SYSTEM_PROMPT),
     'the prompt must say the guard enforces adx/chop too — a rule described as optional is optional'
+  );
+});
+
+test('prompt: a candidate that passes every rule must be opened, not waited on', () => {
+  // Live proof of why this is a rule and not a tone: 20 consecutive cycles on 2026-11-15 came
+  // back HOLD with `rejectedActions: 0`. No guard ever fired - the model refused on its own,
+  // quoting a chop line stricter than any number in the code ("astept chop peste 61.8"), while
+  // `GRID_CHOP_TREND_SELECTION` is 45. Prose that is stricter than the code is a veto nobody
+  // measured, nobody logged and nobody can audit.
+  ok(/HOLD is a valid, professional answer - but it is NOT the default/.test(SYSTEM_PROMPT), 'HOLD must not be the default');
+  ok(/passes every hard rule below, OPEN it/.test(SYSTEM_PROMPT), 'a valid candidate must be opened');
+  ok(
+    /adx <= 25 with chop >= 45 IS grid weather/.test(SYSTEM_PROMPT),
+    'the prompt must say the passing side out loud, or the veto is the only rule the model reads'
+  );
+  ok(
+    /no second, stricter chop line/.test(SYSTEM_PROMPT),
+    'the prompt must forbid a stricter self-imposed threshold'
+  );
+  // The 61.8 Fibonacci reading is a DESCRIPTION of a strong sideways tape elsewhere in the app
+  // (analyzer label, research panel). In the prompt it became an entry requirement, so it is gone.
+  ok(!/61\.8/.test(SYSTEM_PROMPT), 'the system prompt must not carry a chop threshold the code does not enforce');
+});
+
+test('prompt: the chop/adx thresholds come from the code constants, not from literals', () => {
+  // If someone raises GRID_CHOP_TREND_SELECTION, the prompt must move with it. A literal 45 in the
+  // prose is how the two drift apart in the first place.
+  ok(
+    SYSTEM_PROMPT.includes(`chop >= ${GRID_CHOP_TREND_SELECTION}`),
+    'chop threshold must be interpolated from GRID_CHOP_TREND_SELECTION'
+  );
+  ok(
+    SYSTEM_PROMPT.includes(`adx > ${GRID_ADX_TREND_SELECTION}`),
+    'adx threshold must be interpolated from GRID_ADX_TREND_SELECTION'
   );
 });
 

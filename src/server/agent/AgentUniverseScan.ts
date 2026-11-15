@@ -84,8 +84,18 @@ export const AGENT_SCAN_TARGET_HOLDING_HOURS = GRID_DEFAULT_TARGET_HOLDING_HOURS
  * pays an exit" is three, which is also what the live sample showed was never reached.
  */
 export const AGENT_SCAN_MIN_ROUND_TRIPS_IN_HORIZON = 3;
-/** 1h bars fetched per contract for the regime ATR (24 = one day of hourly bars). */
-export const AGENT_SCAN_REGIME_BARS_1H = 24;
+/**
+ * 1h bars fetched per contract for the REGIME (ATR, ADX, Choppiness).
+ *
+ * 60, not 24, and the difference is not cosmetic. `wilderAdx(14)` emits `n - 14` DX readings, so a
+ * real Wilder seed needs 28 bars and a stable one roughly 3x the period. At 24 bars the function
+ * fell through to its raw-average-DX branch: a noisier number wearing the ADX label. Checked
+ * against a real ADX(14) on 300 bars over live X-Perps, that proxy was off in BOTH directions
+ * (BTC 21.8 vs 33.4 — it would have passed the trend gate on a real trend; STRK 25.0 vs 23.6 —
+ * refused on a range). The band and the Choppiness window are untouched: ATR uses `slice(-14)` and
+ * chop uses the last 14 bars, so only the ADX changes.
+ */
+export const AGENT_SCAN_REGIME_BARS_1H = 60;
 
 /** Elite pool size (how many of the whole universe keep their candles). */
 export const AGENT_SCAN_POOL_SIZE = 50;
@@ -909,7 +919,7 @@ export class AgentUniverseScanner {
   }
 
   /**
-   * 1h candles for the regime ATR, with a LOUD fallback.
+   * 1h candles for the regime (ATR / ADX / Choppiness), with a LOUD fallback.
    *
    * A failed 1h fetch must not delete an otherwise valid candidate (the 15m tape alone still
    * describes the step), but it must not pass for a real measurement either: the plan builder

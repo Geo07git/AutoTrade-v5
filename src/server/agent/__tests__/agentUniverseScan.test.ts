@@ -10,6 +10,7 @@
 import {
   AGENT_SCAN_POOL_REFRESH_MINUTES,
   AGENT_SCAN_POOL_SIZE,
+  AGENT_SCAN_REGIME_BARS_1H,
   AgentUniverseScanner,
   buildAgentOpportunity,
   computeAgentGridMetrics,
@@ -420,6 +421,49 @@ test('scanner: a failing 1h fetch degrades to the 15m fallback, it does not drop
   ok(
     logs.some((m) => m.includes('klines 1h indisponibile')),
     'the degradation must be logged, not silent'
+  );
+});
+
+test('scanner: the 1h regime fetch is long enough for a REAL Wilder ADX', async () => {
+  // `wilderAdx(14)` emits `n - 14` DX readings, so a Wilder seed needs 28 bars. Below that it
+  // silently returns the average of whatever DX readings exist — a different, noisier number
+  // wearing the ADX label, which the regime gate then refuses on. Live: BTC read 21.8 against a
+  // real 33.4; STRK read 25.0 against 23.6.
+  ok(
+    AGENT_SCAN_REGIME_BARS_1H >= 2 * 14 + 2,
+    `the scan must request enough 1h bars to seed ADX(14), got ${AGENT_SCAN_REGIME_BARS_1H}`
+  );
+
+  // And the measured ADX must reach the row: 60 bars of a one-way climb is directional pressure.
+  const id = 'AAA-USD_UM_XPERP-310523';
+  const ramp: Kline[] = Array.from({ length: 60 }, (_, i) => {
+    const close = 100 + i * 0.5;
+    return {
+      timestamp: Date.now() - (60 - i) * 3_600_000,
+      open: close - 0.2,
+      high: close + 0.1,
+      low: close - 0.3,
+      close,
+      volume: 1000,
+    };
+  });
+  let requestedBars = 0;
+  const base = fakeDataSource([
+    { spec: spec({ instId: id }), ticker: ticker({ instId: id }), klines: oscillatingKlines(), klines1h: ramp },
+  ]);
+  const data: AgentUniverseDataSource = {
+    ...base,
+    fetchKlines1h: async (_instId: string, bars: number) => {
+      requestedBars = bars;
+      return ramp;
+    },
+  };
+
+  const rows = await new AgentUniverseScanner(data).scan({ ...settings, deepScanCount: 25 });
+  eq(requestedBars, AGENT_SCAN_REGIME_BARS_1H, 'the scanner must request its own regime bar count');
+  ok(
+    (rows[0].adxTrendStrength || 0) > 25,
+    `a one-way 60-bar regime must read as a trend, got ${rows[0].adxTrendStrength}`
   );
 });
 
