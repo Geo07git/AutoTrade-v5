@@ -40,7 +40,13 @@ import {
   maxLeverageForBand,
   GRID_PLAN_MAX_LEVERAGE,
 } from '../engine/grid/gridPlan';
-import { GRID_ER_TREND_THRESHOLD, assessRangeBreakout } from '../engine/grid/gridRegime';
+import {
+  GRID_ADX_TREND_SELECTION,
+  GRID_CHOP_TREND_SELECTION,
+  GRID_ER_TREND_THRESHOLD,
+  assessRangeBreakout,
+  hasDirectionalPressure,
+} from '../engine/grid/gridRegime';
 import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
 import { inspectBandLegality } from './gridBand';
 import {
@@ -344,7 +350,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
 - er is the efficiency ratio of the 15m tape over the holding horizon: |net move| / |path travelled|, 0..1. Low (<= 0.4) = the price goes nowhere and travels a lot, which is what a neutral grid needs. High (> 0.4) = the price is GOING somewhere in one direction, so the grid is short that move and the exit eats the profit. Candidates with er > 0.4 are already eligible=false; never argue your way past that, and treat er close to the threshold as a tie-breaker AGAINST the candidate. null means unmeasured, not calm.
-- chop and adx are MEASURED, not placeholders: Choppiness Index(14) and Wilder ADX(14) on the 1h regime tape (15m when the hourly fetch degraded). High chop (> 61.8) = the range is being travelled both ways = grid weather. adx > 25 or chop < 45 = the range is covered in ONE direction, so DO NOT OPEN on that candidate, whatever crossings_per_h says - crossings counts distance, and a one-way move maximises it. null means unmeasured, not calm. The execution guard enforces er for you; it does NOT enforce these two, so respecting them is your job, not a formality.
+- chop and adx are MEASURED, not placeholders: Choppiness Index(14) and Wilder ADX(14) on the 1h regime tape (15m when the hourly fetch degraded). High chop (> 61.8) = the range is being travelled both ways = grid weather. adx > 25 or chop < 45 = the range is covered in ONE direction, so DO NOT OPEN on that candidate, whatever crossings_per_h says - crossings counts distance, and a one-way move maximises it. null means unmeasured, not calm. The execution guard enforces er AND the adx/chop rule for you: an OPEN_GRID above adx 25 or below chop 45 is rejected with that exact reason, so proposing one only wastes the cycle. Use the numbers to choose, not to gamble.
 - The scan's band is now sized on the HOLDING HORIZON (target_holding_hours, 8h): 0.674 x ATR(1h) x sqrt(T), floored at +/-2% and capped at +/-6%. band_lifetime_hours is the median time until the band edge is touched, so it says what the band actually buys: ~ target_holding_hours is an honest band, much less means the +/-6% ceiling clamped a wild tape (the horizon will NOT be reached and the exit will eat the grid profit) - prefer HOLD there. A range much narrower than the scan's band is the same mistake from the other side: it will be crossed in minutes.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
@@ -1183,6 +1189,8 @@ export class DeepSeekAgent {
     } catch (err: any) {
       return this.finishWithError(cfg, trigger, dryRun, `Construcția contextului a eșuat: ${err?.message || err}`, startedAt);
     }
+    // Make a regime-blocked cycle explicable instead of silent.
+    this.auditRegimeVeto(ctx);
 
     // 3. Decide (DeepSeek, or deterministic fallback)
     let engine: DeepSeekAgentEngine = 'DEEPSEEK';
@@ -1574,6 +1582,34 @@ export class DeepSeekAgent {
             continue;
           }
         }
+        // --- directional pressure -----------------------------------------
+        // The prompt has stated "adx > 25 or chop < 45 => DO NOT OPEN" since P1.1, but nothing
+        // enforced it: er was the only regime number in code, so the STRICTEST of the three
+        // thresholds was the one living in prose. That made it unenforceable, untestable and
+        // model-dependent — and on 2026-11-16, with adx 42-52 on every X-Perp, it was the whole
+        // reason 24 eligible candidates per cycle produced 0 opens while the panel said only
+        // "HOLD". Same constants the scan and the analyzer label with, so the refusal is
+        // auditable and the journal finally carries the numbers that stopped it.
+        if (hasDirectionalPressure(candidate.adxTrendStrength, candidate.choppinessIndex)) {
+          const parts: string[] = [];
+          if (
+            candidate.adxTrendStrength != null &&
+            candidate.adxTrendStrength > GRID_ADX_TREND_SELECTION
+          ) {
+            parts.push(`ADX ${rnd(candidate.adxTrendStrength, 1)} > ${GRID_ADX_TREND_SELECTION}`);
+          }
+          if (
+            candidate.choppinessIndex != null &&
+            candidate.choppinessIndex < GRID_CHOP_TREND_SELECTION
+          ) {
+            parts.push(`Chop ${rnd(candidate.choppinessIndex, 1)} < ${GRID_CHOP_TREND_SELECTION}`);
+          }
+          reject(
+            `Presiune direcțională pe ${candidate.instId}: ${parts.join(' și ')} — banda este ` +
+              'parcursă într-o singură direcție, deci gridul neutru este scurt pe mișcare.'
+          );
+          continue;
+        }
         if (!candidate.agentScan && (candidate.suitabilityScore || 0) < cfg.minSuitabilityScore) {
           reject(
             `Scor ${candidate.suitabilityScore} sub pragul minim ${cfg.minSuitabilityScore} pentru ${candidate.instId}.`
@@ -1802,6 +1838,41 @@ export class DeepSeekAgent {
   // ------------------------------------------------------- hard guardrails ---
 
   /**
+   * Explain a silent cycle.
+   *
+   * When EVERY eligible candidate carries directional pressure, the model is supposed to HOLD and
+   * the guard refuses any open, so the journal would show "HOLD, 0 rejected" — indistinguishable
+   * from "the scan found nothing". One line with the measured numbers is the difference between
+   * "the desk is idle" and "the tape blocked the desk".
+   */
+  private auditRegimeVeto(ctx: BuiltContext): void {
+    const eligible = ctx.candidates.filter((c) => c.isEligible);
+    if (eligible.length === 0) return;
+    const vetoed = eligible.filter((c) =>
+      hasDirectionalPressure(c.adxTrendStrength, c.choppinessIndex)
+    );
+    if (vetoed.length < eligible.length) return;
+
+    const median = (values: Array<number | null | undefined>): number | null => {
+      const sorted = values
+        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+        .sort((a, b) => a - b);
+      return sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : null;
+    };
+    const adxMed = median(vetoed.map((c) => c.adxTrendStrength));
+    const chopMed = median(vetoed.map((c) => c.choppinessIndex));
+
+    this.deps.logAudit(
+      'UNIVERSE_REFRESH',
+      `[DEEPSEEK AGENT] ${vetoed.length}/${eligible.length} candidați eligibili refuzați de presiunea ` +
+        `direcțională (adx>${GRID_ADX_TREND_SELECTION} / chop<${GRID_CHOP_TREND_SELECTION}): ` +
+        `ADX median ${adxMed === null ? '?' : rnd(adxMed, 1)}, chop median ${chopMed === null ? '?' : rnd(chopMed, 1)}. ` +
+        'Nu lipsesc candidații — tape-ul nu este vreme de grid neutru.',
+      { vetoed: vetoed.length, eligible: eligible.length, adxMed, chopMed }
+    );
+  }
+
+  /**
    * Deterministic risk layer. These stops do not depend on the model and are never
    * suppressed by a HOLD — that is what makes the agent safe to leave running.
    */
@@ -1941,7 +2012,10 @@ export class DeepSeekAgent {
             (c.agentScan
               ? (Number(c.crossingsPerHour) || 0) >= cfg.minCrossingsPerHour
               : c.suitabilityScore >= cfg.minSuitabilityScore) &&
-            c.estimatedNetProfitPerGridPct >= cfg.minNetProfitPerGridPct
+            c.estimatedNetProfitPerGridPct >= cfg.minNetProfitPerGridPct &&
+            // Same veto the guard applies, so the deterministic engine does not spend one of
+            // its limited slots on a candidate that is certain to be refused.
+            !hasDirectionalPressure(c.adxTrendStrength, c.choppinessIndex)
         )
         .sort((a, b) =>
           agentRanked

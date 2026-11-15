@@ -1358,6 +1358,10 @@ test('prompt: the system rules state that chop/adx are measured AND veto an open
   ok(/chop and adx are MEASURED/.test(SYSTEM_PROMPT), 'the prompt must say the values are real');
   ok(/adx > 25 or chop < 45/.test(SYSTEM_PROMPT), 'the prompt must name both thresholds');
   ok(/DO NOT OPEN on that candidate/.test(SYSTEM_PROMPT), 'the rule must be a veto, not advice');
+  ok(
+    /enforces er AND the adx\/chop rule/.test(SYSTEM_PROMPT),
+    'the prompt must say the guard enforces adx/chop too — a rule described as optional is optional'
+  );
 });
 
 test('payload: a candidate carries its measured chop/adx to the model, never a hardcoded 0', () => {
@@ -1381,6 +1385,110 @@ test('payload: a candidate carries its measured chop/adx to the model, never a h
   const unmeasured = rows.find((r: any) => r.instId === OTHER_INST);
   eq(unmeasured.chop, null, 'an unmeasured chop must be null, not 0');
   eq(unmeasured.adx, null, 'an unmeasured adx must be null, not 0');
+});
+
+// ===========================================================================
+// P1.3 — the regime rule leaves the prompt and becomes code
+// ===========================================================================
+// Why this section exists: `adx > 25 or chop < 45` was prose for three releases. The model was
+// free to ignore it, no test could pin it down, and on 2026-11-16 (ADX 42-52 on every X-Perp) it
+// was the only reason 24 eligible candidates per cycle produced 0 opens. The three tests below
+// are what stops the rule from silently drifting back into a sentence.
+
+test('regime gate: ADX above 25 refuses the open, with the number in the reason', () => {
+  const h = makeAgent({
+    opportunities: [opportunity({ adxTrendStrength: 47.2, choppinessIndex: 46.8 })],
+  });
+  const cfg = h.agent.getConfig();
+  const ctx = (h.agent as any).buildContext(cfg);
+  const { approved, rejected } = (h.agent as any).validateActions(
+    [
+      {
+        type: 'OPEN_GRID',
+        instId: INST,
+        minPx: 1975,
+        maxPx: 2025,
+        gridNum: 8,
+        runType: '1',
+        lever: 2,
+        sz: 20,
+        rationale_ro: 'test',
+      },
+    ],
+    cfg,
+    ctx
+  );
+
+  eq(approved.length, 0, 'a one-way tape must not open a neutral grid');
+  eq(rejected.length, 1, 'the refusal must be reported, not silently dropped');
+  has(rejected[0].reason, 'ADX 47.2 > 25', 'the reason must carry the number that refused it');
+});
+
+test('regime gate: chop below 45 refuses the open even with a calm ADX', () => {
+  const h = makeAgent({
+    opportunities: [opportunity({ adxTrendStrength: 18, choppinessIndex: 33.2 })],
+  });
+  const cfg = h.agent.getConfig();
+  const ctx = (h.agent as any).buildContext(cfg);
+  const { approved, rejected } = (h.agent as any).validateActions(
+    [
+      {
+        type: 'OPEN_GRID',
+        instId: INST,
+        minPx: 1975,
+        maxPx: 2025,
+        gridNum: 8,
+        runType: '1',
+        lever: 2,
+        sz: 20,
+        rationale_ro: 'test',
+      },
+    ],
+    cfg,
+    ctx
+  );
+
+  eq(approved.length, 0, 'a range covered in one direction must not host a neutral grid');
+  has(rejected[0].reason, 'Chop 33.2 < 45', 'the reason must name the chop reading');
+  ok(!/ADX/.test(rejected[0].reason), 'a calm ADX must not be blamed for a low chop');
+});
+
+test('regime gate: unmeasured ADX/chop is NOT directional pressure', async () => {
+  // `null` means unmeasured, never "trend" and never "calm": a refusal built on missing data
+  // deletes legitimate candidates instead of protecting them.
+  const h = makeAgent({
+    opportunities: [opportunity({ choppinessIndex: null, adxTrendStrength: null })],
+  });
+  await armAutonomous(h, { maxConcurrentBots: 1 });
+
+  await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 1, 'an unmeasured regime must not block an otherwise valid open');
+});
+
+test('regime gate: a cycle blocked entirely by the regime is explained in the journal', async () => {
+  const h = makeAgent({
+    ownScan: [
+      agentRow({ adxTrendStrength: 47.2, choppinessIndex: 46.8 }),
+      agentRow({ instId: OTHER_INST, rank: 2, adxTrendStrength: 52.1, choppinessIndex: 33.2 }),
+    ],
+  });
+  await armAutonomous(h, {
+    requireScanConfirmation: false,
+    maxConcurrentBots: 1,
+    budgetPerBotUSDT: 12,
+    minReserveUSDT: 0,
+    maxTotalMarginUSDT: 12,
+  });
+
+  const decision = await h.agent.runCycle('MANUAL');
+
+  eq(h.calls.created.length, 0, 'no grid on a one-way tape');
+  eq(openActions(decision).length, 0, 'and nothing may be approved either');
+  ok(
+    h.calls.audits.some((a) => /2\/2 candida[tț]i eligibili refuza[tț]i/.test(a.message)),
+    'an empty cycle must say WHY it was empty, otherwise it reads as a broken scan'
+  );
 });
 
 const run = async (): Promise<void> => {
