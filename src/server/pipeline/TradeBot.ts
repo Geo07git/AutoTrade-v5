@@ -1508,13 +1508,28 @@ export class TradeBot {
     });
   }
 
+  /**
+   * Bots that count towards the desk totals for a mode: every row the engine still holds
+   * (soft-deleted included) unioned with the append-only archive, live rows winning on
+   * conflict. Summing the *visible* list instead meant that deleting a stopped bot silently
+   * rewrote yesterday's fees and completed arbitrages — history is not supposed to be editable.
+   */
+  private getAccountingBots(mode: ExecutionMode): GridBotInstance[] {
+    const byId = new Map<string, GridBotInstance>();
+    for (const b of this.journal.getArchivedBots()) byId.set(b.botId, b);
+    for (const b of this.gridEngine.getAllBots()) byId.set(b.botId, b);
+    return Array.from(byId.values()).filter((b) => b.executionMode === mode);
+  }
+
   public getStatus(): BotStatusResponse {
     const cfg = this.configStore.get();
     cfg.killSwitchEngaged = this.isKillSwitchEngagedForMode(cfg.executionMode);
     const profileConfig = cfg.profiles?.NEUTRAL_GRID || DEFAULT_GRID_PROFILE;
     const allBots = this.gridEngine.getAllBots();
-    // Filter bots by active executionMode for accounting so old PAPER bots never pollute LIVE fees/PnL
-    const modeBots = allBots.filter((b) => b.executionMode === cfg.executionMode);
+    // Totals come from the store (live rows + append-only archive), not from the visible list,
+    // so deleting a stopped bot can never rewrite yesterday's fees/PnL. Old PAPER bots are
+    // filtered out by executionMode so they never pollute LIVE numbers.
+    const modeBots = this.getAccountingBots(cfg.executionMode);
     const runningBots = modeBots.filter((b) => b.status === 'RUNNING');
 
     const marginInvested = parseFloat(
@@ -1540,6 +1555,7 @@ export class TradeBot {
     for (const lb of allBots) {
       if (
         lb.executionMode === 'LIVE' &&
+        !lb.deletedAt &&
         !existingNativeIds.has(lb.botId) &&
         !this.nativeGridEngine.isDismissed(lb.botId)
       ) {
@@ -1670,7 +1686,7 @@ export class TradeBot {
         nativeGridAutopilot,
         gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
         deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
-        gridBots: allBots,
+        gridBots: this.gridEngine.getVisibleBots(),
         recentArbitrages: this.journal.getArbitrages(100),
         gridCandidates: this.gridCandidates,
         positions: this.getPositions(),
@@ -1756,7 +1772,7 @@ export class TradeBot {
       nativeGridAutopilot,
       gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
       deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
-      gridBots: allBots,
+      gridBots: this.gridEngine.getVisibleBots(),
       recentArbitrages: this.journal.getArbitrages(100),
       gridCandidates: this.gridCandidates,
       positions: this.getPositions(),
@@ -2114,7 +2130,9 @@ export class TradeBot {
   }
 
   public clearStoppedNativeGridBots() {
-    for (const b of this.gridEngine.getAllBots()) {
+    // Visible only: re-stamping already soft-deleted rows on every click would keep bumping
+    // their updatedAt (and rewriting the archive) for nothing.
+    for (const b of this.gridEngine.getVisibleBots()) {
       if (b.status !== 'RUNNING') {
         this.deleteStoppedGridBot(b.botId);
       }

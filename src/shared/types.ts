@@ -157,6 +157,13 @@ export interface GridBotInstance {
   createdAt: number;
   updatedAt: number;
   stoppedAt?: number;
+  /**
+   * Soft delete (ms). The desk removed the bot from its lists; the row, its accounting and its
+   * archived snapshot stay. Deleting a stopped bot must never rewrite history or the desk
+   * totals — `NeutralGridEngine.getVisibleBots()` hides it from the lists,
+   * `GridJournal.mergeBotsIntoArchive()` keeps the permanent copy.
+   */
+  deletedAt?: number;
   initialCenterPrice: number;
   currentPrice: number;
   gridSpacingUSDT: number;

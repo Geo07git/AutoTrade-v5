@@ -111,6 +111,17 @@ export class NeutralGridEngine {
     return Array.from(this.bots.values()).sort((a, b) => b.createdAt - a.createdAt);
   }
 
+  /**
+   * Bots the desk should see and act on: everything except soft-deleted history.
+   *
+   * Accounting must keep using `getAllBots()` (which includes deleted rows) — see
+   * `TradeBot.getAccountingBots()` — so that removing a row from the lists can never rewrite
+   * the desk totals.
+   */
+  public getVisibleBots(): GridBotInstance[] {
+    return this.getAllBots().filter((b) => !b.deletedAt);
+  }
+
   public getRunningBots(): GridBotInstance[] {
     return this.getAllBots().filter((b) => b.status === 'RUNNING');
   }
@@ -1278,6 +1289,9 @@ export class NeutralGridEngine {
 
       for (const b of allBots) {
         if (b.executionMode !== 'LIVE') continue;
+        // Soft-deleted bots stay out of the reconciliation maps on purpose: their orders must
+        // look orphaned, exactly as they did when the row was removed outright.
+        if (b.deletedAt) continue;
         if (b.status === 'RUNNING') {
           runningBotsBySymbol.set(b.symbol, b);
         } else {
@@ -1533,7 +1547,13 @@ export class NeutralGridEngine {
     const bot = this.bots.get(botId);
     if (!bot) return false;
     if (bot.status === 'RUNNING') return false;
-    this.bots.delete(botId);
+    // Soft delete. `persist()` overwrites grid_bots.json with what the engine still holds, so
+    // dropping the entry here deleted the row, its accounting and its place in the desk totals
+    // in one click — and the delete endpoint had no confirmation in front of it. The row now
+    // stays (flagged); only the lists hide it, and `GridJournal` keeps a terminal snapshot.
+    bot.deletedAt = Date.now();
+    bot.updatedAt = bot.deletedAt;
+    this.bots.set(botId, bot);
     this.persist();
     return true;
   }

@@ -883,6 +883,19 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
   };
 
   const handleClearStoppedBots = async () => {
+    // Bulk destructive action: one click used to wipe EVERY stopped bot from the list — and the
+    // same endpoint also clears the TB5 history in grid_bots.json. The rows are now soft-deleted
+    // (they stay in the store and in grid_bots_archive.json), but the intent still needs confirming.
+    if (
+      !window.confirm(
+        'Ștergi TOȚI boții opriți din listă?\n\n' +
+          'Acțiunea atinge și istoricul TB5 (grid_bots.json). Rândurile sunt șterse logic: dispar ' +
+          'din liste, dar rămân în store și în grid_bots_archive.json, iar totalele desk-ului ' +
+          '(fees, arbitraje, PnL) nu se schimbă.'
+      )
+    ) {
+      return;
+    }
     try {
       const res = await fetch('/api/bot/native-grid/clear-stopped', {
         method: 'POST',

@@ -920,6 +920,18 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   };
 
   const handleDeleteStoppedBot = async (botId: string) => {
+    // One click used to DELETE trading history with no dialog in front of it. The delete is now a
+    // soft delete (the row survives in the store and in the archive), but the intent still needs
+    // confirming.
+    if (
+      !window.confirm(
+        `Ștergi botul ${botId} din istorie?\n\n` +
+          'Rândul dispare din liste, dar rămâne în grid_bots.json și în arhivă, iar totalele ' +
+          'desk-ului (fees, arbitraje, PnL) nu se schimbă. Nu oprește niciun bot în funcțiune.'
+      )
+    ) {
+      return;
+    }
     try {
       await fetch(`/api/bot/grid/${botId}`, {
         method: 'DELETE',
