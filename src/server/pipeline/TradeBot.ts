@@ -161,6 +161,13 @@ export class TradeBot {
   private marketSentimentScore: number = 0;
   private gridCandidates: GridCandidateAnalysis[] = [];
   private isScanning: boolean = false;
+  /**
+   * Symbols analysed in parallel during a scan. `analyzeSymbol` costs two HTTP round-trips per
+   * symbol (96 x 15m candles + instrument filter), so a 24-symbol scan run one await at a time
+   * was ~48 sequential calls — that is the wait, not the instrument metadata. Four stays well
+   * inside OKX's public market-data rate limit.
+   */
+  private static readonly SCAN_CONCURRENCY = 4;
   private lastScanDurationMs: number = 0;
   private lastScanTimestamp: number = 0;
   /**
@@ -854,14 +861,21 @@ export class TradeBot {
       const targetSymbols = symbols.slice(0, Math.max(16, ap.maxScannedSymbols || 24));
       const analyzed: GridCandidateAnalysis[] = [];
 
-      for (const sym of targetSymbols) {
-        const res = await NeutralGridAnalyzer.analyzeSymbol(
-          sym,
-          this.activeAdapter,
-          filtered.tickersMap?.[sym]
+      // Batched instead of one await per symbol: same results (the list is sorted by score right
+      // after), and one symbol that fails can no longer abort the whole scan into the catch below.
+      for (let i = 0; i < targetSymbols.length; i += TradeBot.SCAN_CONCURRENCY) {
+        const batch = targetSymbols.slice(i, i + TradeBot.SCAN_CONCURRENCY);
+        const settled = await Promise.all(
+          batch.map((sym) =>
+            NeutralGridAnalyzer.analyzeSymbol(
+              sym,
+              this.activeAdapter,
+              filtered.tickersMap?.[sym]
+            ).catch(() => null)
+          )
         );
-        if (res) {
-          analyzed.push(res);
+        for (const res of settled) {
+          if (res) analyzed.push(res);
         }
       }
 
