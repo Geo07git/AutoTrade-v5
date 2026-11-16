@@ -163,6 +163,22 @@ export class TradeBot {
   private isScanning: boolean = false;
   private lastScanDurationMs: number = 0;
   private lastScanTimestamp: number = 0;
+  /**
+   * Last completed scan, persisted so a restart does not open on an empty desk.
+   *
+   * DISPLAY ONLY. `gridCandidates` lives in memory, so every restart emptied the scanner tab and
+   * the desk had to sit through the whole multi-symbol analysis (candles per symbol) before
+   * showing anything. It must never feed an open decision: the autopilot evaluates the native
+   * engine's own fresh scan, `start()` triggers a real scan immediately, and that scan overwrites
+   * this snapshot when it completes. Prices restored from here are last-known, not live.
+   */
+  private gridScanSnapshotStore = new JsonStore<{
+    savedAt: number;
+    durationMs?: number;
+    sentiment?: string;
+    sentimentScore?: number;
+    candidates: GridCandidateAnalysis[];
+  }>('grid_scan_snapshot.json', { savedAt: 0, candidates: [] });
   private monitorInterval?: NodeJS.Timeout;
   private scannerInterval?: NodeJS.Timeout;
   private cachedLiveWalletBalance: number = 200.0;
@@ -177,6 +193,10 @@ export class TradeBot {
       okxRegion: 'EEA',
     });
     this.journal = new GridJournal();
+
+    // Populate the scanner from the last completed scan so a restart does not open on an empty
+    // desk while the boot scan runs. Display only — see gridScanSnapshotStore.
+    this.hydrateScanSnapshot();
 
     const appConfig = this.configStore.get();
     const savedCreds = this.okxCredsStore.get();
@@ -860,6 +880,8 @@ export class TradeBot {
         this.marketSentimentScore = top.gridSuitabilityScore;
       }
 
+      this.persistScanSnapshot();
+
       this.logAudit(
         'SCAN_COMPLETED',
         `Scanare Grid Universe finalizată în ${this.lastScanDurationMs}ms: ${analyzed.length} instrumente analizate pentru Neutral Grid.`
@@ -1065,6 +1087,43 @@ export class TradeBot {
       gridCandidates: this.gridCandidates,
       filterConfig: this.configStore.get().scannerFilter || DEFAULT_UNIVERSE_FILTER,
     };
+  }
+
+  /**
+   * Restores the last completed scan from disk. Never throws: a corrupt or empty snapshot must
+   * degrade to "no history", exactly as before this cache existed.
+   */
+  private hydrateScanSnapshot(): void {
+    try {
+      const snap = this.gridScanSnapshotStore.get();
+      if (!snap || !Array.isArray(snap.candidates)) return;
+      if (snap.candidates.length === 0) return;
+      if (!snap.savedAt || snap.savedAt <= 0) return;
+      this.gridCandidates = snap.candidates;
+      this.lastScanTimestamp = snap.savedAt;
+      this.lastScanDurationMs = snap.durationMs || 0;
+      if (snap.sentiment) this.marketSentiment = snap.sentiment;
+      if (typeof snap.sentimentScore === 'number') {
+        this.marketSentimentScore = snap.sentimentScore;
+      }
+    } catch (err: any) {
+      console.warn('[TradeBot] scan snapshot unreadable, starting empty:', err?.message || err);
+    }
+  }
+
+  /** Display cache only: failing to write it must never fail the scan that just succeeded. */
+  private persistScanSnapshot(): void {
+    try {
+      this.gridScanSnapshotStore.save({
+        savedAt: this.lastScanTimestamp,
+        durationMs: this.lastScanDurationMs,
+        sentiment: this.marketSentiment,
+        sentimentScore: this.marketSentimentScore,
+        candidates: this.gridCandidates,
+      });
+    } catch (err: any) {
+      console.warn('[TradeBot] scan snapshot not persisted:', err?.message || err);
+    }
   }
 
   public async updateCredentials(
