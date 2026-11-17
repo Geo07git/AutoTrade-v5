@@ -22,14 +22,57 @@ disabled — the result must be the same: **`main` on GitHub is up to date.**
 
 Target branch: `main`, direct commits, no PR flow.
 
-## Never do these without explicit owner approval
+## Never do these (hard, no approval path)
 
-- `git push --force` or `--force-with-lease` on `main`.
+- `git push --force`, `--force-with-lease`, `-f`.
 - `git reset --hard`, `git rebase` on `main`, or `git commit --amend` on a
   commit that is already pushed.
+- `git filter-branch`, `git update-ref`, `git reflog expire`, `git gc --prune`.
+- `git commit --no-verify` / `-n`, and any other hook bypass.
+- `git remote add|remove|set-url`, and any change to `git config`.
+- `rm -rf`, `Remove-Item -Recurse`, `del /f`, `rd /s`, `git clean -fdx`,
+  `git checkout -- .`, `git restore .` — these destroy uncommitted work.
+- Reading, printing, copying, committing or transmitting the contents of
+  `.env*`, `.data/`, private keys, keystores, `*.zip`, `*.patch`.
+- Touching production: `ssh`, `systemctl restart`, `gh workflow run`, editing the
+  `push:` trigger in `.github/workflows/deploy.yml`.
+- `--live` on any trading CLI, and any real (non-demo) trading operation.
+
+## Only with explicit owner approval
+
 - Commit `.env*`, `.data/`, `*.zip`, `*.patch`, `public/*.zip`, or any secret.
 - Push while `npm run lint` fails, or while the secret check is inconclusive.
 - Auto-resolve merge conflicts by guessing which side is correct.
+- Delete or move repository files, change dependencies (`npm install`/`ci`,
+  `pip install`), or rename anything.
+
+## Terminal modes
+
+No approval prompts in chat. Every command is either run (free) or printed for
+someone else to run (display only).
+
+**Free — run directly:** reads (`cat`, `type`, `dir`, `ls`, `head`, `tail`,
+`grep`, `find`), all git commands except those under `## Never do these`, and the
+verifications `npm run lint`, `npm test`, `npm run build`.
+
+**Agent commits and pushes.** `git add`, `commit`, `push`, `pull`, `merge`,
+`checkout <branch>`, `switch`, `stash`, `tag` are run by the agent directly — the
+owner's standing approval is recorded here. Before every commit the agent runs
+`git status`, `git diff`, the secret check and `npm run lint` (when TypeScript
+changed); if a check fails or is inconclusive, it stops and reports instead of
+committing.
+
+Consequence the owner accepted: a commit is public on `main` within seconds (the
+`post-commit` hook), and undoing it needs a force-push, which is forbidden above.
+
+**Display only — print the powershell block, the human runs it:** dependency
+installs (`npm install`/`ci`/`uninstall`, `pip install`), file moves/renames, and
+any command that writes outside `src/`, `scripts/`, `docs/`, `public/`.
+
+Prefer whitelist forms (the IDE escalates anything else to a permission prompt):
+`npm run lint` instead of `npx tsc --noEmit`; `grep`/`cat`/`dir` instead of
+`rg`/`Get-Content`/`Get-ChildItem`; one simple command per call, no `|`, `&&`,
+`;` chains.
 
 ## If a push fails
 
