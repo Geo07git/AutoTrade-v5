@@ -200,6 +200,16 @@ export interface GridBotInstance {
   fundingEstimateUSDT: number;
   totalNetPnlUSDT: number;      // gridCaptureUSDT + exitCostUSDT - totalFeesUSDT + fundingEstimateUSDT + floatingPnlUSDT
   totalNetPnlPct: number;       // % return on marginInvestedUSDT
+  /**
+   * High-water mark of `totalNetPnlPct`: the best return this bot ever reached, and when.
+   *
+   * Persisted with the row (the whole bot object is written to `grid_bots.json`) because a
+   * giveback guard that only remembered the last tick would re-arm from whatever the current,
+   * possibly already-given-back value happens to be. Ratchets up only, and only above 0, so
+   * `undefined` and `0` both mean "never in profit" and nothing can arm on a losing bot.
+   */
+  peakTotalPnlPct?: number;
+  peakTotalPnlAt?: number;
   completedArbitrages: number;  // Total matched grid round-trips
   activeBuyOrders: number;
   activeSellOrders: number;

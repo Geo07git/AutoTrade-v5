@@ -921,6 +921,14 @@ export class NeutralGridEngine {
     const margin = Math.max(1, bot.config.marginInvestedUSDT);
     bot.totalNetPnlPct = parseFloat(((bot.totalNetPnlUSDT / margin) * 100).toFixed(2));
 
+    // High-water mark. Ratchets up only, and only above 0: `undefined` and `0` both mean
+    // "never in profit", so a guard reading this can never arm on a bot that only ever lost.
+    // Written here rather than at each call site — this is the only place `totalNetPnlPct` moves.
+    if (bot.totalNetPnlPct > (bot.peakTotalPnlPct ?? 0)) {
+      bot.peakTotalPnlPct = bot.totalNetPnlPct;
+      bot.peakTotalPnlAt = Date.now();
+    }
+
     this.verifyBotAccountingInvariant(bot, currentPrice, ctVal);
   }
 
