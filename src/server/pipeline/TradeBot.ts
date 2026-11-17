@@ -56,6 +56,7 @@ import {
 } from '../agent/AgentUniverseScan';
 import { getLiveFeeRates } from '../../shared/fees';
 import { computeGridStopTargets } from '../engine/grid/gridStopTargets';
+import { planVenueStops, placeConditionalStop, cancelConditionalStops } from '../exchange/okxConditionalStop';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -827,7 +828,83 @@ export class TradeBot {
   }
 
   public async stopGridBot(botId: string, reason?: string) {
-    return await this.gridEngine.stopBot(botId, reason || 'Oprit manual din Terminal');
+    // Read the instrument BEFORE stopping: once the bot is gone there is nothing left to look the
+    // instId up from, and a conditional stop still resting after its bot is gone would fire against
+    // whatever position exists later, at a level chosen by a bot that no longer exists.
+    const instId = this.gridEngine.getBot(botId)?.config?.symbol;
+    const result = await this.gridEngine.stopBot(botId, reason || 'Oprit manual din Terminal');
+    if (instId) await this.cancelVenueStops(instId);
+    return result;
+  }
+
+  /**
+   * Places the venue-side protective stops for a freshly created fallback bot.
+   *
+   * Gated behind `GRID_VENUE_STOP_ENABLED` and OFF by default. The request is reduce-only with
+   * closeFraction=1, so it can never open or increase a position - but it is still a real order on a
+   * real account, and the trigger prices come from band geometry rather than from anything testable
+   * here. The gate exists so that the first placement is watched, not assumed.
+   */
+  private async placeVenueStops(rawInstId: string, lowerStopPrice: number, upperStopPrice: number): Promise<void> {
+    if (process.env.GRID_VENUE_STOP_ENABLED !== '1') return;
+
+    // Both paths must agree on the identifier. Placing under one symbol form and cancelling under
+    // another would mean cancelling an instrument that never carried the stop - leaving it armed.
+    const instId = this.okxAdapter.normalizeSymbol
+      ? this.okxAdapter.normalizeSymbol(rawInstId)
+      : rawInstId;
+
+    const plan = planVenueStops({ lowerStopPrice, upperStopPrice });
+    if (!plan.ok) {
+      console.warn(`[TradeBot] Stopuri la bursa neplasate pentru ${instId}: ${plan.rationale}`);
+      return;
+    }
+
+    // Replace, never stack: a second pair would double up, and a leftover pair would outlive its bot.
+    await this.cancelVenueStops(instId);
+
+    for (const leg of plan.legs) {
+      const res = await placeConditionalStop(this.okxAdapter, {
+        symbol: instId,
+        side: leg.side,
+        triggerPx: leg.triggerPx,
+        posSide: leg.posSide,
+      });
+      if (res.ok) {
+        console.log(
+          `[TradeBot] Stop la bursa plasat pentru ${instId}: ${leg.side} @ ${leg.triggerPx} (algoId ${res.algoId})`
+        );
+      } else {
+        console.warn(
+          `[TradeBot] Stop la bursa ESDUAT pentru ${instId} ${leg.side} @ ${leg.triggerPx}: ${res.error}. ` +
+            `Protectia interna ramane singura.`
+        );
+      }
+    }
+  }
+
+  /**
+   * Cancels every resting conditional stop for an instrument. Called when a bot stops - see the
+   * header of `okxConditionalStop.ts` for why a stale stop is the actual hazard of this feature.
+   */
+  private async cancelVenueStops(rawInstId: string): Promise<void> {
+    if (process.env.GRID_VENUE_STOP_ENABLED !== '1') return;
+
+    const instId = this.okxAdapter.normalizeSymbol
+      ? this.okxAdapter.normalizeSymbol(rawInstId)
+      : rawInstId;
+
+    const res = await cancelConditionalStops(this.okxAdapter, instId);
+    if (res.error) {
+      console.warn(`[TradeBot] Anularea stopurilor la bursa pentru ${instId} a esuat: ${res.error}`);
+      return;
+    }
+    if (res.failed.length > 0) {
+      console.warn(
+        `[TradeBot] Stopuri la bursa RAMASE ACTIVE pentru ${instId}: ${res.failed.join(', ')}. ` +
+          `Sunt inca armate si trebuie anulate manual din OKX.`
+      );
+    }
   }
 
   /**
@@ -2187,6 +2264,10 @@ export class TradeBot {
           uTime: now,
         };
         this.nativeGridEngine.registerFallbackBot(fallbackNativeBot);
+        // `vp.slTriggerPx` / `vp.tpTriggerPx` are the two band EDGES (lower / upper) as derived by
+        // `computeGridStopTargets` - the second is the breakout bound, not a take-profit. Fire and
+        // forget: a slow venue must never delay the return of a creation that already succeeded.
+        void this.placeVenueStops(vp.instId, vp.slTriggerPx, vp.tpTriggerPx);
         return { success: true, algoId: gridRes.bot.botId, bot: fallbackNativeBot };
       }
       return {
