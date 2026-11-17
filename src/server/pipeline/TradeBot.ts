@@ -1575,6 +1575,10 @@ export class TradeBot {
         floatProfit: match.floatingPnlUSDT || 0,
         totalPnl: match.totalNetPnlUSDT || 0,
         totalPnlPct: match.totalNetPnlPct || 0,
+        // The high-water mark lives on the TB5 bot (see the note above): the native snapshot is
+        // rebuilt from live counters on every read, so the giveback guard must be fed from here
+        // too, or every bot would look like it had never been in profit.
+        peakTotalPnlPct: match.peakTotalPnlPct || 0,
         arbitrageNum: match.completedArbitrages || 0,
         stopReason: match.stopReason || nb.stopReason,
       };
@@ -1652,6 +1656,7 @@ export class TradeBot {
           floatProfit: lb.floatingPnlUSDT || 0,
           totalPnl: lb.totalNetPnlUSDT || 0,
           totalPnlPct: lb.totalNetPnlPct || 0,
+          peakTotalPnlPct: lb.peakTotalPnlPct || 0,
           arbitrageNum: lb.completedArbitrages || 0,
           tpTriggerPx: lb.upperStopPrice,
           slTriggerPx: lb.lowerStopPrice,

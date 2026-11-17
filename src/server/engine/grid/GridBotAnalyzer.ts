@@ -16,6 +16,7 @@ import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
 import { OKXNativeGridEngine } from './OKXNativeGridEngine';
 import { classifyDecisionCodes, decisionForCode } from './gridReasonCodes';
 import { advanceOutsideBandState, assessRangeBreakout } from './gridRegime';
+import { assessProfitGiveback, GRID_PROFIT_GIVEBACK_DEFAULTS } from './gridProfitGuard';
 
 export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   adxMonitorThreshold: 25,
@@ -33,6 +34,11 @@ export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   rangeBreakoutConfirmMinutes: 30,
   warningDrawdownPct: 5,
   stopDrawdownPct: 8,
+  // Profit ratchet. Armed by a PEAK only, never by the current value: a bot that has not yet
+  // earned 3% cannot be stopped for "giving back" what is really its own float noise.
+  profitGivebackArmPct: GRID_PROFIT_GIVEBACK_DEFAULTS.armPct,
+  profitGivebackRatio: GRID_PROFIT_GIVEBACK_DEFAULTS.ratio,
+  profitGivebackMinBandPct: GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct,
   minLiqSafetyPct: 4.0,
   requireMultiIndicatorForTrendStop: true,
   emergencyClosePosition: true,
@@ -981,6 +987,24 @@ export class GridDecisionEngine {
       };
     }
 
+    // 2b. PROFIT GIVEBACK -> STOP. Rule 2 cannot see this: `drawdownPct` is 0 for every bot that
+    //     is in profit, so a banked gain being handed back had no rule at all. Shares
+    //     `assessProfitGiveback` with `classifyDecisionCodes`, so the parity test pins both.
+    const giveback = assessProfitGiveback({
+      peakPct: snapshot.performance.peakTotalPnlPct,
+      currentPct: bot.totalPnlPct,
+      armPct: thresholds.profitGivebackArmPct,
+      ratio: thresholds.profitGivebackRatio,
+      minBandPct: thresholds.profitGivebackMinBandPct,
+    });
+    if (giveback.triggered) {
+      return {
+        decision: 'STOP',
+        reason: `Profit dat inapoi peste banda de protectie: varf +${giveback.peakPct.toFixed(2)}%, acum ${giveback.currentPct.toFixed(2)}% (banda ${giveback.bandPct.toFixed(2)}pp, podea ${giveback.floorPct.toFixed(2)}%)`,
+        riskLevel: 'CRITICAL',
+      };
+    }
+
     // 3. Range breakout: the band edge PLUS an ATR-proportional buffer, and only on CONFIRMATION.
     //
     // Was: `currentPx > maxPx * 1.0015` -> STOP. That rule could not tell a 4-minute wick from a
@@ -1719,6 +1743,7 @@ export class GridBotAnalyzer {
         estimatedFeesUSDT: 0,
         estimatedFundingCostUSDT: 0,
         netProfitAfterCostsUSDT: bot.totalPnl,
+        peakTotalPnlPct: bot.peakTotalPnlPct ?? 0,
       },
       risk: {
         distToLowerLimitPct: 50,

@@ -20,6 +20,7 @@ import {
   splitIsIntact,
   splitLegacyRealized,
 } from './gridPnlAccounting';
+import { ratchetPeak } from './gridProfitGuard';
 
 export class NeutralGridEngine {
   private adapter: IExecutionAdapter;
@@ -921,11 +922,12 @@ export class NeutralGridEngine {
     const margin = Math.max(1, bot.config.marginInvestedUSDT);
     bot.totalNetPnlPct = parseFloat(((bot.totalNetPnlUSDT / margin) * 100).toFixed(2));
 
-    // High-water mark. Ratchets up only, and only above 0: `undefined` and `0` both mean
-    // "never in profit", so a guard reading this can never arm on a bot that only ever lost.
+    // High-water mark. `ratchetPeak` is the single rule (pure, covered by gridProfitGuard.test.ts):
+    // it may rise, and it never goes below 0, so a bot that only ever lost has no peak to protect.
     // Written here rather than at each call site — this is the only place `totalNetPnlPct` moves.
-    if (bot.totalNetPnlPct > (bot.peakTotalPnlPct ?? 0)) {
-      bot.peakTotalPnlPct = bot.totalNetPnlPct;
+    const peak = ratchetPeak(bot.peakTotalPnlPct, bot.totalNetPnlPct);
+    if (peak !== bot.peakTotalPnlPct) {
+      bot.peakTotalPnlPct = peak;
       bot.peakTotalPnlAt = Date.now();
     }
 

@@ -154,6 +154,7 @@ function makeSnapshot(
       estimatedFeesUSDT: 0,
       estimatedFundingCostUSDT: 0,
       netProfitAfterCostsUSDT: 0,
+      peakTotalPnlPct: 0,
       ...over.performance,
     },
     risk: {
@@ -203,6 +204,26 @@ interface Fixture {
 const FIXTURES: Fixture[] = [
   { name: 'liquidation proximity', snapshot: { risk: { liqPx: 90, distToLiqPct: 3 } }, expected: 'RISK_LIQ_PROXIMITY' },
   { name: 'drawdown stop', snapshot: { risk: { drawdownPct: 9 } }, expected: 'RISK_DRAWDOWN_STOP' },
+  // 2b. Profit giveback. `drawdownPct` is 0 here, so ONLY this rule can produce the verdict:
+  // peak +5.8% -> band max(5.8 * 0.4, 2) = 2.32pp -> floor +3.48%; at +3.4% it has crossed.
+  {
+    name: 'profit giveback',
+    bot: { totalPnlPct: 3.4 },
+    snapshot: { performance: { peakTotalPnlPct: 5.8 } },
+    expected: 'RISK_PROFIT_GIVEBACK',
+  },
+  // The complement, and the one that matters in practice: a bot still inside its band is NOT
+  // stopped. This is the live shape (+5.8% peak, +5.07% now) — it must keep running.
+  {
+    name: 'a profitable bot inside its giveback band keeps running',
+    bot: { totalPnlPct: 5.07, arbitrageNum: 47 },
+    snapshot: {
+      performance: { peakTotalPnlPct: 5.8 },
+      // Banked round-trips are what makes the final verdict HOLD_PROFITABLE rather than RANGE_NORMAL.
+      stagnation: { netRealizedProfitAfterCostsUSDT: 0.648 },
+    },
+    expected: 'HOLD_PROFITABLE',
+  },
   // The breakout rule: the buffer is 0.5% (105 * 1.005 = 105.525), and beyond it the breach must be
   // CORROBORATED. The old engine stopped on the first tick past 105.1575 — that single rule filled
   // 70 of 89 live stops on bots whose median life was 50 minutes.
@@ -363,6 +384,7 @@ test('classifyDecisionCodes is deterministic and side-effect free', () => {
 const ALL_DECISION_CODES: GridDecisionCode[] = [
   'RISK_LIQ_PROXIMITY',
   'RISK_DRAWDOWN_STOP',
+  'RISK_PROFIT_GIVEBACK',
   'RISK_RANGE_BREAKOUT_CONFIRMED',
   'RISK_RANGE_BREAKOUT_BUFFER',
   'REGIME_TREND_CONFIRMED',

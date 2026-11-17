@@ -519,6 +519,11 @@ export interface OKXNativeGridBot {
   floatProfit: number;            // Unrealized PnL reported by OKX
   totalPnl: number;               // Total PnL reported by OKX
   totalPnlPct: number;
+  /**
+   * High-water mark of `totalPnlPct`, carried from the TB5 bot that owns the live counters.
+   * Missing/0 means "never in profit" — the giveback guard must not arm on a loser.
+   */
+  peakTotalPnlPct?: number;
   arbitrageNum: number;           // Completed grid round-trips on OKX
   tpTriggerPx?: number;
   slTriggerPx?: number;
@@ -956,6 +961,22 @@ export interface GridAnalyzerThresholds {
   rangeBreakoutConfirmMinutes?: number;
   warningDrawdownPct: number;
   stopDrawdownPct: number;
+  /**
+   * PROFIT RATCHET — the giveback guard stays disarmed until a bot has ever reached this return
+   * (% of margin). Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.armPct`. Arming on a threshold rather
+   * than on the first profitable tick is what keeps float noise from stopping a fresh bot.
+   */
+  profitGivebackArmPct?: number;
+  /**
+   * Fraction of the peak return the bot may surrender before the guard fires (0 < ratio <= 1).
+   * Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.ratio`.
+   */
+  profitGivebackRatio?: number;
+  /**
+   * Absolute floor for the giveback band, in % of margin, so a small peak is not protected by a
+   * band narrower than the normal float swing. Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct`.
+   */
+  profitGivebackMinBandPct?: number;
   minLiqSafetyPct: number;
   requireMultiIndicatorForTrendStop: boolean;
   emergencyClosePosition: boolean;
@@ -1035,6 +1056,11 @@ export interface GridBotAnalysisSnapshot {
     estimatedFeesUSDT: number;
     estimatedFundingCostUSDT: number;
     netProfitAfterCostsUSDT: number;
+    /**
+     * High-water mark of the return, in % of margin. Feeds the profit giveback guard; 0 (or
+     * absent) means the bot has never been in profit, so the guard stays disarmed.
+     */
+    peakTotalPnlPct?: number;
   };
   risk: {
     distToLowerLimitPct: number;

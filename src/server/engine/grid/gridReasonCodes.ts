@@ -28,6 +28,7 @@ import type {
 } from '../../../shared/types';
 import type { GridPlanRejectionCode } from './gridPlan';
 import { assessRangeBreakout } from './gridRegime';
+import { assessProfitGiveback } from './gridProfitGuard';
 
 // ---------------------------------------------------------------------------
 // Market verdict codes
@@ -37,6 +38,7 @@ export type GridDecisionCode =
   // CRITICAL — risk
   | 'RISK_LIQ_PROXIMITY'
   | 'RISK_DRAWDOWN_STOP'
+  | 'RISK_PROFIT_GIVEBACK'
   | 'RISK_RANGE_BREAKOUT_CONFIRMED'
   | 'RISK_RANGE_BREAKOUT_UNCONFIRMED'
   | 'RISK_RANGE_BREAKOUT_BUFFER'
@@ -108,6 +110,7 @@ export type GridReasonCode = GridDecisionCode | GridExecutionCode;
 const DECISION_BY_CODE: Record<GridDecisionCode, GridAnalyzerDecision> = {
   RISK_LIQ_PROXIMITY: 'EMERGENCY',
   RISK_DRAWDOWN_STOP: 'STOP',
+  RISK_PROFIT_GIVEBACK: 'STOP',
   RISK_RANGE_BREAKOUT_CONFIRMED: 'STOP',
   RISK_RANGE_BREAKOUT_UNCONFIRMED: 'WARNING',
   RISK_RANGE_BREAKOUT_BUFFER: 'WARNING',
@@ -137,6 +140,7 @@ export function decisionForCode(code: GridDecisionCode): GridAnalyzerDecision {
 export const GRID_REASON_MESSAGES_RO: Record<GridReasonCode, string> = {
   RISK_LIQ_PROXIMITY: 'Prea aproape de lichidare',
   RISK_DRAWDOWN_STOP: 'Drawdown peste pragul de stop',
+  RISK_PROFIT_GIVEBACK: 'Profit dat inapoi peste banda de protectie',
   RISK_RANGE_BREAKOUT_CONFIRMED: 'Iesire confirmata din banda grilei',
   RISK_RANGE_BREAKOUT_UNCONFIRMED: 'Ruptura de banda neconfirmata (wick sau tranzitoriu)',
   RISK_RANGE_BREAKOUT_BUFFER: 'Pret la limita benzii (buffer anti-wick)',
@@ -256,6 +260,22 @@ export function classifyDecisionCodes(input: GridDecisionInput): GridDecisionCod
   );
   if (snapshot.risk.drawdownPct >= effectiveStopDrawdownPct) {
     return ['RISK_DRAWDOWN_STOP'];
+  }
+
+  // 2b. Profit giveback -> STOP. `drawdownPct` is 0 for EVERY bot that is in profit, so nothing
+  //     else in this classifier watches a banked gain being handed back: a bot at +8% falling to
+  //     +2% used to be "still profitable, zero drawdown" and kept running until the band broke.
+  //     The band is proportional to the peak with an absolute floor, so the normal float swing of
+  //     a leveraged grid on its own band cannot trigger it (see `assessProfitGiveback`).
+  const giveback = assessProfitGiveback({
+    peakPct: snapshot.performance.peakTotalPnlPct,
+    currentPct: bot.totalPnlPct,
+    armPct: thresholds.profitGivebackArmPct,
+    ratio: thresholds.profitGivebackRatio,
+    minBandPct: thresholds.profitGivebackMinBandPct,
+  });
+  if (giveback.triggered) {
+    return ['RISK_PROFIT_GIVEBACK'];
   }
 
   // 3. Range breakout — buffered and CONFIRMED. Shares `assessRangeBreakout` with the engine's
