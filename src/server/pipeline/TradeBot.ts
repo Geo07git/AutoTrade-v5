@@ -55,6 +55,7 @@ import {
   type AgentUniverseTicker,
 } from '../agent/AgentUniverseScan';
 import { getLiveFeeRates } from '../../shared/fees';
+import { computeGridStopTargets } from '../engine/grid/gridStopTargets';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -1669,8 +1670,32 @@ export class TradeBot {
           totalPnlPct: lb.totalNetPnlPct || 0,
           peakTotalPnlPct: lb.peakTotalPnlPct || 0,
           arbitrageNum: lb.completedArbitrages || 0,
-          tpTriggerPx: lb.upperStopPrice,
-          slTriggerPx: lb.lowerStopPrice,
+          // Stops as the ENGINE bounds them, not as the config remembers them.
+          //
+          // `lowerStopPrice` was derived at creation from `stopLossPct` and leverage
+          // (`8 / (100 x lev/2)` = 8% at 2x), which places it 1.5% BELOW the band - past the point
+          // where the grid already stopped being a grid. Meanwhile the bound `assessRangeBreakout`
+          // actually clamps to is `lowerPrice - 0.5%`. So this row used to print $63.60 while the
+          // engine acted on $66.47: two numbers, and the one shown was not the one in play.
+          //
+          // `stopLossPct` is left at the configured value on purpose: that is a real rule too (the
+          // PnL stop), and it is a different mechanism from the price stop. What was wrong was the
+          // PRICE, not the percentage.
+          //
+          // `tpTriggerPx` becomes 0 because a capture target has NO price. The $75.48 it used to show
+          // was `upper * 1.075` - unreachable by a grid working inside its own band - and it was
+          // never an order at the venue, only decoration. 0 makes the row omit the parenthetical
+          // instead of inventing one.
+          ...(() => {
+            const structuralStops = computeGridStopTargets({
+              lowerPrice: lb.config.lowerPrice,
+              upperPrice: lb.config.upperPrice,
+              leverage: lb.config.leverage,
+            });
+            return structuralStops.ok
+              ? { slTriggerPx: structuralStops.stopLossPrice, tpTriggerPx: 0 }
+              : { slTriggerPx: lb.lowerStopPrice, tpTriggerPx: lb.upperStopPrice };
+          })(),
           stopLossPct: lb.config.risk.stopLossPct,
           takeProfitPct: lb.config.risk.takeProfitPct,
           stopTypeOnRisk: '1',

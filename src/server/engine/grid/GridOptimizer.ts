@@ -6,6 +6,7 @@ import {
 } from '../../../shared/types';
 import { InstrumentLotFilter } from '../../exchange/IExecutionAdapter';
 import { MartingaleEngine } from './MartingaleEngine';
+import { computeGridStopTargets } from './gridStopTargets';
 
 export interface GridOptimizationResult {
   levels: GridLevelState[];
@@ -82,14 +83,23 @@ export class GridOptimizer {
     const recommendedLeverage = atrPct > 2.2 ? 3 : atrPct > 1.2 ? 4 : 5;
     if (gridCount % 2 !== 0) gridCount = Math.min(8, gridCount + 1); // Prefer 6 or 8 grids for balanced profile
 
+    // SL/TP from the band and the leverage actually recommended, not from the band alone. The old
+    // formula (`halfBandPct * 2.2`) had no leverage term, so at 5x it produced a 4% stop that fires
+    // after a 0.8% price move — deep INSIDE a 1.75% half-band, i.e. on the grid's own noise.
+    const autoStops = computeGridStopTargets({
+      lowerPrice,
+      upperPrice,
+      leverage: recommendedLeverage,
+    });
+
     return {
       lowerPrice,
       upperPrice,
       gridCount: Math.max(6, gridCount),
       gridType: totalBandPct > 8 ? 'GEOMETRIC' : 'ARITHMETIC',
       recommendedLeverage,
-      stopLossPct: parseFloat(Math.min(12, Math.max(4, halfBandPct * 2.2)).toFixed(1)),
-      takeProfitPct: parseFloat(Math.min(24, Math.max(6, halfBandPct * 3.5)).toFixed(1)),
+      stopLossPct: autoStops.ok ? autoStops.stopLossPct : parseFloat(Math.min(12, Math.max(4, halfBandPct * 2.2)).toFixed(1)),
+      takeProfitPct: autoStops.ok ? autoStops.takeProfitPct : parseFloat(Math.min(24, Math.max(6, halfBandPct * 3.5)).toFixed(1)),
       atrPct: parseFloat(atrPct.toFixed(2)),
       range24hPct: parseFloat(rawRangePct.toFixed(2)),
     };
@@ -241,17 +251,21 @@ export class GridOptimizer {
       (avgSellPx * (1 + maxExcursionPct)).toFixed(priceDecimals)
     );
 
-    const effectiveSlPct = config.risk?.stopLossPct || (config as any).stopLossPct || 5;
-    const stopBufferPct = Math.max(0.005, effectiveSlPct / (100 * Math.max(1, leverage * 0.5)));
+    // Structural stops from the band. The old formula derived its buffer from stopLossPct and
+    // leverage (`8 / (100 x lev/2)` = 8% at 2x), which put the stop 1.5% BELOW the band — past the
+    // point where the grid had already stopped being a grid. `gridStopTargets` puts it just past
+    // the edge, which is ALSO where `assessRangeBreakout` clamps the venue triggers, so the stop
+    // shown in the UI and the one the engine acts on stop being two different numbers.
+    const stopTargets = computeGridStopTargets({ lowerPrice: lower, upperPrice: upper, leverage });
     const lowerStopPrice =
       config.risk?.lowerStopPrice && config.risk.lowerStopPrice > 0 && config.risk.lowerStopPrice < lower
         ? config.risk.lowerStopPrice
-        : parseFloat((lower * (1 - stopBufferPct)).toFixed(priceDecimals));
+        : parseFloat(stopTargets.stopLossPrice.toFixed(priceDecimals));
 
     const upperStopPrice =
       config.risk?.upperStopPrice && config.risk.upperStopPrice > upper
         ? config.risk.upperStopPrice
-        : parseFloat((upper * (1 + stopBufferPct)).toFixed(priceDecimals));
+        : parseFloat(stopTargets.stopUpperPrice.toFixed(priceDecimals));
 
     return {
       levels,
