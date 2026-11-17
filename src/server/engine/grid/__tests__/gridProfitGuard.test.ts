@@ -11,6 +11,7 @@
 
 import {
   assessProfitGiveback,
+  isBuyLevelFrozen,
   ratchetPeak,
   GRID_PROFIT_GIVEBACK_DEFAULTS,
 } from '../gridProfitGuard';
@@ -118,6 +119,27 @@ test('band: the trigger is monotone in the current return', () => {
     if (r.triggered) seenTriggered = true;
   }
   ok(seenTriggered, 'the walk must reach the triggered state at least once');
+});
+
+// ---------------------------------------------------------------------------
+// The buy-ladder freeze
+// ---------------------------------------------------------------------------
+
+test('freeze: no freeze price means nothing is frozen', () => {
+  eq(isBuyLevelFrozen(undefined, 1), false, 'an unused field must not freeze the ladder');
+  eq(isBuyLevelFrozen(0, 1), false, 'and 0 is the "off" sentinel, not a price');
+  eq(isBuyLevelFrozen(-5, 1), false, 'a negative price is not a freeze');
+});
+
+test('freeze: at or below the freeze price the buy is kept off the venue', () => {
+  eq(isBuyLevelFrozen(1.2, 1.2), true, 'the boundary itself is frozen (at-or-below)');
+  eq(isBuyLevelFrozen(1.2, 1.1), true, 'and everything under it');
+  eq(isBuyLevelFrozen(1.2, 1.3), false, 'a buy above the freeze stays live, so the ladder can sell');
+});
+
+test('freeze: an unpriceable level is never frozen by accident', () => {
+  eq(isBuyLevelFrozen(1.2, NaN), false, 'a NaN price must not invent a freeze');
+  eq(isBuyLevelFrozen(NaN, 1), false, 'nor must a NaN threshold');
 });
 
 // ---------------------------------------------------------------------------

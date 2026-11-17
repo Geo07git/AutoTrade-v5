@@ -829,6 +829,17 @@ export class TradeBot {
     return await this.gridEngine.stopBot(botId, reason || 'Oprit manual din Terminal');
   }
 
+  /**
+   * Freezes the buy ladder of a running grid: no Buy order may rest at or below `px`.
+   *
+   * The softer alternative to `stopGridBot` — the bot keeps running and keeps selling, it just
+   * stops accumulating inventory. Lifting it: call with no `px`. The actual cancellations happen on
+   * the engine's next sync pass, not here, so this returns true once the intent is recorded.
+   */
+  public freezeGridBuys(botId: string, px?: number): boolean {
+    return this.gridEngine.setBuyFreezePx(botId, px);
+  }
+
   public deleteStoppedGridBot(botId: string) {
     return this.gridEngine.deleteStoppedBot(botId);
   }

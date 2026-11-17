@@ -20,7 +20,7 @@ import {
   splitIsIntact,
   splitLegacyRealized,
 } from './gridPnlAccounting';
-import { ratchetPeak } from './gridProfitGuard';
+import { isBuyLevelFrozen, ratchetPeak } from './gridProfitGuard';
 
 export class NeutralGridEngine {
   private adapter: IExecutionAdapter;
@@ -129,6 +129,42 @@ export class NeutralGridEngine {
 
   public getBot(botId: string): GridBotInstance | undefined {
     return this.bots.get(botId);
+  }
+
+  /**
+   * Freezes or clears the buy ladder: `px` = no Buy order may rest at or below this price.
+   *
+   * Deliberately does NOT cancel anything itself — it records the intent, and the next
+   * `syncLiveGridWindow()` pass does the cancelling through the path that already exists (a level
+   * outside the target window is cancelled, see `computeTargetLiveWindow`). A failed sync therefore
+   * leaves the bot with a recorded freeze rather than a half-applied one nobody can see.
+   *
+   * Omit `px` (or pass 0/NaN) to lift the freeze. Returns false for an unknown bot.
+   */
+  public setBuyFreezePx(botId: string, px?: number): boolean {
+    const bot = this.bots.get(botId);
+    if (!bot) return false;
+
+    const target = Number(px);
+    if (Number.isFinite(target) && target > 0) {
+      bot.buyFreezeFromPx = target;
+      bot.buyLadderFrozenAt = Date.now();
+      this.journal.logAudit(
+        'GRID_RISK_TRIGGERED',
+        `[CONGELARE CUMPARARE] ${bot.symbol} (${botId}): fara ordine Buy la sau sub $${target.toFixed(4)}`
+      );
+    } else {
+      delete bot.buyFreezeFromPx;
+      delete bot.buyLadderFrozenAt;
+      this.journal.logAudit(
+        'GRID_RISK_TRIGGERED',
+        `[DECONGELARE CUMPARARE] ${bot.symbol} (${botId}): scara de cumparare reactivata`
+      );
+    }
+
+    bot.updatedAt = Date.now();
+    this.persist();
+    return true;
   }
 
   /**
@@ -330,8 +366,11 @@ export class NeutralGridEngine {
     const marginBudget = Math.max(2, Number(bot.config.marginInvestedUSDT) || 5);
     const maxBotLiveNotional = marginBudget * leverage * 0.92;
 
+    // A frozen buy level is simply not in the target window, so `syncLiveGridWindow()` cancels it
+    // on the next pass and never re-places it. No special case is needed downstream.
     const openBuys = bot.levels
       .filter((l) => l.status === 'OPEN_ORDER' && l.side === 'Buy')
+      .filter((l) => !isBuyLevelFrozen(bot.buyFreezeFromPx, l.price))
       .sort((a, b) => Math.abs(a.price - bot.currentPrice) - Math.abs(b.price - bot.currentPrice));
     const openSells = bot.levels
       .filter((l) => l.status === 'OPEN_ORDER' && l.side === 'Sell')

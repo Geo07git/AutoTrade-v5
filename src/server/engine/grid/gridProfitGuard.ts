@@ -122,3 +122,20 @@ export function assessProfitGiveback(input: ProfitGivebackInput): ProfitGiveback
     triggered: currentPct <= floorPct,
   };
 }
+
+/**
+ * Whether a Buy level must be kept OFF the venue.
+ *
+ * A freeze price means "no new inventory at or below here". Levels strictly above it stay live, so
+ * the ladder can still sell into strength and a recovery is never blocked. Absent, zero or
+ * non-positive input means "not frozen", which is why the field can stay optional and cost nothing
+ * on a bot that does not use it. A level whose price cannot be read is NOT frozen: this must never
+ * invent a freeze from an unpriceable level.
+ */
+export function isBuyLevelFrozen(freezePx: number | undefined, levelPrice: number): boolean {
+  const freeze = Number(freezePx);
+  if (!Number.isFinite(freeze) || freeze <= 0) return false;
+  const price = Number(levelPrice);
+  if (!Number.isFinite(price)) return false;
+  return price <= freeze;
+}

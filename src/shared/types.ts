@@ -173,6 +173,17 @@ export interface GridBotInstance {
   estimatedLiquidationPriceShort: number;
   lowerStopPrice: number;
   upperStopPrice: number;
+  /**
+   * Buy-ladder freeze. When set, no Buy level at or below this price may hold a live order, so a
+   * grid that is giving profit back stops ACCUMULATING inventory without closing what it already
+   * holds — the sells keep working and the position unwinds at the top of the range instead of
+   * being dumped at market. The live orders are cancelled by the next `syncLiveGridWindow()` pass;
+   * this field only records the intent, so a failed sync can never leave the bot half-frozen with
+   * no record of what was asked. `undefined` / 0 = not frozen.
+   */
+  buyFreezeFromPx?: number;
+  /** When the freeze was set (ms). Cleared together with `buyFreezeFromPx`. */
+  buyLadderFrozenAt?: number;
   levels: GridLevelState[];
   // Accounting & Telemetry
   totalNotionalUSDT: number;
