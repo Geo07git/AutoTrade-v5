@@ -80,6 +80,28 @@ Stop and report the exact error message. Do not rewrite history, do not run
 `git pull --rebase` automatically, do not delete the commit. The commit stays
 local and safe; the owner decides what happens next.
 
+## Execution model — AUTO-LIMIT only (settled, do not reopen)
+
+**We do not open OKX native grid bots.** The only grid execution path is the
+app's own **AUTO-LIMIT** bots: a computed ladder of plain limit orders placed
+on OKX plus a local supervisor.
+
+- Never propose, build, debug or optimise a native contract-grid bot
+  (`/api/v5/tradingBot/grid/order-algo`, `algoOrdType: 'contract_grid'`).
+- Do not re-litigate "native bots" as an option. The decision is closed.
+- `OKXNativeGridEngine`, `okxAdapter.stopNativeContractGrid`, the autopilot
+  native paths and `isNativeOKXBot` are **legacy compatibility only** — they
+  exist so old rows and tests don't break, not as a supported mode.
+- All protection work (SL/TP geometry, profit-giveback guard, range-breakout
+  confirmation, venue-side reduce-only conditional stops, watchdog) targets the
+  AUTO-LIMIT path and its real executor: `NeutralGridEngine` +
+  `GridRiskManager` + `GridBotAnalyzer`.
+- `_UM_XPERP` instruments cannot use OKX native grid at all (error 51000). That
+  is the permanent reason the AUTO-LIMIT path exists, not a temporary limitation.
+
+If a task seems to require a native bot, refuse and offer the AUTO-LIMIT
+equivalent.
+
 ## Deployment (production impact)
 
 **Current state: automatic deploy is PAUSED.** In `.github/workflows/deploy.yml`
