@@ -37,7 +37,26 @@
  *
  * So the lower stop is a `sell` and the upper stop is a `buy`. This is not symmetric-looking, and
  * that is correct: it is the opposite of the price move that created the exposure each one guards.
- * Both legs can rest simultaneously because only one of the two prices can be reached.
+ *
+ * ---------------------------------------------------------------------------------------------
+ * WHY THIS IS NOT USED FOR NEUTRAL GRIDS (measured on a real account, 2025-11-18)
+ * ---------------------------------------------------------------------------------------------
+ * An earlier version of this header claimed "both legs can rest simultaneously because only one of
+ * the two prices can be reached". That is wrong, and OKX says so with an error code. The venue
+ * refuses a reduce-only leg when there is nothing to reduce:
+ *
+ *   sCode 51023: Position doesn't exist.
+ *
+ * In net position mode an account holds ONE direction at a time, so at most one leg is placeable —
+ * and a neutral grid's net position crosses zero continuously, so WHICH leg is placeable changes
+ * every few minutes. Placing the pair on a running ENA grid produced
+ * `armare PARTIALA: sell@... 51023 | buy@... 51023` — both rejected, with the position long at the
+ * time. Arming is therefore a chase that cannot converge on a neutral grid.
+ *
+ * Decision: neutral grids are protected by the engine alone (`GridRiskManager` + `GridBotAnalyzer`).
+ * The arming pass was removed. `placeVenueStops` / `cancelVenueStops` remain in `TradeBot` for the
+ * create-time path, still gated off by default (`GRID_VENUE_STOP_ENABLED`), and should only be
+ * re-enabled for a bot that holds a STABLE one-sided position.
  *
  * ---------------------------------------------------------------------------------------------
  * WHAT THIS MODULE DELIBERATELY DOES NOT DO

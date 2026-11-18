@@ -56,8 +56,7 @@ import {
 } from '../agent/AgentUniverseScan';
 import { getLiveFeeRates } from '../../shared/fees';
 import { computeGridStopTargets } from '../engine/grid/gridStopTargets';
-import { planVenueStops, placeConditionalStop, cancelConditionalStops, listConditionalStops } from '../exchange/okxConditionalStop';
-import { decideVenueStopArming, isAutoArmingEnabled } from '../engine/grid/gridVenueStopArming';
+import { planVenueStops, placeConditionalStop, cancelConditionalStops } from '../exchange/okxConditionalStop';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
   type: 'NEUTRAL_GRID',
@@ -189,13 +188,7 @@ export class TradeBot {
     sentimentScore?: number;
     candidates: GridCandidateAnalysis[];
   }>('grid_scan_snapshot.json', { savedAt: 0, candidates: [] });
-  private monitorInterval?: NodeJS.Timeout;
-  /**
-   * Guard against overlapping arming passes. The monitor tick is async and fires every 4s, so two
-   * passes could both read "nothing resting", both decide ARM, and place a second stop pair.
-   * A boolean cannot be captured by reference, so the lock is an instance field.
-   */
-  private isArmingVenueStops = false;
+    private monitorInterval?: NodeJS.Timeout;
   private scannerInterval?: NodeJS.Timeout;
   private cachedLiveWalletBalance: number = 200.0;
 
@@ -888,124 +881,7 @@ export class TradeBot {
         );
       }
     }
-  }
-
-  /**
-   * AUTO-ARMING PASS - gives venue-side stops to every running AUTO-LIMIT bot that lacks them.
-   *
-   * Why this exists: `placeVenueStops` is reached from exactly one place, `sendNativeGridOpen()`,
-   * at creation. A bot created before the feature existed - or while the flag was off - never got
-   * stops and no code ever noticed. Repairing that by hand would make the fix depend on
-   * *remembering*, which is the very failure being repaired.
-   *
-   * Idempotent by construction: `decideVenueStopArming` reads what actually rests at the venue and
-   * returns KEEP when anything does. The dangerous direction - stacking a second pair every cycle -
-   * is closed by resolving an unreadable venue to SKIP, never to ARM.
-   *
-   * Geometry: `computeGridStopTargets`' band bounds, i.e. just past each edge. That is the tighter
-   * structural stop, not `stopLossPct`'s -8%: a venue stop only earns its keep if it fires while
-   * the bot is still a grid.
-   */
-  private async armVenueStopsForRunningBots(): Promise<void> {
-    if (!isAutoArmingEnabled()) return;
-    // Real orders only make sense for a real desk; arming PAPER bots would place live stops for
-    // simulated positions.
-    if (this.configStore.get().executionMode !== 'LIVE') return;
-    if (!this.hasOKXCredentials() || this.okxAdapter.isCredentialsPermanentlyFailed()) return;
-    // A kill switch means "do not touch the venue", not "quietly add protection orders".
-    if (this.isKillSwitchEngagedForMode('LIVE')) return;
-
-    if (this.isArmingVenueStops) return;
-    this.isArmingVenueStops = true;
-
-    try {
-      for (const bot of this.gridEngine.getRunningBots()) {
-        if (bot.executionMode !== 'LIVE') continue;
-
-        const instId = this.okxAdapter.normalizeSymbol
-          ? this.okxAdapter.normalizeSymbol(bot.symbol)
-          : bot.symbol;
-
-        const listed = await listConditionalStops(this.okxAdapter, instId);
-        const decision = decideVenueStopArming({
-          status: bot.status,
-          lowerPrice: bot.config.lowerPrice,
-          upperPrice: bot.config.upperPrice,
-          restingAlgoIds: listed.ok ? listed.algoIds : [],
-          lookupOk: listed.ok,
-        });
-
-        if (decision.action !== 'ARM') {
-          if (!listed.ok) {
-            console.warn(
-              `[TradeBot] Armare stopuri sarita pentru ${instId}: ${decision.reason} (${listed.error || ''})`
-            );
-          }
-          continue;
-        }
-
-        const geometry = computeGridStopTargets({
-          lowerPrice: bot.config.lowerPrice,
-          upperPrice: bot.config.upperPrice,
-          leverage: bot.config.leverage,
-        });
-        if (!geometry.ok) {
-          console.warn(
-            `[TradeBot] Armare stopuri sarita pentru ${instId}: geometria benzii nu poate fi calculata`
-          );
-          continue;
-        }
-
-        const plan = planVenueStops({
-          lowerStopPrice: geometry.stopLossPrice,
-          // `takeProfitPrice` is `null` BY DESIGN (`gridStopTargets.ts`: a capture-based target has
-          // no single price). The upper BOUND is `stopUpperPrice` - it is a stop, not a target.
-          // Using `takeProfitPrice` here fed `null` to `planVenueStops`, which read it as 0 and
-          // refused the whole pair with "lower > 0 and upper > lower".
-          upperStopPrice: geometry.stopUpperPrice,
-        });
-        if (!plan.ok) {
-          this.logAudit('GRID_RISK_TRIGGERED', `[VenueStops] ${bot.botId}: ${plan.rationale}`, {
-            instId,
-          });
-          continue;
-        }
-
-        const placed: string[] = [];
-        const failed: string[] = [];
-        for (const leg of plan.legs) {
-          const res = await placeConditionalStop(this.okxAdapter, {
-            symbol: instId,
-            side: leg.side,
-            triggerPx: leg.triggerPx,
-            posSide: leg.posSide,
-          });
-          if (res.ok) placed.push(`${leg.side}@${leg.triggerPx} (#${res.algoId})`);
-          else failed.push(`${leg.side}@${leg.triggerPx}: ${res.error}`);
-        }
-
-        if (placed.length > 0) {
-          this.logAudit(
-            'GRID_RISK_TRIGGERED',
-            `[VenueStops] ${bot.botId} (${instId}) armat la bursa: ${placed.join(', ')}`,
-            { instId, botId: bot.botId, placed, failed }
-          );
-        }
-        if (failed.length > 0) {
-          this.logAudit(
-            'GRID_RISK_TRIGGERED',
-            `[VenueStops] ${bot.botId} (${instId}) armare PARTIALA: ${failed.join(' | ')}. ` +
-              `Protectia interna ramane singura pentru piciorul esuat.`,
-            { instId, botId: bot.botId, failed }
-          );
-        }
-      }
-    } catch (err: any) {
-      console.warn('[TradeBot] armVenueStopsForRunningBots failed:', err?.message || err);
-    } finally {
-      this.isArmingVenueStops = false;
     }
-  }
 
   /**
    * Cancels every resting conditional stop for an instrument. Called when a bot stops - see the
@@ -2634,11 +2510,10 @@ export class TradeBot {
               .syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'))
               .catch(() => {});
           }
-          // Bring venue-side stops to bots that lack them. Idempotent: the pass reads what already
-          // rests at the venue and places nothing when it finds anything.
-          if (monitorTickCount % 15 === 0) {
-            await this.armVenueStopsForRunningBots().catch(() => {});
-          }
+          // No venue-side conditional stops for neutral grids. A neutral grid's NET position
+          // crosses zero continuously, and OKX rejects a reduce-only leg when there is nothing to
+          // reduce (`51023 Position doesn't exist`) - whichever leg is valid changes every few
+          // minutes. Protection stays on the engine side: GridRiskManager + GridBotAnalyzer.
           // GridBotAnalyzer periodic analysis (enforces 30s/1m/5m/15m cadences & immediate critical risk checks)
           if (monitorTickCount % 4 === 0) {
             await this.gridBotAnalyzer
