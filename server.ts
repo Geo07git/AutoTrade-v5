@@ -1,3 +1,9 @@
+// Load `.env` BEFORE anything that reads `process.env`. `TradeBot` is constructed at import time
+// and captures several flags while it builds, so a later `dotenv.config()` would be too late.
+// `dotenv` was a dependency but nothing ever called it: every `GRID_*` flag in `.env` was
+// `undefined` in the running process, which made the venue-stop feature look silently absent
+// rather than misconfigured.
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
