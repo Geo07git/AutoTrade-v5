@@ -958,7 +958,11 @@ export class TradeBot {
 
         const plan = planVenueStops({
           lowerStopPrice: geometry.stopLossPrice,
-          upperStopPrice: geometry.takeProfitPrice,
+          // `takeProfitPrice` is `null` BY DESIGN (`gridStopTargets.ts`: a capture-based target has
+          // no single price). The upper BOUND is `stopUpperPrice` - it is a stop, not a target.
+          // Using `takeProfitPrice` here fed `null` to `planVenueStops`, which read it as 0 and
+          // refused the whole pair with "lower > 0 and upper > lower".
+          upperStopPrice: geometry.stopUpperPrice,
         });
         if (!plan.ok) {
           this.logAudit('GRID_RISK_TRIGGERED', `[VenueStops] ${bot.botId}: ${plan.rationale}`, {

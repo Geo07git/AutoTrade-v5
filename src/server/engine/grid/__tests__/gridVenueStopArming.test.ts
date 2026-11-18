@@ -92,7 +92,15 @@ eq(isAutoArmingEnabled({ GRID_VENUE_STOPS: 'AUTO' }), false, 'case-sensitive on 
 // Live row: band 0.1084 - 0.1158, 2x, SL -8% ($0.1032). Decision B places just past the edges.
 const ena = computeGridStopTargets({ lowerPrice: 0.1084, upperPrice: 0.1158, leverage: 2 });
 ok(ena.ok, 'ENA geometry computes');
-const enaPlan = planVenueStops({ lowerStopPrice: 0.1084 * 0.995, upperStopPrice: 0.1158 * 1.005 });
+// The arming path must feed `planVenueStops` the BAND EDGES that actually exist.
+// `takeProfitPrice` is `null` by design (a capture target has no price); reading it as the upper
+// stop fed `Number(null) === 0` into the plan, which then refused the pair with
+// "lower > 0 and upper > lower" - the bug this test exists to keep dead.
+eq(ena.takeProfitPrice, null, 'takeProfitPrice is null by design');
+ok(Number.isFinite(ena.stopUpperPrice) && ena.stopUpperPrice > 0,
+  'stopUpperPrice is a real price, not the null take-profit');
+ok(ena.stopUpperPrice > ena.stopLossPrice, 'the upper stop sits above the lower one');
+const enaPlan = planVenueStops({ lowerStopPrice: ena.stopLossPrice, upperStopPrice: ena.stopUpperPrice });
 ok(enaPlan.ok, 'ENA plan is placeable');
 eq(enaPlan.legs.length, 2, 'ENA gets exactly two legs');
 eq(enaPlan.legs[0].side, 'sell', 'lower leg sells (the ladder bought, book is long)');
