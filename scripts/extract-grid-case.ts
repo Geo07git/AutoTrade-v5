@@ -218,7 +218,10 @@ function main(): number {
     .filter((l) => l.notionalUSDT > 0 && l.price > 0 && l.qtyContracts > 0)
     .map((l) => r4(l.notionalUSDT / (l.price * l.qtyContracts)));
   const impliedCtVal = impliedCtVals.length ? impliedCtVals[0] : 0;
-  const ctValConsistent = impliedCtVals.every((v) => Math.abs(v - impliedCtVal) <= 1e-6);
+  // `notionalUSDT` e rotunjit la 2 zecimale la crearea nivelului, deci fiecare nivel da un ctVal
+  // usor diferit (ex. 18.61/1.8608 = 10.0011, 18.73/1.8732 = 9.9989). Toleranta trebuie sa
+  // acopere acea rotunjire (~0.02%), altfel tool-ul semnaleaza o falsa inconsistenta.
+  const ctValConsistent = impliedCtVals.every((v) => Math.abs(v - impliedCtVal) <= 0.005);
 
   const arbSum = r4(arbs.reduce((s, a) => s + num(a.netProfitUSDT), 0));
   const splitSum = r4(num(bot.gridCaptureUSDT) + num(bot.exitCostUSDT));
