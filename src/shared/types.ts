@@ -98,6 +98,37 @@ export interface GridRiskConfig {
   stopOnRangeBreakout: boolean;// Automatically close grid if price breaks stop bounds
   maxMarginUsagePct: number;   // Max % of account free balance allowed per grid bot
   maxActiveGridBots: number;   // Max concurrent active grid bots
+
+  // --- PROFIT TRAILING (AUTO-LIMIT path) -----------------------------------
+  // Rule 1 (STOP_LOSS) only fires on LOSS. A bot at +4.7% has drawdownPct = 0, so nothing
+  // watched a banked gain being handed back: `grid_hype_mwmnij6v` went +4.7% -> -9.93% and
+  // exited at -1.99 USD instead of banking ~+0.54. These three fields feed the existing,
+  // already-tested `assessProfitGiveback()` from `GridRiskManager.evaluateLiveBotRisk()`.
+  /**
+   * Return (% of margin) the bot must have reached before the trailing guard arms. Missing ->
+   * `GRID_PROFIT_GIVEBACK_DEFAULTS.armPct` (3). Arming on a threshold, not on the first green
+   * tick, is what keeps float noise from stopping a fresh bot.
+   */
+  profitGivebackArmPct?: number;
+  /**
+   * Fraction of the peak the bot may surrender before the guard fires (0 < ratio <= 1).
+   * Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.ratio` (0.4).
+   */
+  profitGivebackRatio?: number;
+  /**
+   * Absolute floor for the giveback band, in % of margin, so a small peak is not protected by a
+   * band narrower than the normal float swing. Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct`.
+   */
+  profitGivebackMinBandPct?: number;
+  /**
+   * PROFIT LOCK — absolute floor, in % of margin, the return may never fall back below once the
+   * guard is armed. `0`/absent disables it and leaves the proportional band alone.
+   *
+   * Why both: the band is proportional, so on a +12% peak a 40% ratio would let the bot fall all
+   * the way back to +7.2%. A lock says "however high we got, we do not go below this". The floor
+   * actually used is `max(peak - band, profitLockPct)`, so the lock can only ever tighten.
+   */
+  profitLockPct?: number;
 }
 
 export interface NeutralGridBotConfig {

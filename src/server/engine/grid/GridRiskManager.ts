@@ -2,6 +2,7 @@ import {
   GridBotInstance,
   NeutralGridBotConfig,
 } from '../../../shared/types';
+import { assessProfitTrailingStop } from './gridProfitGuard';
 
 export interface GridRiskEvaluation {
   approved: boolean;
@@ -9,7 +10,12 @@ export interface GridRiskEvaluation {
 }
 
 export interface LiveBotRiskAction {
-  action: 'NONE' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'RANGE_BREAKOUT_STOP';
+  action:
+    | 'NONE'
+    | 'STOP_LOSS'
+    | 'TAKE_PROFIT'
+    | 'RANGE_BREAKOUT_STOP'
+    | 'PROFIT_TRAILING_STOP';
   reason?: string;
 }
 
@@ -70,7 +76,14 @@ export class GridRiskManager {
   }
 
   /**
-   * Continuously monitors an active Grid Bot against Stop Loss (SL), Take Profit (TP), and Range Breakout bounds.
+   * Continuously monitors an active Grid Bot against Stop Loss (SL), Take Profit (TP), Range
+   * Breakout bounds, and the profit trailing floor (giveback band + optional profit lock).
+   *
+   * The trailing floor is read FIRST, before the loss stop, and that order is load-bearing: a bot
+   * that was once well in profit and has since fallen through the loss stop gave a banked gain
+   * back — `grid_hype_mwmnij6v` peaked at +4.7% (+0.94 USD) and was reported as a plain STOP_LOSS
+   * at -9.93% (-1.99 USD), which hides the cause. It stays disarmed until the bot has ever reached
+   * `profitGivebackArmPct`, so a bot that only lost money can never be stopped by it.
    */
   public static evaluateLiveBotRisk(
     bot: GridBotInstance,
@@ -84,7 +97,28 @@ export class GridRiskManager {
     const margin = Math.max(1, bot.config.marginInvestedUSDT);
     const netPnlPct = (bot.totalNetPnlUSDT / margin) * 100;
 
-    // 1. Check Stop Loss % of Margin Invested
+    // 1. Profit trailing floor. A disarmed guard (`peakTotalPnlPct` below armPct) always answers
+    // triggered=false, so no extra "is this really a winner" check is needed here.
+    const trailing = assessProfitTrailingStop({
+      peakPct: bot.peakTotalPnlPct,
+      currentPct: bot.totalNetPnlPct,
+      armPct: risk.profitGivebackArmPct,
+      ratio: risk.profitGivebackRatio,
+      minBandPct: risk.profitGivebackMinBandPct,
+      lockPct: risk.profitLockPct,
+    });
+    if (trailing.triggered) {
+      const peakUSDT = (trailing.peakPct / 100) * margin;
+      const basis = trailing.lockBinding
+        ? `blocare profit +${trailing.lockFloorPct}%`
+        : `banda ${trailing.bandPct.toFixed(2)}pp`;
+      return {
+        action: 'PROFIT_TRAILING_STOP',
+        reason: `Profit dat înapoi: vârf +${trailing.peakPct.toFixed(2)}% ($${peakUSDT.toFixed(2)}), acum ${trailing.currentPct.toFixed(2)}%, prag +${trailing.floorPct.toFixed(2)}% (${basis})`,
+      };
+    }
+
+    // 2. Check Stop Loss % of Margin Invested
     if (risk.stopLossPct > 0 && netPnlPct <= -Math.abs(risk.stopLossPct)) {
       return {
         action: 'STOP_LOSS',
@@ -92,7 +126,7 @@ export class GridRiskManager {
       };
     }
 
-    // 2. Check Take Profit % of Margin Invested
+    // 3. Check Take Profit % of Margin Invested
     if (risk.takeProfitPct > 0 && netPnlPct >= Math.abs(risk.takeProfitPct)) {
       return {
         action: 'TAKE_PROFIT',
@@ -100,7 +134,7 @@ export class GridRiskManager {
       };
     }
 
-    // 3. Check Hard Lower / Upper Price Stop Breakout
+    // 4. Check Hard Lower / Upper Price Stop Breakout
     if (risk.stopOnRangeBreakout) {
       if (bot.lowerStopPrice > 0 && currentPrice <= bot.lowerStopPrice) {
         return {

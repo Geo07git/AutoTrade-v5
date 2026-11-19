@@ -94,6 +94,86 @@ export function ratchetPeak(
 }
 
 /**
+ * PROFIT TRAILING — the floor a banked gain may never fall back below, as a percentage of margin.
+ *
+ * Two protections, one number, and it only ever tightens:
+ *
+ *   proportional floor = peak - max(peak * ratio, minBandPct)   (the giveback band)
+ *   locked floor       = profitLockPct                          (absolute, optional)
+ *   floor              = max(proportional, locked)
+ *
+ * Why the max and not "the lock replaces the band": the band is what keeps a leveraged grid from
+ * being stopped by its own float swing, and it widens with the peak. The lock is a floor the
+ * owner sets on purpose and must never LOOSEN what the band already protects — if the lock is
+ * below the band floor, the band wins; if it is above (a tall peak), the lock keeps more.
+ *
+ * Deliberately separate from `assessProfitGiveback()` so the analyzer's verdict and the engine's
+ * trailing stop read the SAME band without duplicating the formula: `assessProfitTrailingStop()`
+ * calls it and adds only the lock on top. Pure: no I/O, no clock, no randomness.
+ */
+export function resolveTrailingFloorPct(input: {
+  peakPct?: number;
+  ratio?: number;
+  minBandPct?: number;
+  lockPct?: number;
+}): { floorPct: number; bandFloorPct: number; lockFloorPct: number; locked: boolean } {
+  const ratio = ratioOr(input.ratio, GRID_PROFIT_GIVEBACK_DEFAULTS.ratio);
+  const minBandPct = Math.max(0, finiteOr(input.minBandPct, GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct));
+  const peakPct = Math.max(0, finiteOr(input.peakPct, 0));
+
+  const bandPct = Math.max(peakPct * ratio, minBandPct);
+  const bandFloorPct = peakPct - bandPct;
+
+  // A lock at or below 0 means "not set": an exit at break-even is the SL's job, not the guard's,
+  // and treating 0 as a real floor would turn every armed bot into a break-even stop.
+  const lockRaw = finiteOr(input.lockPct, 0);
+  const lockFloorPct = lockRaw > 0 ? lockRaw : 0;
+
+  const floorPct = Math.max(bandFloorPct, lockFloorPct);
+  return { floorPct, bandFloorPct, lockFloorPct, locked: lockFloorPct > 0 };
+}
+
+export interface ProfitTrailingAssessment extends ProfitGivebackAssessment {
+  /** The absolute floor the owner asked for (% of margin), 0 when not configured. */
+  lockFloorPct: number;
+  /** True when the lock is what set `floorPct` (a taller peak), false when the band is. */
+  lockBinding: boolean;
+}
+
+/**
+ * The trailing stop the AUTO-LIMIT supervisor enforces: the giveback band, raised to the
+ * configured profit lock when the lock is higher. Disarmed exactly like the giveback guard, so a
+ * bot that never reached `armPct` is never stopped by it.
+ */
+export function assessProfitTrailingStop(
+  input: ProfitGivebackInput & { lockPct?: number }
+): ProfitTrailingAssessment {
+  const base = assessProfitGiveback(input);
+  const resolved = resolveTrailingFloorPct({
+    peakPct: base.peakPct,
+    ratio: input.ratio,
+    minBandPct: input.minBandPct,
+    lockPct: input.lockPct,
+  });
+
+  if (!base.armed) {
+    return { ...base, floorPct: 0, lockFloorPct: resolved.lockFloorPct, lockBinding: false };
+  }
+
+  // `bandPct` is reported as the distance from the peak to the floor that ACTUALLY applies, so a
+  // caller printing "peak X, floor Y, band Z" can never show a band that does not add up.
+  const bandPct = Math.max(0, base.peakPct - resolved.floorPct);
+  return {
+    ...base,
+    bandPct,
+    floorPct: resolved.floorPct,
+    lockFloorPct: resolved.lockFloorPct,
+    lockBinding: resolved.lockFloorPct > resolved.bandFloorPct,
+    triggered: base.currentPct <= resolved.floorPct,
+  };
+}
+
+/**
  * Measures the giveback against the peak. Total by construction: it always returns an assessment,
  * and a disarmed one reports zeroes rather than a band that a caller might act on by mistake.
  */
