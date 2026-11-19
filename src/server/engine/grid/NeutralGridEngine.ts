@@ -22,6 +22,29 @@ import {
 } from './gridPnlAccounting';
 import { isBuyLevelFrozen, ratchetPeak } from './gridProfitGuard';
 
+/**
+ * Default giveback ratio for a NEW AUTO-LIMIT bot: 0.25 of the peak, where the analyzer's
+ * `GRID_PROFIT_GIVEBACK_DEFAULTS.ratio` uses 0.4.
+ *
+ * 40% of the peak is a wide leash for a neutral grid, because the float it gives back is
+ * proportional to what it banked. At 0.25 a +4.7% peak gives back 1.175pp, which the 2pp
+ * `minBandPct` floor still dominates (floor = 4.7 - 2 = +2.7%); on a +12% peak the band is 3pp, so
+ * the floor sits at +9% instead of the +7.2% a 0.4 ratio would leave.
+ */
+const NEW_BOT_PROFIT_GIVEBACK_RATIO = 0.25;
+
+/**
+ * PROFIT LOCK for a NEW AUTO-LIMIT bot, in % of margin: once the trailing guard is armed, the first
+ * 2.5 points of margin are declared untouchable (`floor = max(peak - band, 2.5)`).
+ *
+ * EXPERIMENTAL — recalibrate after 20-30 LIVE bots. Why not lower: the float of a 2x grid on a
+ * ~7.5% band moves by up to ~15% of the margin on one full walk of the band, so a lock under ~2pp
+ * would be hit by noise alone and would stop bots inside the range they exist to harvest. 2.5 sits
+ * above that swing and above the 2pp min-band floor, so it only binds on a tall peak, where the
+ * proportional band has gone slack. Below such a peak the band wins and the lock costs nothing.
+ */
+const NEW_BOT_PROFIT_LOCK_PCT = 2.5;
+
 export class NeutralGridEngine {
   private adapter: IExecutionAdapter;
   private journal: GridJournal;
@@ -249,6 +272,14 @@ export class NeutralGridEngine {
               : true,
           maxMarginUsagePct: Number(rawConfig.risk?.maxMarginUsagePct) || 90,
           maxActiveGridBots: Number(rawConfig.risk?.maxActiveGridBots) || 100,
+          // Profit trailing floor, read on every tick by `GridRiskManager.evaluateLiveBotRisk()`.
+          // `profitGivebackArmPct` and `profitGivebackMinBandPct` are left unset on purpose so they
+          // fall back to the guard defaults (3 / 2) instead of being frozen into stored rows.
+          profitGivebackRatio:
+            Number(rawConfig.risk?.profitGivebackRatio) || NEW_BOT_PROFIT_GIVEBACK_RATIO,
+          profitLockPct: Number.isFinite(Number(rawConfig.risk?.profitLockPct))
+            ? Number(rawConfig.risk?.profitLockPct)
+            : NEW_BOT_PROFIT_LOCK_PCT,
         },
         autoManageRange: Boolean(rawConfig.autoManageRange),
       };
@@ -640,6 +671,9 @@ export class NeutralGridEngine {
                 STOP_LOSS: 'STOP_LOSS_HIT',
                 TAKE_PROFIT: 'TAKE_PROFIT_HIT',
                 RANGE_BREAKOUT_STOP: 'STOP_LOSS_HIT',
+                // A stop on BANKED profit is a take-profit, not a loss: reporting it as
+                // STOP_LOSS_HIT would hide from the desk why the bot actually exited.
+                PROFIT_TRAILING_STOP: 'TAKE_PROFIT_HIT',
               };
               await this.stopBot(
                 bot.botId,
@@ -740,6 +774,8 @@ export class NeutralGridEngine {
             STOP_LOSS: 'STOP_LOSS_HIT',
             TAKE_PROFIT: 'TAKE_PROFIT_HIT',
             RANGE_BREAKOUT_STOP: 'STOP_LOSS_HIT',
+            // A stop on BANKED profit is a take-profit, not a loss (see onLiveOrderUpdate).
+            PROFIT_TRAILING_STOP: 'TAKE_PROFIT_HIT',
           };
           await this.stopBot(
             bot.botId,
