@@ -261,6 +261,29 @@ test('hype: an intact bot at its peak is not stopped by the trailing rule', () =
   eq(GridRiskManager.evaluateLiveBotRisk(bot, 69.931).action, 'NONE', 'a bot at its high-water mark holds');
 });
 
+test('guard: at the arming peak the tolerance is the full 2pp — a 0.5pp scalp stop is a bug', () => {
+  // Regression for the interaction found in review: armPct 3 + lock 2.5 left 0.5pp of room, so a
+  // bot that had just armed at +3.0% was stopped by 0.25% of price (2x) or by the float swing of
+  // one fill. The lock is capped at `peak - minBandPct`, so the floor at a 3.0% peak is +1.0%.
+  const bot = hypeAtStop();
+  bot.peakTotalPnlPct = 3.0;
+  bot.totalNetPnlPct = 2.6;
+  bot.totalNetPnlUSDT = 0.52;
+
+  eq(
+    GridRiskManager.evaluateLiveBotRisk(bot, 69.931).action,
+    'NONE',
+    'peak +3.0% = floor +1.0%, so -0.4pp inside the band must hold'
+  );
+
+  bot.totalNetPnlPct = 0.99;
+  eq(
+    GridRiskManager.evaluateLiveBotRisk(bot, 69.931).action,
+    'PROFIT_TRAILING_STOP',
+    'below the +1.0% band floor it must still stop - as profit, not as a loss'
+  );
+});
+
 test('guard: a stopped bot is never evaluated, whatever its peak says', () => {
   const bot = hypeAtStop();
   bot.status = 'TAKE_PROFIT_HIT';
@@ -280,20 +303,21 @@ test('floor: on a small peak the proportional band is what applies', () => {
   eq(r.locked, true, 'the lock is configured');
 });
 
-test('floor: on a tall peak the lock keeps more than the band does', () => {
+test('floor: a lock above the band cannot shave the min band — it is capped at peak - minBand', () => {
   const r = resolveTrailingFloorPct({ peakPct: 6, ratio: 0.25, minBandPct: 2, lockPct: 4.5 });
 
   near(r.bandFloorPct, 4, 1e-9, '6 - max(1.5, 2) = +4%');
-  near(r.floorPct, 4.5, 1e-9, 'the 4.5 lock is above the band floor and wins');
+  near(r.lockFloorPct, 4, 1e-9, 'min(4.5, 6 - 2) = +4%: the cap, not the raw 4.5');
+  near(r.floorPct, 4, 1e-9, 'the band still sets the floor, so the tolerance stays 2pp');
 });
 
-test('floor: the lock can raise the floor but never lower it', () => {
+test('floor: the lock can raise the floor but never lower it, and never below the min band', () => {
   for (let peak = 3; peak <= 20; peak += 0.5) {
     const band = resolveTrailingFloorPct({ peakPct: peak, ratio: 0.25, minBandPct: 2 });
     const locked = resolveTrailingFloorPct({ peakPct: peak, ratio: 0.25, minBandPct: 2, lockPct: 2.5 });
 
     ok(locked.floorPct >= band.floorPct - 1e-9, `peak ${peak}: the lock loosened the floor`);
-    ok(locked.floorPct >= 2.5 - 1e-9, `peak ${peak}: the floor fell below the 2.5 lock`);
+    ok(peak - locked.floorPct >= 2 - 1e-9, `peak ${peak}: the tolerance fell below the 2pp min band`);
   }
 });
 
@@ -342,6 +366,31 @@ test('lock: on a +4.7% peak it costs nothing — the band is already tighter', (
   near(r.floorPct, 2.7, 1e-9, 'floor = max(4.7 - 2, 2.5) = +2.7%');
 });
 
+test('lock: it binds only when minBandPct is lowered below it — the cap makes it explicit', () => {
+  // With the default 2pp min band the lock can never bind (the two describe the same safeguard).
+  const capped = assessProfitTrailingStop({
+    peakPct: 3,
+    currentPct: 2.1,
+    ratio: 0.25,
+    minBandPct: 2,
+    lockPct: 2.5,
+  });
+  eq(capped.lockBinding, false, 'min band 2 wins: floor +1.0, tolerance 2pp');
+  eq(capped.triggered, false, '+2.1% is above the +1.0% floor');
+
+  // An owner who really wants the absolute floor lowers the band minimum and owns the squeeze.
+  const binding = assessProfitTrailingStop({
+    peakPct: 3,
+    currentPct: 2.1,
+    ratio: 0.25,
+    minBandPct: 0,
+    lockPct: 2.5,
+  });
+  eq(binding.lockBinding, true, 'min band 0 lets the 2.5 lock set the floor');
+  near(binding.floorPct, 2.5, 1e-9, 'floor = min(2.5, 3 - 0) = +2.5%');
+  eq(binding.triggered, true, '+2.1% is below the +2.5% lock');
+});
+
 // ===========================================================================
 // 3. The engine: status mapping and the reduce-only live window
 // ===========================================================================
@@ -380,8 +429,9 @@ test('window: a long bot keeps its reduce-only Sells even when the opening budge
   const sells = win.filter((l) => l.side === 'Sell');
   const buys = win.filter((l) => l.side === 'Buy');
 
-  eq(sells.length, 3, 'the three closest Sells must survive: they are what unwinds the inventory');
+  eq(sells.length, 5, 'every free Sell that fits in the 8 slots must survive, not just the first batch');
   eq(buys.length, 3, 'the Buys stay capped by the budget (30 USDT of the 36.8 allowed)');
+  eq(win.length, 8, 'the window fills up to the cap: the budget rejects openings, never free reductions');
 
   const openingNotional = buys.reduce((s, l) => s + l.notionalUSDT, 0);
   ok(openingNotional <= BUDGET, `opening notional ${openingNotional} must respect the budget`);
@@ -409,8 +459,9 @@ test('window: a short bot gets the same treatment on its Buys', () => {
   const bot = windowBot({ netPositionContracts: -15, netPositionSide: 'SHORT' });
   const win = windowOf(engine, bot);
 
-  eq(win.filter((l) => l.side === 'Buy').length, 4, 'the four closest Buys reduce the short');
+  eq(win.filter((l) => l.side === 'Buy').length, 5, 'every free Buy that fits must survive, not just the first batch');
   eq(win.filter((l) => l.side === 'Sell').length, 3, 'the Sells stay capped by the budget');
+  eq(win.length, 8, 'the cap is reached from the free side as well');
 });
 
 test('window: with flat inventory the budget still binds exactly as before', () => {

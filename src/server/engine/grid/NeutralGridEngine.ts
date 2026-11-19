@@ -445,7 +445,13 @@ export class NeutralGridEngine {
       const lvlNotional = Math.max(0, Number(lvl.notionalUSDT) || 0);
       // Always allow at least the closest 2 levels (1 Buy + 1 Sell) if within 1.35x budget, otherwise enforce strict cap
       if (selected.length >= 2 && cumulativeNotional + lvlNotional > maxBotLiveNotional) {
-        break;
+        // `continue`, NOT `break`. The budget rejects only the level in front of it; breaking here
+        // also dropped every reduce-only level sitting later in the interleaved order, even though
+        // those cost no margin - a long bot ended up with 3 Buys and 1 Sell while two free slots
+        // were still open, i.e. the inventory it needed to unwind was cut by a budget it never
+        // used. Every remaining OPENING level fails this same test (the cumulative only grows), so
+        // walking on adds nothing paid, and the free levels finally get in.
+        continue;
       }
       selected.push(lvl);
       cumulativeNotional += lvlNotional;

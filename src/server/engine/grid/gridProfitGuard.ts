@@ -99,13 +99,22 @@ export function ratchetPeak(
  * Two protections, one number, and it only ever tightens:
  *
  *   proportional floor = peak - max(peak * ratio, minBandPct)   (the giveback band)
- *   locked floor       = profitLockPct                          (absolute, optional)
+ *   locked floor       = min(profitLockPct, peak - minBandPct)   (absolute, optional, CAPPED)
  *   floor              = max(proportional, locked)
  *
  * Why the max and not "the lock replaces the band": the band is what keeps a leveraged grid from
  * being stopped by its own float swing, and it widens with the peak. The lock is a floor the
  * owner sets on purpose and must never LOOSEN what the band already protects — if the lock is
  * below the band floor, the band wins; if it is above (a tall peak), the lock keeps more.
+ *
+ * Why the lock is CAPPED at `peak - minBandPct`: the band minimum is a promise ("the tolerance is
+ * never thinner than minBandPct, so the float swing of a grid cannot arm the stop"). An uncapped
+ * lock silently breaks it right after arming — peak 3.0% with armPct 3 and lock 2.5% leaves 0.5
+ * points of room, which at 2x is a 0.25% price move, i.e. one ordinary tick after a fill. The cap
+ * can only bind while `peak < lock + minBandPct`; above that the lock is inert anyway (the band
+ * floor is already higher), so this changes nothing for a tall peak and removes the scalp stop
+ * for a small one. A lock that must dominate is expressed by lowering `minBandPct`, not by
+ * hoping nobody notices the interaction.
  *
  * Deliberately separate from `assessProfitGiveback()` so the analyzer's verdict and the engine's
  * trailing stop read the SAME band without duplicating the formula: `assessProfitTrailingStop()`
@@ -127,7 +136,8 @@ export function resolveTrailingFloorPct(input: {
   // A lock at or below 0 means "not set": an exit at break-even is the SL's job, not the guard's,
   // and treating 0 as a real floor would turn every armed bot into a break-even stop.
   const lockRaw = finiteOr(input.lockPct, 0);
-  const lockFloorPct = lockRaw > 0 ? lockRaw : 0;
+  const lockCapPct = Math.max(0, peakPct - minBandPct);
+  const lockFloorPct = lockRaw > 0 ? Math.min(lockRaw, lockCapPct) : 0;
 
   const floorPct = Math.max(bandFloorPct, lockFloorPct);
   return { floorPct, bandFloorPct, lockFloorPct, locked: lockFloorPct > 0 };
