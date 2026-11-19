@@ -390,6 +390,16 @@ export class NeutralGridEngine {
   /**
    * Computes the balanced (Buy/Sell interleaved) window of closest grid levels that fit within
    * the bot's allocated margin budget (marginInvestedUSDT * leverage * 0.92), up to 8 live orders max.
+   *
+   * Levels that REDUCE existing inventory are exempt from that budget: `syncLiveGridWindow()`
+   * prices them at `reqMargin = 0` (a reduce-only order closes inventory the bot already holds,
+   * so it frees margin instead of consuming it). Charging them against the opening budget is what
+   * starved the ladder: on `grid_hype_mwmnij6v` only a handful of the 20 levels ever reached OKX,
+   * so the bot was left one-sided long with no live Sells to work the inventory off — the sell
+   * levels are exactly the ones this budget used to exclude.
+   *
+   * Everything else stays as it was: the same interleaving, the same 8-level cap, and the same
+   * budget for opening orders.
    */
   private computeTargetLiveWindow(bot: GridBotInstance): GridLevelState[] {
     const maxLiveWindow = 8;
@@ -416,9 +426,22 @@ export class NeutralGridEngine {
 
     const selected: GridLevelState[] = [];
     let cumulativeNotional = 0;
+    // Inventory the bot already holds decides which side of the ladder is reduce-only: a long bot's
+    // Sells close it, a short bot's Buys do. Same test as `syncLiveGridWindow()`.
+    const netContracts = Number(bot.netPositionContracts) || 0;
 
     for (const lvl of interleaved) {
       if (selected.length >= maxLiveWindow) break;
+
+      // Reduce-only: joins the window unconditionally, and costs the budget nothing (see the
+      // method comment). Without this, an inventory-heavy bot cannot place the orders that unwind it.
+      const isReducingLevel =
+        (lvl.side === 'Sell' && netContracts > 0) || (lvl.side === 'Buy' && netContracts < 0);
+      if (isReducingLevel) {
+        selected.push(lvl);
+        continue;
+      }
+
       const lvlNotional = Math.max(0, Number(lvl.notionalUSDT) || 0);
       // Always allow at least the closest 2 levels (1 Buy + 1 Sell) if within 1.35x budget, otherwise enforce strict cap
       if (selected.length >= 2 && cumulativeNotional + lvlNotional > maxBotLiveNotional) {
