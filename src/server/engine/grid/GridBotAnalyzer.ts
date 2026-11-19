@@ -4,6 +4,7 @@ import {
   GridAnalyzerStopEvent,
   GridAnalyzerThresholds,
   GridBotAnalysisSnapshot,
+  GridBotInstance,
   GridStagnationLevel,
   GridStagnationMetrics,
   OKXNativeGridBot,
@@ -16,7 +17,7 @@ import { NeutralGridAnalyzer } from './NeutralGridAnalyzer';
 import { OKXNativeGridEngine } from './OKXNativeGridEngine';
 import { classifyDecisionCodes, decisionForCode } from './gridReasonCodes';
 import { advanceOutsideBandState, assessRangeBreakout } from './gridRegime';
-import { assessProfitGiveback, GRID_PROFIT_GIVEBACK_DEFAULTS } from './gridProfitGuard';
+import { assessProfitTrailingStop, GRID_PROFIT_GIVEBACK_DEFAULTS } from './gridProfitGuard';
 
 export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   adxMonitorThreshold: 25,
@@ -39,6 +40,11 @@ export const DEFAULT_GRID_ANALYZER_THRESHOLDS: GridAnalyzerThresholds = {
   profitGivebackArmPct: GRID_PROFIT_GIVEBACK_DEFAULTS.armPct,
   profitGivebackRatio: GRID_PROFIT_GIVEBACK_DEFAULTS.ratio,
   profitGivebackMinBandPct: GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct,
+  // Off by default: the analyzer must never be STRICTER than `GridRiskManager` (which reads the
+  // bot's own `config.risk`), otherwise it stops bots the engine deliberately keeps. A lock here
+  // is available for an owner who wants the backstop to bank profit too, and it is capped by
+  // `peak - minBandPct` exactly like the engine's.
+  profitLockPct: 0,
   minLiqSafetyPct: 4.0,
   requireMultiIndicatorForTrendStop: true,
   emergencyClosePosition: true,
@@ -988,19 +994,26 @@ export class GridDecisionEngine {
     }
 
     // 2b. PROFIT GIVEBACK -> STOP. Rule 2 cannot see this: `drawdownPct` is 0 for every bot that
-    //     is in profit, so a banked gain being handed back had no rule at all. Shares
-    //     `assessProfitGiveback` with `classifyDecisionCodes`, so the parity test pins both.
-    const giveback = assessProfitGiveback({
+    //     is in profit, so a banked gain being handed back had no rule at all. Reads the SAME
+    //     `assessProfitTrailingStop` as the engine (band + optional profit lock, lock capped by
+    //     `peak - minBandPct`), so the analyzer's explanation cannot describe a floor the engine
+    //     would never use. `classifyDecisionCodes` calls the identical helper, and the parity test
+    //     pins both.
+    const giveback = assessProfitTrailingStop({
       peakPct: snapshot.performance.peakTotalPnlPct,
       currentPct: bot.totalPnlPct,
       armPct: thresholds.profitGivebackArmPct,
       ratio: thresholds.profitGivebackRatio,
       minBandPct: thresholds.profitGivebackMinBandPct,
+      lockPct: thresholds.profitLockPct,
     });
     if (giveback.triggered) {
+      const basis = giveback.lockBinding
+        ? `blocare profit +${giveback.lockFloorPct}%`
+        : `banda ${giveback.bandPct.toFixed(2)}pp`;
       return {
         decision: 'STOP',
-        reason: `Profit dat inapoi peste banda de protectie: varf +${giveback.peakPct.toFixed(2)}%, acum ${giveback.currentPct.toFixed(2)}% (banda ${giveback.bandPct.toFixed(2)}pp, podea ${giveback.floorPct.toFixed(2)}%)`,
+        reason: `Profit dat inapoi peste banda de protectie: varf +${giveback.peakPct.toFixed(2)}%, acum ${giveback.currentPct.toFixed(2)}% (${basis}, podea ${giveback.floorPct.toFixed(2)}%)`,
         riskLevel: 'CRITICAL',
       };
     }
@@ -1215,7 +1228,11 @@ export class GridBotSupervisor {
   private okxAdapter: OKXAdapter;
   private journal: GridJournal;
   private gridEngine: OKXNativeGridEngine;
-  private stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>;
+  private stopFallbackBot?: (
+    algoId: string,
+    reason: string,
+    finalStatus?: GridBotInstance['status']
+  ) => Promise<boolean>;
   private eventsStore: JsonStore<GridAnalyzerStopEvent[]>;
   private recordedIdempotencyKeys: Set<string> = new Set();
 
@@ -1223,7 +1240,11 @@ export class GridBotSupervisor {
     okxAdapter: OKXAdapter,
     journal: GridJournal,
     gridEngine: OKXNativeGridEngine,
-    stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>
+    stopFallbackBot?: (
+      algoId: string,
+      reason: string,
+      finalStatus?: GridBotInstance['status']
+    ) => Promise<boolean>
   ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
@@ -1412,13 +1433,23 @@ export class GridBotSupervisor {
     let okxConfirmedState = 'STOP_PENDING_CONFIRMATION';
     let positionConfirmedClosed = !closePositionRequested;
 
+    // What the row ends up labelled as. A stop taken on banked profit is a TAKE_PROFIT_HIT, not a
+    // loss - the same mapping the engine applies to `PROFIT_TRAILING_STOP`, so the two supervisors
+    // cannot file one event under two different statuses.
+    const finalStatus: GridBotInstance['status'] | undefined = (
+      snapshot.decisionCodes || []
+    ).includes('RISK_PROFIT_GIVEBACK')
+      ? 'TAKE_PROFIT_HIT'
+      : undefined;
+
     if (!isNativeOKXBot) {
       // Auto-Limit Grid Bot (Ramura 1 Ordine Limit): cancel open grid orders and close position
       try {
         if (this.stopFallbackBot) {
           stopHttpOk = await this.stopFallbackBot(
             bot.algoId,
-            `[GridBotAnalyzer ${snapshot.decision}] ${snapshot.decisionReason}`
+            `[GridBotAnalyzer ${snapshot.decision}] ${snapshot.decisionReason}`,
+            finalStatus
           );
         } else {
           const res = await this.gridEngine.stopNativeBot(
@@ -1646,7 +1677,11 @@ export class GridBotAnalyzer {
     okxAdapter: OKXAdapter,
     journal: GridJournal,
     gridEngine: OKXNativeGridEngine,
-    stopFallbackBot?: (algoId: string, reason: string) => Promise<boolean>
+    stopFallbackBot?: (
+      algoId: string,
+      reason: string,
+      finalStatus?: GridBotInstance['status']
+    ) => Promise<boolean>
   ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;

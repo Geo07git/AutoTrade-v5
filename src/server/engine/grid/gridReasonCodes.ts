@@ -28,7 +28,7 @@ import type {
 } from '../../../shared/types';
 import type { GridPlanRejectionCode } from './gridPlan';
 import { assessRangeBreakout } from './gridRegime';
-import { assessProfitGiveback } from './gridProfitGuard';
+import { assessProfitTrailingStop } from './gridProfitGuard';
 
 // ---------------------------------------------------------------------------
 // Market verdict codes
@@ -267,12 +267,16 @@ export function classifyDecisionCodes(input: GridDecisionInput): GridDecisionCod
   //     +2% used to be "still profitable, zero drawdown" and kept running until the band broke.
   //     The band is proportional to the peak with an absolute floor, so the normal float swing of
   //     a leveraged grid on its own band cannot trigger it (see `assessProfitGiveback`).
-  const giveback = assessProfitGiveback({
+  //     Reads `assessProfitTrailingStop` - the same helper as the engine and as
+  //     `GridBotAnalyzer.evaluate()` - so the code, the reason and the engine's stop describe one
+  //     floor: the giveback band, raised by the optional (capped) profit lock.
+  const giveback = assessProfitTrailingStop({
     peakPct: snapshot.performance.peakTotalPnlPct,
     currentPct: bot.totalPnlPct,
     armPct: thresholds.profitGivebackArmPct,
     ratio: thresholds.profitGivebackRatio,
     minBandPct: thresholds.profitGivebackMinBandPct,
+    lockPct: thresholds.profitLockPct,
   });
   if (giveback.triggered) {
     return ['RISK_PROFIT_GIVEBACK'];

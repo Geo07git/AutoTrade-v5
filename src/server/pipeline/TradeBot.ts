@@ -331,8 +331,8 @@ export class TradeBot {
       this.okxAdapter,
       this.journal,
       this.nativeGridEngine,
-      async (algoId: string, reason: string) => {
-        const stopped = await this.stopGridBot(algoId, reason);
+      async (algoId: string, reason: string, finalStatus?: GridBotInstance['status']) => {
+        const stopped = await this.stopGridBot(algoId, reason, finalStatus);
         await this.nativeGridEngine.stopNativeBot(algoId, '1', reason);
         return stopped.success;
       }
@@ -827,12 +827,21 @@ export class TradeBot {
     };
   }
 
-  public async stopGridBot(botId: string, reason?: string) {
+  public async stopGridBot(
+    botId: string,
+    reason?: string,
+    /** Exit label for the row; `undefined` keeps the engine default (`STOPPED`). */
+    finalStatus?: GridBotInstance['status']
+  ) {
     // Read the instrument BEFORE stopping: once the bot is gone there is nothing left to look the
     // instId up from, and a conditional stop still resting after its bot is gone would fire against
     // whatever position exists later, at a level chosen by a bot that no longer exists.
     const instId = this.gridEngine.getBot(botId)?.config?.symbol;
-    const result = await this.gridEngine.stopBot(botId, reason || 'Oprit manual din Terminal');
+    const result = await this.gridEngine.stopBot(
+      botId,
+      reason || 'Oprit manual din Terminal',
+      finalStatus
+    );
     if (instId) await this.cancelVenueStops(instId);
     return result;
   }

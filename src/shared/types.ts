@@ -1019,6 +1019,14 @@ export interface GridAnalyzerThresholds {
    * band narrower than the normal float swing. Missing -> `GRID_PROFIT_GIVEBACK_DEFAULTS.minBandPct`.
    */
   profitGivebackMinBandPct?: number;
+  /**
+   * PROFIT LOCK for the analyzer's own verdict, in % of margin. Missing/0 -> off, i.e. the band
+   * alone decides. That default is deliberate: the per-bot `config.risk` that `GridRiskManager`
+   * enforces is the source of truth, and the analyzer is the backstop that must never be STRICTER
+   * than it - a lock here would stop bots the engine is happy to keep running. Capped by
+   * `peak - profitGivebackMinBandPct`, exactly like the engine's, so it cannot shave the band.
+   */
+  profitLockPct?: number;
   minLiqSafetyPct: number;
   requireMultiIndicatorForTrendStop: boolean;
   emergencyClosePosition: boolean;
