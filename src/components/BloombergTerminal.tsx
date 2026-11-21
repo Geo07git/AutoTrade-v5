@@ -2353,6 +2353,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                               <span className="font-black text-sm text-white">
                                 {bot.symbol}
                               </span>
+                              {bot.status === 'RUNNING' && bot.buyFreezeFromPx ? (
+                                // The stagnation analyzer wanted to close this bot and the inventory
+                                // guard refused: the buy ladder is frozen so the position unwinds
+                                // through its own sells instead of being sold at market. Shown here
+                                // because a bot that suddenly stops buying looks broken otherwise.
+                                <span
+                                  className="text-[10px] px-1.5 py-0.5 rounded border bg-amber-950/80 border-amber-500/60 text-amber-300 font-bold tabular-nums"
+                                  title={
+                                    bot.lastExitDeferReason ||
+                                    'Scara de Buy este congelata: nu se mai acumuleaza inventar, Sell-urile raman active'
+                                  }
+                                >
+                                  BUY CONGELAT @ ${formatPrice(bot.buyFreezeFromPx)}
+                                </span>
+                              ) : null}
                               <span className="text-xs text-amber-400 font-bold">
                                 {bot.config.leverage}x {bot.config.marginMode.toUpperCase()}
                               </span>
