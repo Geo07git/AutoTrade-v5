@@ -356,10 +356,11 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
       let upperPrice = center + half * mult;
       let gridNum = w.gridNum;
       if (LEGAL_BAND) {
-        const targetHalf = Math.min(
-          GRID_MAX_HALF_RANGE_PCT,
-          Math.max(GRID_MIN_HALF_RANGE_PCT, (((upperPrice - lowerPrice) / 2) / center) * 100)
-        );
+        // Production band at THIS horizon: halfRange = z x ATR(1h) x sqrt(H), then clamped.
+        // At H=8 and mult=1 this reproduces the scan's own band, so the horizon rows are comparable.
+        const baseHalf =
+          GRID_HOLDING_SIGMA_Z * w.atrPct1h * Math.sqrt(HORIZON_H) * mult;
+        const targetHalf = Math.min(GRID_MAX_HALF_RANGE_PCT, Math.max(GRID_MIN_HALF_RANGE_PCT, baseHalf));
         const geo = deriveGridGeometry({
           atrPct: w.atrPct,
           atrPct1h: targetHalf / (GRID_HOLDING_SIGMA_Z * Math.sqrt(HORIZON_H)),
