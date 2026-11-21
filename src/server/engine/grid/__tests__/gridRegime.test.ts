@@ -16,6 +16,8 @@ import {
   efficiencyRatio,
   efficiencyRatioFromKlines,
   hasDirectionalPressure,
+  refusesOpen,
+  regimeSignals,
   isDisplacedRegime,
   wilderAdx,
   GRID_BREAKOUT_CONFIRM_MINUTES,
@@ -251,6 +253,34 @@ test('ADX: a one-way tape has directional pressure, a sawtooth does not', () => 
   ok(sideways <= 25, `a sawtooth must not read as a trend, got ${sideways}`);
   ok(hasDirectionalPressure(trending, null), 'high ADX alone is directional pressure');
   ok(!hasDirectionalPressure(sideways, null), 'a low ADX is not, on its own');
+});
+
+// ---------------------------------------------------------------------------
+// The LIVE GATE predicate. Time-boxed experiment (7 days / 20 bots): refuse only when BOTH
+// readings are hot, so a candidate that clears one of the two filters is allowed through.
+// The label path keeps the OR on purpose - the two must not be confused, which is exactly what
+// a single boolean function made impossible to express.
+// ---------------------------------------------------------------------------
+test('gate: refuses only when BOTH readings are hot (the experiment)', () => {
+  ok(refusesOpen(47.2, 33.2), 'hot ADX + low chop = directional pressure, do not open');
+  ok(!refusesOpen(47.2, 46.8), 'hot ADX with a healthy chop must NO LONGER refuse');
+  ok(!refusesOpen(18, 33.2), 'calm ADX with a low chop must NO LONGER refuse');
+  ok(!refusesOpen(18, 60), 'a calm tape is grid weather');
+});
+
+test('gate: an unmeasured reading is never evidence of a trend', () => {
+  ok(!refusesOpen(null, 33.2), 'null ADX must not manufacture a refusal');
+  ok(!refusesOpen(47.2, null), 'null chop must not manufacture a refusal');
+  ok(!refusesOpen(null, null), 'nothing measured is not a trend');
+});
+
+test('gate: the label keeps the OR while the gate uses the AND', () => {
+  // Loosening the gate must not silently change how a candidate is DESCRIBED: the panel would
+  // start calling a calm tape 'TRENDING_RISK' the moment these two became one function again.
+  ok(hasDirectionalPressure(47.2, 46.8), 'the label still flags a hot ADX on its own');
+  ok(!refusesOpen(47.2, 46.8), 'while the gate lets it through');
+  const s = regimeSignals(47.2, 46.8);
+  ok(s.adxHot && !s.chopCold, 'the two readings must stay separately visible');
 });
 
 test('ADX: unusable input reports null, never a fabricated 20', () => {

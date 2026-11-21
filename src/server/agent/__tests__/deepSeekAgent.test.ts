@@ -1367,7 +1367,7 @@ test('prompt: the system rules state that chop/adx are measured AND veto an open
   // `chop: 0, adx: 0` while the prompt said nothing about either, so the model could not act
   // on directional pressure even in principle.
   ok(/chop and adx are MEASURED/.test(SYSTEM_PROMPT), 'the prompt must say the values are real');
-  ok(/adx > 25 or chop < 45/.test(SYSTEM_PROMPT), 'the prompt must name both thresholds');
+  ok(/adx > 25 AND chop < 45/.test(SYSTEM_PROMPT), 'the prompt must name both thresholds, joined with AND');
   ok(/DO NOT OPEN on that candidate/.test(SYSTEM_PROMPT), 'the rule must be a veto, not advice');
   ok(
     /enforces er AND the adx\/chop rule/.test(SYSTEM_PROMPT),
@@ -1384,7 +1384,7 @@ test('prompt: a candidate that passes every rule must be opened, not waited on',
   ok(/HOLD is a valid, professional answer - but it is NOT the default/.test(SYSTEM_PROMPT), 'HOLD must not be the default');
   ok(/passes every hard rule below, OPEN it/.test(SYSTEM_PROMPT), 'a valid candidate must be opened');
   ok(
-    /adx <= 25 with chop >= 45 IS grid weather/.test(SYSTEM_PROMPT),
+    /EITHER ONE clear reading \(adx <= 25 OR chop >= 45\) IS grid weather/.test(SYSTEM_PROMPT),
     'the prompt must say the passing side out loud, or the veto is the only rule the model reads'
   );
   ok(
@@ -1456,9 +1456,9 @@ test('payload: a candidate carries its measured chop/adx to the model, never a h
 // was the only reason 24 eligible candidates per cycle produced 0 opens. The three tests below
 // are what stops the rule from silently drifting back into a sentence.
 
-test('regime gate: ADX above 25 refuses the open, with the number in the reason', () => {
+test('regime gate: ADX hot AND chop low refuses the open, with both numbers', () => {
   const h = makeAgent({
-    opportunities: [opportunity({ adxTrendStrength: 47.2, choppinessIndex: 46.8 })],
+    opportunities: [opportunity({ adxTrendStrength: 47.2, choppinessIndex: 33.2 })],
   });
   const cfg = h.agent.getConfig();
   const ctx = (h.agent as any).buildContext(cfg);
@@ -1483,11 +1483,15 @@ test('regime gate: ADX above 25 refuses the open, with the number in the reason'
   eq(approved.length, 0, 'a one-way tape must not open a neutral grid');
   eq(rejected.length, 1, 'the refusal must be reported, not silently dropped');
   has(rejected[0].reason, 'ADX 47.2 > 25', 'the reason must carry the number that refused it');
+  has(rejected[0].reason, 'Chop 33.2 < 45', 'and the second number, since BOTH had to be hot');
 });
 
-test('regime gate: chop below 45 refuses the open even with a calm ADX', () => {
+test('regime gate: ONE clear reading lets the bot open (time-boxed experiment)', () => {
+  // The owner's request: refuse only when BOTH readings are hot. A hot ADX with a healthy chop
+  // used to be refused on the OR; it must now be allowed through. Full test is the pure-logic
+  // one in gridRegime.test.ts - this asserts the guard WIRES that predicate.
   const h = makeAgent({
-    opportunities: [opportunity({ adxTrendStrength: 18, choppinessIndex: 33.2 })],
+    opportunities: [opportunity({ adxTrendStrength: 47.2, choppinessIndex: 46.8 })],
   });
   const cfg = h.agent.getConfig();
   const ctx = (h.agent as any).buildContext(cfg);
@@ -1509,9 +1513,10 @@ test('regime gate: chop below 45 refuses the open even with a calm ADX', () => {
     ctx
   );
 
-  eq(approved.length, 0, 'a range covered in one direction must not host a neutral grid');
-  has(rejected[0].reason, 'Chop 33.2 < 45', 'the reason must name the chop reading');
-  ok(!/ADX/.test(rejected[0].reason), 'a calm ADX must not be blamed for a low chop');
+  ok(
+    !rejected.some((r: any) => /ADX|Chop/.test(String(r.reason))),
+    'the regime gate must NOT refuse when only one reading is hot'
+  );
 });
 
 test('regime gate: unmeasured ADX/chop is NOT directional pressure', async () => {
@@ -1530,8 +1535,8 @@ test('regime gate: unmeasured ADX/chop is NOT directional pressure', async () =>
 test('regime gate: a cycle blocked entirely by the regime is explained in the journal', async () => {
   const h = makeAgent({
     ownScan: [
-      agentRow({ adxTrendStrength: 47.2, choppinessIndex: 46.8 }),
-      agentRow({ instId: OTHER_INST, rank: 2, adxTrendStrength: 52.1, choppinessIndex: 33.2 }),
+      agentRow({ adxTrendStrength: 47.2, choppinessIndex: 33.2 }),
+      agentRow({ instId: OTHER_INST, rank: 2, adxTrendStrength: 52.1, choppinessIndex: 31.4 }),
     ],
   });
   await armAutonomous(h, {

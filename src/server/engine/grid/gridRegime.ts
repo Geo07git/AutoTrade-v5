@@ -239,12 +239,57 @@ export function hasDirectionalPressure(
   adxThreshold = GRID_ADX_TREND_SELECTION,
   chopThreshold = GRID_CHOP_TREND_SELECTION
 ): boolean {
+  const s = regimeSignals(adx, chop, adxThreshold, chopThreshold);
+  return s.adxHot || s.chopCold;
+}
+
+/**
+ * The two readings, exposed SEPARATELY.
+ *
+ * `hasDirectionalPressure` answers "is this tape a bad host?" with one boolean, so a caller can
+ * never tell WHICH measure fired. The live gate needs that: its refusal message joins the two with
+ * "AND", and a message is only honest if the caller knows which halves are true.
+ */
+export function regimeSignals(
+  adx: number | null,
+  chop: number | null,
+  adxThreshold = GRID_ADX_TREND_SELECTION,
+  chopThreshold = GRID_CHOP_TREND_SELECTION
+): { adxHot: boolean; chopCold: boolean } {
   // No `Number(x)` coercion here, on purpose: `Number(null)` is 0, and 0 < 45, so a missing
   // reading would have been reported as "the chop is 0 = extreme trend". That is the same
   // fabricated-value bug this whole module exists to remove, so `null` is checked explicitly.
-  const adxHot = adx !== null && Number.isFinite(adx) && adx > adxThreshold;
-  const chopCold = chop !== null && Number.isFinite(chop) && chop < chopThreshold;
-  return adxHot || chopCold;
+  return {
+    adxHot: adx !== null && Number.isFinite(adx) && adx > adxThreshold,
+    chopCold: chop !== null && Number.isFinite(chop) && chop < chopThreshold,
+  };
+}
+
+/**
+ * EXPERIMENT - should the LIVE gate refuse an open?
+ *
+ * The gate refused on `adxHot || chopCold`: EITHER reading being hot was enough. Its refusal
+ * message, meanwhile, joined the two with "AND" - so the operator was told "ADX > 25 AND Chop < 45"
+ * for what the code did on an OR. On a tape where ADX sits at 40+ for days (every X-Perp on
+ * 2026-11-16) an OR is indistinguishable from "never open", and the panel said only "HOLD".
+ *
+ * The owner asked for the rule the message described: refuse only when BOTH are hot, so a candidate
+ * that clears one of the two filters is allowed through. TIME-BOXED TEST (7 days / 20 bots, then
+ * re-evaluate), not a new permanent policy - set this to false to restore the strict OR. The label
+ * path (`hasDirectionalPressure`) deliberately keeps the OR: it is advisory and blocks nothing, so
+ * loosening the gate must not silently change how candidates are described.
+ */
+export const GRID_REGIME_GATE_REQUIRE_BOTH = true;
+
+export function refusesOpen(
+  adx: number | null,
+  chop: number | null,
+  adxThreshold = GRID_ADX_TREND_SELECTION,
+  chopThreshold = GRID_CHOP_TREND_SELECTION,
+  requireBoth: boolean = GRID_REGIME_GATE_REQUIRE_BOTH
+): boolean {
+  const { adxHot, chopCold } = regimeSignals(adx, chop, adxThreshold, chopThreshold);
+  return requireBoth ? adxHot && chopCold : adxHot || chopCold;
 }
 
 // ---------------------------------------------------------------------------

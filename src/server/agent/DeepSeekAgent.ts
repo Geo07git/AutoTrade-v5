@@ -46,6 +46,7 @@ import {
   GRID_ER_TREND_THRESHOLD,
   assessRangeBreakout,
   hasDirectionalPressure,
+  refusesOpen,
 } from '../engine/grid/gridRegime';
 import { AGENT_SCAN_POOL_REFRESH_MINUTES, AGENT_SCAN_POOL_SIZE } from './AgentUniverseScan';
 import { inspectBandLegality } from './gridBand';
@@ -350,7 +351,7 @@ HARD RULES (violating any of them gets your action rejected by the execution gua
 - The candidate list comes from YOUR OWN scan (scan_source = "AGENT"): it is ranked by crossings_per_h = (price path travelled per hour) / (grid step). That number - not suitabilityScore, which your scan deliberately leaves at 0 - is what actually produces money.
 - Rank by crossings_per_h DESC. Among them prefer the smallest expected_first_fill_min, the largest net_per_grid_pct, and spread_of_step <= 0.25.
 - er is the efficiency ratio of the 15m tape over the holding horizon: |net move| / |path travelled|, 0..1. Low (<= 0.4) = the price goes nowhere and travels a lot, which is what a neutral grid needs. High (> 0.4) = the price is GOING somewhere in one direction, so the grid is short that move and the exit eats the profit. Candidates with er > 0.4 are already eligible=false; never argue your way past that, and treat er close to the threshold as a tie-breaker AGAINST the candidate. null means unmeasured, not calm.
-- chop and adx are MEASURED, not placeholders: Choppiness Index(14) and Wilder ADX(14) on the 1h regime tape (15m when the hourly fetch degraded). The ONLY regime thresholds are the two the guard enforces: adx > ${GRID_ADX_TREND_SELECTION} or chop < ${GRID_CHOP_TREND_SELECTION} = the range is covered in ONE direction, so DO NOT OPEN on that candidate, whatever crossings_per_h says - crossings counts distance, and a one-way move maximises it. adx <= ${GRID_ADX_TREND_SELECTION} with chop >= ${GRID_CHOP_TREND_SELECTION} IS grid weather: rank those candidates on crossings_per_h and net_per_grid_pct and open the best one. There is no second, stricter chop line anywhere in these rules and no "perfect" reading to wait for. null means unmeasured, not calm. The execution guard enforces er AND the adx/chop rule for you: an OPEN_GRID above adx ${GRID_ADX_TREND_SELECTION} or below chop ${GRID_CHOP_TREND_SELECTION} is rejected with that exact reason, so proposing one only wastes the cycle. Use the numbers to choose, not to gamble.
+- chop and adx are MEASURED, not placeholders: Choppiness Index(14) and Wilder ADX(14) on the 1h regime tape (15m when the hourly fetch degraded). The ONLY regime thresholds are the two the guard enforces: adx > ${GRID_ADX_TREND_SELECTION} AND chop < ${GRID_CHOP_TREND_SELECTION} TOGETHER = the range is covered in ONE direction, so DO NOT OPEN on that candidate, whatever crossings_per_h says - crossings counts distance, and a one-way move maximises it. EITHER ONE clear reading (adx <= ${GRID_ADX_TREND_SELECTION} OR chop >= ${GRID_CHOP_TREND_SELECTION}) IS grid weather - only BOTH hot vetoes: rank those candidates on crossings_per_h and net_per_grid_pct and open the best one. There is no second, stricter chop line anywhere in these rules and no "perfect" reading to wait for. null means unmeasured, not calm. The execution guard enforces er AND the adx/chop rule for you: an OPEN_GRID that is BOTH above adx ${GRID_ADX_TREND_SELECTION} AND below chop ${GRID_CHOP_TREND_SELECTION} is rejected with that exact reason, so proposing one only wastes the cycle. Use the numbers to choose, not to gamble.
 - The scan's band is now sized on the HOLDING HORIZON (target_holding_hours, 8h): 0.674 x ATR(1h) x sqrt(T), floored at +/-2% and capped at +/-6%. band_lifetime_hours is the median time until the band edge is touched, so it says what the band actually buys: ~ target_holding_hours is an honest band, much less means the +/-6% ceiling clamped a wild tape (the horizon will NOT be reached and the exit will eat the grid profit) - prefer HOLD there. A range much narrower than the scan's band is the same mistake from the other side: it will be crossed in minutes.
 - Never open a candidate with crossings_per_h < min_crossings_per_h, eligible=false, or net_per_grid_pct <= 0. A grid that needs hours for its first fill locks capital for nothing.
 - Keep both range bounds inside the agent band and off the 24h extremes: a lower bound sitting on the 24h low (or an upper bound on the 24h high) means one breakout fills every level at once. This is ENFORCED by the execution guard, not a suggestion: a bound within the proximity margin of the 24h low/high is rejected outright.
@@ -1621,7 +1622,12 @@ export class DeepSeekAgent {
         // reason 24 eligible candidates per cycle produced 0 opens while the panel said only
         // "HOLD". Same constants the scan and the analyzer label with, so the refusal is
         // auditable and the journal finally carries the numbers that stopped it.
-        if (hasDirectionalPressure(candidate.adxTrendStrength, candidate.choppinessIndex)) {
+        //
+        // EXPERIMENT (owner-approved, 7 days / 20 bots then re-evaluate): `refusesOpen` now needs
+        // BOTH readings hot, not either. The message below always claimed "AND" while the code did
+        // an OR, and with ADX above 40 for days that OR was indistinguishable from "never open".
+        // Flip `GRID_REGIME_GATE_REQUIRE_BOTH` in gridRegime.ts to restore the strict rule.
+        if (refusesOpen(candidate.adxTrendStrength, candidate.choppinessIndex)) {
           const parts: string[] = [];
           if (
             candidate.adxTrendStrength != null &&
@@ -1880,7 +1886,7 @@ export class DeepSeekAgent {
     const eligible = ctx.candidates.filter((c) => c.isEligible);
     if (eligible.length === 0) return;
     const vetoed = eligible.filter((c) =>
-      hasDirectionalPressure(c.adxTrendStrength, c.choppinessIndex)
+      refusesOpen(c.adxTrendStrength, c.choppinessIndex)
     );
     if (vetoed.length < eligible.length) return;
 
@@ -2046,7 +2052,7 @@ export class DeepSeekAgent {
             c.estimatedNetProfitPerGridPct >= cfg.minNetProfitPerGridPct &&
             // Same veto the guard applies, so the deterministic engine does not spend one of
             // its limited slots on a candidate that is certain to be refused.
-            !hasDirectionalPressure(c.adxTrendStrength, c.choppinessIndex)
+            !refusesOpen(c.adxTrendStrength, c.choppinessIndex)
         )
         .sort((a, b) =>
           agentRanked
