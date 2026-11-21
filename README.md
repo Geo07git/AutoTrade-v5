@@ -245,20 +245,246 @@ Fără cheie API sau la eroare/timeout de la DeepSeek: agentul folosește rankin
 
 ### 6.1 Cerințe
 
-- Node.js 20+ (testat pe Node 22), npm
-- Cont OKX EEA (opțional pentru PAPER)
-- Chei API OKX cu permisiuni de trading (**fără** withdraw)
-- Opțional: bot Telegram (`@BotFather`), cheie DeepSeek (`platform.deepseek.com`)
+**Hardware/software minim** (orice laptop din ultimii 8 ani e suficient — aplicația nu antrenează
+nimic local, doar servește UI-ul și cheamă API-uri):
 
-### 6.2 Instalare
+| | Minim | Recomandat |
+|---|---|---|
+| RAM | 2 GB liberi | 4 GB+ liberi |
+| Disc | 1 GB liber (node_modules + build) | 2 GB |
+| Procesor | orice x64/arm64 | — |
+| Rețea | necesară (OKX + opțional DeepSeek) | — |
 
-```bash
-git clone <repository-url>
+**Conturi / chei (toate opționale, vezi §6.7):**
+
+- Cont OKX EEA — necesar doar pentru `LIVE`; pe `PAPER` poți rula fără nicio cheie.
+- Chei API OKX cu permisiuni de trading (**fără** withdraw).
+- Opțional: bot Telegram (`@BotFather`), cheie DeepSeek (`platform.deepseek.com`).
+
+---
+
+### 6.2 Instalare — Windows
+
+> **Novici: urmează pașii în ordine, nu sări niciunul.** Fiecare pas spune *ce trebuie să vezi*;
+> dacă nu vezi asta, te oprești la pasul respectiv.
+
+**Pasul 1 — instalează Git.**
+Deschide https://git-scm.com/download/win → descarcă → rulează installer-ul → **Next** de 8 ori
+(setările implicite sunt bune) → **Install** → **Finish**.
+
+**Pasul 2 — instalează Node.js 22 LTS.**
+Deschide https://nodejs.org → butonul mare **LTS** (NU "Current") → descarcă fișierul `.msi` →
+rulează → **Next** până la **Install** → **Finish**.
+
+⚠️ **Nu sări peste Node.** Aplicația e scrisă în TypeScript și are nevoie de Node ca să ruleze.
+Windows poate afișa un prompt „Do you want to allow this app to make changes" — apasă **Yes**.
+
+**Pasul 3 — verifică instalarea.**
+Deschide **Start** → scrie `PowerShell` → click dreapta → **Run as administrator** → **Yes**.
+Lipește exact asta și apasă Enter:
+
+```powershell
+node -v
+npm -v
+```
+
+Ce trebuie să vezi: două numere de versiune, `v22.` sau mai mare și un `10.` sau mai mare.
+
+- Dacă vezi `'node' is not recognized` → **închide PowerShell și deschide-l din nou** (Windows
+  încarcă PATH-ul doar la pornire). Dacă tot nu merge, repornește calculatorul și reia Pasul 2.
+
+**Pasul 4 — alege unde pui proiectul.**
+Creează un folder **fără spații și fără diacritice** în nume, de exemplu `C:\AutoTrade`.
+Nu folosi `C:\Program Files` (cere drepturi de administrator) și nu folosi Desktop dacă Desktop-ul
+e sincronizat cu OneDrive (conflicte de fișiere în `node_modules`).
+
+**Pasul 5 — descarcă proiectul.** În PowerShell:
+
+```powershell
+cd C:\AutoTrade
+git clone <repository-url> AutoTrade-v5
 cd AutoTrade-v5
+```
+
+Ce trebuie să vezi: `Cloning into 'AutoTrade-v5'...` și la final un rând cu fișiere descărcate.
+
+**Pasul 6 — instalează dependențele.** (durează 1–3 minute, e normal)
+
+```powershell
 npm install
 ```
 
-### 6.3 `.env` (pornește de la `.env.example`)
+Ce trebuie să vezi: `added 400+ packages`. Avertismentele `npm warn` sunt **normale** — doar
+`npm error` oprește instalarea.
+
+**Pasul 7 — creează fișierul de configurare.**
+
+```powershell
+Copy-Item .env.example .env
+```
+
+⚠️ Fișierul `.env` conține chei și **nu se urcă niciodată în git** (e deja blocat în `.gitignore`).
+Lasă-l gol pentru început — poți pune cheile și din interfață, în tab 5.
+
+**Pasul 8 — pornește.**
+
+```powershell
+npm run dev
+```
+
+Ce trebuie să vezi: `Server running on http://localhost:3000`. Deschide adresa în browser.
+
+⚠️ **Lasă fereastra PowerShell deschisă** cât timp folosești aplicația — dacă o închizi, serverul
+moare. Pentru a opri: click în fereastră și `Ctrl + C`.
+
+**Pasul 9 — primul contact.** Vezi §6.9.
+
+---
+
+### 6.3 Instalare — macOS
+
+⚠️ **Atenție la procesor, nu la an.** Apple a schimbat arhitectura în 2020. Verifică:
+**Menu Apple (🍎) → About This Mac** → uită-te la rândul **Chip** / **Processor**.
+
+- „Apple M1 / M2 / M3 / M4" → **Apple Silicon**
+- „Intel Core i5 / i7 / i9" → **Intel**
+
+Toți pașii sunt identici pentru ambele; diferă doar **Pasul 2a**, unde Homebrew se instalează într-un
+folder diferit. Restul e la fel.
+
+**Pasul 1 — deschide Terminal.**
+`Command + Space` → scrie `Terminal` → Enter. O fereastră goală cu text alb e normală.
+
+Dacă pe Mac nu ai rulat **niciodată** un instrument de dezvoltare, macOS poate cere instalarea
+*Command Line Tools* la primul `git` — acceptă (fereastră mică → **Install**, 2–3 minute).
+
+**Pasul 2a — instalează Homebrew (managerul de pachete).**
+Lipește în Terminal, o singură linie, și apasă Enter:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Va cere **parola Mac-ului**. ⚠️ **Când tastezi parola nu apare nimic pe ecran** — nici steluțe.
+E normal: scrie-o și apasă Enter.
+
+Dacă Mac-ul e **Apple Silicon**, la final Homebrew îți afișează două comenzi de tipul
+`echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile`. **Rulează-le**, altfel nu vei
+găsi `brew` mai târziu.
+
+Verifică: `brew --version` → trebuie să afișeze `Homebrew 4.x`.
+
+**Pasul 2b — instalează Node.js 22.**
+
+```bash
+brew install node@22
+brew link --overwrite node@22
+```
+
+Verifică: `node -v` → `v22.` sau mai mare.
+
+> **Alternativa fără Homebrew**: descarcă installer-ul `.pkg` de pe https://nodejs.org (butonul
+> **LTS**) și rulează-l. Funcționează la fel de bine — folosește varianta asta dacă Pasul 2a ți se
+> pare complicat.
+
+**Pasul 3 — verifică tot.**
+
+```bash
+node -v
+npm -v
+git --version
+```
+
+Trei rânduri cu versiuni. Dacă vezi `command not found: node` → revino la Pasul 2b și verifică dacă
+ai rulat comenzile `brew shellenv` pentru Apple Silicon.
+
+**Pasul 4 — alege unde pui proiectul.**
+
+```bash
+mkdir -p ~/AutoTrade
+cd ~/AutoTrade
+```
+
+⚠️ **Nu pune proiectul în `Desktop`, `Documents` sau `Downloads`**: macOS și iCloud Drive aplică
+sincronizare și permisiuni pe acele foldere, iar `node_modules` are zeci de mii de fișiere mici —
+sincronizarea poate bloca instalarea sau umple spațiul iCloud. `~/AutoTrade` e în afara lor.
+
+**Pasul 5 — descarcă proiectul.**
+
+```bash
+git clone <repository-url> AutoTrade-v5
+cd AutoTrade-v5
+```
+
+**Pasul 6 — instalează dependențele.**
+
+```bash
+npm install
+```
+
+Aceiași pași ca pe Windows: 1–3 minute, `npm warn` e normal, doar `npm error` oprește.
+
+> Dacă vezi `EACCES: permission denied`: **nu** rula cu `sudo` (ar strica permisiunile definitiv).
+> Cauza e aproape sigur că proiectul e într-un folder pe care contul tău nu îl deține — mută-l în
+> `~/` conform Pasului 4.
+
+**Pasul 7 — creează `.env`.**
+
+```bash
+cp .env.example .env
+```
+
+**Pasul 8 — pornește.**
+
+```bash
+npm run dev
+```
+
+Ce trebuie să vezi: `Server running on http://localhost:3000` → deschide în browser.
+
+⚠️ **Lasă fereastra Terminal deschisă.** Pentru a opri: `Ctrl + C`.
+
+Dacă macOS afișează „Node wants to accept incoming network connections" (Firewall): apasă
+**Allow**. Serverul ascultă pe `localhost`, conexiunea e locală.
+
+---
+
+### 6.4 Ce NU funcționează la fel pe macOS
+
+Sunt singurele diferențe față de Windows. Restul aplicației e identic.
+
+| Comandă | Windows | macOS | Notă |
+|---|---|---|---|
+| `npm run clean` | funcționează | **eșuează** | scriptul folosește `rm -rf` (comandă Linux / Git-Bash, nu bash-ul de pe Mac). Rulare manuală: `rm -rf dist server.js` |
+| `npm run electron:build` | funcționează | **nu e suportat** | scriptul e `--win --x64`. Pe Mac aplicația se rulează din **browser** (`npm run dev`) — nu ai nevoie de Electron ca să folosești terminalul |
+| `npm run cap:build:apk` | necesită Android Studio | necesită Android Studio | opțional, doar dacă instalezi aplicația pe un telefon Android |
+
+Toate celelalte comenzi (`npm run dev`, `npm run build`, `npm start`, `npm run lint`, `npm test`)
+sunt identice pe Windows și macOS.
+
+---
+
+### 6.5 Dacă ceva nu merge la instalare
+
+| Ce vezi | Cauză | Fix |
+|---|---|---|
+| `'node' is not recognized` (Windows) | PowerShell deschis înainte de instalarea Node | închide și redeschide PowerShell; dacă persistă, repornește PC-ul |
+| `'git' is not recognized` (Windows) | Git neinstalat sau PATH neîncărcat | reinstalează Git, redeschide PowerShell |
+| `command not found: brew` (Mac, Apple Silicon) | ai omis comenzile `brew shellenv` | `echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile` apoi `source ~/.zprofile` |
+| `EACCES: permission denied` (Mac) | proiectul e într-un folder al altui cont | **nu** folosi `sudo`; mută proiectul în `~/AutoTrade` |
+| `Port 3000 already in use` | altă instanță rulează deja | oprește fereastra veche cu `Ctrl + C`; pe Mac: `lsof -ti:3000 \| xargs kill` |
+| Instalarea pare blocată la `node_modules` | antivirus (Windows) sau iCloud sync (Mac) | adaugă folderul proiectului în excluderile antivirusului / mută-l în afara Desktop-Documents |
+| Pagina nu se încarcă la `localhost:3000` | serverul nu rulează sau a crăpat | uită-te în fereastra Terminal: trebuie să fie încă deschisă, fără erori roșii |
+| `npm error ERESOLVE` | versiuni de dependențe incompatibile | `npm install --legacy-peer-deps` |
+| Ecran alb în browser | build-ul UI a picat | `npm run build` și citește eroarea; rulează `npm run lint` |
+
+**Regula generală pentru novici**: dacă apare text roșu cu `npm error` și nu înțelegi, copiază tot
+blocajul într-o discuție — nu rula comenzi de „reparare" găsite pe internet (`sudo rm -rf`,
+`chmod 777`) înainte să afli cauza.
+
+---
+
+### 6.7 `.env` (pornește de la `.env.example`)
 
 | Variabilă | Obligatoriu | Rol |
 |---|---|---|
@@ -270,7 +496,7 @@ npm install
 
 > Cheile pot fi introduse și din UI și se salvează în `.data/`, care este gitignored: **OKX** din tab 5, **DeepSeek** din tab 5 (cardul *Configurare API DeepSeek*) sau din tab 8. Ambele locuri scriu aceeași cheie, prin același endpoint — nu există două surse de adevăr.
 
-### 6.4 Pornire
+### 6.8 Pornire
 
 ```bash
 npm run dev      # dezvoltare (tsx server.ts) -> http://localhost:3000
@@ -280,7 +506,10 @@ npm start        # productie (node dist/server.cjs)
 
 Alte scripturi: `npm run lint` (tsc --noEmit), `npm test`, `npm run clean`, `npm run emergency-stop`, plus shell-uri alternative `electron:dev` / `electron:build` (Windows) și `cap:build:apk` (Android, folder `android/`).
 
-### 6.5 Primul contact
+> **macOS**: `npm run clean` și `npm run electron:build` nu sunt portabile — vezi §6.4. Pentru tot
+> restul, comenzile de mai sus sunt identice pe Windows și pe Mac.
+
+### 6.9 Primul contact
 
 1. Deschide `http://localhost:3000` → modul e `PAPER`, capital virtual 500 USDT.
 2. Tab **5** → introdu cheile OKX → **Test conexiune** → lasă **OKX Demo** bifat la început.
