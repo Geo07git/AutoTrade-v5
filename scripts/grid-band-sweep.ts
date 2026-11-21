@@ -71,6 +71,14 @@ const SPREAD = Number(args.get('spread')) || 0.05;
  * bot that cannot exist. Disable with `--legal=false` to reproduce the old behaviour.
  */
 const LEGAL_BAND = String(args.get('legal') ?? 'true') !== 'false';
+/**
+ * Whether to apply the live eligibility gate. THE most consequential switch here: with the gate
+ * ON, every result is conditioned on a filter tuned for calm ranges — the regime where a neutral
+ * grid has least to harvest. The first runs required `isEligible` on every window, so the sample
+ * could not contain a volatile instrument at all, and "geometry does not pay" was measured on
+ * exactly the instruments a grid earns least on. `--gate=false` measures the MARKET, not the gate.
+ */
+const APPLY_GATE = String(args.get('gate') ?? 'true') !== 'false';
 const MIN_CROSSINGS = Number(args.get('mincross')) || 0.3;
 const HORIZON_H = Math.max(1, Math.min(48, Number(args.get('horizon')) || 8));
 /** GRID_STOP_DEFAULTS.bufferPct: production stops this far PAST the band edge, not at it. */
@@ -237,6 +245,8 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
   console.log(`univers: ${universe.length} X-Perp-uri live, baleiere pe ${picked.length}\n`);
 
   const windows: Window[] = [];
+  /** WHY windows were dropped — so "no volatile instrument in the sample" is visible, not implied. */
+  const counts = { rejected: 0, lowCross: 0, gateIgnored: 0, lotTooBig: 0, accepted: 0 };
 
   // --- pass 1: collect the testable windows (regime gate NOT applied: we are testing geometry) --
   for (const meta of picked) {
@@ -291,15 +301,29 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
           universeScanMode: 'pool',
         },
       });
-      if (!row || !row.isEligible) continue;
+      if (!row) continue;
 
       const crossings = Number(row.crossingsPerHour) || 0;
       const er = row.efficiencyRatio;
       const erOk = !isDisplacedRegime(typeof er === 'number' ? er : null);
-      if (crossings < MIN_CROSSINGS || !erOk) continue;
+      if (APPLY_GATE) {
+        if (!row.isEligible) {
+          counts.rejected++;
+          continue;
+        }
+        if (crossings < MIN_CROSSINGS || !erOk) {
+          counts.lowCross++;
+          continue;
+        }
+      } else {
+        counts.gateIgnored++;
+      }
 
       const minLotNotional = meta.minSz * meta.ctVal * bar.close;
-      if (minLotNotional > BUDGET * LEVER) continue;
+      if (minLotNotional > BUDGET * LEVER) {
+        counts.lotTooBig++;
+        continue;
+      }
 
       const windowBars = bars15m.filter(
         (k) => k.timestamp >= bar.timestamp && k.timestamp < bar.timestamp + HORIZON_H * 3_600_000
@@ -320,6 +344,7 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
       // Non-overlapping per symbol, so 8 windows never share the same hour.
       nextAvailableTs = bar.timestamp + HORIZON_H * 3_600_000;
       found++;
+      counts.accepted++;
     }
     console.log(`  ${meta.instId.padEnd(32)} ferestre testabile ${String(found).padStart(3)}`);
   }
@@ -328,7 +353,12 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
     console.log('\nNicio fereastra testabila — nimic de baleiat.');
     return;
   }
-  console.log(`\nTOTAL ferestre: ${windows.length} — rulez ${windows.length * BAND_MULTS.length * STOPS.length * TP_MULTS.length} simulari\n`);
+  console.log(`\nTOTAL ferestre: ${windows.length} — rulez ${windows.length * BAND_MULTS.length * STOPS.length * TP_MULTS.length} simulari`);
+  console.log(
+    `  poarta ${APPLY_GATE ? 'APLICATA' : 'IGNORATA (masor piata, nu filtrul)'} | ` +
+      `acceptate ${counts.accepted} | respinse ${counts.rejected} | sub crossings ${counts.lowCross} | ` +
+      `lot prea mare ${counts.lotTooBig}\n`
+  );
 
   // --- pass 2: every variant on every window ------------------------------------------------
   const variants = new Map<string, Variant>();
