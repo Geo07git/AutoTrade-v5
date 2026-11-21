@@ -12,7 +12,8 @@ export default defineConfig(() => {
       },
     },
     server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
+      hmr: process.env.ENABLE_HMR === 'true' && process.env.DISABLE_HMR !== 'true',
+      ws: process.env.ENABLE_HMR === 'true' && process.env.DISABLE_HMR !== 'true' ? undefined : (false as const),
       watch: {
         ignored: ['**/.data/**', '.data/**'],
       },

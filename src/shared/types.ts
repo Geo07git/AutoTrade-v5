@@ -1362,11 +1362,91 @@ export type CassCeilingLevel =
   | 'INTRE_12_SI_24_SALARII'
   | 'PESTE_24_SALARII';
 
+export type AnafCoverageStatus =
+  | 'API_COMPLETE'
+  | 'API_PLUS_CSV'
+  | 'PARTIAL_OLD_API'
+  | 'CSV_ONLY'
+  | 'NO_DATA';
+
+export type AnafEfficiencyStatus =
+  | 'EFFICIENT'
+  | 'HIGH_TAX'
+  | 'TAX_EXCEEDS_GAIN'
+  | 'LOSS_WITH_TAX'
+  | 'BREAKEVEN';
+
+export interface AnafTaxEfficiencyMetrics {
+  realNetPnLUSD: number;
+  realNetPnLRON: number;
+  taxesDueRON: number;
+  incomeTaxOnlyRON: number;
+  cassDueRON?: number;
+  effectiveTaxRatePct: number | null;
+  netAfterTaxRON: number;
+  netAfterTaxUSD: number;
+  status: AnafEfficiencyStatus;
+  taxExceedsGain: boolean;
+  lossWithTaxDue: boolean;
+  statusLabel: string;
+}
+
+export interface AnafMonthlySummary {
+  yearMonth: string; // YYYY-MM
+  year: number;
+  month: number; // 1..12
+  monthLabel: string; // e.g. '2026-10 Octombrie'
+  transactionsCount: number;
+  profitableCount: number;
+  lossCount: number;
+  winRatePct: number;
+  totalProfitUSD: number;
+  totalLossUSD: number;
+  totalFeesUSD: number;
+  netRealizedPnLUSD: number;
+  grossRevenueRON: number;
+  deductibleExpensesRON: number;
+  netTaxableBaseRON: number;
+  incomeTaxRON: number;
+  efficiency: AnafTaxEfficiencyMetrics;
+  coverageStatus: AnafCoverageStatus;
+  coverageLabel: string;
+  sourcesBreakdown: {
+    okxApiBills: number;
+    csvImport: number;
+  };
+}
+
+export interface AnafFiscalSettings {
+  fiscalYear: number;
+  startDate: string; // YYYY-MM-DD
+  taxRatePct: number;
+  minWageGrossRON: number;
+  customUsdRonRate: number | null;
+  updatedAt?: number;
+}
+
+export interface AnafTransactionPageResponse {
+  transactions: AnafTransactionRecord[];
+  totalCount: number;
+  profitableCount: number;
+  lossCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  yearMonth?: string;
+  usdRonRate: number;
+}
+
 export interface AnafTaxSummary {
   fiscalYear: number;
+  startDate: string;
+  endDate: string;
   taxRatePct: number;
   minWageGrossRON: number;
   usdRonRate: number;
+  liveBnrUsdRonRate: number;
+  isCustomUsdRonRate: boolean;
   eurRonRate: number;
   ratesUpdatedAt: number;
   ratesSource: string;
@@ -1404,6 +1484,10 @@ export interface AnafTaxSummary {
     remainingUntilNextCeilingRON: number;
   };
 
+  ytdEfficiency: AnafTaxEfficiencyMetrics;
+  monthlySummaries: AnafMonthlySummary[];
+  coverageSummary: string;
+
   totalOwedToStateRON: number;
   filingDeadline: string;
 
@@ -1427,6 +1511,10 @@ export interface AnafTaxSummary {
     totalOrdersFromHistory: number;
     totalBillsFromArchive: number;
     totalFills: number;
+    billsRecentCount?: number;
+    billsArchiveCount?: number;
+    csvFallbackCount?: number;
+    migratedFromLegacyCache?: boolean;
     endpointsQueried: string[];
     hasOkxCredentials: boolean;
     errorMessage?: string;
@@ -1436,4 +1524,3 @@ export interface AnafTaxSummary {
 
   transactions: AnafTransactionRecord[];
 }
-

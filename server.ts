@@ -5,6 +5,7 @@
 // rather than misconfigured.
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
@@ -637,32 +638,137 @@ async function startServer() {
   // =========================================================================
   // ANAF FISCAL & DECLARAȚIA UNICĂ 2026 / 2027 ENDPOINTS
   // =========================================================================
-  app.get('/api/bot/fiscal/report', async (req, res) => {
+  app.get('/api/bot/fiscal/settings', async (req, res) => {
     try {
-      const year = parseInt(req.query.year as string, 10) || new Date().getFullYear();
-      const taxRate = parseFloat(req.query.taxRate as string) || 10;
-      const minWage = parseFloat(req.query.minWage as string) || 4050;
-      const customRate = parseFloat(req.query.usdRonRate as string) || undefined;
+      const yearRaw = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const year = yearRaw && Number.isFinite(yearRaw) ? yearRaw : undefined;
+      const engine = tradeBot.getAnafTaxEngine();
+      const settings = engine.getFiscalSettings(year);
+      const liveRates = await engine.fetchBnrRates(false);
+      res.json({ success: true, settings, liveRates });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la citirea setărilor fiscale' });
+    }
+  });
 
-      const report = await tradeBot.getAnafTaxReport({
-        fiscalYear: year,
-        taxRatePct: taxRate,
-        minWageGrossRON: minWage,
-        customUsdRonRate: customRate,
+  app.post('/api/bot/fiscal/settings', requireControlAuth, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const engine = tradeBot.getAnafTaxEngine();
+      const customRateVal =
+        body.customUsdRonRate === null || body.clearCustomUsdRonRate === true
+          ? null
+          : body.customUsdRonRate !== undefined && body.customUsdRonRate !== ''
+          ? parseFloat(String(body.customUsdRonRate))
+          : undefined;
+
+      const settings = engine.saveFiscalSettings({
+        fiscalYear: body.fiscalYear ? parseInt(String(body.fiscalYear), 10) : undefined,
+        startDate: typeof body.startDate === 'string' ? body.startDate : undefined,
+        taxRatePct: body.taxRatePct !== undefined ? parseFloat(String(body.taxRatePct)) : undefined,
+        minWageGrossRON:
+          body.minWageGrossRON !== undefined ? parseFloat(String(body.minWageGrossRON)) : undefined,
+        customUsdRonRate:
+          customRateVal === null || (typeof customRateVal === 'number' && Number.isFinite(customRateVal))
+            ? customRateVal
+            : undefined,
+        clearCustomUsdRonRate: Boolean(body.clearCustomUsdRonRate),
       });
 
-      res.json({ success: true, report });
+      const report = await tradeBot.getAnafTaxReport({
+        fiscalYear: settings.fiscalYear,
+        startDate: settings.startDate,
+        taxRatePct: settings.taxRatePct,
+        minWageGrossRON: settings.minWageGrossRON,
+        customUsdRonRate: settings.customUsdRonRate,
+        includeTransactions: false,
+      });
+
+      res.json({ success: true, settings, report });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la salvarea setărilor fiscale' });
+    }
+  });
+
+  app.get('/api/bot/fiscal/report', async (req, res) => {
+    try {
+      const engine = tradeBot.getAnafTaxEngine();
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const startDate = typeof req.query.startDate === 'string' ? req.query.startDate : undefined;
+      const taxRate = req.query.taxRate ? parseFloat(String(req.query.taxRate)) : undefined;
+      const minWage = req.query.minWage ? parseFloat(String(req.query.minWage)) : undefined;
+      const rawRateParam = req.query.usdRonRate ? String(req.query.usdRonRate).trim() : '';
+      const customRate =
+        rawRateParam === 'live'
+          ? null
+          : rawRateParam && Number.isFinite(parseFloat(rawRateParam))
+          ? parseFloat(rawRateParam)
+          : undefined;
+
+      const report = await tradeBot.getAnafTaxReport({
+        fiscalYear: year && Number.isFinite(year) ? year : undefined,
+        startDate,
+        taxRatePct: taxRate && Number.isFinite(taxRate) ? taxRate : undefined,
+        minWageGrossRON: minWage && Number.isFinite(minWage) ? minWage : undefined,
+        customUsdRonRate: customRate,
+        includeTransactions: false,
+      });
+
+      res.json({ success: true, report, settings: engine.getFiscalSettings(report.fiscalYear) });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message || 'Eroare la calcularea raportului fiscal ANAF' });
     }
   });
 
-  app.post('/api/bot/fiscal/sync', async (req, res) => {
+  app.get('/api/bot/fiscal/transactions', async (req, res) => {
     try {
-      const year = parseInt(req.body?.year as string, 10) || new Date().getFullYear();
-      const taxRate = parseFloat(req.body?.taxRate as string) || 10;
-      const minWage = parseFloat(req.body?.minWage as string) || 4050;
-      const customRate = parseFloat(req.body?.usdRonRate as string) || undefined;
+      const year = req.query.year ? parseInt(String(req.query.year), 10) : undefined;
+      const month = typeof req.query.month === 'string' ? req.query.month.trim() : undefined;
+      const startDate = typeof req.query.startDate === 'string' ? req.query.startDate : undefined;
+      const rawFilter = String(req.query.filter || 'ALL').toUpperCase();
+      const filter: 'ALL' | 'PROFIT' | 'LOSS' =
+        rawFilter === 'PROFIT' || rawFilter === 'LOSS' ? rawFilter : 'ALL';
+      const search = typeof req.query.search === 'string' ? req.query.search : '';
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const pageSize = req.query.pageSize ? parseInt(String(req.query.pageSize), 10) : 100;
+      const rawRateParam = req.query.usdRonRate ? String(req.query.usdRonRate).trim() : '';
+      const customRate =
+        rawRateParam === 'live'
+          ? null
+          : rawRateParam && Number.isFinite(parseFloat(rawRateParam))
+          ? parseFloat(rawRateParam)
+          : undefined;
+
+      const pageData = await tradeBot.getAnafTaxEngine().queryTransactions({
+        fiscalYear: year && Number.isFinite(year) ? year : undefined,
+        yearMonth: month,
+        startDate,
+        customUsdRonRate: customRate,
+        filter,
+        search,
+        page: Number.isFinite(page) ? page : 1,
+        pageSize: Number.isFinite(pageSize) ? pageSize : 100,
+      });
+
+      res.json({ success: true, ...pageData });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Eroare la interogarea tranzacțiilor fiscale' });
+    }
+  });
+
+  app.post('/api/bot/fiscal/sync', requireControlAuth, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const year = body.year ? parseInt(String(body.year), 10) : undefined;
+      const startDate = typeof body.startDate === 'string' ? body.startDate : undefined;
+      const taxRate = body.taxRate ? parseFloat(String(body.taxRate)) : undefined;
+      const minWage = body.minWage ? parseFloat(String(body.minWage)) : undefined;
+      const customRate =
+        body.usdRonRate === null
+          ? null
+          : body.usdRonRate !== undefined && Number.isFinite(parseFloat(String(body.usdRonRate)))
+          ? parseFloat(String(body.usdRonRate))
+          : undefined;
 
       const hasCreds = tradeBot.hasOKXCredentials();
       if (!hasCreds) {
@@ -678,17 +784,19 @@ async function startServer() {
       await tradeBot.getAnafTaxEngine().fetchBnrRates(true);
 
       const report = await tradeBot.getAnafTaxReport({
-        fiscalYear: year,
-        taxRatePct: taxRate,
-        minWageGrossRON: minWage,
+        fiscalYear: year && Number.isFinite(year) ? year : undefined,
+        startDate,
+        taxRatePct: taxRate && Number.isFinite(taxRate) ? taxRate : undefined,
+        minWageGrossRON: minWage && Number.isFinite(minWage) ? minWage : undefined,
         customUsdRonRate: customRate,
         forceSyncOkxApi: true,
+        includeTransactions: false,
       });
 
       res.json({
         success: true,
         report,
-        message: 'Istoricul tranzacțiilor și cursul BNR au fost sincronizate cu succes din OKX API.',
+        message: `Sincronizare completă OKX Bills: ${report.totalTransactionsCount} înregistrări canonice unice (${report.okxApiSyncStatus.billsArchiveCount || 0} archive, ${report.okxApiSyncStatus.billsRecentCount || 0} recente).`,
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message || 'Eroare la sincronizarea din OKX API' });
@@ -697,6 +805,7 @@ async function startServer() {
 
   app.post(
     '/api/bot/fiscal/upload-csv',
+    requireControlAuth,
     express.text({ type: ['text/csv', 'text/plain', '*/*'], limit: '15mb' }),
     (req, res) => {
       try {
@@ -734,15 +843,24 @@ async function startServer() {
   app.get('/api/bot/fiscal/export-csv', async (req, res) => {
     try {
       const year = parseInt(req.query.year as string, 10) || new Date().getFullYear();
+      const startDate = typeof req.query.startDate === 'string' ? req.query.startDate : undefined;
       const taxRate = parseFloat(req.query.taxRate as string) || 10;
       const minWage = parseFloat(req.query.minWage as string) || 4050;
-      const customRate = parseFloat(req.query.usdRonRate as string) || undefined;
+      const rawRateParam = req.query.usdRonRate ? String(req.query.usdRonRate).trim() : '';
+      const customRate =
+        rawRateParam === 'live'
+          ? null
+          : rawRateParam && Number.isFinite(parseFloat(rawRateParam))
+          ? parseFloat(rawRateParam)
+          : undefined;
 
       const report = await tradeBot.getAnafTaxReport({
         fiscalYear: year,
+        startDate,
         taxRatePct: taxRate,
         minWageGrossRON: minWage,
         customUsdRonRate: customRate,
+        includeTransactions: true,
       });
 
       const csv = tradeBot.getAnafTaxEngine().generateAuditCsv(report);
@@ -1512,13 +1630,22 @@ async function startServer() {
     next(err);
   });
 
+  const server = http.createServer(app);
+  let viteServer: { close: () => Promise<void> } | undefined;
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
+    const enableHmr = process.env.ENABLE_HMR === 'true' && process.env.DISABLE_HMR !== 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: enableHmr ? { server } : false,
+        ws: enableHmr ? undefined : false,
+      },
       appType: 'spa',
     });
+    viteServer = vite;
     app.use(vite.middlewares);
   } else {
     let distPath = process.env.STATIC_DIST_PATH || process.cwd();
@@ -1533,7 +1660,7 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
     tradeBot.start().catch((err) => console.error('[TradeBot] Failed to start TradeBot background loop:', err));
   });
@@ -1548,7 +1675,11 @@ async function startServer() {
 
   const shutdown = () => {
     try { flushAllStores(); } catch { /* best effort */ }
-    server.close(() => process.exit(0));
+    Promise.resolve(viteServer?.close())
+      .catch(() => {})
+      .finally(() => {
+        server.close(() => process.exit(0));
+      });
   };
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
