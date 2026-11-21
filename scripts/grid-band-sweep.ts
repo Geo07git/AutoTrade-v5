@@ -42,6 +42,12 @@ import { isTradableXPerp } from '../src/server/scanner/UniverseManager';
 import { buildAgentOpportunity, type AgentUniverseTicker } from '../src/server/agent/AgentUniverseScan';
 import { isDisplacedRegime } from '../src/server/engine/grid/gridRegime';
 import { GridBacktestEngine, createDefaultBotConfig } from '../src/server/research/GridBacktestEngine';
+import {
+  deriveGridGeometry,
+  GRID_HOLDING_SIGMA_Z,
+  GRID_MIN_HALF_RANGE_PCT,
+  GRID_MAX_HALF_RANGE_PCT,
+} from '../src/server/engine/grid/gridPlan';
 import type { Kline } from '../src/shared/types';
 
 const BASE = 'https://www.okx.com';
@@ -59,13 +65,22 @@ const FEE = Number(args.get('fee')) || 0.08;
 const BUDGET = Number(args.get('budget')) || 12;
 const LEVER = Number(args.get('lever')) || 2;
 const SPREAD = Number(args.get('spread')) || 0.05;
+/**
+ * Re-derive the band the way PRODUCTION would when it is widened (clamp + fresh gridNum), instead
+ * of only scaling `minPx`/`maxPx`. Default on: the frozen-gridNum variant answers a question about a
+ * bot that cannot exist. Disable with `--legal=false` to reproduce the old behaviour.
+ */
+const LEGAL_BAND = String(args.get('legal') ?? 'true') !== 'false';
 const MIN_CROSSINGS = Number(args.get('mincross')) || 0.3;
 const HORIZON_H = Math.max(1, Math.min(48, Number(args.get('horizon')) || 8));
 /** GRID_STOP_DEFAULTS.bufferPct: production stops this far PAST the band edge, not at it. */
 const BREAKOUT_BUFFER = Math.max(0, Number(args.get('buffer')) || 0.5);
 
 /** The search space. Deliberately small: 36 cells, so a "winner" is not a fitted fluke. */
-const BAND_MULTS = [0.7, 1.0, 1.3, 1.6];
+const BAND_MULTS = String(args.get('mults') || '0.7,1.0,1.3,1.6')
+  .split(',')
+  .map(Number)
+  .filter((n) => Number.isFinite(n) && n > 0);
 const STOPS = [6, 8, 12];
 /**
  * TP-ul live NU e o cifra fixa: `GRID_STOP_DEFAULTS.rewardMultiple` il leaga de stop (TP = 1.5 x SL).
@@ -190,6 +205,9 @@ interface Window {
   maxPx: number;
   gridNum: number;
   lever: number;
+  /** ATR the scan measured, carried so the band can be re-derived the way production derives it. */
+  atrPct: number;
+  atrPct1h: number;
   bars: Kline[];
 }
 
@@ -295,6 +313,8 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
         maxPx: row.maxPx,
         gridNum: row.gridNum,
         lever: row.lever,
+        atrPct: row.atrPct,
+        atrPct1h: row.atrPct1h,
         bars: windowBars,
       });
       // Non-overlapping per symbol, so 8 windows never share the same hour.
@@ -326,8 +346,31 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
     const half = ((w.maxPx - w.minPx) / 2) || center * 0.01;
 
     for (const mult of BAND_MULTS) {
-      const lowerPrice = Math.max(center * 0.5, center - half * mult);
-      const upperPrice = center + half * mult;
+      // Widen the band the way production would, not by scaling minPx/maxPx blindly:
+      //   - the half-width is clamped to [GRID_MIN_HALF_RANGE_PCT, GRID_MAX_HALF_RANGE_PCT], because
+      //     a band outside it is never opened, so simulating it measures a bot that cannot exist;
+      //   - `gridNum` is RE-DERIVED for the new width. Freezing it made a wider band a sparser grid
+      //     (same level count over a longer span => bigger steps => fewer fills), which is not what
+      //     `deriveGridGeometry` does: it keeps the step ATR-sized and adds levels, up to the cap.
+      let lowerPrice = Math.max(center * 0.5, center - half * mult);
+      let upperPrice = center + half * mult;
+      let gridNum = w.gridNum;
+      if (LEGAL_BAND) {
+        const targetHalf = Math.min(
+          GRID_MAX_HALF_RANGE_PCT,
+          Math.max(GRID_MIN_HALF_RANGE_PCT, (((upperPrice - lowerPrice) / 2) / center) * 100)
+        );
+        const geo = deriveGridGeometry({
+          atrPct: w.atrPct,
+          atrPct1h: targetHalf / (GRID_HOLDING_SIGMA_Z * Math.sqrt(HORIZON_H)),
+          roundTripFeePct: FEE,
+          spreadPct: SPREAD,
+        });
+        if (!geo) continue;
+        lowerPrice = center * (1 - geo.halfRangePct / 100);
+        upperPrice = center * (1 + geo.halfRangePct / 100);
+        gridNum = geo.gridNum;
+      }
       if (!(lowerPrice > 0) || !(upperPrice > lowerPrice)) continue;
 
       for (const stop of STOPS) {
@@ -337,14 +380,13 @@ const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(st
             w.meta.instId,
             lowerPrice,
             upperPrice,
-            w.gridNum,
+            gridNum,
             'ARITHMETIC',
             w.lever,
             BUDGET,
             stop,
             tp
-          );
-          let result;
+          );          let result;
           try {
             result = GridBacktestEngine.runSimulation(w.bars, config, [], {
               lotFilter: {
