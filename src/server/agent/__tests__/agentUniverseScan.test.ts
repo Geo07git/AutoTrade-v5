@@ -511,6 +511,49 @@ test('scanner: an empty universe produces no candidates instead of throwing', as
   eq(rows.length, 0, 'no contracts must yield no rows');
 });
 
+test('scanner: a grid that FITS the budget outranks a faster one that cannot be placed', async () => {
+  // The PIEVERSE shape, one level up: a contract whose min lot x gridNum / lever exceeds the
+  // per-bot budget is born 90% virtual — fewer fills, leftover inventory the ladder cannot unwind,
+  // and an exit that costs more than the capture. Crossings/hour must not outrank feasibility.
+  const fastButUnplaceableId = 'FAST-USD_UM_XPERP-310523';
+  const slowerButPlaceableId = 'SLOW-USD_UM_XPERP-310523';
+
+  const data = fakeDataSource([
+    {
+      // 0.6% oscillation = the most crossings, but 1 contract = 100 USDT of notional:
+      // 100 x gridNum / 2x is far above the 12 USDT budget.
+      spec: spec({ instId: fastButUnplaceableId, minSz: 1, ctVal: 1 }),
+      ticker: ticker({ instId: fastButUnplaceableId }),
+      klines: oscillatingKlines(100, 0.6, 0.3),
+    },
+    {
+      // Slower tape, but 0.01 contracts = 1 USDT of notional, so the ladder really fits.
+      spec: spec({ instId: slowerButPlaceableId, minSz: 0.01, lotSz: 0.01, ctVal: 1 }),
+      ticker: ticker({ instId: slowerButPlaceableId }),
+      klines: oscillatingKlines(100, 0.12, 0.3),
+    },
+  ]);
+
+  const rows = await new AgentUniverseScanner(data).scan({
+    ...settings,
+    deepScanCount: 25,
+    roundTripFeePct: 0.01,
+    universeScanMode: 'turnover',
+  });
+
+  const fast = rows.find((r) => r.instId === fastButUnplaceableId);
+  const slow = rows.find((r) => r.instId === slowerButPlaceableId);
+  ok(fast && slow, `both candidates must reach the ranking, got ${rows.length} rows`);
+  eq(fast!.requiresLiveProbe, true, 'the 100 USDT min lot cannot fit a 12 USDT budget');
+  eq(slow!.requiresLiveProbe, false, 'the 1 USDT min lot fits');
+  ok(
+    (fast!.crossingsPerHour || 0) > (slow!.crossingsPerHour || 0),
+    'the fixture must make the unplaceable grid the faster one, otherwise the test proves nothing'
+  );
+  eq(rows[0].instId, slowerButPlaceableId, 'feasibility ranks above crossings/hour');
+  eq(rows[0].rank, 1, 'ranks must follow the new order');
+});
+
 // ---------------------------------------------------------------------------
 // Rotation — the whole universe must be seen, not just the most liquid
 // ---------------------------------------------------------------------------

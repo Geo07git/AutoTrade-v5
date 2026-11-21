@@ -891,9 +891,22 @@ export class AgentUniverseScanner {
       }
     }
 
-    // Selection order: crossings per hour first (the only thing that pays), then net edge.
+    // Selection order:
+    //   0. a grid that can actually be PLACED inside the budget, first;
+    //   1. crossings per hour (the only thing that pays);
+    //   2. net edge.
+    //
+    // Step 0 used to be a note in the prompt only. `1 lot x gridNum / lever` above the per-bot
+    // budget means most levels are born virtual: fewer fills, leftover inventory the ladder cannot
+    // unwind, and an exit that costs more than the capture. That was `grid_pieverse_mwk05tlp`:
+    // 12 USDT of margin, 20 levels declared, a min lot worth ~10x one level — the bot completed 8
+    // round-trips in 8 h and still closed negative. Ranking (not rejecting) keeps the candidate
+    // list non-empty on a small account: if nothing fits, the old order stands unchanged.
     rows.sort((a, b) => {
       if (a.isEligible !== b.isEligible) return a.isEligible ? -1 : 1;
+      const fa = a.requiresLiveProbe ? 1 : 0;
+      const fb = b.requiresLiveProbe ? 1 : 0;
+      if (fa !== fb) return fa - fb;
       const ca = a.crossingsPerHour || 0;
       const cb = b.crossingsPerHour || 0;
       if (cb !== ca) return cb - ca;
