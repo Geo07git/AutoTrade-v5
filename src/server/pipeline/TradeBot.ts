@@ -56,6 +56,7 @@ import {
 } from '../agent/AgentUniverseScan';
 import { getLiveFeeRates } from '../../shared/fees';
 import { computeGridStopTargets } from '../engine/grid/gridStopTargets';
+import { applyLiveCountersToNative } from '../engine/grid/gridNativeMirror';
 import { planVenueStops, placeConditionalStop, cancelConditionalStops } from '../exchange/okxConditionalStop';
 
 const DEFAULT_GRID_PROFILE: ProfileConfig = {
@@ -1662,7 +1663,26 @@ export class TradeBot {
     }
   }
 
+  /**
+   * Copies the TB5 live counters onto the native mirror rows, in place.
+   *
+   * The mirror (`nativeGridEngine`) is what `GridBotAnalyzer` reads (`gridEngine.getAllBots()` in
+   * its own words) and what it journals a STOP from, so leaving it at the adoption-time zeros made
+   * every AUTO-LIMIT stop record `pnlBreakdown = 0`, `drawdownPct = 0` and `peakTotalPnlPct = 0`.
+   * Measured on `grid_irys_mwpcnpqp`: 71 round-trips and +1.0535 USDT, journaled as zeroes. The
+   * entry point is `getNativeGridBotsSnapshot()` / `analyzeAll`, never a timer of its own, and
+   * `applyLiveCountersToNative` is idempotent, so a repeated call writes nothing.
+   */
+  private syncNativeMirrorCounters(): void {
+    const byId = new Map(this.gridEngine.getAllBots().map((b) => [b.botId, b]));
+    for (const nb of this.nativeGridEngine.getAllBots()) {
+      applyLiveCountersToNative(nb, byId.get(nb.algoId));
+    }
+  }
+
   public getNativeGridBotsSnapshot() {
+    // The counters are refreshed ON THE MIRROR ROWS first, so the analyzer reads the truth too.
+    this.syncNativeMirrorCounters();
     const liveBots = this.gridEngine.getAllBots();
     const byId = new Map(liveBots.map((b) => [b.botId, b]));
     return this.nativeGridEngine.getAllBots().map((nb) => {
@@ -2011,6 +2031,7 @@ export class TradeBot {
   }
 
   public async evaluateGridAnalyzerNow() {
+    this.syncNativeMirrorCounters();
     await this.gridBotAnalyzer.analyzeAll(true);
     return {
       success: true,
@@ -2481,6 +2502,7 @@ export class TradeBot {
       await this.nativeGridEngine
         .syncAndMonitorActiveBots(this.isKillSwitchEngagedForMode('LIVE'))
         .catch(() => {});
+      this.syncNativeMirrorCounters();
       await this.gridBotAnalyzer.analyzeAll(true).catch(() => {});
       if (this.configStore.get().executionMode === 'LIVE') {
         await this.gridEngine.reconcileWithExchange(this.getProtectedNativeSymbols());
@@ -2529,6 +2551,8 @@ export class TradeBot {
           // minutes. Protection stays on the engine side: GridRiskManager + GridBotAnalyzer.
           // GridBotAnalyzer periodic analysis (enforces 30s/1m/5m/15m cadences & immediate critical risk checks)
           if (monitorTickCount % 4 === 0) {
+            // Before the analyzer reads the mirror, make it agree with the live counters.
+            this.syncNativeMirrorCounters();
             await this.gridBotAnalyzer
               .analyzeAll(false)
               .catch((err) => console.error('[TradeBot] GridBotAnalyzer error:', err));
