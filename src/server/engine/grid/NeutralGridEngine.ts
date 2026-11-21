@@ -20,6 +20,7 @@ import {
   splitIsIntact,
   splitLegacyRealized,
 } from './gridPnlAccounting';
+import { assessInventoryAction, type InventoryGuardVerdict } from './gridInventoryGuard';
 import { isBuyLevelFrozen, ratchetPeak } from './gridProfitGuard';
 
 /**
@@ -188,6 +189,131 @@ export class NeutralGridEngine {
     bot.updatedAt = Date.now();
     this.persist();
     return true;
+  }
+
+  /**
+   * 1-lot notional of the inventory currently held, derived from the grid's OWN levels.
+   *
+   * `level.notionalUSDT = price * qtyContracts * ctVal`, so `ctVal` is recoverable from any level
+   * without a venue query — which matters here because the freeze must be evaluable at tick time
+   * and from the analyzer's question, and neither may block on the adapter.
+   */
+  private inventoryNotionalUSDT(bot: GridBotInstance, px: number): number {
+    const contracts = Math.abs(Number(bot.netPositionContracts) || 0);
+    if (contracts <= 0 || !(px > 0)) return 0;
+    const ref = bot.levels.find(
+      (l) => l.qtyContracts > 0 && l.price > 0 && l.notionalUSDT > 0
+    );
+    const ctVal = ref ? ref.notionalUSDT / (ref.price * ref.qtyContracts) : 0;
+    if (!(ctVal > 0)) return 0;
+    return Math.abs(contracts * ctVal * px);
+  }
+
+  /**
+   * Timestamp of the most recent grid fill Anywhere on this bot, in ms (0 when it never filled).
+   *
+   * The bot row carries no bot-level fill clock — the per-level `lastFilledAt` is what
+   * `handleGridLevelFilled()` stamps — so the guard reads the maximum instead of inventing a second
+   * source of truth that a reconcile could leave stale.
+   */
+  private lastFillAtMs(bot: GridBotInstance): number {
+    let latest = 0;
+    for (const lvl of bot.levels || []) {
+      const at = Number(lvl.lastFilledAt) || 0;
+      if (at > latest) latest = at;
+    }
+    return latest;
+  }
+
+  /**
+   * Runs the shared exit-deferral rule against the bot's REAL inventory and geometry.
+   * See `gridInventoryGuard.ts` for the rule itself; this only supplies the numbers.
+   */
+  private assessBotExit(bot: GridBotInstance, px: number): InventoryGuardVerdict {
+    const floating = Number(bot.floatingPnlUSDT) || 0;
+    // `totalNetPnlUSDT` already includes the floating part: subtracting it back out leaves what the
+    // bot has BANCKED (capture + exitCost - fees + funding). Using the total here would compare a
+    // closed position against itself and every bot would look like it covers its own exit.
+    const realized = (Number(bot.totalNetPnlUSDT) || 0) - floating;
+    const notional = this.inventoryNotionalUSDT(bot, px);
+    const frozenForMinutes = bot.buyLadderFrozenAt
+      ? Math.max(0, (Date.now() - bot.buyLadderFrozenAt) / 60_000)
+      : 0;
+    return assessInventoryAction({
+      px,
+      minPx: Number(bot.config?.lowerPrice) || 0,
+      maxPx: Number(bot.config?.upperPrice) || 0,
+      netContracts: Number(bot.netPositionContracts) || 0,
+      netSide: bot.netPositionSide,
+      minutesSinceLastFill: this.lastFillAtMs(bot)
+        ? Math.max(0, (Date.now() - this.lastFillAtMs(bot)) / 60_000)
+        : Number.POSITIVE_INFINITY,
+      frozenFromPx: bot.buyFreezeFromPx,
+      frozenForMinutes,
+      // A breakout is 'confirmed' by the analyzer's 30m rule; the engine already stops hard at
+      // `lowerStopPrice`/`upperStopPrice`, so a price past a stop never reaches this branch.
+      breakoutConfirmed: false,
+      netRealizedAfterCostsUSDT: realized,
+      floatingPnlUSDT: floating,
+      closeFeeEstimateUSDT: notional > 0 ? calculateExecutionFee(notional, 'taker') : 0,
+    });
+  }
+
+  /**
+   * Applies a freeze/release decided by the shared guard. Returns true when the row changed, so the
+   * caller's existing `stateChanged`/`persist()` path writes it — and stays idempotent: the audit
+   * line is written on the TRANSITION, never on every 4s tick.
+   */
+  private applyInventoryGuard(bot: GridBotInstance, px: number): boolean {
+    const verdict = this.assessBotExit(bot, px);
+    if (verdict.action === 'FREEZE_BUYS' && !bot.buyFreezeFromPx) {
+      this.setBuyFreezePx(bot.botId, px);
+      bot.lastExitDeferReason = verdict.reason;
+      return true;
+    }
+    if (verdict.action === 'RELEASE_FREEZE' && bot.buyFreezeFromPx) {
+      this.setBuyFreezePx(bot.botId);
+      bot.lastExitDeferReason = verdict.reason;
+      return true;
+    }
+    if (verdict.action === 'NONE' && verdict.deferExit && bot.lastExitDeferReason !== verdict.reason) {
+      bot.lastExitDeferReason = verdict.reason;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Called by the analyzer's supervisor BEFORE it closes a bot on a stagnation signal.
+   *
+   * The analyzer measures dead capital (that is its job) but it does not own the inventory, the
+   * live window or the price tick — so it asks instead of deciding. `defer: true` means the exit
+   * would hand back banked profit while the position can still be unwound by its own sells: the
+   * freeze has been applied here (from the current price) and the caller must NOT close.
+   * `defer: false` means the guard agrees the exit is legitimate.
+   */
+  public deferExitForStagnation(botId: string): { defer: boolean; reason: string } {
+    const bot = this.bots.get(botId);
+    if (!bot || bot.status !== 'RUNNING') {
+      return { defer: false, reason: 'bot inexistent sau deja oprit' };
+    }
+    const px =
+      (Number(bot.currentPrice) || 0) > 0
+        ? Number(bot.currentPrice)
+        : Number(this.lastKnownPrices.get(bot.symbol)) || 0;
+    if (!(px > 0)) return { defer: false, reason: 'fără preț curent' };
+
+    const verdict = this.assessBotExit(bot, px);
+    if (verdict.action === 'FREEZE_BUYS' && !bot.buyFreezeFromPx) {
+      this.setBuyFreezePx(botId, px);
+    } else if (verdict.action === 'RELEASE_FREEZE' && bot.buyFreezeFromPx) {
+      this.setBuyFreezePx(botId);
+    }
+    if (bot.lastExitDeferReason !== verdict.reason) {
+      bot.lastExitDeferReason = verdict.reason;
+      this.persist();
+    }
+    return { defer: verdict.deferExit, reason: verdict.reason };
   }
 
   /**
@@ -694,6 +820,10 @@ export class NeutralGridEngine {
             const currentPx = bot.currentPrice || fillPx;
             this.recalculateBotAccounting(bot, currentPx, ctVal);
 
+            // Deferral runs BEFORE the stop rules: a freeze changes the window the stop is
+            // evaluated against, and the risk stops themselves are never affected by it.
+            this.applyInventoryGuard(bot, currentPx);
+
             const riskAction = GridRiskManager.evaluateLiveBotRisk(bot, currentPx);
             if (riskAction.action !== 'NONE') {
               const statusMap: Record<string, GridBotInstance['status']> = {
@@ -794,6 +924,9 @@ export class NeutralGridEngine {
 
         // Recompute Floating PnL & Net Totals
         this.recalculateBotAccounting(bot, price, ctVal);
+
+        // Deferral of a stagnation exit (freeze the buy ladder, keep the sells) — never a stop.
+        if (this.applyInventoryGuard(bot, price)) stateChanged = true;
 
         // Evaluate Risk Manager (SL / TP / Range Breakout)
         const riskAction = GridRiskManager.evaluateLiveBotRisk(bot, price);

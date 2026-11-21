@@ -479,14 +479,18 @@ export class GridStagnationAnalyzer {
       snapshot.risk.minDistToEdgePct >= thresholds.rangeEdgeWarningPct &&
       !snapshot.risk.liquidityDegraded;
 
-    // A bot is actively producing net realized profit if net profit after costs > 0 AND either:
-    // - It has realized PnL progress in the last 120m, OR
-    // - It has not yet exceeded the 180m stagnation stop window without any fills.
+    // A bot is actively producing net realized profit if the profit it has BANKED survives a close
+    // at the current price.
+    //
+    // This used to require recent progress (`Δ120m >= minRealizedPnlProgressUSDT` or an hourly
+    // yield), which labelled a bot with +0.90 USDT of cumulative net realized as "not producing"
+    // after a quiet two hours — and the stagnation stop then closed it for -1.048 USDT, giving back
+    // the entire session plus more (grid_pieverse_mwk05tlp). Profit is a stock, not a rate: what
+    // matters is whether it is still there after paying for the exit.
+    const floatingPnlUSDT = Number(snapshot.performance.floatProfitUSDT) || 0;
+    const netIfClosedNowUSDT = netRealizedProfitAfterCostsUSDT + floatingPnlUSDT;
     const producesNetRealizedProfit =
-      netRealizedProfitAfterCostsUSDT > 0 &&
-      (realizedPnlDelta120mUSDT >= thresholds.minRealizedPnlProgressUSDT ||
-        (minutesSinceLastFill < thresholds.stagnationStopMinutes &&
-          realizedNetHourlyYieldPct >= thresholds.minProductiveHourlyYieldPct));
+      netRealizedProfitAfterCostsUSDT > 0 && netIfClosedNowUSDT > 0;
 
     const noProgress60m =
       fillsCount60m === 0 && realizedPnlDelta60mUSDT <= thresholds.minRealizedPnlProgressUSDT;
@@ -1235,6 +1239,16 @@ export class GridBotSupervisor {
   ) => Promise<boolean>;
   private eventsStore: JsonStore<GridAnalyzerStopEvent[]>;
   private recordedIdempotencyKeys: Set<string> = new Set();
+  /**
+   * Exit deferral, owned by the engine (see `gridInventoryGuard.ts`).
+   *
+   * The supervisor measures stagnation; it does NOT own the inventory, the live window or the
+   * price tick, so it asks before closing. `defer: true` means a market close right now would hand
+   * back banked profit while the position can still be unwound by its own sells — the engine has
+   * already frozen the buy ladder and the supervisor must leave the bot running. Absent dep = no
+   * deferral (older wiring), never a silent "close anyway".
+   */
+  private deferExit?: (algoId: string) => { defer: boolean; reason: string };
 
   constructor(
     okxAdapter: OKXAdapter,
@@ -1244,12 +1258,14 @@ export class GridBotSupervisor {
       algoId: string,
       reason: string,
       finalStatus?: GridBotInstance['status']
-    ) => Promise<boolean>
+    ) => Promise<boolean>,
+    deferExit?: (algoId: string) => { defer: boolean; reason: string }
   ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
     this.gridEngine = gridEngine;
     this.stopFallbackBot = stopFallbackBot;
+    this.deferExit = deferExit;
     this.eventsStore = new JsonStore<GridAnalyzerStopEvent[]>('grid_analyzer_events.json', []);
     const rawEvents = this.eventsStore.get() || [];
     let migrated = false;
@@ -1416,6 +1432,27 @@ export class GridBotSupervisor {
     const cycleKey = `${bot.algoId}:${bot.cTime}:${snapshot.decision}`;
     if (this.recordedIdempotencyKeys.has(cycleKey)) {
       return;
+    }
+
+    // --- exit deferral -----------------------------------------------------------------------
+    // A STAGNATION stop is the one stop that is not a risk stop: it says "this capital is idle",
+    // not "this position is unsafe". When the bot has banked profit, still holds inventory and the
+    // price is inside its band, closing at market converts a paper inventory into a realized loss
+    // (PIEVERSE: capture +0.992, one exit -1.048). The engine owns that judgement; here we only
+    // honour it. Risk stops (SL / drawdown / confirmed breakout) never reach this branch.
+    const STAGNATION_STOP_CODES = ['STAGNATION_180M', 'STAGNATION_EARLY_MARKET'];
+    const isStagnationStop = (snapshot.decisionCodes || []).some((code) =>
+      STAGNATION_STOP_CODES.includes(code)
+    );
+    if (isStagnationStop && this.deferExit) {
+      const verdict = this.deferExit(bot.algoId);
+      if (verdict.defer) {
+        this.journal.logAudit(
+          'GRID_RISK_TRIGGERED',
+          `[IESIRE AMANATA] ${bot.instId} (${bot.algoId}): stagnare detectata, dar inchiderea ar da inapoi profitul bancat. ${verdict.reason}`
+        );
+        return;
+      }
     }
 
     const isEmergency = snapshot.decision === 'EMERGENCY';
@@ -1681,7 +1718,13 @@ export class GridBotAnalyzer {
       algoId: string,
       reason: string,
       finalStatus?: GridBotInstance['status']
-    ) => Promise<boolean>
+    ) => Promise<boolean>,
+    /**
+     * Asks the AUTO-LIMIT engine whether a stagnation exit may be taken, and freezes the buy ladder
+     * when it may not. See `gridInventoryGuard.ts`. Optional so the analyzer stays constructible
+     * without an engine (tests), but `TradeBot` always wires it.
+     */
+    deferExit?: (algoId: string) => { defer: boolean; reason: string }
   ) {
     this.okxAdapter = okxAdapter;
     this.journal = journal;
@@ -1695,7 +1738,13 @@ export class GridBotAnalyzer {
     this.marketAnalyzer = new GridMarketAnalyzer(okxAdapter);
     this.stagnationAnalyzer = new GridStagnationAnalyzer(okxAdapter);
     this.decisionEngine = new GridDecisionEngine();
-    this.supervisor = new GridBotSupervisor(okxAdapter, journal, gridEngine, stopFallbackBot);
+    this.supervisor = new GridBotSupervisor(
+      okxAdapter,
+      journal,
+      gridEngine,
+      stopFallbackBot,
+      deferExit
+    );
   }
 
   public getThresholds(): GridAnalyzerThresholds {

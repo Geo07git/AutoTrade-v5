@@ -335,7 +335,11 @@ export class TradeBot {
         const stopped = await this.stopGridBot(algoId, reason, finalStatus);
         await this.nativeGridEngine.stopNativeBot(algoId, '1', reason);
         return stopped.success;
-      }
+      },
+      // Exit deferral lives in the AUTO-LIMIT engine: it holds the real inventory, the band and the
+      // live window, so the stagnation supervisor asks instead of dumping the position. No UI, no
+      // manual step — a guard that stops capital from being destroyed must not need a click.
+      (algoId: string) => this.gridEngine.deferExitForStagnation(algoId)
     );
     this.paperAdapter.setMetadataResolver((sym) =>
       this.universeManager.getInstrumentLotFilter(sym)

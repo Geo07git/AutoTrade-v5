@@ -215,6 +215,13 @@ export interface GridBotInstance {
   buyFreezeFromPx?: number;
   /** When the freeze was set (ms). Cleared together with `buyFreezeFromPx`. */
   buyLadderFrozenAt?: number;
+  /**
+   * Why the last automatic exit was DEFERRED instead of taken (the guard's own words), so the desk
+   * can see "the stagnation stop wanted to close this, the inventory guard refused" without
+   * digging through the audit log. Set by `NeutralGridEngine.applyInventoryGuard()` /
+   * `deferExitForStagnation()`; `undefined` on bots that never hit the rule.
+   */
+  lastExitDeferReason?: string;
   levels: GridLevelState[];
   // Accounting & Telemetry
   totalNotionalUSDT: number;
