@@ -23,16 +23,15 @@
  * Ce NU se poate reconstrui (declarat, nu ascuns): spread-ul si adancimea top-of-book nu au istoric
  * public -> se folosesc presupunerile din celelalte doua scripturi; funding 0.
  *
- * LIMITARE CRITICA, gasita la prima rulare a acestei baleieri:
- *   `GridBacktestEngine.runSimulation` NU citeste `config.risk.stopLossPct`,
- *   `config.risk.takeProfitPct` si `config.risk.stopOnRangeBreakout`. Acele campuri exista in
- *   `NeutralGridBotConfig` si sunt setate de `createDefaultBotConfig`, dar motorul le ignora:
- *   numara `rangeBreakoutsAbove/Below` fara sa actioneze pe ele. Dovada empirica: cele trei
- *   valori de stop (6/8/12%) si cele trei de tp (8/15/100%) produc rezultate IDENTICE.
- *   Consecinta: coloanele `stop` si `tp` din tabel sunt decorative, iar `worst%` descrie o grila
- *   lasata sa ruleze fara nicio protectie - nu ce face botul live (care are stop de breakout,
- *   hard stop si watchdog). Pana nu se rezolva asta, baleierea are O singura dimensiune valida:
- *   latimea benzii (`mult`).
+ * LIMITARE, REZOLVATA INTRE TIMP:
+ *   La prima rulare, `GridBacktestEngine.runSimulation` NU citea `config.risk.stopLossPct`,
+ *   `takeProfitPct` sau `stopOnRangeBreakout` - cele trei valori de stop (6/8/12%) si cele trei de
+ *   tp produceau rezultate IDENTICE, deci coloanele erau decorative si `worst%` descria o grila
+ *   fara nicio protectie. Motorul a fost reparat (vezi `__tests__/gridBacktest.test.ts`, secþiunea
+ *   "risk-exit tests"), iar baleierea de fata ruleaza pe varianta corecta. Ordinea de declan³are
+ *   copiaza `GridRiskManager`: stop loss (% din marja) -> take profit (% din marja) -> breakout.
+ *   Breakout-ul se declanseaza la `GRID_STOP_DEFAULTS.bufferPct` (0.5%) DUPå marginea benzii, ca in
+ *   productie, nu chiar pe ea.
  *
  * Run:
  *   npx tsx scripts/grid-band-sweep.ts --days=14 --symbols=15
@@ -62,13 +61,21 @@ const LEVER = Number(args.get('lever')) || 2;
 const SPREAD = Number(args.get('spread')) || 0.05;
 const MIN_CROSSINGS = Number(args.get('mincross')) || 0.3;
 const HORIZON_H = Math.max(1, Math.min(48, Number(args.get('horizon')) || 8));
+/** GRID_STOP_DEFAULTS.bufferPct: production stops this far PAST the band edge, not at it. */
+const BREAKOUT_BUFFER = Math.max(0, Number(args.get('buffer')) || 0.5);
 
 /** The search space. Deliberately small: 36 cells, so a "winner" is not a fitted fluke. */
 const BAND_MULTS = [0.7, 1.0, 1.3, 1.6];
 const STOPS = [6, 8, 12];
-const TPS = [8, 15, 100];
+/**
+ * TP-ul live NU e o cifra fixa: `GRID_STOP_DEFAULTS.rewardMultiple` il leaga de stop (TP = 1.5 x SL).
+ * Deci se baleiaza MULTIPLUL, nu procentul - altfel s-ar testa combinatii pe care aplicatia nu le
+ * poate produce (un TP de 8% cu un stop de 12% ar insemna TP < SL, adica un raport pe care
+ * `computeGridStopTargets` il refuza prin constructie). 99 = TP dezactivat.
+ */
+const TP_MULTS = [1.5, 2.5, 99];
 /** The live configuration, so every row can be compared against what the bot actually does. */
-const BASELINE = { mult: 1.0, stop: 12, tp: 15 };
+const BASELINE = { mult: 1.0, stop: 12, tpMult: 1.5 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -164,6 +171,8 @@ interface TradeOutcome {
   netPct: number;
   maxDd: number;
   cycles: number;
+  /** Which exit closed the trade (or END_OF_DATA when nothing fired). */
+  exit: string;
 }
 
 interface Variant {
@@ -191,15 +200,18 @@ const median = (xs: number[]): number => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | stop ${stop}% | tp ${tp}%`;
+const variantKey = (mult: number, stop: number, tpMult: number) =>
+  `band x${mult} | stop ${stop}% | ${tpMult >= 99 ? 'tp off' : `tp ${tpMult}x`}`;
+/** TP in % of margin, derived the way production derives it: rewardMultiple x stopLossPct. */
+const tpOf = (stop: number, tpMult: number) => (tpMult >= 99 ? 0 : Math.round(stop * tpMult * 100) / 100);
 
 (async () => {
   console.log(
     `BALEEARE GEOMETRIE | ${DAYS} zile | top ${SYMBOLS} X-Perp | orizont ${HORIZON_H}h\n` +
       `  buget ${BUDGET}$ | lev ${LEVER}x | fee ${FEE}% | spread ${SPREAD}% (presupus)\n` +
       `  populatie: doar orele cu TOATE portile non-regim trecute (crossings>=${MIN_CROSSINGS}/h, ER<=0.4)\n` +
-      `  variante: ${BAND_MULTS.length} latimi x ${STOPS.length} stopuri x ${TPS.length} tp = ` +
-      `${BAND_MULTS.length * STOPS.length * TPS.length}\n`
+      `  variante: ${BAND_MULTS.length} latimi x ${STOPS.length} stopuri x ${TP_MULTS.length} tp = ` +
+      `${BAND_MULTS.length * STOPS.length * TP_MULTS.length}\n`
   );
 
   const universe = await loadUniverse();
@@ -296,15 +308,15 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
     console.log('\nNicio fereastra testabila — nimic de baleiat.');
     return;
   }
-  console.log(`\nTOTAL ferestre: ${windows.length} — rulez ${windows.length * BAND_MULTS.length * STOPS.length * TPS.length} simulari\n`);
+  console.log(`\nTOTAL ferestre: ${windows.length} — rulez ${windows.length * BAND_MULTS.length * STOPS.length * TP_MULTS.length} simulari\n`);
 
   // --- pass 2: every variant on every window ------------------------------------------------
   const variants = new Map<string, Variant>();
   for (const mult of BAND_MULTS) {
     for (const stop of STOPS) {
-      for (const tp of TPS) {
-        const key = variantKey(mult, stop, tp);
-        variants.set(key, { key, mult, stop, tp, trades: [] });
+      for (const tpMult of TP_MULTS) {
+        const key = variantKey(mult, stop, tpMult);
+        variants.set(key, { key, mult, stop, tp: tpOf(stop, tpMult), trades: [] });
       }
     }
   }
@@ -319,7 +331,8 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
       if (!(lowerPrice > 0) || !(upperPrice > lowerPrice)) continue;
 
       for (const stop of STOPS) {
-        for (const tp of TPS) {
+        for (const tpMult of TP_MULTS) {
+          const tp = tpOf(stop, tpMult);
           const config = createDefaultBotConfig(
             w.meta.instId,
             lowerPrice,
@@ -344,16 +357,20 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
                 ctVal: w.meta.ctVal,
               } as any,
               customMakerFeeRate: FEE / 2 / 100,
+              // Mirror `GRID_STOP_DEFAULTS.bufferPct`: production stops 0.5% PAST the band edge,
+              // not at it. Without this the backtest exits earlier than the live supervisor.
+              rangeStopBufferPct: BREAKOUT_BUFFER,
             });
           } catch {
             continue;
           }
           variants
-            .get(variantKey(mult, stop, tp))!
+            .get(variantKey(mult, stop, tpMult))!
             .trades.push({
               netPct: result.netPnLPct,
               maxDd: result.maxDrawdownPct,
               cycles: result.completedCycles,
+              exit: result.exitReason,
             });
         }
       }
@@ -375,6 +392,11 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
     avgDd: number;
     profitFactor: number;
     total: number;
+    /** Windows where the grid never filled a level: median 0.000 is mostly THIS, not break-even. */
+    noFill: number;
+    slExits: number;
+    tpExits: number;
+    rbExits: number;
   }
 
   const summaries: Summary[] = [];
@@ -399,6 +421,10 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
       avgDd: v.trades.reduce((s, t) => s + t.maxDd, 0) / v.trades.length,
       profitFactor: losses === 0 ? Infinity : gains / Math.abs(losses),
       total: nets.reduce((s, x) => s + x, 0),
+      noFill: v.trades.filter((t) => t.cycles === 0 && t.netPct === 0).length,
+      slExits: v.trades.filter((t) => t.exit === 'STOP_LOSS').length,
+      tpExits: v.trades.filter((t) => t.exit === 'TAKE_PROFIT').length,
+      rbExits: v.trades.filter((t) => t.exit === 'RANGE_BREAKOUT').length,
     });
   }
 
@@ -442,16 +468,50 @@ const variantKey = (mult: number, stop: number, tp: number) => `band x${mult} | 
   console.log(header);
   const byMean = [...summaries].sort((a, b) => b.mean - a.mean);
   for (const s of byMean) {
-    const isBase = s.mult === BASELINE.mult && s.stop === BASELINE.stop && s.tp === BASELINE.tp;
+    const isBase =
+      s.mult === BASELINE.mult && s.stop === BASELINE.stop && s.tp === tpOf(BASELINE.stop, BASELINE.tpMult);
     printRow(s, isBase ? '>' : ' ');
   }
 
   const base = summaries.find(
-    (s) => s.mult === BASELINE.mult && s.stop === BASELINE.stop && s.tp === BASELINE.tp
+    (s) =>
+      s.mult === BASELINE.mult && s.stop === BASELINE.stop && s.tp === tpOf(BASELINE.stop, BASELINE.tpMult)
   );
 
   console.log('\n' + '='.repeat(100));
-  console.log(`BASELINE (configul live: banda x${BASELINE.mult}, stop ${BASELINE.stop}%, tp ${BASELINE.tp}%):`);
+  console.log('CINE INCHIDE TRADE-URILE (baseline + cele mai bune 3 pe medie):');
+  console.log(
+    '  ' +
+      'varianta'.padEnd(34) +
+      'n'.padStart(5) +
+      'fara fill'.padStart(11) +
+      'breakout'.padStart(10) +
+      'stop'.padStart(6) +
+      'tp'.padStart(6) +
+      'la final'.padStart(10)
+  );
+  const exitRows = [base, ...byMean.slice(0, 3)].filter((s): s is Summary => Boolean(s));
+  const seen = new Set<string>();
+  for (const s of exitRows) {
+    if (seen.has(s.key)) continue;
+    seen.add(s.key);
+    console.log(
+      '  ' +
+        s.key.padEnd(34) +
+        String(s.n).padStart(5) +
+        String(s.noFill).padStart(11) +
+        String(s.rbExits).padStart(10) +
+        String(s.slExits).padStart(6) +
+        String(s.tpExits).padStart(6) +
+        String(s.n - s.rbExits - s.slExits - s.tpExits).padStart(10)
+    );
+  }
+
+  console.log('\n' + '='.repeat(100));
+  console.log(
+    `BASELINE (configul live: banda x${BASELINE.mult}, stop ${BASELINE.stop}%, ` +
+      `tp ${tpOf(BASELINE.stop, BASELINE.tpMult)}% = ${BASELINE.tpMult}x stop):`
+  );
   if (base) printRow(base, '>');
   else console.log('  (n/a)');
 

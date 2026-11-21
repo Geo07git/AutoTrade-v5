@@ -96,6 +96,19 @@ export interface BacktestResult {
   timeOutsideRangePct: number;
   minLiquidationDistancePct: number;
   wasLiquidated: boolean;
+  /**
+   * Why the simulation stopped trading. `END_OF_DATA` means nothing exited early: the grid ran to
+   * the last candle. The other values mirror the SHORT-CIRCUIT order of `GridRiskManager`
+   * (stop loss of margin -> take profit of margin -> range breakout), so a backtest and the live
+   * supervisor answer the same question with the same precedence.
+   */
+  exitReason: 'NONE' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'RANGE_BREAKOUT' | 'LIQUIDATION' | 'END_OF_DATA';
+  /** Candle timestamp of the exit (0 when the run ended without exiting). */
+  exitTimestamp: number;
+  /** How many times each exit fired (0/1 today; kept as counts so re-entry can be added later). */
+  stopLossExits: number;
+  takeProfitExits: number;
+  rangeBreakoutExits: number;
   equityCurve: Array<{ timestamp: number; equity: number; drawdownPct: number }>;
 }
 
@@ -125,6 +138,13 @@ export interface BacktestOptions {
   customMakerFeeRate?: number;
   customTakerFeeRate?: number;
   conservativeFills?: boolean; // at most 1 fill per slot per candle (default true)
+  /**
+   * How far BEYOND the band edge the close has to be before the breakout stop fires, in %.
+   * Default 0 = the band edge itself. The live supervisor additionally requires a minimum buffer
+   * and a 30-minute persistence before closing, so a 0 here exits EARLIER than production: the
+   * backtest is pessimistic about breakouts, not optimistic.
+   */
+  rangeStopBufferPct?: number;
 }
 
 export class GridBacktestEngine {
@@ -183,6 +203,21 @@ export class GridBacktestEngine {
     let candlesOutside = 0;
     let minLiqDistPct = 999;
     let wasLiquidated = false;
+
+    // --- exits: the risk block was accepted and then ignored, which made every backtest a
+    // no-stop simulation (three different stopLossPct values produced identical results).
+    // Semantics are copied from where they are actually enforced in production:
+    //   stopLossPct / takeProfitPct are "% of invested margin" (gridPlan.ts), checked against the
+    //   NET pnl of the bot, and in GridRiskManager's precedence: stop loss, then take profit,
+    //   then the range-breakout price stop.
+    const risk: any = config.risk || {};
+    const rangeBuffer = Math.max(0, Number(options.rangeStopBufferPct) || 0) / 100;
+    let exitReason: 'NONE' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'RANGE_BREAKOUT' | 'LIQUIDATION' | 'END_OF_DATA' =
+      'NONE';
+    let exitTimestamp = 0;
+    let stopLossExits = 0;
+    let takeProfitExits = 0;
+    let rangeBreakoutExits = 0;
 
     const conservativeFills = options.conservativeFills !== false; // true by default
 
@@ -367,6 +402,52 @@ export class GridBacktestEngine {
           drawdownPct: parseFloat(ddPct.toFixed(2)),
         });
       }
+
+      // --- risk exits: evaluated on the candle CLOSE, in the supervisor's precedence ---------
+      const netPctOfMargin = marginInvested > 0 ? ((currentEquity - marginInvested) / marginInvested) * 100 : 0;
+      let fired: 'NONE' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'RANGE_BREAKOUT' = 'NONE';
+      if (Number(risk.stopLossPct) > 0 && netPctOfMargin <= -Math.abs(Number(risk.stopLossPct))) {
+        fired = 'STOP_LOSS';
+      } else if (Number(risk.takeProfitPct) > 0 && netPctOfMargin >= Math.abs(Number(risk.takeProfitPct))) {
+        fired = 'TAKE_PROFIT';
+      } else if (
+        risk.stopOnRangeBreakout &&
+        (k.close < lowerBound * (1 - rangeBuffer) || k.close > upperBound * (1 + rangeBuffer))
+      ) {
+        fired = 'RANGE_BREAKOUT';
+      }
+
+      if (fired !== 'NONE') {
+        // Close every open slot at the close price, paying TAKER fees: a supervisor exit is a
+        // market order, not a resting grid level.
+        for (const slot of slots) {
+          if (slot.openPrice === undefined) continue;
+          const notional = k.close * slot.qtyContracts * ctVal;
+          totalTakerFees += notional * takerRate;
+          if (slot.side === 'LONG') {
+            realizedGridProfit += (k.close - slot.openPrice) * slot.qtyContracts * ctVal;
+          } else if (slot.side === 'SHORT') {
+            realizedGridProfit += (slot.openPrice - k.close) * slot.qtyContracts * ctVal;
+          }
+          slot.openPrice = undefined;
+          slot.side = undefined;
+        }
+        netPositionContracts = 0;
+        exitReason = fired;
+        exitTimestamp = k.timestamp;
+        if (fired === 'STOP_LOSS') stopLossExits++;
+        else if (fired === 'TAKE_PROFIT') takeProfitExits++;
+        else rangeBreakoutExits++;
+
+        const equityAfterExit =
+          cashBalance + realizedGridProfit + fundingPnL - (totalMakerFees + totalTakerFees);
+        equityCurve.push({
+          timestamp: k.timestamp,
+          equity: parseFloat(equityAfterExit.toFixed(2)),
+          drawdownPct: parseFloat(((peakEquity - equityAfterExit) / (peakEquity || 1) * 100).toFixed(2)),
+        });
+        break;
+      }
     }
 
     // Final inventory mark-to-market closeout
@@ -432,6 +513,11 @@ export class GridBacktestEngine {
       timeOutsideRangePct: parseFloat(((candlesOutside / klines.length) * 100).toFixed(2)),
       minLiquidationDistancePct: minLiqDistPct === 999 ? 100 : parseFloat(minLiqDistPct.toFixed(2)),
       wasLiquidated,
+      exitReason: wasLiquidated ? 'LIQUIDATION' : exitReason === 'NONE' ? 'END_OF_DATA' : exitReason,
+      exitTimestamp,
+      stopLossExits,
+      takeProfitExits,
+      rangeBreakoutExits,
       equityCurve,
     };
   }

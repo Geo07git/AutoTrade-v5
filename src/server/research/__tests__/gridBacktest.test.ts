@@ -89,7 +89,14 @@ async function runTests() {
   ok(res.gridProfitUSDT > 0, `Grid profit must be positive (got ${res.gridProfitUSDT})`);
   ok(res.totalFeesUSDT > 0, `Maker fees must be deducted (got ${res.totalFeesUSDT})`);
   ok(Number.isFinite(res.sharpeRatio), 'Sharpe ratio must be a valid number');
-  ok(res.equityCurve.length > 5, 'Equity curve must contain data points');
+  // The equity curve is sampled every 20 candles, so a 240-candle run that never exits has ~13
+  // points. This config carries a 30% margin take profit and the oscillation reaches it, so the
+  // run is SUPPOSED to stop early and leave a short curve. The old assertion (`> 5`) encoded the
+  // bug: it only held because `takeProfitPct` was never read.
+  ok(res.equityCurve.length > 0, 'Equity curve must contain data points');
+  eq(res.exitReason, 'TAKE_PROFIT', 'A 30% margin target must be banked on a clean oscillation');
+  ok(res.netPnLPct >= 30, `Take profit must bank at least the 30% target (got ${res.netPnLPct}%)`);
+  ok(res.exitTimestamp > 0, 'A banked take profit must stamp the exit candle');
   ok(!res.wasLiquidated, 'Grid within normal range must not be liquidated');
 
   console.log(`  ✓ runSimulation passed (Cycles: ${res.completedCycles}, Net PnL: ${res.netPnLUSDT} USDT, Sharpe: ${res.sharpeRatio})`);
@@ -188,6 +195,106 @@ async function runTests() {
   eq(crashRes.netPnLUSDT, -50, 'Net PnL upon liquidation must equal total loss of initial margin');
   eq(crashRes.netPnLPct, -100, 'ROI upon liquidation must be -100%');
   console.log('  ✓ Liquidation modeling test passed (Liquidated cleanly at equity 0 and -100% ROI)');
+
+  // 8. Risk block is ENFORCED, not decorative (regression: stopLossPct/takeProfitPct were accepted
+  //    and then never read, so three different stops produced identical results).
+  console.log('  -> Running risk-exit tests (stop loss / take profit / range breakout)...');
+
+  const decliningKlines: Kline[] = [];
+  for (let i = 0; i < 30; i++) {
+    const px = 100 - i * 0.7; // 100 -> 79.7, a steady bleed through the whole band
+    decliningKlines.push({
+      timestamp: 1_700_000_000_000 + i * 300_000,
+      open: px + 0.2,
+      high: px + 0.3,
+      low: px - 0.3,
+      close: px,
+      volume: 100,
+    });
+  }
+
+  // The band stop is disabled here on purpose: this test isolates the MARGIN stop, which is the
+  // one that was silently ignored.
+  const makeRiskConfig = (stopPct: number, tpPct: number, breakout: boolean): NeutralGridBotConfig => {
+    const cfg = createDefaultBotConfig(SYMBOL, 90, 110, 8, 'ARITHMETIC', 2, 50, stopPct, tpPct);
+    cfg.risk.stopOnRangeBreakout = breakout;
+    return cfg;
+  };
+
+  const tightStop = GridBacktestEngine.runSimulation(
+    decliningKlines,
+    makeRiskConfig(12, 90, false),
+    []
+  );
+  eq(tightStop.exitReason, 'STOP_LOSS', 'A 12% margin stop must fire on a steady 20% decline');
+  eq(tightStop.stopLossExits, 1, 'The stop must be recorded exactly once');
+  ok(tightStop.exitTimestamp > 0, 'A fired stop must stamp the exit candle');
+
+  const looseStop = GridBacktestEngine.runSimulation(
+    decliningKlines,
+    makeRiskConfig(45, 90, false),
+    []
+  );
+  ok(
+    tightStop.netPnLPct > looseStop.netPnLPct,
+    `A tighter stop must limit the loss (tight ${tightStop.netPnLPct}% vs loose ${looseStop.netPnLPct}%)`
+  );
+  ok(
+    Math.abs(tightStop.netPnLPct - looseStop.netPnLPct) > 0.01,
+    'stopLossPct must CHANGE the outcome: identical results mean the risk block is being ignored again'
+  );
+  console.log(
+    `  ✓ Stop loss enforced (tight ${tightStop.netPnLPct}% @ candle exit vs loose ${looseStop.netPnLPct}%)`
+  );
+
+  // Range breakout: a tape that leaves the band EDGE (90) by a little, so the breakout is the
+  // first thing to fire — a 20% collapse would hit the margin stop first and test nothing.
+  const edgeKlines: Kline[] = [];
+  for (let i = 0; i < 20; i++) {
+    const px = 100 - i * 0.6; // 100 -> 88.6, just past the lower edge
+    edgeKlines.push({
+      timestamp: 1_700_000_000_000 + i * 300_000,
+      open: px + 0.1,
+      high: px + 0.2,
+      low: px - 0.2,
+      close: px,
+      volume: 100,
+    });
+  }
+
+  const breakoutOn = GridBacktestEngine.runSimulation(
+    edgeKlines,
+    makeRiskConfig(90, 90, true),
+    []
+  );
+  eq(breakoutOn.exitReason, 'RANGE_BREAKOUT', 'stopOnRangeBreakout must fire when close leaves the band');
+  eq(breakoutOn.rangeBreakoutExits, 1, 'The breakout exit must be recorded exactly once');
+
+  const breakoutOff = GridBacktestEngine.runSimulation(
+    edgeKlines,
+    makeRiskConfig(90, 90, false),
+    []
+  );
+  eq(breakoutOff.exitReason, 'END_OF_DATA', 'With every exit disabled the run must reach the end');
+  ok(
+    breakoutOn.netPnLPct > breakoutOff.netPnLPct,
+    `The breakout stop must cut the loss (on ${breakoutOn.netPnLPct}% vs off ${breakoutOff.netPnLPct}%)`
+  );
+  console.log(
+    `  ✓ Range breakout enforced (on ${breakoutOn.netPnLPct}% vs off ${breakoutOff.netPnLPct}%)`
+  );
+
+  // Take profit: a healthy oscillation must bank the gain once the margin target is reached.
+  const tpKlines = generateSyntheticKlines(200, 100, 3);
+  const takeProfit = GridBacktestEngine.runSimulation(
+    tpKlines,
+    makeRiskConfig(90, 1, false),
+    []
+  );
+  eq(takeProfit.exitReason, 'TAKE_PROFIT', 'A 1% margin target must be reached on an oscillating tape');
+  eq(takeProfit.takeProfitExits, 1, 'Take profit must be recorded exactly once');
+  ok(takeProfit.netPnLPct >= 1, `Take profit must bank at least the target (got ${takeProfit.netPnLPct}%)`);
+  console.log(`  ✓ Take profit enforced (banked ${takeProfit.netPnLPct}%)`);
 
   console.log('\n[Test] ALL GridBacktestEngine and PatternMiner tests PASSED successfully!\n');
 }
