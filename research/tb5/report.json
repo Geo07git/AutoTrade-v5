@@ -1,0 +1,1073 @@
+{
+  "generatedAt": "2026-11-22T18:20:32.624Z",
+  "venue": "eea.okx.com",
+  "instruments": [
+    {
+      "short": "ZEC",
+      "instId": "ZEC-USD_UM_XPERP-310530",
+      "meta": {
+        "instId": "ZEC-USD_UM_XPERP-310530",
+        "instFamily": "ZEC-USD_UM_XPERP",
+        "ctVal": 0.01,
+        "ctValCcy": "ZEC",
+        "tickSz": 0.01,
+        "lotSz": 1,
+        "minSz": 1,
+        "lever": 50,
+        "settleCcy": "USD",
+        "ruleType": "xperp",
+        "listTime": 1779872400350,
+        "expTime": 1937894400000,
+        "state": "live"
+      },
+      "ticker": {
+        "ts": 1795370459670,
+        "last": 795.22,
+        "vol24h": 1358225,
+        "volCcy24h": 13582.25,
+        "bidPx": 795.29,
+        "askPx": 795.66
+      },
+      "oiSnapshot": {
+        "ts": 1795370460345,
+        "oi": 461855,
+        "oiCcy": 4618.55,
+        "oiUsd": 3670777.3545
+      },
+      "liveSpread": {
+        "ts": 1795370460357,
+        "bid": 795.48,
+        "ask": 795.64,
+        "spreadAbs": 0.15999999999996817,
+        "spreadPct": 0.020111619488155284,
+        "topBidSz": 25,
+        "topAskSz": 25,
+        "bidDepthUsd": 320434.50000000006,
+        "askDepthUsd": 322287.8,
+        "note": "live snapshot at collection time"
+      },
+      "bars": {
+        "5m": 27400,
+        "15m": 9200,
+        "1H": 2300,
+        "1Dutc": 100
+      },
+      "profile": {
+        "lastPrice": 794.01,
+        "priceRange": {
+          "min": 483.63,
+          "max": 1696.11
+        },
+        "daysOfData": 100,
+        "activeDays": 100,
+        "dormantDays": 0,
+        "firstBar": "2026-08-15",
+        "lastBar": "2026-11-22",
+        "medianDailyUsdVolume": 23881429,
+        "meanDailyUsdVolume": 25949087,
+        "minDailyUsdVolume": 1064198,
+        "maxDailyUsdVolume": 60422542,
+        "contract": {
+          "ctVal": 0.01,
+          "ctValCcy": "ZEC",
+          "tickSz": 0.01,
+          "lotSz": 1,
+          "minSz": 1,
+          "minTicketUsd": 7.94,
+          "leverage": 50,
+          "settleCcy": "USD",
+          "ruleType": "xperp",
+          "expTime": "2031-05-30"
+        }
+      },
+      "volatility": {
+        "atrPct1d": 11.062,
+        "atrPct1h": 1.673,
+        "atrPct15m": 0.667,
+        "realizedVol1hPct": 1.272,
+        "medianDailyRangePct": 8.983,
+        "p90DailyRangePct": 17.747,
+        "maxDailyRangePct": 24.251,
+        "efficiencyRatio1h": 0.0716,
+        "regime": "noisy/mean-reverting",
+        "upDayShare": 51.5,
+        "atrVsRealizedVolRatio": 1.32,
+        "wickDominated": false
+      },
+      "behaviour": {
+        "autocorr1h": 0.0262,
+        "autocorr15m": 0.0075,
+        "autocorr5m": -0.0278,
+        "interpretation": "close to random walk",
+        "midCrossingsPerHour": 0.01
+      },
+      "microstructure": {
+        "spreadSource": "LIVE SNAPSHOT at collection — OKX has NO historical book",
+        "spreadPct": 0.0201,
+        "spreadAbs": 0.15999999999996817,
+        "bidDepthUsd5Lvl": 320435,
+        "askDepthUsd5Lvl": 322288,
+        "minTicketVsMedianVolumePct": 0
+      },
+      "funding": {
+        "records": 100,
+        "usable": true,
+        "usableNote": "real series",
+        "intervalHours": 8,
+        "meanBpsPerInterval": 0.9167,
+        "medianBpsPerInterval": 1,
+        "p95PositiveBps": 1,
+        "p5NegativeBps": -0.6206,
+        "maxBps": 10.5304,
+        "minBps": -3.1473,
+        "annualisedPct": 10.04,
+        "positiveShare": 88,
+        "signFlips": 11,
+        "carryBias": "longs pay (crowded long)"
+      },
+      "costs": {
+        "feeSource": "live account tier Lv1 (maker 0.02% / taker 0.05%)",
+        "makerPct": 0.02,
+        "takerPct": 0.05,
+        "roundTripMakerPct": 0.04,
+        "roundTripTakerPct": 0.1,
+        "roundTripMixedPct": 0.07,
+        "liveSpreadPct": 0.0201,
+        "breakevenMoveMakerPct": 0.0501,
+        "breakevenMoveMixedPct": 0.0801,
+        "slippageAssumption": "not modelled (no book history) — treat as 0, add manually if depth is thin"
+      },
+      "gridViability": {
+        "bandLow": 752.56,
+        "bandHigh": 1533.4,
+        "bandWidthPct": 98.34,
+        "atr1hPct": 1.673,
+        "worstSingleDayAdverseExcursionPct": 18.88,
+        "recommendedGridNum": 50,
+        "recommendedStepPct": 1.967,
+        "recommendedFillsPerDay": 18.7,
+        "recommendedNetPerDayPct": 17.79,
+        "costPerFillPct": 0.0301,
+        "gridRows": [
+          {
+            "gridNum": 10,
+            "stepPct": 9.834,
+            "stepVsAtr1h": 5.88,
+            "fillsPerDayEstimate": 0.8,
+            "netPerRoundTripPct": 9.774,
+            "grossPerDayPct": 4.13,
+            "feesPerDayPct": 0.03,
+            "netPerDayPct": 4.11,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 20,
+            "stepPct": 4.917,
+            "stepVsAtr1h": 2.94,
+            "fillsPerDayEstimate": 3,
+            "netPerRoundTripPct": 4.857,
+            "grossPerDayPct": 7.47,
+            "feesPerDayPct": 0.09,
+            "netPerDayPct": 7.38,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 30,
+            "stepPct": 3.278,
+            "stepVsAtr1h": 1.96,
+            "fillsPerDayEstimate": 7.1,
+            "netPerRoundTripPct": 3.218,
+            "grossPerDayPct": 11.61,
+            "feesPerDayPct": 0.21,
+            "netPerDayPct": 11.4,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 50,
+            "stepPct": 1.967,
+            "stepVsAtr1h": 1.18,
+            "fillsPerDayEstimate": 18.7,
+            "netPerRoundTripPct": 1.907,
+            "grossPerDayPct": 18.35,
+            "feesPerDayPct": 0.56,
+            "netPerDayPct": 17.79,
+            "reachable": true,
+            "viable": true
+          }
+        ]
+      },
+      "verdict": {
+        "tradeableOnGrid": true,
+        "checks": {
+          "liquidityOk": true,
+          "spreadOk": true,
+          "volatilityOk": true,
+          "gridViable": true
+        },
+        "reasons": [],
+        "caveats": [
+          "spread/depth = snapshot live, nu serie istorica",
+          "istoric limitat la 100 zile active"
+        ]
+      }
+    },
+    {
+      "short": "ENA",
+      "instId": "ENA-USD_UM_XPERP-310613",
+      "meta": {
+        "instId": "ENA-USD_UM_XPERP-310613",
+        "instFamily": "ENA-USD_UM_XPERP",
+        "ctVal": 100,
+        "ctValCcy": "ENA",
+        "tickSz": 0.00001,
+        "lotSz": 1,
+        "minSz": 1,
+        "lever": 20,
+        "settleCcy": "USD",
+        "ruleType": "xperp",
+        "listTime": 1781167500216,
+        "expTime": 1939104000000,
+        "state": "live"
+      },
+      "ticker": {
+        "ts": 1795370599772,
+        "last": 0.10217,
+        "vol24h": 114924,
+        "volCcy24h": 11492400,
+        "bidPx": 0.10203,
+        "askPx": 0.10217
+      },
+      "oiSnapshot": {
+        "ts": 1795370601007,
+        "oi": 103677,
+        "oiCcy": 10367700,
+        "oiUsd": 1059267.909
+      },
+      "liveSpread": {
+        "ts": 1795370601006,
+        "bid": 0.10203,
+        "ask": 0.10217,
+        "spreadAbs": 0.00014000000000000123,
+        "spreadPct": 0.13712047012732737,
+        "topBidSz": 45,
+        "topAskSz": 48,
+        "bidDepthUsd": 18.86447,
+        "askDepthUsd": 30.34727,
+        "note": "live snapshot at collection time"
+      },
+      "bars": {
+        "5m": 27400,
+        "15m": 9200,
+        "1H": 2300,
+        "1Dutc": 100
+      },
+      "profile": {
+        "lastPrice": 0.10226,
+        "priceRange": {
+          "min": 0.08104,
+          "max": 0.29467
+        },
+        "daysOfData": 100,
+        "activeDays": 100,
+        "dormantDays": 0,
+        "firstBar": "2026-08-15",
+        "lastBar": "2026-11-22",
+        "medianDailyUsdVolume": 3886475,
+        "meanDailyUsdVolume": 4389033,
+        "minDailyUsdVolume": 314303,
+        "maxDailyUsdVolume": 19843935,
+        "contract": {
+          "ctVal": 100,
+          "ctValCcy": "ENA",
+          "tickSz": 0.00001,
+          "lotSz": 1,
+          "minSz": 1,
+          "minTicketUsd": 10.23,
+          "leverage": 20,
+          "settleCcy": "USD",
+          "ruleType": "xperp",
+          "expTime": "2031-06-13"
+        }
+      },
+      "volatility": {
+        "atrPct1d": 9.826,
+        "atrPct1h": 1.378,
+        "atrPct15m": 0.582,
+        "realizedVol1hPct": 1.46,
+        "medianDailyRangePct": 9.774,
+        "p90DailyRangePct": 18.925,
+        "maxDailyRangePct": 27.807,
+        "efficiencyRatio1h": 0.3965,
+        "regime": "trending",
+        "upDayShare": 51.5,
+        "atrVsRealizedVolRatio": 0.94,
+        "wickDominated": false
+      },
+      "behaviour": {
+        "autocorr1h": -0.0061,
+        "autocorr15m": -0.0094,
+        "autocorr5m": -0.0364,
+        "interpretation": "close to random walk",
+        "midCrossingsPerHour": 0.02
+      },
+      "microstructure": {
+        "spreadSource": "LIVE SNAPSHOT at collection — OKX has NO historical book",
+        "spreadPct": 0.1371,
+        "spreadAbs": 0.00014000000000000123,
+        "bidDepthUsd5Lvl": 19,
+        "askDepthUsd5Lvl": 30,
+        "minTicketVsMedianVolumePct": 0.0003
+      },
+      "funding": {
+        "records": 100,
+        "usable": true,
+        "usableNote": "real series",
+        "intervalHours": 8,
+        "meanBpsPerInterval": 0.9081,
+        "medianBpsPerInterval": 1,
+        "p95PositiveBps": 1,
+        "p5NegativeBps": 0.1054,
+        "maxBps": 1,
+        "minBps": -0.2916,
+        "annualisedPct": 9.94,
+        "positiveShare": 96,
+        "signFlips": 6,
+        "carryBias": "longs pay (crowded long)"
+      },
+      "costs": {
+        "feeSource": "live account tier Lv1 (maker 0.02% / taker 0.05%)",
+        "makerPct": 0.02,
+        "takerPct": 0.05,
+        "roundTripMakerPct": 0.04,
+        "roundTripTakerPct": 0.1,
+        "roundTripMixedPct": 0.07,
+        "liveSpreadPct": 0.1371,
+        "breakevenMoveMakerPct": 0.1086,
+        "breakevenMoveMixedPct": 0.1386,
+        "slippageAssumption": "not modelled (no book history) — treat as 0, add manually if depth is thin"
+      },
+      "gridViability": {
+        "bandLow": 0.10735,
+        "bandHigh": 0.24717,
+        "bandWidthPct": 136.73,
+        "atr1hPct": 1.378,
+        "worstSingleDayAdverseExcursionPct": 18.21,
+        "recommendedGridNum": 50,
+        "recommendedStepPct": 2.735,
+        "recommendedFillsPerDay": 17.3,
+        "recommendedNetPerDayPct": 22.1,
+        "costPerFillPct": 0.0886,
+        "gridRows": [
+          {
+            "gridNum": 10,
+            "stepPct": 13.673,
+            "stepVsAtr1h": 9.93,
+            "fillsPerDayEstimate": 0.8,
+            "netPerRoundTripPct": 13.496,
+            "grossPerDayPct": 5.46,
+            "feesPerDayPct": 0.07,
+            "netPerDayPct": 5.39,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 20,
+            "stepPct": 6.836,
+            "stepVsAtr1h": 4.96,
+            "fillsPerDayEstimate": 3,
+            "netPerRoundTripPct": 6.659,
+            "grossPerDayPct": 10.28,
+            "feesPerDayPct": 0.27,
+            "netPerDayPct": 10.01,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 30,
+            "stepPct": 4.558,
+            "stepVsAtr1h": 3.31,
+            "fillsPerDayEstimate": 6.6,
+            "netPerRoundTripPct": 4.381,
+            "grossPerDayPct": 15.09,
+            "feesPerDayPct": 0.59,
+            "netPerDayPct": 14.5,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 50,
+            "stepPct": 2.735,
+            "stepVsAtr1h": 1.99,
+            "fillsPerDayEstimate": 17.3,
+            "netPerRoundTripPct": 2.557,
+            "grossPerDayPct": 23.63,
+            "feesPerDayPct": 1.53,
+            "netPerDayPct": 22.1,
+            "reachable": true,
+            "viable": true
+          }
+        ]
+      },
+      "verdict": {
+        "tradeableOnGrid": true,
+        "checks": {
+          "liquidityOk": true,
+          "spreadOk": true,
+          "volatilityOk": true,
+          "gridViable": true
+        },
+        "reasons": [],
+        "caveats": [
+          "spread/depth = snapshot live, nu serie istorica",
+          "istoric limitat la 100 zile active"
+        ]
+      }
+    },
+    {
+      "short": "IRYS",
+      "instId": "IRYS-USD_UM_XPERP-310530",
+      "meta": {
+        "instId": "IRYS-USD_UM_XPERP-310530",
+        "instFamily": "IRYS-USD_UM_XPERP",
+        "ctVal": 100,
+        "ctValCcy": "IRYS",
+        "tickSz": 0.00001,
+        "lotSz": 1,
+        "minSz": 1,
+        "lever": 20,
+        "settleCcy": "USD",
+        "ruleType": "xperp",
+        "listTime": 1780047000388,
+        "expTime": 1937894400000,
+        "state": "live"
+      },
+      "ticker": {
+        "ts": 1795370739077,
+        "last": 0.01922,
+        "vol24h": 605834,
+        "volCcy24h": 60583400,
+        "bidPx": 0.01917,
+        "askPx": 0.01921
+      },
+      "oiSnapshot": {
+        "ts": 1795370740733,
+        "oi": 60470,
+        "oiCcy": 6047000,
+        "oiUsd": 116404.75
+      },
+      "liveSpread": {
+        "ts": 1795370740756,
+        "bid": 0.01917,
+        "ask": 0.01921,
+        "spreadAbs": 0.00004000000000000184,
+        "spreadPct": 0.20844189682127068,
+        "topBidSz": 130,
+        "topAskSz": 75,
+        "bidDepthUsd": 20.88569,
+        "askDepthUsd": 21.18627,
+        "note": "live snapshot at collection time"
+      },
+      "bars": {
+        "5m": 27400,
+        "15m": 9200,
+        "1H": 2300,
+        "1Dutc": 100
+      },
+      "profile": {
+        "lastPrice": 0.01922,
+        "priceRange": {
+          "min": 0.01179,
+          "max": 0.37607
+        },
+        "daysOfData": 100,
+        "activeDays": 100,
+        "dormantDays": 0,
+        "firstBar": "2026-08-15",
+        "lastBar": "2026-11-22",
+        "medianDailyUsdVolume": 19122,
+        "meanDailyUsdVolume": 1152541,
+        "minDailyUsdVolume": 38,
+        "maxDailyUsdVolume": 46740845,
+        "contract": {
+          "ctVal": 100,
+          "ctValCcy": "IRYS",
+          "tickSz": 0.00001,
+          "lotSz": 1,
+          "minSz": 1,
+          "minTicketUsd": 1.92,
+          "leverage": 20,
+          "settleCcy": "USD",
+          "ruleType": "xperp",
+          "expTime": "2031-05-30"
+        }
+      },
+      "volatility": {
+        "atrPct1d": 20.962,
+        "atrPct1h": 2.956,
+        "atrPct15m": 0.932,
+        "realizedVol1hPct": 3.147,
+        "medianDailyRangePct": 6.666,
+        "p90DailyRangePct": 27.831,
+        "maxDailyRangePct": 467.973,
+        "efficiencyRatio1h": 0.0121,
+        "regime": "noisy/mean-reverting",
+        "upDayShare": 46.5,
+        "atrVsRealizedVolRatio": 0.94,
+        "wickDominated": false
+      },
+      "behaviour": {
+        "autocorr1h": 0.0791,
+        "autocorr15m": 0.1825,
+        "autocorr5m": -0.0094,
+        "interpretation": "momentum (grid risks trend losses)",
+        "midCrossingsPerHour": 0
+      },
+      "microstructure": {
+        "spreadSource": "LIVE SNAPSHOT at collection — OKX has NO historical book",
+        "spreadPct": 0.2084,
+        "spreadAbs": 0.00004000000000000184,
+        "bidDepthUsd5Lvl": 21,
+        "askDepthUsd5Lvl": 21,
+        "minTicketVsMedianVolumePct": 0.01
+      },
+      "funding": {
+        "records": 100,
+        "usable": true,
+        "usableNote": "real series",
+        "intervalHours": 4,
+        "meanBpsPerInterval": -10.0377,
+        "medianBpsPerInterval": 0.5,
+        "p95PositiveBps": 0.5,
+        "p5NegativeBps": -64.7341,
+        "maxBps": 0.5,
+        "minBps": -100,
+        "annualisedPct": -219.83,
+        "positiveShare": 65,
+        "signFlips": 3,
+        "carryBias": "shorts pay (crowded short)"
+      },
+      "costs": {
+        "feeSource": "live account tier Lv1 (maker 0.02% / taker 0.05%)",
+        "makerPct": 0.02,
+        "takerPct": 0.05,
+        "roundTripMakerPct": 0.04,
+        "roundTripTakerPct": 0.1,
+        "roundTripMixedPct": 0.07,
+        "liveSpreadPct": 0.2084,
+        "breakevenMoveMakerPct": 0.1442,
+        "breakevenMoveMixedPct": 0.1742,
+        "slippageAssumption": "not modelled (no book history) — treat as 0, add manually if depth is thin"
+      },
+      "gridViability": {
+        "bandLow": 0.01298,
+        "bandHigh": 0.02415,
+        "bandWidthPct": 58.12,
+        "atr1hPct": 2.956,
+        "worstSingleDayAdverseExcursionPct": 47.42,
+        "recommendedGridNum": 20,
+        "recommendedStepPct": 2.906,
+        "recommendedFillsPerDay": 5.6,
+        "recommendedNetPerDayPct": 7.46,
+        "costPerFillPct": 0.1242,
+        "gridRows": [
+          {
+            "gridNum": 10,
+            "stepPct": 5.812,
+            "stepVsAtr1h": 1.97,
+            "fillsPerDayEstimate": 1.8,
+            "netPerRoundTripPct": 5.563,
+            "grossPerDayPct": 5.28,
+            "feesPerDayPct": 0.23,
+            "netPerDayPct": 5.06,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 20,
+            "stepPct": 2.906,
+            "stepVsAtr1h": 0.98,
+            "fillsPerDayEstimate": 5.6,
+            "netPerRoundTripPct": 2.657,
+            "grossPerDayPct": 8.15,
+            "feesPerDayPct": 0.7,
+            "netPerDayPct": 7.46,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 30,
+            "stepPct": 1.937,
+            "stepVsAtr1h": 0.66,
+            "fillsPerDayEstimate": 11.1,
+            "netPerRoundTripPct": 1.689,
+            "grossPerDayPct": 10.77,
+            "feesPerDayPct": 1.38,
+            "netPerDayPct": 9.39,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 50,
+            "stepPct": 1.162,
+            "stepVsAtr1h": 0.39,
+            "fillsPerDayEstimate": 24,
+            "netPerRoundTripPct": 0.914,
+            "grossPerDayPct": 13.93,
+            "feesPerDayPct": 2.98,
+            "netPerDayPct": 10.95,
+            "reachable": false,
+            "viable": false
+          }
+        ]
+      },
+      "verdict": {
+        "tradeableOnGrid": false,
+        "checks": {
+          "liquidityOk": false,
+          "spreadOk": true,
+          "volatilityOk": true,
+          "gridViable": true
+        },
+        "reasons": [
+          "lichiditate sub $50k/zi (19122)"
+        ],
+        "caveats": [
+          "spread/depth = snapshot live, nu serie istorica",
+          "istoric limitat la 100 zile active"
+        ]
+      }
+    },
+    {
+      "short": "PIEVERSE",
+      "instId": "PIEVERSE-USD_UM_XPERP-310822",
+      "meta": {
+        "instId": "PIEVERSE-USD_UM_XPERP-310822",
+        "instFamily": "PIEVERSE-USD_UM_XPERP",
+        "ctVal": 10,
+        "ctValCcy": "PIEVERSE",
+        "tickSz": 0.0001,
+        "lotSz": 1,
+        "minSz": 1,
+        "lever": 20,
+        "settleCcy": "USD",
+        "ruleType": "xperp",
+        "listTime": 1786956300161,
+        "expTime": 1945152000000,
+        "state": "live"
+      },
+      "ticker": {
+        "ts": 1795370878071,
+        "last": 3.7029,
+        "vol24h": 320822,
+        "volCcy24h": 3208220,
+        "bidPx": 3.6968,
+        "askPx": 3.7034
+      },
+      "oiSnapshot": {
+        "ts": 1795370879203,
+        "oi": 5838,
+        "oiCcy": 58380,
+        "oiUsd": 215311.278
+      },
+      "liveSpread": {
+        "ts": 1795370879203,
+        "bid": 3.6916,
+        "ask": 3.7008,
+        "spreadAbs": 0.009199999999999875,
+        "spreadPct": 0.24890428007142132,
+        "topBidSz": 8,
+        "topAskSz": 9,
+        "bidDepthUsd": 674.7306,
+        "askDepthUsd": 266.62,
+        "note": "live snapshot at collection time"
+      },
+      "bars": {
+        "5m": 27400,
+        "15m": 9200,
+        "1H": 2300,
+        "1Dutc": 98
+      },
+      "profile": {
+        "lastPrice": 3.6688,
+        "priceRange": {
+          "min": 0.8452,
+          "max": 5.3895
+        },
+        "daysOfData": 98,
+        "activeDays": 98,
+        "dormantDays": 0,
+        "firstBar": "2026-08-17",
+        "lastBar": "2026-11-22",
+        "medianDailyUsdVolume": 16986,
+        "meanDailyUsdVolume": 449793,
+        "minDailyUsdVolume": 73,
+        "maxDailyUsdVolume": 11909824,
+        "contract": {
+          "ctVal": 10,
+          "ctValCcy": "PIEVERSE",
+          "tickSz": 0.0001,
+          "lotSz": 1,
+          "minSz": 1,
+          "minTicketUsd": 36.69,
+          "leverage": 20,
+          "settleCcy": "USD",
+          "ruleType": "xperp",
+          "expTime": "2031-08-22"
+        }
+      },
+      "volatility": {
+        "atrPct1d": 21.012,
+        "atrPct1h": 9.925,
+        "atrPct15m": 6.178,
+        "realizedVol1hPct": 1.984,
+        "medianDailyRangePct": 5.814,
+        "p90DailyRangePct": 20.316,
+        "maxDailyRangePct": 72.332,
+        "efficiencyRatio1h": 0.0638,
+        "regime": "noisy/mean-reverting",
+        "upDayShare": 51.5,
+        "atrVsRealizedVolRatio": 5,
+        "wickDominated": true
+      },
+      "behaviour": {
+        "autocorr1h": 0.0704,
+        "autocorr15m": -0.0164,
+        "autocorr5m": -0.0122,
+        "interpretation": "close to random walk",
+        "midCrossingsPerHour": 0
+      },
+      "microstructure": {
+        "spreadSource": "LIVE SNAPSHOT at collection — OKX has NO historical book",
+        "spreadPct": 0.2489,
+        "spreadAbs": 0.009199999999999875,
+        "bidDepthUsd5Lvl": 675,
+        "askDepthUsd5Lvl": 267,
+        "minTicketVsMedianVolumePct": 0.216
+      },
+      "funding": {
+        "records": 100,
+        "usable": true,
+        "usableNote": "real series",
+        "intervalHours": 4,
+        "meanBpsPerInterval": 0.5171,
+        "medianBpsPerInterval": 0.5,
+        "p95PositiveBps": 0.5,
+        "p5NegativeBps": 0.5,
+        "maxBps": 2.2067,
+        "minBps": 0.5,
+        "annualisedPct": 11.32,
+        "positiveShare": 100,
+        "signFlips": 0,
+        "carryBias": "longs pay (crowded long)"
+      },
+      "costs": {
+        "feeSource": "live account tier Lv1 (maker 0.02% / taker 0.05%)",
+        "makerPct": 0.02,
+        "takerPct": 0.05,
+        "roundTripMakerPct": 0.04,
+        "roundTripTakerPct": 0.1,
+        "roundTripMixedPct": 0.07,
+        "liveSpreadPct": 0.2489,
+        "breakevenMoveMakerPct": 0.1645,
+        "breakevenMoveMixedPct": 0.1945,
+        "slippageAssumption": "not modelled (no book history) — treat as 0, add manually if depth is thin"
+      },
+      "gridViability": {
+        "bandLow": 0.9776,
+        "bandHigh": 2.0371,
+        "bandWidthPct": 28.88,
+        "atr1hPct": 9.925,
+        "worstSingleDayAdverseExcursionPct": 33.24,
+        "recommendedGridNum": null,
+        "recommendedStepPct": null,
+        "recommendedFillsPerDay": null,
+        "recommendedNetPerDayPct": null,
+        "costPerFillPct": 0.1445,
+        "gridRows": [
+          {
+            "gridNum": 10,
+            "stepPct": 2.888,
+            "stepVsAtr1h": 0.29,
+            "fillsPerDayEstimate": 0.8,
+            "netPerRoundTripPct": 2.599,
+            "grossPerDayPct": 1.21,
+            "feesPerDayPct": 0.12,
+            "netPerDayPct": 1.09,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 20,
+            "stepPct": 1.444,
+            "stepVsAtr1h": 0.15,
+            "fillsPerDayEstimate": 2.8,
+            "netPerRoundTripPct": 1.155,
+            "grossPerDayPct": 1.99,
+            "feesPerDayPct": 0.4,
+            "netPerDayPct": 1.59,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 30,
+            "stepPct": 0.963,
+            "stepVsAtr1h": 0.1,
+            "fillsPerDayEstimate": 5,
+            "netPerRoundTripPct": 0.674,
+            "grossPerDayPct": 2.42,
+            "feesPerDayPct": 0.73,
+            "netPerDayPct": 1.69,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 50,
+            "stepPct": 0.578,
+            "stepVsAtr1h": 0.06,
+            "fillsPerDayEstimate": 11.2,
+            "netPerRoundTripPct": 0.289,
+            "grossPerDayPct": 3.24,
+            "feesPerDayPct": 1.62,
+            "netPerDayPct": 1.62,
+            "reachable": false,
+            "viable": false
+          }
+        ]
+      },
+      "verdict": {
+        "tradeableOnGrid": false,
+        "checks": {
+          "liquidityOk": false,
+          "spreadOk": true,
+          "volatilityOk": true,
+          "gridViable": false
+        },
+        "reasons": [
+          "lichiditate sub $50k/zi (16986)",
+          "nicio configuratie de grid net-pozitiva si accesibila cu >=1 fill/zi"
+        ],
+        "caveats": [
+          "spread/depth = snapshot live, nu serie istorica",
+          "istoric limitat la 98 zile active"
+        ]
+      }
+    },
+    {
+      "short": "CASHCAT",
+      "instId": "CASHCAT-USD_UM_XPERP-310926",
+      "meta": {
+        "instId": "CASHCAT-USD_UM_XPERP-310926",
+        "instFamily": "CASHCAT-USD_UM_XPERP",
+        "ctVal": 10,
+        "ctValCcy": "CASHCAT",
+        "tickSz": 0.00001,
+        "lotSz": 1,
+        "minSz": 1,
+        "lever": 20,
+        "settleCcy": "USD",
+        "ruleType": "xperp",
+        "listTime": 1790152200364,
+        "expTime": 1948176000000,
+        "state": "live"
+      },
+      "ticker": {
+        "ts": 1795371015266,
+        "last": 0.0439,
+        "vol24h": 58422,
+        "volCcy24h": 584220,
+        "bidPx": 0.04342,
+        "askPx": 0.04438
+      },
+      "oiSnapshot": {
+        "ts": 1795371015818,
+        "oi": 73239,
+        "oiCcy": 732390,
+        "oiUsd": 32151.921
+      },
+      "liveSpread": {
+        "ts": 1795371015853,
+        "bid": 0.04342,
+        "ask": 0.04438,
+        "spreadAbs": 0.0009600000000000025,
+        "spreadPct": 2.1867881548975,
+        "topBidSz": 21,
+        "topAskSz": 10,
+        "bidDepthUsd": 67.57216,
+        "askDepthUsd": 1.43537,
+        "note": "live snapshot at collection time"
+      },
+      "bars": {
+        "5m": 17382,
+        "15m": 5794,
+        "1H": 1450,
+        "1Dutc": 61
+      },
+      "profile": {
+        "lastPrice": 0.0439,
+        "priceRange": {
+          "min": 0.03414,
+          "max": 0.2021
+        },
+        "daysOfData": 61,
+        "activeDays": 61,
+        "dormantDays": 0,
+        "firstBar": "2026-09-23",
+        "lastBar": "2026-11-22",
+        "medianDailyUsdVolume": 83961,
+        "meanDailyUsdVolume": 168805,
+        "minDailyUsdVolume": 1999,
+        "maxDailyUsdVolume": 1984973,
+        "contract": {
+          "ctVal": 10,
+          "ctValCcy": "CASHCAT",
+          "tickSz": 0.00001,
+          "lotSz": 1,
+          "minSz": 1,
+          "minTicketUsd": 0.44,
+          "leverage": 20,
+          "settleCcy": "USD",
+          "ruleType": "xperp",
+          "expTime": "2031-09-26"
+        }
+      },
+      "volatility": {
+        "atrPct1d": 16.124,
+        "atrPct1h": 3.051,
+        "atrPct15m": 1.638,
+        "realizedVol1hPct": 2.036,
+        "medianDailyRangePct": 12.6,
+        "p90DailyRangePct": 21.417,
+        "maxDailyRangePct": 29.399,
+        "efficiencyRatio1h": 0.3687,
+        "regime": "trending",
+        "upDayShare": 41.7,
+        "atrVsRealizedVolRatio": 1.5,
+        "wickDominated": false
+      },
+      "behaviour": {
+        "autocorr1h": -0.0469,
+        "autocorr15m": -0.0404,
+        "autocorr5m": -0.0054,
+        "interpretation": "mean-reverting (favours grid)",
+        "midCrossingsPerHour": 0.02
+      },
+      "microstructure": {
+        "spreadSource": "LIVE SNAPSHOT at collection — OKX has NO historical book",
+        "spreadPct": 2.1868,
+        "spreadAbs": 0.0009600000000000025,
+        "bidDepthUsd5Lvl": 68,
+        "askDepthUsd5Lvl": 1,
+        "minTicketVsMedianVolumePct": 0.0005
+      },
+      "funding": {
+        "records": 100,
+        "usable": false,
+        "usableNote": "rate is a flat venue placeholder (0.5 bps constant) — NOT real funding; stats suppressed",
+        "intervalHours": 4,
+        "meanBpsPerInterval": null,
+        "medianBpsPerInterval": null,
+        "p95PositiveBps": null,
+        "p5NegativeBps": null,
+        "maxBps": null,
+        "minBps": null,
+        "annualisedPct": null,
+        "positiveShare": null,
+        "signFlips": null,
+        "carryBias": "unknown (placeholder series)"
+      },
+      "costs": {
+        "feeSource": "live account tier Lv1 (maker 0.02% / taker 0.05%)",
+        "makerPct": 0.02,
+        "takerPct": 0.05,
+        "roundTripMakerPct": 0.04,
+        "roundTripTakerPct": 0.1,
+        "roundTripMixedPct": 0.07,
+        "liveSpreadPct": 2.1868,
+        "breakevenMoveMakerPct": 1.1334,
+        "breakevenMoveMixedPct": 1.1634,
+        "slippageAssumption": "not modelled (no book history) — treat as 0, add manually if depth is thin"
+      },
+      "gridViability": {
+        "bandLow": 0.04062,
+        "bandHigh": 0.1817,
+        "bandWidthPct": 321.37,
+        "atr1hPct": 3.051,
+        "worstSingleDayAdverseExcursionPct": 21.84,
+        "recommendedGridNum": 50,
+        "recommendedStepPct": 6.427,
+        "recommendedFillsPerDay": 6.8,
+        "recommendedNetPerDayPct": 14.2,
+        "costPerFillPct": 1.1134,
+        "gridRows": [
+          {
+            "gridNum": 10,
+            "stepPct": 32.137,
+            "stepVsAtr1h": 10.53,
+            "fillsPerDayEstimate": 0.4,
+            "netPerRoundTripPct": 29.91,
+            "grossPerDayPct": 7.19,
+            "feesPerDayPct": 0.5,
+            "netPerDayPct": 6.69,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 20,
+            "stepPct": 16.068,
+            "stepVsAtr1h": 5.27,
+            "fillsPerDayEstimate": 1.5,
+            "netPerRoundTripPct": 13.842,
+            "grossPerDayPct": 11.98,
+            "feesPerDayPct": 1.66,
+            "netPerDayPct": 10.32,
+            "reachable": false,
+            "viable": false
+          },
+          {
+            "gridNum": 30,
+            "stepPct": 10.712,
+            "stepVsAtr1h": 3.51,
+            "fillsPerDayEstimate": 2.8,
+            "netPerRoundTripPct": 8.485,
+            "grossPerDayPct": 15.26,
+            "feesPerDayPct": 3.17,
+            "netPerDayPct": 12.09,
+            "reachable": true,
+            "viable": true
+          },
+          {
+            "gridNum": 50,
+            "stepPct": 6.427,
+            "stepVsAtr1h": 2.11,
+            "fillsPerDayEstimate": 6.8,
+            "netPerRoundTripPct": 4.201,
+            "grossPerDayPct": 21.72,
+            "feesPerDayPct": 7.53,
+            "netPerDayPct": 14.2,
+            "reachable": true,
+            "viable": true
+          }
+        ]
+      },
+      "verdict": {
+        "tradeableOnGrid": false,
+        "checks": {
+          "liquidityOk": true,
+          "spreadOk": false,
+          "volatilityOk": true,
+          "gridViable": true
+        },
+        "reasons": [
+          "spread 2.187% > 0.5%"
+        ],
+        "caveats": [
+          "spread/depth = snapshot live, nu serie istorica",
+          "istoric limitat la 61 zile active"
+        ]
+      }
+    }
+  ]
+}

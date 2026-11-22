@@ -1,0 +1,6 @@
+# Raw collected data (~22 MB) is regenerable via `collect.ts` and must not bloat the repo.
+data/
+
+# Derived artifacts are committed: report.json + report.md are the deliverable.
+!report.json
+!report.md
