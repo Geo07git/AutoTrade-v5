@@ -1,6 +1,9 @@
 # Raw collected data (~22 MB) is regenerable via `collect.ts` and must not bloat the repo.
 data/
 
+# Phase 2 full evidence matrix (~1.7 MB) is regenerable with `phase2/engine.ts`.
+phase2.json
+
 # Derived artifacts are committed: report.json + report.md are the deliverable.
 !report.json
 !report.md
