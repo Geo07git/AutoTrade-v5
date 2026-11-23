@@ -33,6 +33,19 @@ function readJson<T>(file: string, fallback: T): T {
   }
 }
 
+/**
+ * `okx_synced_transactions.json` is schemaVersion 2 since the fiscal cache was versioned:
+ * `{ schemaVersion: 2, records: [...] }`. Older exports are a flat array. The ruler used to assume
+ * the flat array only, so it crashed (`all is not iterable`) on every versioned cache and printed
+ * nothing -- which is how the most important number in the audit stays invisible. Accept both
+ * shapes; neither is echoed to the console.
+ */
+function asList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  const records = (value as { records?: unknown } | null)?.records;
+  return Array.isArray(records) ? (records as T[]) : [];
+}
+
 interface Bot {
   algoId: string;
   instId: string;
@@ -97,9 +110,9 @@ const fmt = (n: number, digits = 2): string => (Number.isFinite(n) ? n.toFixed(d
 
 const mins = (ms: number): number => Math.round(ms / 60000);
 
-const bots = readJson<Bot[]>('native_grid_bots.json', []);
-const events = readJson<StopEvent[]>('grid_analyzer_events.json', []);
-const fills = readJson<Fill[]>('okx_synced_transactions.json', []);
+const bots = asList<Bot>(readJson<unknown>('native_grid_bots.json', null));
+const events = asList<StopEvent>(readJson<unknown>('grid_analyzer_events.json', null));
+const fills = asList<Fill>(readJson<unknown>('okx_synced_transactions.json', null));
 const usableFills = usableFillsOf(fills);
 
 const byAlgo = new Map<string, Bot>(bots.map((b) => [String(b.algoId), b]));

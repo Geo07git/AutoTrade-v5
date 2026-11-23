@@ -27,3 +27,6 @@ win-unpacked/
 .vscode/
 # Generated refactor scaffolding (regenerate with scripts/extract-old.mjs; header says "do not commit")
 scripts/_oldVariants.ts
+# Python bytecode from local tooling
+__pycache__/
+*.pyc

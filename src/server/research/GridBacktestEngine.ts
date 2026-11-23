@@ -145,6 +145,24 @@ export interface BacktestOptions {
    * backtest is pessimistic about breakouts, not optimistic.
    */
   rangeStopBufferPct?: number;
+  /**
+   * What happens when price leaves the band. Production has only EVER used `MARKET_STOP`:
+   * every one of the 89 recorded stops was `stopType '1'`, a market close at the close price.
+   *   MARKET_STOP   - close everything at market when the band edge (+ rangeStopBufferPct) breaks.
+   *   HOLD          - never close on a band edge. Inventory is kept and levels may refill.
+   *                   Only margin-based exits (stopLossPct / takeProfitPct / liquidation) still fire.
+   *   HOLD_BACKSTOP - keep the inventory until price leaves the band by `backstopBufferPct`,
+   *                   modelling a venue-side reduce-only conditional stop placed BEYOND the buffer
+   *                   (okxConditionalStop + placeConditionalStop). Closes with taker, like production.
+   * Default MARKET_STOP keeps every existing caller and test bit-identical.
+   */
+  exitPolicy?: 'MARKET_STOP' | 'HOLD' | 'HOLD_BACKSTOP';
+  /**
+   * How far beyond the band edge the HOLD_BACKSTOP stop sits, in %. Ignored unless
+   * `exitPolicy === 'HOLD_BACKSTOP'`. Must be >= rangeStopBufferPct to be meaningful: the whole
+   * point is that the noisy edge stops nothing and only a real move closes the position.
+   */
+  backstopBufferPct?: number;
 }
 
 export class GridBacktestEngine {
@@ -212,6 +230,11 @@ export class GridBacktestEngine {
     //   then the range-breakout price stop.
     const risk: any = config.risk || {};
     const rangeBuffer = Math.max(0, Number(options.rangeStopBufferPct) || 0) / 100;
+    const exitPolicy: BacktestOptions['exitPolicy'] = options.exitPolicy ?? 'MARKET_STOP';
+    const backstopBuffer = Math.max(0, Number(options.backstopBufferPct) || 0) / 100;
+    // HOLD never closes on a band edge; it is still subject to the margin stops below.
+    const rangeStopEnabled = Boolean(risk.stopOnRangeBreakout) && exitPolicy !== 'HOLD';
+    const rangeEdgeBuffer = exitPolicy === 'HOLD_BACKSTOP' ? backstopBuffer : rangeBuffer;
     let exitReason: 'NONE' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'RANGE_BREAKOUT' | 'LIQUIDATION' | 'END_OF_DATA' =
       'NONE';
     let exitTimestamp = 0;
@@ -411,8 +434,8 @@ export class GridBacktestEngine {
       } else if (Number(risk.takeProfitPct) > 0 && netPctOfMargin >= Math.abs(Number(risk.takeProfitPct))) {
         fired = 'TAKE_PROFIT';
       } else if (
-        risk.stopOnRangeBreakout &&
-        (k.close < lowerBound * (1 - rangeBuffer) || k.close > upperBound * (1 + rangeBuffer))
+        rangeStopEnabled &&
+        (k.close < lowerBound * (1 - rangeEdgeBuffer) || k.close > upperBound * (1 + rangeEdgeBuffer))
       ) {
         fired = 'RANGE_BREAKOUT';
       }
