@@ -34,11 +34,11 @@ const SYMBOLS = [
 ];
 
 const BARS_TARGET = 1440; // ~15 zile la 15m
-const BAND_PCT = 3; // mijlocul intervalului 2-6% din gridBand.ts
-const GRID_COUNT = 6;
+const BAND_PCT = Number(process.argv[3]) || 3; // mijlocul intervalului 2-6% din gridBand.ts
+const GRID_COUNT = Number(process.argv[4]) || 6;
 const LEVERAGE = 2;
 const MARGIN_USDT = 12; // bugetul real per bot din config
-const STOP_LOSS_PCT_OF_MARGIN = 20; // suficient de larg ca sa nu mascheze efectul benzii
+const STOP_LOSS_PCT_OF_MARGIN = Number(process.argv[2]) || 20; // suficient de larg ca sa nu mascheze efectul benzii
 const TAKE_PROFIT_PCT = 0; // dezactivat: nu e subiectul testului
 const BACKSTOP_PCT = 1.5; // dincolo de marginea benzii
 
