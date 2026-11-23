@@ -25,7 +25,8 @@
     "grid-case": "tsx scripts/extract-grid-case.ts",
     "grid-exit": "tsx scripts/grid-exit-compare.ts",
     "breakout-entry": "tsx scripts/breakout-entry-study.ts",
-    "grid-params": "tsx scripts/grid-params.ts"
+    "grid-params": "tsx scripts/grid-params.ts",
+    "regime-now": "tsx scripts/regime-now.ts"
   },
   "build": {
     "appId": "com.tradebot.pro",
