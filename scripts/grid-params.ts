@@ -18,6 +18,8 @@ import {
   maxLeverageForBand,
   gridStopLossPct,
   GRID_PLAN_MAX_LEVERAGE,
+  GRID_MAX_LEVELS,
+  GRID_FEE_FLOOR_MULTIPLE,
 } from '../src/server/engine/grid/gridPlan';
 import { buildConstructedBand, inspectBandLegality } from '../src/server/agent/gridBand';
 import { GridOptimizer } from '../src/server/engine/grid/GridOptimizer';
@@ -34,6 +36,16 @@ const args = process.argv.slice(2);
 const SYMBOL = args[0] || 'DOGE-USD_UM_XPERP-310404';
 const AVAILABLE_USDC = Number(args[1]) || 39.41;
 const BUDGET = Number(args[2]) || 12;
+/** Optional: evaluate a geometry someone else proposed. lower upper grids lever */
+const PROPOSAL =
+  args[3] && args[4] && args[5] && args[6]
+    ? {
+        lower: Number(args[3]),
+        upper: Number(args[4]),
+        grids: Number(args[5]),
+        lever: Number(args[6]),
+      }
+    : null;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -74,6 +86,133 @@ function wilderAtrPct(bars: Kline[], period = 14): number | null {
 }
 
 const f = (n: number, d = 4) => (Number.isFinite(n) ? n.toFixed(d) : 'n/a');
+
+/**
+ * Judeca o geometrie propusa de altcineva (auto-fill-ul platformei, un model, un om).
+ * Nu o "optimizeaza": o confrunta cu regulile care exista deja in cod si cu lichidarea.
+ */
+function evaluateProposal(ctx: {
+  price: number;
+  low24h: number;
+  high24h: number;
+  ctVal: number;
+  tickSz: number;
+  lotSz: number;
+  minSz: number;
+  instLever: number;
+  atrPct: number | null;
+}): void {
+  const { price, ctVal, tickSz, lotSz, minSz, instLever, low24h, high24h } = ctx;
+  const p = PROPOSAL!;
+
+  const sideDownPct = (1 - p.lower / price) * 100;
+  const sideUpPct = (p.upper / price - 1) * 100;
+  const maxSidePct = Math.max(sideDownPct, sideUpPct);
+  const widthPct = ((p.upper - p.lower) / price) * 100;
+  const stepPct = widthPct / Math.max(1, p.grids);
+  const stepUsd = (p.upper - p.lower) / Math.max(1, p.grids);
+  const feeFloorPct = MAKER_FEE_PCT * 2 * GRID_FEE_FLOOR_MULTIPLE;
+  const leverCap = Math.min(GRID_PLAN_MAX_LEVERAGE, instLever);
+  const leverMax = maxLeverageForBand(maxSidePct, HARD_STOP_LOSS_PCT, leverCap);
+  const walkCostPct = p.lever * maxSidePct;
+
+  const cfg = createDefaultBotConfig(
+    SYMBOL,
+    p.lower,
+    p.upper,
+    p.grids,
+    'ARITHMETIC',
+    p.lever,
+    BUDGET,
+    HARD_STOP_LOSS_PCT,
+    15
+  );
+  const calc = GridOptimizer.calculateGrid(cfg, price, {
+    symbol: SYMBOL,
+    minOrderQty: minSz,
+    maxOrderQty: 1_000_000,
+    qtyStep: lotSz,
+    minNotionalValue: 1,
+    tickSize: tickSz,
+    ctVal,
+  });
+
+  const notional = BUDGET * p.lever;
+  const perLevel = notional / Math.max(1, p.grids);
+  const minContractUsd = minSz * ctVal * price;
+  const netPerGridPct = stepPct - MAKER_FEE_PCT * 2;
+  const profitPerGridUsd = perLevel * (netPerGridPct / 100);
+  const sweepUsd = profitPerGridUsd * p.grids;
+  const liqLossUsd = BUDGET;
+
+  console.log('\n-- GEOMETRIA PROPUSA -------------------------------------------------------');
+  console.log(`Price range      ${f(p.lower, 6)}  -  ${f(p.upper, 6)}   (${f(p.upper - p.lower, 6)} USD / ${f(widthPct, 2)}% latime)`);
+  console.log(`Fata de pret     jos ${f(sideDownPct, 2)}%   sus ${f(sideUpPct, 2)}%   (asimetric)`);
+  console.log(`Grid quantity    ${p.grids}   treapta ${f(stepUsd, 6)} USD / ${f(stepPct, 4)}%`);
+  console.log(`Levier           ${p.lever}x   notional ${f(notional, 2)} USDC din ${f(BUDGET, 2)} marja`);
+  console.log(`~ per nivel      ${f(perLevel, 4)} USDC`);
+  console.log(`Cel mai mic pas  1 contract = ${minSz} x ${ctVal} = ${f(minContractUsd, 4)} USDC`);
+  console.log(`Profit/o grila   ${f(netPerGridPct, 4)}% din notional = ${f(profitPerGridUsd, 5)} USDC`);
+  console.log(`Plimbare intreaga (${p.grids})  ${f(sweepUsd, 4)} USDC brut`);
+
+  console.log('\n-- CONFRUNTARE CU REGULILE DIN COD ----------------------------------------');
+  const verdict = (ok: boolean, text: string) => console.log(`${ok ? 'ok  ' : 'NU  '} ${text}`);
+
+  verdict(
+    p.grids <= GRID_MAX_LEVELS,
+    `niveluri ${p.grids} vs plafon ${GRID_MAX_LEVELS}` + (p.grids > GRID_MAX_LEVELS ? ' -- peste ce suporta geometria' : '')
+  );
+  verdict(
+    stepPct >= feeFloorPct,
+    `treapta ${f(stepPct, 4)}% vs fee floor ${f(feeFloorPct, 3)}% (${GRID_FEE_FLOOR_MULTIPLE}x round-trip ${f(MAKER_FEE_PCT * 2, 3)}%)` +
+      (stepPct < feeFloorPct ? ' -- fee-ul mananca prea mult din treapta' : '')
+  );
+  verdict(
+    stepPct > MAKER_FEE_PCT * 2,
+    `treapta acopera macar fee-ul: ${f(stepPct / (MAKER_FEE_PCT * 2), 2)}x round-trip`
+  );
+  verdict(
+    p.lever <= leverMax,
+    `levier ${p.lever}x vs maxim admis ${leverMax}x pentru o banda de ${f(maxSidePct, 2)}% ` +
+      `(plafon dur ${HARD_STOP_LOSS_PCT}% / ${f(maxSidePct, 2)}%)` +
+      (p.lever > leverMax ? ' -- o plimbare la margine depaseste stop-ul dur' : '')
+  );
+  verdict(
+    walkCostPct <= HARD_STOP_LOSS_PCT,
+    `plimbare completa la margine = ${f(walkCostPct, 1)}% din marja vs plafon ${HARD_STOP_LOSS_PCT}%` +
+      (walkCostPct > HARD_STOP_LOSS_PCT ? ' -- marginul se termina INAINTE de marginea benzii' : '')
+  );
+  verdict(
+    perLevel >= minContractUsd * 0.99,
+    `buget/nivel ${f(perLevel, 4)} vs 1 contract ${f(minContractUsd, 4)} USDC` +
+      (perLevel < minContractUsd * 0.99 ? ' -- nu incape nici un contract pe nivel' : '')
+  );
+
+  console.log('\n-- LICHIDARE vs BANDA -----------------------------------------------------');
+  console.log(`Liq estimat      long ${f(calc.estimatedLiquidationPriceLong, 6)} | short ${f(calc.estimatedLiquidationPriceShort, 6)}`);
+  console.log(`Marginea de jos  ${f(p.lower, 6)}`);
+  const liqLongInsideBand = calc.estimatedLiquidationPriceLong > 0 && calc.estimatedLiquidationPriceLong > p.lower;
+  verdict(
+    !liqLongInsideBand,
+    liqLongInsideBand
+      ? `lichidarea long (${f(calc.estimatedLiquidationPriceLong, 6)}) e IN INTERIORUL benzii (jos ${f(p.lower, 6)}) -- pretul lichideaza botul inainte sa ajunga la ultimul nivel`
+      : 'lichidarea long e sub marginea de jos a benzii'
+  );
+  if (low24h > 0 && high24h > low24h) {
+    const illegal = inspectBandLegality({ price, minPx: p.lower, maxPx: p.upper, low24h, high24h });
+    verdict(!illegal, `banda legala fata de extremele 24h (${f(low24h, 6)}..${f(high24h, 6)})` + (illegal ? ` -- ${illegal}` : ''));
+  }
+
+  console.log('\n-- RAPORTUL CARE CONTEAZA -------------------------------------------------');
+  console.log(`Castig per plimbare completa   ${f(sweepUsd, 4)} USDC`);
+  console.log(`Pierdere la o lichidare        ${f(liqLossUsd, 2)} USDC (toata marja)`);
+  console.log(
+    `Cate plimbari platesc una      ${sweepUsd > 0 ? f(liqLossUsd / sweepUsd, 1) : 'infinit'}` +
+      `  (${f(liqLossUsd, 2)} / ${f(sweepUsd, 4)})`
+  );
+  console.log(`O plimbare dureaza cel putin   ${f(((p.upper - p.lower) / Math.max(1e-9, (ctx.atrPct || 0.5) / 100 * price)) * 0.25, 0)} bare de 15m la ATR-ul curent`);
+  if (calc.warnings.length) console.log(`\nAvertismente: ${calc.warnings.join(' | ')}`);
+}
 
 async function main() {
   console.log(`Grid params -- ${SYMBOL}`);
@@ -118,6 +257,11 @@ async function main() {
 
   if (instCategory === '3') {
     console.log('\nSTOP: stock token (categoria 3). Nu se calculeaza geometrie -- regulile din cod il refuza.');
+    return;
+  }
+
+  if (PROPOSAL) {
+    evaluateProposal({ price, low24h, high24h, ctVal, tickSz, lotSz, minSz, instLever, atrPct });
     return;
   }
 
