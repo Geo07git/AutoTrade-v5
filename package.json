@@ -23,7 +23,8 @@
     "cap:build:release": "vite build && npx cap sync android && cd android && gradlew.bat assembleRelease",
     "ruler": "tsx scripts/grid-ruler.ts",
     "grid-case": "tsx scripts/extract-grid-case.ts",
-    "grid-exit": "tsx scripts/grid-exit-compare.ts"
+    "grid-exit": "tsx scripts/grid-exit-compare.ts",
+    "breakout-entry": "tsx scripts/breakout-entry-study.ts"
   },
   "build": {
     "appId": "com.tradebot.pro",
