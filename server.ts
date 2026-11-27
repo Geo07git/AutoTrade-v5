@@ -1610,6 +1610,118 @@ async function startServer() {
     });
   });
 
+  // =========================================================================
+  // BTC-USD UM X-PERP SIGNAL & READ-ONLY GRID MONITOR ENDPOINTS
+  // Strictly read-only vs OKX bots: zero create/amend/stop/order paths.
+  // =========================================================================
+  app.get('/api/bot/btc-signals/status', async (req, res) => {
+    try {
+      const shouldSync = req.query.sync === '1' || req.query.sync === 'true';
+      const status = shouldSync
+        ? await tradeBot.syncBtcSignalsBots()
+        : tradeBot.getBtcSignalsFullStatus();
+      res.json({ success: true, status });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Eroare la citirea statusului BTC X-PERP Signals',
+      });
+    }
+  });
+
+  app.post('/api/bot/btc-signals/analyze', requireControlAuth, async (req, res) => {
+    try {
+      const result = await tradeBot.runBtcSignalsAnalysisNow();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Eroare la rularea analizei BTC-USD UM X-PERP',
+      });
+    }
+  });
+
+  app.post('/api/bot/btc-signals/config', requireControlAuth, (req, res) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const patch: any = {};
+
+      if (typeof body.enabled === 'boolean') {
+        patch.enabled = body.enabled;
+      }
+      if (body.analysisIntervalSec !== undefined) {
+        const val = Number(body.analysisIntervalSec);
+        if (!Number.isFinite(val) || val < 30 || val > 3600) {
+          return res.status(400).json({
+            success: false,
+            error: 'Intervalul de analiză trebuie să fie între 30 și 3600 secunde.',
+          });
+        }
+        patch.analysisIntervalSec = Math.round(val);
+      }
+      if (body.botMonitorIntervalSec !== undefined) {
+        const val = Number(body.botMonitorIntervalSec);
+        if (!Number.isFinite(val) || val < 15 || val > 600) {
+          return res.status(400).json({
+            success: false,
+            error: 'Intervalul de monitorizare trebuie să fie între 15 și 600 secunde.',
+          });
+        }
+        patch.botMonitorIntervalSec = Math.round(val);
+      }
+      if (body.minProbabilityEdgePct !== undefined) {
+        const val = Number(body.minProbabilityEdgePct);
+        if (!Number.isFinite(val) || val < 50 || val > 85) {
+          return res.status(400).json({
+            success: false,
+            error: 'Pragul de probabilitate minimă trebuie să fie între 50% și 85%.',
+          });
+        }
+        patch.minProbabilityEdgePct = Math.round(val * 10) / 10;
+      }
+      if (body.signalValidityMinutes !== undefined) {
+        const val = Number(body.signalValidityMinutes);
+        if (!Number.isFinite(val) || val < 5 || val > 240) {
+          return res.status(400).json({
+            success: false,
+            error: 'Valabilitatea semnalului trebuie să fie între 5 și 240 minute.',
+          });
+        }
+        patch.signalValidityMinutes = Math.round(val);
+      }
+      if (body.telegramPreferences && typeof body.telegramPreferences === 'object') {
+        const tp = body.telegramPreferences;
+        const cleanTp: any = {};
+        if (typeof tp.onLongOpportunity === 'boolean') cleanTp.onLongOpportunity = tp.onLongOpportunity;
+        if (typeof tp.onShortOpportunity === 'boolean') cleanTp.onShortOpportunity = tp.onShortOpportunity;
+        if (typeof tp.onBotClosed === 'boolean') cleanTp.onBotClosed = tp.onBotClosed;
+        if (typeof tp.onNextRecommendation === 'boolean') cleanTp.onNextRecommendation = tp.onNextRecommendation;
+        if (typeof tp.onSignalInvalidated === 'boolean') cleanTp.onSignalInvalidated = tp.onSignalInvalidated;
+        patch.telegramPreferences = cleanTp;
+      }
+
+      const result = tradeBot.updateBtcSignalsConfig(patch);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Eroare la salvarea configurației BTC Signals',
+      });
+    }
+  });
+
+  app.post('/api/bot/btc-signals/test-telegram', requireControlAuth, async (req, res) => {
+    try {
+      const result = await tradeBot.sendBtcSignalToTelegramNow();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Eroare la trimiterea semnalului BTC pe Telegram',
+      });
+    }
+  });
+
   // Catch-all JSON 404 for any unmatched /api/* route so Vite/SPA never returns <!doctype html>
   app.all('/api/*', (req, res) => {
     res.status(404).json({

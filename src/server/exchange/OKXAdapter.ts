@@ -2760,7 +2760,8 @@ export class OKXAdapter implements IExecutionAdapter {
    */
   public async getNativeContractGridBots(
     mode: 'pending' | 'history' = 'pending',
-    isDemo?: boolean
+    isDemo?: boolean,
+    includeAllDirections: boolean = false
   ): Promise<any[]> {
     if (!this.hasCredentials() || this.credentialsPermanentlyFailed || this.ipWhitelistFailed) {
       return [];
@@ -2772,6 +2773,9 @@ export class OKXAdapter implements IExecutionAdapter {
     try {
       const res = await this.requestWithEnvOverride('GET', endpoint, undefined, true, isDemo);
       if (res?.code === '0' && Array.isArray(res.data)) {
+        if (includeAllDirections) {
+          return res.data;
+        }
         return res.data.filter((b: any) => !b.direction || b.direction === 'neutral');
       }
     } catch {}

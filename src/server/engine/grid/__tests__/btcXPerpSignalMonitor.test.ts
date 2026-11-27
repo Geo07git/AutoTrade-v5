@@ -1,0 +1,414 @@
+/**
+ * Unit & integration regression suite for TB5 BTC-USD UM X-PERP Signal & Read-Only Grid Monitor.
+ *
+ * Verifies:
+ *  1. Strictly $1,000 range width (maxPx - minPx === 1000, minPx < price < maxPx), 10 grids ($100 step),
+ *     and TP 5% / SL 2.5% of invested margin semantics.
+ *  2. Honest empirical probability calibration vs explicit "Date insuficiente pentru probabilitate validată"
+ *     when bars or matched directional samples are below minimum requirements.
+ *  3. Read-only monitoring of ALL manual OKX native grid directions (LONG, SHORT, NEUTRAL) on BTC-USD UM X-PERP,
+ *     filtering out non-BTC bots, and confirming zero mutating/order/stop/amend paths exist.
+ *  4. Continuity workflow on confirmed bot closure: confirms terminal status via OKX details, updates closed
+ *     bot history, immediately dispatches the valid next recommendation via Telegram without duplicates, and
+ *     triggers fresh post-close analysis.
+ *  5. Signal invalidation Telegram alert when price exits recommended band, plus `.data/` state persistence.
+ *
+ * Run: npm test
+ */
+
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import {
+  BtcXPerpSignalMonitor,
+  BtcReadOnlyOkxPort,
+  BtcTelegramPort,
+  calibrateBtcHistoricalProbabilities,
+  computeDynamicBtcGridRange,
+  isBtcXPerpInstrument,
+} from '../BtcXPerpSignalMonitor';
+import type { Kline } from '../../../../shared/types';
+
+const tests: { name: string; fn: () => void | Promise<void> }[] = [];
+const test = (name: string, fn: () => void | Promise<void>): void => {
+  tests.push({ name, fn });
+};
+
+const ok = (cond: unknown, msg: string): void => {
+  if (!cond) throw new Error(msg);
+};
+
+const eq = (actual: unknown, expected: unknown, msg: string): void => {
+  if (actual !== expected) {
+    throw new Error(`${msg} (expected ${String(expected)}, got ${String(actual)})`);
+  }
+};
+
+function makeTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'btc-xperp-signals-test-'));
+}
+
+/** Builds oscillating trending candles that naturally create both bullish and bearish directional setups. */
+function makeOscillatingBtcKlines(count: number, basePrice = 88000): Kline[] {
+  const out: Kline[] = [];
+  const startTs = Date.UTC(2026, 10, 1, 0, 0, 0);
+  let prevClose = basePrice;
+  for (let i = 0; i < count; i++) {
+    // Alternating macro swing cycles (~36 bars each) + realistic noise
+    const wave = Math.sin(i / 6) * 900 + Math.cos(i / 11) * 600;
+    const micro = Math.sin(i * 1.3) * 140;
+    const close = Math.max(10000, basePrice + wave + micro);
+    const open = prevClose;
+    const high = Math.max(open, close) + 180 + Math.abs(Math.sin(i) * 160);
+    const low = Math.min(open, close) - 180 - Math.abs(Math.cos(i) * 160);
+    out.push({
+      timestamp: startTs + i * 3600_000,
+      open: parseFloat(open.toFixed(1)),
+      high: parseFloat(high.toFixed(1)),
+      low: parseFloat(low.toFixed(1)),
+      close: parseFloat(close.toFixed(1)),
+      volume: 1200 + Math.abs(Math.sin(i * 0.7)) * 800,
+    });
+    prevClose = close;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// 1. Exact bot configuration ($1000 span, 10 grids, TP 5% / SL 2.5% margin)
+// ---------------------------------------------------------------------------
+test('config & range: enforces exact $1,000 range, 10 grids, and TP 5% / SL 2.5% invested margin', async () => {
+  const dir = makeTempDir();
+  try {
+    const klines1h = makeOscillatingBtcKlines(180, 91200);
+    const klines15m = makeOscillatingBtcKlines(120, 91400);
+    const klines4h = makeOscillatingBtcKlines(80, 90800);
+    const currentPx = klines15m[klines15m.length - 1].close;
+
+    const okxPort: BtcReadOnlyOkxPort = {
+      hasCredentials: () => false,
+      isCredentialsPermanentlyFailed: () => false,
+      resolveLiveInstrumentId: async () => 'BTC-USD_UM_XPERP-310530',
+      getKlines: async (_sym, interval) =>
+        interval === '15m' ? klines15m : interval === '4H' ? klines4h : klines1h,
+      getTickerPrice: async () => currentPx,
+      fetchMarketIntelligenceExtras: async () => ({
+        openInterestUSD: 450_000_000,
+        fundingRatePct: 0.012,
+        nextFundingRatePct: 0.011,
+        orderBookImbalance: 0.18,
+        orderBookDepthUSD: 2_500_000,
+        spreadBps: 1.2,
+      }),
+      getNativeContractGridBots: async () => [],
+      getNativeContractGridDetails: async () => null,
+    };
+
+    const telegramSent: string[] = [];
+    const tgPort: BtcTelegramPort = {
+      isConfigured: () => true,
+      isNotificationsEnabled: () => true,
+      sendMessage: async (text) => {
+        telegramSent.push(text);
+        return true;
+      },
+    };
+
+    const monitor = new BtcXPerpSignalMonitor(okxPort, { dataDir: dir, telegramPort: tgPort });
+    const rec = await monitor.runMarketAnalysis('MANUAL');
+
+    eq(rec.displayInstrument, 'BTC-USD UM X-PERP', 'display instrument matches spec');
+    eq(rec.botType, 'OKX Native Futures Grid', 'bot type matches spec');
+    eq(rec.gridNum, 10, 'must recommend 10 grids');
+    eq(rec.gridStepUSD, 100, 'grid step must be $100');
+    eq(rec.rangeSpanUSD, 1000, 'rangeSpanUSD must be $1,000');
+    eq(rec.maxPx - rec.minPx, 1000, 'maxPx - minPx must equal exactly $1,000');
+    ok(rec.minPx < currentPx && currentPx < rec.maxPx, 'current BTC price must sit inside recommended band');
+    eq(rec.tpMarginPct, 5, 'TP must be 5% of invested margin');
+    eq(rec.slMarginPct, 2.5, 'SL must be 2.5% of invested margin');
+    eq(rec.tpSlBasis, 'INVESTED_MARGIN', 'TP/SL basis must explicitly be INVESTED_MARGIN');
+    eq(rec.probabilityStatus, 'CALIBRATED', 'must empirically calibrate when >=100 bars and >=8 samples exist');
+    ok(
+      rec.longProbabilityPct !== null && rec.shortProbabilityPct !== null,
+      'calibrated probabilities must be numeric percentages'
+    );
+
+    // Also test standalone computeDynamicBtcGridRange invariance across extremes
+    const rLow = computeDynamicBtcGridRange({
+      currentPrice: 64234.5,
+      direction: 'LONG',
+      atr1hUSD: 420,
+      nearestSupport: { price: 64050, type: 'SUPPORT', distancePct: -0.29, touchCount: 3, strengthScore: 3 },
+      nearestResistance: null,
+    });
+    eq(rLow.maxPx - rLow.minPx, 1000, 'dynamic range preserves exact $1,000 span near support');
+    ok(rLow.minPx < 64234.5 && 64234.5 < rLow.maxPx, 'dynamic range encloses price');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 2. Honest insufficient-data handling (zero fabricated scores)
+// ---------------------------------------------------------------------------
+test('calibration: explicitly reports Date insuficiente pentru probabilitate validată when history is sparse', () => {
+  const shortBars = makeOscillatingBtcKlines(40, 90000);
+  const resShort = calibrateBtcHistoricalProbabilities(shortBars, 2.0);
+  eq(resShort.status, 'INSUFFICIENT_DATA', '40 bars must yield INSUFFICIENT_DATA');
+  eq(resShort.longProbabilityPct, null, 'must not fabricate LONG probability');
+  eq(resShort.shortProbabilityPct, null, 'must not fabricate SHORT probability');
+  ok(
+    resShort.note.includes('Date insuficiente pentru probabilitate validată'),
+    'must include exact Romanian insufficient-data notice'
+  );
+
+  // One-way strictly rising market yields 0 SHORT setups -> also INSUFFICIENT_DATA
+  const oneWayBars: Kline[] = [];
+  for (let i = 0; i < 140; i++) {
+    const px = 80000 + i * 100;
+    oneWayBars.push({
+      timestamp: Date.UTC(2026, 9, 1) + i * 3600_000,
+      open: px - 50,
+      high: px + 60,
+      low: px - 70,
+      close: px,
+      volume: 1000,
+    });
+  }
+  const resOneWay = calibrateBtcHistoricalProbabilities(oneWayBars, 3.0);
+  eq(resOneWay.status, 'INSUFFICIENT_DATA', 'missing counter-direction historical sample yields INSUFFICIENT_DATA');
+  ok(
+    resOneWay.note.includes('Date insuficiente pentru probabilitate validată'),
+    'one-way sample notice explains missing validated probability'
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 3. Strictly read-only monitoring (LONG/SHORT/NEUTRAL), closure & Telegram flow
+// ---------------------------------------------------------------------------
+test('monitor & continuity: tracks LONG/SHORT/NEUTRAL read-only, confirms close, sends valid next rec on Telegram', async () => {
+  const dir = makeTempDir();
+  try {
+    const klines1h = makeOscillatingBtcKlines(180, 90000);
+    const klines15m = makeOscillatingBtcKlines(120, 90100);
+    const klines4h = makeOscillatingBtcKlines(80, 89900);
+    let livePx = klines15m[klines15m.length - 1].close;
+
+    let botClosed = false;
+    const rawRunningBots = [
+      {
+        algoId: 'BTC_SHORT_1',
+        instId: 'BTC-USD_UM_XPERP-310530',
+        direction: 'short',
+        state: 'running',
+        minPx: String(Math.round(livePx - 500)),
+        maxPx: String(Math.round(livePx + 500)),
+        gridNum: '10',
+        lever: '5',
+        investment: '100',
+        tpRatio: '0.05',
+        slRatio: '0.025',
+        gridProfit: '2.10',
+        floatProfit: '0.40',
+        totalPnl: '2.50',
+        arbitrageNum: '4',
+        cTime: String(Date.now() - 3600_000),
+        uTime: String(Date.now()),
+      },
+      {
+        algoId: 'BTC_NEUTRAL_2',
+        instId: 'BTC-USD_UM_XPERP-310530',
+        direction: 'neutral',
+        state: 'running',
+        minPx: String(Math.round(livePx - 400)),
+        maxPx: String(Math.round(livePx + 600)),
+        gridNum: '10',
+        lever: '3',
+        investment: '50',
+        tpRatio: '0.05',
+        slRatio: '0.025',
+        gridProfit: '0.80',
+        floatProfit: '-0.10',
+        totalPnl: '0.70',
+        arbitrageNum: '2',
+        cTime: String(Date.now() - 1800_000),
+        uTime: String(Date.now()),
+      },
+      // Non-BTC bot MUST be excluded by BTC monitor
+      {
+        algoId: 'ETH_LONG_9',
+        instId: 'ETH-USD_UM_XPERP-310530',
+        direction: 'long',
+        state: 'running',
+        minPx: '2900',
+        maxPx: '3200',
+        gridNum: '10',
+        lever: '3',
+        investment: '50',
+        cTime: String(Date.now() - 1800_000),
+        uTime: String(Date.now()),
+      },
+    ];
+
+    const forbiddenCalls: string[] = [];
+    const okxPort: BtcReadOnlyOkxPort = {
+      hasCredentials: () => true,
+      isCredentialsPermanentlyFailed: () => false,
+      resolveLiveInstrumentId: async () => 'BTC-USD_UM_XPERP-310530',
+      getKlines: async (_sym, interval) =>
+        interval === '15m' ? klines15m : interval === '4H' ? klines4h : klines1h,
+      getTickerPrice: async () => livePx,
+      fetchMarketIntelligenceExtras: async () => ({
+        openInterestUSD: 410_000_000,
+        fundingRatePct: -0.008,
+        nextFundingRatePct: -0.006,
+        orderBookImbalance: 0.22,
+        orderBookDepthUSD: 3_100_000,
+        spreadBps: 1.0,
+      }),
+      getNativeContractGridBots: async (mode, _isDemo, includeAllDirections) => {
+        ok(includeAllDirections === true, 'BTC monitor must request includeAllDirections=true');
+        if (mode === 'pending') {
+          return botClosed ? rawRunningBots.slice(1) : rawRunningBots;
+        }
+        return botClosed
+          ? [
+              {
+                ...rawRunningBots[0],
+                state: 'stopped',
+                cancelType: '2',
+                totalPnl: '5.10',
+                gridProfit: '5.10',
+                floatProfit: '0',
+                uTime: String(Date.now()),
+              },
+            ]
+          : [];
+      },
+      getNativeContractGridDetails: async (algoId) => {
+        if (algoId === 'BTC_SHORT_1' && botClosed) {
+          return {
+            ...rawRunningBots[0],
+            state: 'stopped',
+            cancelType: '2',
+            totalPnl: '5.10',
+            gridProfit: '5.10',
+            floatProfit: '0',
+            uTime: String(Date.now()),
+          };
+        }
+        return rawRunningBots.find((b) => b.algoId === algoId) || null;
+      },
+      // Guard: ensure no hidden write helpers exist on monitor port
+      ...({
+        placeOrder: async () => {
+          forbiddenCalls.push('placeOrder');
+        },
+        stopNativeContractGrid: async () => {
+          forbiddenCalls.push('stopNativeContractGrid');
+        },
+      } as any),
+    };
+
+    const messages: string[] = [];
+    const tgPort: BtcTelegramPort = {
+      isConfigured: () => true,
+      isNotificationsEnabled: () => true,
+      sendMessage: async (text) => {
+        messages.push(text);
+        return true;
+      },
+    };
+
+    const monitor = new BtcXPerpSignalMonitor(okxPort, { dataDir: dir, telegramPort: tgPort });
+    // Enforce default intervals (120s / 30s)
+    eq(monitor.getConfig().analysisIntervalSec, 120, 'default analysis interval is 120s');
+    eq(monitor.getConfig().botMonitorIntervalSec, 30, 'default bot monitor interval is 30s');
+
+    // Step 1: Sync initial bots + prepare valid recommendation while bot is running
+    const sync1 = await monitor.syncMonitoredBots();
+    eq(sync1.activeBots.length, 2, 'must track BOTH BTC SHORT and BTC NEUTRAL bots (and exclude ETH)');
+    eq(sync1.activeBots[0].tpMarginPct, 5, 'TP parsed as 5% of invested margin');
+    eq(sync1.activeBots[0].slMarginPct, 2.5, 'SL parsed as 2.5% of invested margin');
+    eq(sync1.activeBots[0].tpMarginUSD, 5, 'TP USD = 5% of $100 margin = $5');
+    eq(sync1.activeBots[0].slMarginUSD, 2.5, 'SL USD = 2.5% of $100 margin = $2.5');
+
+    const firstRec = await monitor.runMarketAnalysis('STARTUP');
+    ok(firstRec.minPx < livePx && livePx < firstRec.maxPx, 'initial recommendation covers live BTC price');
+    const msgsAfterStartup = messages.length;
+
+    // Step 2: Simulate confirmed closure of BTC_SHORT_1 (TP reached)
+    botClosed = true;
+    const sync2 = await monitor.syncMonitoredBots();
+    eq(sync2.newlyClosedBots.length, 1, 'must confirm closed bot on OKX');
+    eq(sync2.newlyClosedBots[0].algoId, 'BTC_SHORT_1', 'closed algoId matches BTC_SHORT_1');
+    eq(sync2.newlyClosedBots[0].closeReasonLabel, 'Take Profit atins (OKX)', 'detects TP close reason');
+    eq(sync2.activeBots.length, 1, 'remaining BTC_NEUTRAL_2 still active');
+
+    // Verify immediate closure alert + immediate next recommendation sent on Telegram
+    const postCloseMessages = messages.slice(msgsAfterStartup);
+    ok(
+      postCloseMessages.some((m) => m.includes('BOT BTC-USD UM X-PERP ÎNCHIS')),
+      'must send Telegram close notification'
+    );
+    ok(
+      postCloseMessages.some((m) => m.includes('RECOMANDARE IMEDIATĂ PENTRU URMĂTORUL BOT')),
+      'must immediately dispatch precomputed valid next recommendation upon closure'
+    );
+
+    // Verify signalHistory recorded fresh post-close BOT_CLOSED analysis
+    const statusAfterClose = monitor.getFullStatus();
+    ok(
+      statusAfterClose.signalHistory.some((h) => h.trigger === 'BOT_CLOSED'),
+      'must trigger fresh post-close analysis immediately'
+    );
+    eq(statusAfterClose.recentClosedBots.length, 1, 'recentClosedBots records BTC_SHORT_1');
+
+    // Step 3: Running another bot sync immediately must NOT send duplicate closure Telegram alerts
+    const msgsBeforeSync3 = messages.length;
+    await monitor.syncMonitoredBots();
+    eq(messages.length, msgsBeforeSync3, 'must deduplicate closure Telegram notifications');
+
+    // Step 4: Move BTC price outside recommended band -> must trigger invalidation alert once
+    const activeRec = monitor.getFullStatus().activeRecommendation!;
+    livePx = activeRec.maxPx + 250;
+    await monitor.syncMonitoredBots();
+    const afterOutOfRange = monitor.getFullStatus().activeRecommendation!;
+    eq(afterOutOfRange.riskStatus, 'INVALIDATED', 'recommendation must be marked INVALIDATED outside band');
+    ok(
+      messages.some((m) => m.includes('INVALIDARE SEMNAL BTC-USD UM X-PERP')),
+      'must send Telegram signal invalidation notification'
+    );
+
+    // Step 5: Persistence check across new monitor instance in same temp dir
+    const monitor2 = new BtcXPerpSignalMonitor(okxPort, { dataDir: dir, telegramPort: tgPort });
+    eq(monitor2.getFullStatus().recentClosedBots.length, 1, 'persisted closed bots survive restart');
+    eq(monitor2.getFullStatus().signalHistory.length >= 2, true, 'persisted signal history survives restart');
+    eq(forbiddenCalls.length, 0, 'zero write/order/stop calls executed');
+    eq(isBtcXPerpInstrument('BTC-USD_UM_XPERP-310530'), true, 'identifies dated BTC-USD UM X-PERP');
+    eq(isBtcXPerpInstrument('ETH-USD_UM_XPERP-310530'), false, 'rejects non-BTC contracts');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Runner
+// ---------------------------------------------------------------------------
+const run = async (): Promise<void> => {
+  let failed = 0;
+  for (const t of tests) {
+    try {
+      await t.fn();
+      console.log(`  ok    ${t.name}`);
+    } catch (err: any) {
+      failed++;
+      console.error(`  FAIL  ${t.name}`);
+      console.error(`        ${err?.message || err}`);
+    }
+  }
+  console.log(`\n${tests.length - failed}/${tests.length} btc-xperp-signal-monitor tests passed`);
+  if (failed > 0) process.exitCode = 1;
+};
+
+void run();

@@ -6,6 +6,7 @@ import {
   AnafEfficiencyStatus,
   AnafFiscalSettings,
   AnafMonthlySummary,
+  AnafNativeBotReconciliationItem,
   AnafTaxEfficiencyMetrics,
   AnafTaxSummary,
   AnafTransactionPageResponse,
@@ -77,6 +78,7 @@ export class AnafTaxEngine {
   private dataDir: string;
   private importedCsvFile: string;
   private syncedTransactionsFile: string;
+  private nativeBotsFile: string;
   private settingsFile: string;
   private nowFn: () => number;
   private rateLimitDelayMs: number;
@@ -113,6 +115,7 @@ export class AnafTaxEngine {
     this.rateLimitDelayMs = deps?.rateLimitDelayMs ?? 320;
     this.importedCsvFile = path.join(this.dataDir, 'imported_okx_transactions.json');
     this.syncedTransactionsFile = path.join(this.dataDir, 'okx_synced_transactions.json');
+    this.nativeBotsFile = path.join(this.dataDir, 'native_bots_reconciliation.json');
     this.settingsFile = path.join(this.dataDir, 'anaf_fiscal_settings.json');
     this.ensureDataDir();
     // Eagerly migrate any legacy v1 mixed cache cleanly on startup
@@ -573,6 +576,26 @@ export class AnafTaxEngine {
         fs.unlinkSync(this.importedCsvFile);
       }
     } catch {}
+  }
+
+  private loadPersistedNativeBots(): any[] {
+    try {
+      if (fs.existsSync(this.nativeBotsFile)) {
+        const raw = fs.readFileSync(this.nativeBotsFile, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  private savePersistedNativeBots(bots: any[]): void {
+    this.ensureDataDir();
+    try {
+      fs.writeFileSync(this.nativeBotsFile, JSON.stringify(bots, null, 2), 'utf8');
+    } catch (err: any) {
+      console.warn('[AnafTaxEngine] Failed to save native bots reconciliation cache:', err.message);
+    }
   }
 
   // ===========================================================================
@@ -1280,6 +1303,28 @@ export class AnafTaxEngine {
         if (archiveRes.error && !firstWarningError) firstWarningError = archiveRes.error;
       }
 
+      // 3. Also read OKX Native Contract Grid bots (ALL directions: LONG / SHORT / NEUTRAL) read-only
+      // so ANAF Fiscal reconciles BTC-USD UM X-PERP and other manual native bots alongside ledger bills.
+      if (typeof (this.okxAdapter as any).getNativeContractGridBots === 'function') {
+        const [pendingNative, historyNative] = await Promise.all([
+          (this.okxAdapter as any).getNativeContractGridBots('pending', false, true).catch(() => []),
+          (this.okxAdapter as any).getNativeContractGridBots('history', false, true).catch(() => []),
+        ]);
+        const mergedNativeMap = new Map<string, any>();
+        for (const prev of this.loadPersistedNativeBots()) {
+          if (prev?.algoId) mergedNativeMap.set(String(prev.algoId), prev);
+        }
+        for (const item of [...(pendingNative || []), ...(historyNative || [])]) {
+          if (item?.algoId) {
+            mergedNativeMap.set(String(item.algoId), item);
+          }
+        }
+        if (mergedNativeMap.size > 0) {
+          this.savePersistedNativeBots(Array.from(mergedNativeMap.values()));
+        }
+        endpointsUsed.push('/api/v5/tradingBot/grid/orders-algo-pending', '/api/v5/tradingBot/grid/orders-algo-history');
+      }
+
       const combined = Array.from(transactionsMap.values());
       const syncNow = this.nowFn();
       this.savePersistentSyncedTransactions(combined, {
@@ -1419,6 +1464,7 @@ export class AnafTaxEngine {
     persistentCount: number;
     apiCount: number;
     csvFallbackCount: number;
+    nativeBotsReconciliation: AnafNativeBotReconciliationItem[];
   } {
     const { startMs, endMs, bnrRate } = params;
     const persistent = this.getPersistentSyncedTransactions();
@@ -1428,6 +1474,7 @@ export class AnafTaxEngine {
     let earliestApiBillTs = 0;
     let apiCount = 0;
 
+    const apiBillList: AnafTransactionRecord[] = [];
     // 1. Canonical OKX Bills first
     for (const tx of persistent) {
       if (!this.isCanonicalBillRecord(tx)) continue;
@@ -1436,6 +1483,7 @@ export class AnafTaxEngine {
       if (clean.timestamp > 0 && (earliestApiBillTs === 0 || clean.timestamp < earliestApiBillTs)) {
         earliestApiBillTs = clean.timestamp;
       }
+      apiBillList.push(clean);
       if (clean.timestamp >= startMs && clean.timestamp <= endMs) {
         transactionsMap.set(clean.id, AnafTaxEngine.recalculateRecordForRate(clean, bnrRate));
         apiCount++;
@@ -1462,12 +1510,106 @@ export class AnafTaxEngine {
       }
     }
 
+    // 3. Reconcile OKX Native Contract Grid bots (LONG / SHORT / NEUTRAL) read-only.
+    // Zero double-counting: if canonical OKX_BILL records exist for the same contract within
+    // the bot's active window [cTime - 60s, uTime + 120s], we mark coveredByBills=true and do NOT
+    // emit a fallback transaction. Only closed bots lacking canonical bills inject a fallback row.
+    const normalizeInstPrefix = (inst: string) =>
+      String(inst || '').toUpperCase().replace(/-\d{6}$/, '');
+
+    const persistedNativeBots = this.loadPersistedNativeBots();
+    const nativeBotsReconciliation: AnafNativeBotReconciliationItem[] = [];
+    for (const rawBot of persistedNativeBots) {
+      const algoId = String(rawBot?.algoId || '').trim();
+      const instId = String(rawBot?.instId || '').trim();
+      if (!algoId || !instId) continue;
+
+      const rawDir = String(rawBot?.direction || 'neutral').toLowerCase();
+      const direction: 'long' | 'short' | 'neutral' =
+        rawDir === 'long' ? 'long' : rawDir === 'short' ? 'short' : 'neutral';
+      const state = String(rawBot?.state || 'stopped').toLowerCase();
+      const investedMarginUSD = parseFloat(rawBot?.investment || rawBot?.sz || '0') || 0;
+      const gridProfitUSD = parseFloat(rawBot?.gridProfit || '0') || 0;
+      const floatProfitUSD = parseFloat(rawBot?.floatProfit || '0') || 0;
+      const totalPnlUSD =
+        rawBot?.totalPnl !== undefined && rawBot?.totalPnl !== ''
+          ? parseFloat(rawBot.totalPnl) || 0
+          : gridProfitUSD + floatProfitUSD;
+      const cTime = parseInt(rawBot?.cTime || '0', 10) || 0;
+      const uTime = parseInt(rawBot?.uTime || String(cTime || this.nowFn()), 10) || this.nowFn();
+
+      const botPrefix = normalizeInstPrefix(instId);
+      const windowEnd = state === 'running' || state === 'stopping' ? Math.max(uTime, this.nowFn()) : uTime + 120_000;
+      const windowStart = cTime > 0 ? cTime - 60_000 : uTime - 3600_000;
+
+      const coveredByBills = apiBillList.some((bill) => {
+        const billPrefix = normalizeInstPrefix(bill.symbol);
+        if (billPrefix !== botPrefix && bill.symbol !== instId) return false;
+        return bill.timestamp >= windowStart && bill.timestamp <= windowEnd;
+      });
+
+      const isClosed = state === 'stopped' || state === 'no_close_position';
+      const inReportRange = uTime >= startMs && uTime <= endMs;
+      let fallbackIncluded = false;
+
+      if (!coveredByBills && isClosed && inReportRange && Math.abs(totalPnlUSD) > 1e-6) {
+        const fallbackId = `OKX_NATIVE_BOT_${algoId}`;
+        if (!transactionsMap.has(fallbackId)) {
+          const fallbackRec = AnafTaxEngine.recalculateRecordForRate(
+            {
+              id: fallbackId,
+              source: 'OKX_API',
+              timestamp: uTime,
+              dateFormatted: new Date(uTime).toISOString().replace('T', ' ').slice(0, 19),
+              symbol: instId,
+              side: direction === 'short' ? 'SELL' : 'BUY',
+              closeType: totalPnlUSD > 0 ? 'OKX_NATIVE_BOT_PROFIT' : 'OKX_NATIVE_BOT_LOSS',
+              pnlUSD: parseFloat(totalPnlUSD.toFixed(4)),
+              feeUSD: 0,
+              notionalUSD: parseFloat(investedMarginUSD.toFixed(2)),
+              bnrRate,
+              pnlRON: 0,
+              feeRON: 0,
+              isProfit: false,
+              grossGainRON: 0,
+              deductibleFeeRON: 0,
+              netTaxableGainRON: 0,
+              rawOrderId: algoId,
+            },
+            bnrRate
+          );
+          transactionsMap.set(fallbackId, fallbackRec);
+          fallbackIncluded = true;
+        }
+      }
+
+      if ((uTime >= startMs && uTime <= endMs) || !isClosed) {
+        nativeBotsReconciliation.push({
+          algoId,
+          instId,
+          direction,
+          state,
+          investedMarginUSD: parseFloat(investedMarginUSD.toFixed(2)),
+          totalPnlUSD: parseFloat(totalPnlUSD.toFixed(4)),
+          gridProfitUSD: parseFloat(gridProfitUSD.toFixed(4)),
+          floatProfitUSD: parseFloat(floatProfitUSD.toFixed(4)),
+          cTime,
+          uTime,
+          coveredByBills,
+          fallbackIncluded,
+        });
+      }
+    }
+
+    nativeBotsReconciliation.sort((a, b) => b.uTime - a.uTime);
+
     const transactions = Array.from(transactionsMap.values()).sort((a, b) => b.timestamp - a.timestamp);
     return {
       transactions,
       persistentCount: persistent.length,
       apiCount,
       csvFallbackCount,
+      nativeBotsReconciliation,
     };
   }
 
@@ -1895,6 +2037,7 @@ export class AnafTaxEngine {
         hasOkxCredentials: this.okxAdapter.hasCredentials(),
       },
       persistentCacheCount: merged.persistentCount,
+      nativeBotsReconciliation: merged.nativeBotsReconciliation,
       transactions: includeTransactions ? allTransactions : [],
     };
   }

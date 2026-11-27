@@ -514,6 +514,92 @@ test('efficiency & pagination: detects TAX_EXCEEDS_GAIN and LOSS_WITH_TAX and pa
 });
 
 // ---------------------------------------------------------------------------
+// 6. Native OKX LONG/SHORT/NEUTRAL bot reconciliation (zero double-counting)
+// ---------------------------------------------------------------------------
+test('native bots: reconciles LONG/SHORT/NEUTRAL BTC bots without double-counting canonical OKX bills', async () => {
+  const dir = makeTempDir();
+  try {
+    const bot1Create = Date.UTC(2026, 10, 10, 10, 0, 0);
+    const bot1Close = Date.UTC(2026, 10, 10, 14, 0, 0);
+    const bot2Create = Date.UTC(2026, 10, 15, 10, 0, 0);
+    const bot2Close = Date.UTC(2026, 10, 15, 15, 0, 0);
+
+    const adapter = {
+      hasCredentials: () => true,
+      getCachedCtVal: () => 1,
+      requestPrivate: async (_method: string, reqPath: string) => {
+        if (reqPath.includes('/api/v5/account/bills') && reqPath.includes('instType=FUTURES') && !reqPath.includes('after=')) {
+          return {
+            code: '0',
+            data: [
+              {
+                billId: 'BILL_BOT1',
+                instId: 'BTC-USD_UM_XPERP-310530',
+                ts: String(bot1Close - 10_000),
+                pnl: '12.50',
+                fee: '-0.50',
+                px: '90000',
+                sz: '1',
+                type: '2',
+                subType: '2',
+              },
+            ],
+          };
+        }
+        return { code: '0', data: [] };
+      },
+      getNativeContractGridBots: async (mode: string) => {
+        if (mode !== 'history') return [];
+        return [
+          {
+            algoId: 'NATIVE_LONG_COVERED',
+            instId: 'BTC-USD_UM_XPERP-310530',
+            direction: 'long',
+            state: 'stopped',
+            investment: '100',
+            totalPnl: '12.50',
+            gridProfit: '12.50',
+            floatProfit: '0',
+            cTime: String(bot1Create),
+            uTime: String(bot1Close),
+          },
+          {
+            algoId: 'NATIVE_SHORT_FALLBACK',
+            instId: 'BTC-USD_UM_XPERP-310530',
+            direction: 'short',
+            state: 'stopped',
+            investment: '200',
+            totalPnl: '8.00',
+            gridProfit: '8.00',
+            floatProfit: '0',
+            cTime: String(bot2Create),
+            uTime: String(bot2Close),
+          },
+        ];
+      },
+    } as unknown as OKXAdapter;
+
+    const engine = new AnafTaxEngine(adapter, dir, { nowFn: () => NOW_2026_11_21, rateLimitDelayMs: 0 });
+    const summary = await engine.computeTaxReport({
+      fiscalYear: 2026,
+      forceSyncOkxApi: true,
+      customUsdRonRate: 5.0,
+      nowMs: NOW_2026_11_21,
+    });
+
+    const recon = summary.nativeBotsReconciliation || [];
+    eq(recon.length, 2, 'must reconcile both LONG and SHORT native bots');
+    const longItem = recon.find((r) => r.algoId === 'NATIVE_LONG_COVERED');
+    const shortItem = recon.find((r) => r.algoId === 'NATIVE_SHORT_FALLBACK');
+    ok(longItem && longItem.coveredByBills && !longItem.fallbackIncluded, 'bot covered by OKX bill must NOT inject duplicate');
+    ok(shortItem && !shortItem.coveredByBills && shortItem.fallbackIncluded, 'closed bot lacking bills must include fallback');
+    near(summary.symmetric.totalProfitUSD, 20.5, 1e-4, 'total profit must equal 12.50 (bill) + 8.00 (fallback) = 20.50');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 const run = async (): Promise<void> => {

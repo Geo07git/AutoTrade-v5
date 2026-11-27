@@ -923,6 +923,7 @@ export interface BotStatusResponse {
   nativeGridAutopilot?: NativeGridAutopilotConfig;
   gridAnalyzer?: GridAnalyzerStatusSummary;
   deepSeekAgent?: Omit<DeepSeekAgentStatus, 'decisions'>;
+  btcSignals?: BtcSignalsStatusSummary;
   gridBots?: GridBotInstance[];
   recentArbitrages?: GridArbitrageEvent[];
   gridCandidates?: GridCandidateAnalysis[];
@@ -1522,5 +1523,242 @@ export interface AnafTaxSummary {
 
   persistentCacheCount: number;
 
+  nativeBotsReconciliation?: AnafNativeBotReconciliationItem[];
+
   transactions: AnafTransactionRecord[];
 }
+
+export interface AnafNativeBotReconciliationItem {
+  algoId: string;
+  instId: string;
+  direction: 'long' | 'short' | 'neutral';
+  state: string;
+  investedMarginUSD: number;
+  totalPnlUSD: number;
+  gridProfitUSD: number;
+  floatProfitUSD: number;
+  cTime: number;
+  uTime: number;
+  coveredByBills: boolean;
+  fallbackIncluded: boolean;
+}
+
+// =============================================================================
+// BTC-USD UM X-PERP SIGNAL & READ-ONLY GRID MONITOR
+// =============================================================================
+
+export type BtcGridDirection = 'LONG' | 'SHORT';
+export type BtcMonitoredBotDirection = 'long' | 'short' | 'neutral';
+export type BtcProbabilityStatus = 'CALIBRATED' | 'INSUFFICIENT_DATA';
+export type BtcSignalRiskStatus = 'VALID' | 'HIGH_RISK' | 'INVALIDATED' | 'INSUFFICIENT_DATA';
+
+export interface BtcIndicatorContribution {
+  key: string;
+  label: string;
+  valueText: string;
+  favoredDirection: BtcGridDirection | 'NEUTRAL';
+  longWeight: number;
+  shortWeight: number;
+  detail: string;
+}
+
+export interface BtcSupportResistanceLevel {
+  price: number;
+  type: 'SUPPORT' | 'RESISTANCE';
+  distancePct: number;
+  touchCount: number;
+  strengthScore: number;
+}
+
+export interface BtcMarketIndicatorsSnapshot {
+  instId: string;
+  currentPrice: number;
+  priceChange24hPct: number;
+  high24h: number;
+  low24h: number;
+  volume24hUSD: number;
+  ema20_1h: number;
+  ema50_1h: number;
+  ema20_4h: number;
+  ema50_4h: number;
+  structure1h: 'BULLISH_HH_HL' | 'BEARISH_LH_LL' | 'RANGE';
+  structure4h: 'BULLISH_HH_HL' | 'BEARISH_LH_LL' | 'RANGE';
+  adx15m: number | null;
+  adx1h: number | null;
+  plusDi1h: number | null;
+  minusDi1h: number | null;
+  choppiness1h: number | null;
+  efficiencyRatio1h: number | null;
+  rsi15m: number | null;
+  rsi1h: number | null;
+  atr15mUSD: number;
+  atr15mPct: number;
+  atr1hUSD: number;
+  atr1hPct: number;
+  volumeRatio1h: number;
+  volumeBuyPressurePct: number;
+  fundingRatePct: number;
+  nextFundingRatePct: number;
+  openInterestUSD: number;
+  orderBookImbalance: number;
+  orderBookDepthUSD: number;
+  spreadBps: number;
+  nearestSupport: BtcSupportResistanceLevel | null;
+  nearestResistance: BtcSupportResistanceLevel | null;
+  supportResistanceLevels: BtcSupportResistanceLevel[];
+  candles15mCount: number;
+  candles1hCount: number;
+  candles4hCount: number;
+}
+
+export interface BtcHistoricalCalibrationResult {
+  status: BtcProbabilityStatus;
+  longProbabilityPct: number | null;
+  shortProbabilityPct: number | null;
+  longSampleCount: number;
+  longWinCount: number;
+  longEmpiricalWinRatePct: number | null;
+  shortSampleCount: number;
+  shortWinCount: number;
+  shortEmpiricalWinRatePct: number | null;
+  totalEvaluatedBars: number;
+  minRequiredSamples: number;
+  note: string;
+}
+
+export interface BtcSignalRecommendation {
+  id: string;
+  instId: string;
+  displayInstrument: 'BTC-USD UM X-PERP';
+  botType: 'OKX Native Futures Grid';
+  direction: BtcGridDirection;
+  preferredAlternationFrom?: BtcGridDirection | null;
+  currentPrice: number;
+  minPx: number;
+  maxPx: number;
+  rangeSpanUSD: 1000;
+  gridNum: 10;
+  gridStepUSD: 100;
+  tpMarginPct: 5;
+  slMarginPct: 2.5;
+  tpSlBasis: 'INVESTED_MARGIN';
+  probabilityStatus: BtcProbabilityStatus;
+  longProbabilityPct: number | null;
+  shortProbabilityPct: number | null;
+  chosenDirectionProbabilityPct: number | null;
+  probabilityEdgePct: number | null;
+  riskStatus: BtcSignalRiskStatus;
+  riskReasons: string[];
+  arguments: string[];
+  contributions: BtcIndicatorContribution[];
+  calibration: BtcHistoricalCalibrationResult;
+  indicators: BtcMarketIndicatorsSnapshot;
+  issuedAt: number;
+  validUntil: number;
+  invalidatedAt?: number;
+  invalidatedReason?: string;
+}
+
+export interface BtcMonitoredBot {
+  algoId: string;
+  instId: string;
+  direction: BtcMonitoredBotDirection;
+  state: 'running' | 'stopping' | 'stopped' | 'no_close_position';
+  closeReasonLabel?: string;
+  cancelType?: string;
+  currentPx: number;
+  minPx: number;
+  maxPx: number;
+  gridNum: number;
+  lever: number;
+  investedMarginUSD: number;
+  tpRatio?: number;
+  slRatio?: number;
+  tpMarginPct?: number;
+  slMarginPct?: number;
+  tpMarginUSD?: number;
+  slMarginUSD?: number;
+  tpTriggerPx?: number;
+  slTriggerPx?: number;
+  gridProfitUSD: number;
+  floatProfitUSD: number;
+  totalPnlUSD: number;
+  totalPnlPct: number;
+  arbitrageNum: number;
+  bandPositionPct: number | null;
+  tpProgressPct: number | null;
+  slProgressPct: number | null;
+  cTime: number;
+  uTime: number;
+  confirmedClosedAt?: number;
+}
+
+export interface BtcTelegramPreferences {
+  onLongOpportunity: boolean;
+  onShortOpportunity: boolean;
+  onBotClosed: boolean;
+  onNextRecommendation: boolean;
+  onSignalInvalidated: boolean;
+}
+
+export interface BtcSignalsConfig {
+  enabled: boolean;
+  analysisIntervalSec: number;
+  botMonitorIntervalSec: number;
+  minProbabilityEdgePct: number;
+  signalValidityMinutes: number;
+  telegramPreferences: BtcTelegramPreferences;
+}
+
+export interface BtcSignalHistoryEntry {
+  id: string;
+  issuedAt: number;
+  direction: BtcGridDirection;
+  instId: string;
+  priceAtSignal: number;
+  minPx: number;
+  maxPx: number;
+  probabilityStatus: BtcProbabilityStatus;
+  chosenProbabilityPct: number | null;
+  longProbabilityPct: number | null;
+  shortProbabilityPct: number | null;
+  riskStatus: BtcSignalRiskStatus;
+  trigger: 'STARTUP' | 'SCHEDULE' | 'BOT_CLOSED' | 'MANUAL';
+  telegramSent: boolean;
+  invalidatedAt?: number;
+  invalidatedReason?: string;
+}
+
+export interface BtcSignalsStatusSummary {
+  enabled: boolean;
+  instId: string;
+  currentPrice: number;
+  recommendedDirection: BtcGridDirection | null;
+  probabilityStatus: BtcProbabilityStatus;
+  longProbabilityPct: number | null;
+  shortProbabilityPct: number | null;
+  riskStatus: BtcSignalRiskStatus;
+  activeBotsCount: number;
+  lastAnalysisAt: number;
+  lastBotSyncAt: number;
+}
+
+export interface BtcSignalsFullStatus {
+  config: BtcSignalsConfig;
+  readOnlyGuaranteed: true;
+  instId: string;
+  currentPrice: number;
+  isAnalyzing: boolean;
+  isSyncingBots: boolean;
+  lastAnalysisAt: number;
+  lastBotSyncAt: number;
+  lastAnalysisError?: string;
+  lastBotSyncError?: string;
+  activeRecommendation: BtcSignalRecommendation | null;
+  activeBots: BtcMonitoredBot[];
+  recentClosedBots: BtcMonitoredBot[];
+  signalHistory: BtcSignalHistoryEntry[];
+  telegramConfigured: boolean;
+  telegramNotificationsEnabled: boolean;
+}
+

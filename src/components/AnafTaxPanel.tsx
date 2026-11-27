@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AnafCoverageStatus,
   AnafMonthlySummary,
+  AnafNativeBotReconciliationItem,
   AnafTaxEfficiencyMetrics,
   AnafTaxSummary,
   AnafTransactionPageResponse,
@@ -728,6 +729,10 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
             </span>
             <span aria-hidden="true">·</span>
             <span>
+              Boți nativi OKX citiți: <strong className="text-emerald-300">{report?.nativeBotsReconciliation?.length || 0}</strong> (LONG/SHORT/NEUTRAL)
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
               Curs activ: <strong className="text-cyan-300">{report ? `${report.usdRonRate.toFixed(4)} RON` : '—'}</strong> ({report?.ratesSource || 'BNR'})
             </span>
           </div>
@@ -1085,6 +1090,79 @@ export const AnafTaxPanel: React.FC<AnafTaxPanelProps> = ({ controlToken, onNoti
           </div>
         )}
       </section>
+
+      {/* =================================================================== */}
+      {/* 3B. RECONCILIERE BOȚI NATIVI OKX GRID (LONG / SHORT / NEUTRAL)      */}
+      {/* =================================================================== */}
+      {report && report.nativeBotsReconciliation && report.nativeBotsReconciliation.length > 0 && (
+        <section className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan-400" />
+                <span>Reconciliere Boți Nativi OKX Futures Grid (LONG / SHORT / NEUTRAL)</span>
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Include boții BTC-USD UM X-PERP și ceilalți boți nativi deschiși manual pe OKX. Dacă există deja înregistrări <code className="text-zinc-300">OKX_BILL</code> în fereastra botului, acestea au prioritate contabilă fără dublare.
+              </p>
+            </div>
+            <span className="text-[11px] text-zinc-400 tabular-nums">
+              {report.nativeBotsReconciliation.length} boți reconciliați
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs tabular-nums">
+              <thead>
+                <tr className="border-b border-zinc-800 text-zinc-400 text-[11px]">
+                  <th className="py-2 px-2">Algo ID</th>
+                  <th className="py-2 px-2">Instrument</th>
+                  <th className="py-2 px-2">Direcție</th>
+                  <th className="py-2 px-2">Status</th>
+                  <th className="py-2 px-2 text-right">Margin</th>
+                  <th className="py-2 px-2 text-right">PnL Total</th>
+                  <th className="py-2 px-2 text-right">Acoperire ANAF</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-900">
+                {report.nativeBotsReconciliation.map((nb: AnafNativeBotReconciliationItem) => (
+                  <tr key={nb.algoId} className="hover:bg-zinc-900/50">
+                    <td className="py-2 px-2 font-mono text-[11px] text-zinc-400">{nb.algoId}</td>
+                    <td className="py-2 px-2 font-semibold text-white whitespace-nowrap">{nb.instId}</td>
+                    <td className="py-2 px-2 font-bold uppercase whitespace-nowrap">
+                      <span
+                        className={
+                          nb.direction === 'long'
+                            ? 'text-emerald-400'
+                            : nb.direction === 'short'
+                            ? 'text-rose-400'
+                            : 'text-cyan-300'
+                        }
+                      >
+                        {nb.direction}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-zinc-300 uppercase text-[11px]">{nb.state}</td>
+                    <td className="py-2 px-2 text-right text-zinc-200">${nb.investedMarginUSD.toFixed(2)}</td>
+                    <td className={`py-2 px-2 text-right font-bold ${nb.totalPnlUSD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {nb.totalPnlUSD >= 0 ? '+' : ''}${nb.totalPnlUSD.toFixed(2)}
+                    </td>
+                    <td className="py-2 px-2 text-right text-[11px]">
+                      {nb.coveredByBills ? (
+                        <span className="text-emerald-300 font-semibold">Inclus prin Bills OKX</span>
+                      ) : nb.fallbackIncluded ? (
+                        <span className="text-amber-300 font-semibold">Inclus Fallback Natív</span>
+                      ) : (
+                        <span className="text-zinc-500">Activ / PnL 0</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* =================================================================== */}
       {/* 4. JURNAL DETALIAT LA CERERE (PAGINAT PE BACKEND PENTRU AUDIT)      */}

@@ -17,6 +17,8 @@ import {
   NativeGridAutopilotConfig,
   OKXFeeTierInfo,
   AnafTaxSummary,
+  BtcSignalsConfig,
+  BtcSignalsFullStatus,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { OKXAdapter } from '../exchange/OKXAdapter';
@@ -24,6 +26,7 @@ import { PaperExecutionAdapter } from '../exchange/PaperExecutionAdapter';
 import { NeutralGridEngine } from '../engine/grid/NeutralGridEngine';
 import { OKXNativeGridEngine } from '../engine/grid/OKXNativeGridEngine';
 import { GridBotAnalyzer } from '../engine/grid/GridBotAnalyzer';
+import { BtcXPerpSignalMonitor } from '../engine/grid/BtcXPerpSignalMonitor';
 import { NeutralGridAnalyzer } from '../engine/grid/NeutralGridAnalyzer';
 import { GridOptimizer } from '../engine/grid/GridOptimizer';
 import { GridJournal } from '../engine/grid/GridJournal';
@@ -157,6 +160,7 @@ export class TradeBot {
   private anafTaxEngine: AnafTaxEngine;
   private deepSeekAgent: DeepSeekAgent;
   private researchCoordinator: ResearchCoordinator;
+  private btcSignalMonitor: BtcXPerpSignalMonitor;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -347,6 +351,27 @@ export class TradeBot {
     );
     this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
     this.researchCoordinator = new ResearchCoordinator(this.okxAdapter);
+    // Dedicated, strictly read-only BTC-USD UM X-PERP monitor & signal advisor.
+    // Receives a narrow read-only OKX facade; zero order/stop/amend paths exist here.
+    this.btcSignalMonitor = new BtcXPerpSignalMonitor(
+      {
+        hasCredentials: () => this.okxAdapter.hasCredentials(),
+        isCredentialsPermanentlyFailed: () => this.okxAdapter.isCredentialsPermanentlyFailed(),
+        resolveLiveInstrumentId: (symbol: string) => this.okxAdapter.resolveLiveInstrumentId(symbol),
+        getKlines: (symbol: string, interval: string, limit?: number) =>
+          this.okxAdapter.getKlines(symbol, interval, limit),
+        getTickerPrice: (symbol: string) => this.okxAdapter.getTickerPrice(symbol),
+        fetchMarketIntelligenceExtras: (instId: string) =>
+          this.okxAdapter.fetchMarketIntelligenceExtras(instId),
+        getNativeContractGridBots: (mode, isDemo, includeAllDirections) =>
+          this.okxAdapter.getNativeContractGridBots(mode, isDemo, includeAllDirections),
+        getNativeContractGridDetails: (algoId: string, isDemo?: boolean) =>
+          this.okxAdapter.getNativeContractGridDetails(algoId, isDemo),
+      },
+      {
+        telegramPort: telegramService,
+      }
+    );
 
     // DeepSeek autonomous agent — decision layer on top of the OKX native grid engine.
     // It never switches execution mode, never touches the kill switch and never trades outside
@@ -1910,6 +1935,7 @@ export class TradeBot {
         nativeGridAutopilot,
         gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
         deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
+        btcSignals: this.btcSignalMonitor.getStatusSummary(),
         gridBots: this.gridEngine.getVisibleBots(),
         recentArbitrages: this.journal.getArbitrages(100),
         gridCandidates: this.gridCandidates,
@@ -1996,6 +2022,7 @@ export class TradeBot {
       nativeGridAutopilot,
       gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
       deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
+      btcSignals: this.btcSignalMonitor.getStatusSummary(),
       gridBots: this.gridEngine.getVisibleBots(),
       recentArbitrages: this.journal.getArbitrages(100),
       gridCandidates: this.gridCandidates,
@@ -2573,6 +2600,9 @@ export class TradeBot {
     if (this.deepSeekAgent.getConfig().mode !== 'OFF') {
       this.deepSeekAgent.startLoop();
     }
+
+    // BTC-USD UM X-PERP Read-Only Signal & Grid Monitor (120s analysis, 30s bot sync, immediate startup analysis)
+    this.btcSignalMonitor.start();
   }
 
   // Compatibility helpers for server routes
@@ -2621,6 +2651,50 @@ export class TradeBot {
 
   public getAnafTaxEngine(): AnafTaxEngine {
     return this.anafTaxEngine;
+  }
+
+  public getBtcSignalsFullStatus(): BtcSignalsFullStatus {
+    return this.btcSignalMonitor.getFullStatus();
+  }
+
+  public async syncBtcSignalsBots(): Promise<BtcSignalsFullStatus> {
+    await this.btcSignalMonitor.syncMonitoredBots();
+    return this.btcSignalMonitor.getFullStatus();
+  }
+
+  public updateBtcSignalsConfig(
+    updates: Partial<BtcSignalsConfig>
+  ): { success: boolean; config: BtcSignalsConfig; status: BtcSignalsFullStatus } {
+    const config = this.btcSignalMonitor.updateConfig(updates || {});
+    return {
+      success: true,
+      config,
+      status: this.btcSignalMonitor.getFullStatus(),
+    };
+  }
+
+  public async runBtcSignalsAnalysisNow(): Promise<{
+    success: boolean;
+    status: BtcSignalsFullStatus;
+  }> {
+    await this.btcSignalMonitor.syncMonitoredBots().catch(() => {});
+    await this.btcSignalMonitor.runMarketAnalysis('MANUAL');
+    return {
+      success: true,
+      status: this.btcSignalMonitor.getFullStatus(),
+    };
+  }
+
+  public async sendBtcSignalToTelegramNow(): Promise<{
+    success: boolean;
+    error?: string;
+    status: BtcSignalsFullStatus;
+  }> {
+    const res = await this.btcSignalMonitor.sendCurrentRecommendationToTelegram();
+    return {
+      ...res,
+      status: this.btcSignalMonitor.getFullStatus(),
+    };
   }
 }
 

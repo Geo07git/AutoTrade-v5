@@ -51,6 +51,7 @@ import { AnafTaxPanel } from './AnafTaxPanel';
 import { HistoricalGridResearchPanel, ApplyToGridParams } from './HistoricalGridResearchPanel';
 import { DeepSeekAgentPanel } from './DeepSeekAgentPanel';
 import { DeepSeekApiKeyCard } from './DeepSeekApiKeyCard';
+import { BtcXPerpSignalsPanel } from './BtcXPerpSignalsPanel';
 
 interface BloombergTerminalProps {
   status: BotStatusResponse | null;
@@ -136,6 +137,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   onDismissAlert,
 }) => {
   const [activeTab, setActiveTab] = useState<
+    | 'BTC_SIGNALS'
     | 'DASHBOARD'
     | 'NATIVE_GRID'
     | 'CONFIG'
@@ -146,7 +148,7 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     | 'ANAF_TAX'
     | 'RESEARCH'
     | 'AI_AGENT'
-  >('NATIVE_GRID');
+  >('BTC_SIGNALS');
   const [mobileDashView, setMobileDashView] = useState<'BOTS' | 'LAUNCH'>('BOTS');
   const [showFeeCalculatorModal, setShowFeeCalculatorModal] = useState<boolean>(false);
 
@@ -1478,8 +1480,25 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       <nav className="hidden lg:flex bg-zinc-950 border-b border-amber-500/30 px-3 py-1 items-center justify-between gap-2 overflow-x-auto shrink-0">
         <div className="flex items-center space-x-1.5">
           <button
+            onClick={() => setActiveTab('BTC_SIGNALS')}
+            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+              activeTab === 'BTC_SIGNALS'
+                ? 'bg-amber-400 text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]'
+                : 'bg-black text-amber-300 border border-amber-500/40 hover:bg-zinc-900'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>
+              BTC X-PERP Signals
+              {status?.btcSignals?.recommendedDirection
+                ? ` (${status.btcSignals.recommendedDirection})`
+                : ''}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('NATIVE_GRID')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
               activeTab === 'NATIVE_GRID'
                 ? 'bg-cyan-400 text-black shadow-[0_0_10px_rgba(34,211,238,0.4)]'
                 : 'bg-black text-cyan-300 border border-cyan-500/40 hover:bg-zinc-900'
@@ -3818,6 +3837,17 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         )}
 
         {/* ================================================================= */}
+        {/* TAB PRINCIPAL DEFAULT: BTC X-PERP SIGNAL & READ-ONLY GRID MONITOR */}
+        {/* ================================================================= */}
+        {activeTab === 'BTC_SIGNALS' && (
+          <BtcXPerpSignalsPanel
+            controlToken={controlToken}
+            onNotify={(banner) => setLocalBanner(banner)}
+            onRefreshParent={onRefresh}
+          />
+        )}
+
+        {/* ================================================================= */}
         {/* TAB 1 PRINCIPAL: OKX NATIVE & AUTO-LIMIT FUTURES GRID             */}
         {/* ================================================================= */}
         {activeTab === 'NATIVE_GRID' && (
@@ -4264,8 +4294,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       <nav
         aria-label="Navigare mobilă"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-8 gap-0.5 px-1 py-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-amber-500/40 grid grid-cols-9 gap-0.5 px-1 py-1"
       >
+        <button
+          type="button"
+          onClick={() => setActiveTab('BTC_SIGNALS')}
+          className={`flex flex-col items-center justify-center min-h-[44px] rounded text-[10px] font-bold transition-colors ${
+            activeTab === 'BTC_SIGNALS'
+              ? 'bg-amber-400 text-black'
+              : 'text-amber-300 hover:bg-zinc-900'
+          }`}
+        >
+          <Activity className="w-4 h-4 mb-0.5" />
+          <span>BTC</span>
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('NATIVE_GRID')}
