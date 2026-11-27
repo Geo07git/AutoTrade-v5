@@ -81,6 +81,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   const [isSendingTelegram, setIsSendingTelegram] = useState<boolean>(false);
   const [historyTab, setHistoryTab] = useState<'SIGNALS' | 'BOTS'>('SIGNALS');
   const [copiedParams, setCopiedParams] = useState<boolean>(false);
+  const [manualAlgoIdInput, setManualAlgoIdInput] = useState<string>('');
 
   const fetchStatus = useCallback(async (syncBots = false) => {
     if (syncBots) setIsSyncingBots(true);
@@ -99,7 +100,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   }, []);
 
   useEffect(() => {
-    void fetchStatus(false);
+    void fetchStatus(true);
     const interval = setInterval(() => {
       void fetchStatus(false);
     }, 10_000);
@@ -146,6 +147,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   const handleUpdateConfig = async (patch: {
     enabled?: boolean;
     analysisIntervalSec?: number;
+    trackedAlgoIds?: string[];
     telegramPreferences?: Partial<BtcTelegramPreferences>;
   }) => {
     setIsSavingConfig(true);
@@ -171,6 +173,26 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
     } finally {
       setIsSavingConfig(false);
     }
+  };
+
+  const handleTrackManualAlgoId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = manualAlgoIdInput.trim();
+    if (!/^\d{4,32}$/.test(clean)) {
+      onNotify({ type: 'error', text: 'Introdu un Bot ID numeric valid din OKX (ex: 4137268713223610368).' });
+      return;
+    }
+    const existing = status?.config?.trackedAlgoIds || [];
+    const nextIds = existing.includes(clean) ? existing : [...existing, clean].slice(-10);
+    await handleUpdateConfig({ trackedAlgoIds: nextIds });
+    setManualAlgoIdInput('');
+    await fetchStatus(true);
+  };
+
+  const handleRemoveTrackedAlgoId = async (algoId: string) => {
+    const existing = status?.config?.trackedAlgoIds || [];
+    await handleUpdateConfig({ trackedAlgoIds: existing.filter((id) => id !== algoId) });
+    await fetchStatus(true);
   };
 
   const handleSendTelegramNow = async () => {
@@ -607,10 +629,51 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
               Detectează automat orice bot BTC-USD UM X-PERP creat manual în OKX (LONG, SHORT sau NEUTRAL) la fiecare 30s. Nicio comandă de modificare sau oprire nu este disponibilă aici.
             </p>
           </div>
-          <span className="text-xs font-mono font-bold text-cyan-300 tabular-nums">
-            {activeBots.length} {activeBots.length === 1 ? 'bot activ' : 'boți activi'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <form onSubmit={(e) => void handleTrackManualAlgoId(e)} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={manualAlgoIdInput}
+                onChange={(e) => setManualAlgoIdInput(e.target.value)}
+                placeholder="Pin Bot ID OKX (read-only)"
+                aria-label="Pin Bot ID OKX read-only"
+                className="bg-black border border-zinc-700 rounded px-2 py-1 text-[11px] font-mono text-white w-44 focus:outline-none focus:border-cyan-400"
+              />
+              <button
+                type="submit"
+                disabled={isSavingConfig || isSyncingBots}
+                className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-cyan-500/40 text-cyan-300 text-[11px] font-bold cursor-pointer whitespace-nowrap"
+              >
+                + Urmărește ID
+              </button>
+            </form>
+            <span className="text-xs font-mono font-bold text-cyan-300 tabular-nums">
+              {activeBots.length} {activeBots.length === 1 ? 'bot activ' : 'boți activi'}
+            </span>
+          </div>
         </div>
+
+        {(cfg?.trackedAlgoIds?.length || 0) > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-400">
+            <span>Bot ID-uri urmărite direct:</span>
+            {(cfg?.trackedAlgoIds || []).map((tid) => (
+              <span
+                key={tid}
+                className="inline-flex items-center gap-1.5 bg-black border border-zinc-700 rounded px-2 py-0.5 font-mono text-zinc-200"
+              >
+                <span>#{tid}</span>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveTrackedAlgoId(tid)}
+                  className="text-zinc-400 hover:text-rose-400 font-bold cursor-pointer"
+                  title="Elimină din urmărirea manuală"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {activeBots.length === 0 ? (
           <div className="bg-black border border-zinc-800 rounded p-5 text-center text-xs text-zinc-400 space-y-1">
@@ -618,7 +681,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
               Niciun bot activ detectat momentan pe BTC-USD UM X-PERP.
             </p>
             <p>
-              Analiza de piață continuă automat la fiecare {cfg?.analysisIntervalSec || 120}s pentru a menține pregătită următoarea recomandare.
+              Analiza de piață continuă automat la fiecare {cfg?.analysisIntervalSec || 120}s pentru a menține pregătită următoarea recomandare. Poți fixa un Bot ID OKX în câmpul „Pin Bot ID OKX” pentru verificare directă read-only.
             </p>
           </div>
         ) : (
@@ -627,12 +690,12 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400 text-[11px]">
                   <th className="py-2 px-2">Bot / Direcție / Status</th>
-                  <th className="py-2 px-2 text-right">Preț Curent</th>
+                  <th className="py-2 px-2 text-right">Preț / Lichidare</th>
                   <th className="py-2 px-2">Interval Grid &amp; Poziție</th>
                   <th className="py-2 px-2 text-right">Grile / Lev</th>
                   <th className="py-2 px-2 text-right">Invested Margin</th>
                   <th className="py-2 px-2 text-right">TP / SL (Margin)</th>
-                  <th className="py-2 px-2 text-right">PnL Total / Grid</th>
+                  <th className="py-2 px-2 text-right">PnL Total / Grid / Unpaired</th>
                   <th className="py-2 px-2">Progres TP/SL</th>
                 </tr>
               </thead>
@@ -646,9 +709,17 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                       <div className="font-mono text-[10px] text-zinc-400">
                         {bot.instId} · #{bot.algoId}
                       </div>
+                      <div className="text-[10px] text-zinc-500">
+                        Creat: {formatRoTime(bot.cTime)}
+                      </div>
                     </td>
-                    <td className="py-2.5 px-2 text-right align-top font-mono font-bold text-white">
-                      {formatUsd(bot.currentPx, 1)}
+                    <td className="py-2.5 px-2 text-right align-top font-mono">
+                      <div className="font-bold text-white">{formatUsd(bot.currentPx, 1)}</div>
+                      {bot.liqPx ? (
+                        <div className="text-[10px] text-amber-300">
+                          Liq: {formatUsd(bot.liqPx, 1)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-2.5 px-2 align-top min-w-[170px]">
                       <div className="font-mono text-zinc-200">
@@ -669,7 +740,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                       <div className="text-[10px] text-zinc-400">{bot.lever}x</div>
                     </td>
                     <td className="py-2.5 px-2 text-right align-top font-mono font-bold text-amber-300">
-                      ${bot.investedMarginUSD.toFixed(2)}
+                      {bot.investedMarginUSD.toFixed(2)} {bot.investmentCcy || 'USDC'}
                     </td>
                     <td className="py-2.5 px-2 text-right align-top font-mono text-[11px]">
                       <div className="text-emerald-400">
@@ -683,11 +754,14 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                     </td>
                     <td className="py-2.5 px-2 text-right align-top font-mono">
                       <div className={`font-black ${bot.totalPnlUSD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {bot.totalPnlUSD >= 0 ? '+' : ''}${bot.totalPnlUSD.toFixed(2)} ({bot.totalPnlPct >= 0 ? '+' : ''}
+                        {bot.totalPnlUSD >= 0 ? '+' : ''}{bot.totalPnlUSD.toFixed(4)} {bot.investmentCcy || 'USDC'} ({bot.totalPnlPct >= 0 ? '+' : ''}
                         {bot.totalPnlPct.toFixed(2)}%)
                       </div>
+                      <div className="text-[10px] text-zinc-300">
+                        Grid: {bot.gridProfitUSD >= 0 ? '+' : ''}{bot.gridProfitUSD.toFixed(4)} · Arb: {bot.arbitrageNum}
+                      </div>
                       <div className="text-[10px] text-zinc-400">
-                        Grid: +${bot.gridProfitUSD.toFixed(2)} · Arb: {bot.arbitrageNum}
+                        Unpaired: {bot.floatProfitUSD >= 0 ? '+' : ''}{bot.floatProfitUSD.toFixed(4)}
                       </div>
                     </td>
                     <td className="py-2.5 px-2 align-top min-w-[140px]">

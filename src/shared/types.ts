@@ -1667,11 +1667,14 @@ export interface BtcMonitoredBot {
   closeReasonLabel?: string;
   cancelType?: string;
   currentPx: number;
+  openPx?: number;
+  liqPx?: number;
   minPx: number;
   maxPx: number;
   gridNum: number;
   lever: number;
   investedMarginUSD: number;
+  investmentCcy?: string;
   tpRatio?: number;
   slRatio?: number;
   tpMarginPct?: number;
@@ -1707,6 +1710,7 @@ export interface BtcSignalsConfig {
   botMonitorIntervalSec: number;
   minProbabilityEdgePct: number;
   signalValidityMinutes: number;
+  trackedAlgoIds?: string[];
   telegramPreferences: BtcTelegramPreferences;
 }
 

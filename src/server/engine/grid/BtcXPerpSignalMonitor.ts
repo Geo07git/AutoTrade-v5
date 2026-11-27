@@ -27,6 +27,8 @@ import {
 export interface BtcReadOnlyOkxPort {
   hasCredentials(): boolean;
   isCredentialsPermanentlyFailed(): boolean;
+  getAuthStatus?: () => { failed: boolean; message: string };
+  getLastNativeGridError?: () => string;
   resolveLiveInstrumentId(symbol: string): Promise<string>;
   getKlines(symbol: string, interval: string, limit?: number): Promise<Kline[]>;
   getTickerPrice(symbol: string): Promise<number | null>;
@@ -41,7 +43,8 @@ export interface BtcReadOnlyOkxPort {
   getNativeContractGridBots(
     mode?: 'pending' | 'history',
     isDemo?: boolean,
-    includeAllDirections?: boolean
+    includeAllDirections?: boolean,
+    instId?: string
   ): Promise<any[]>;
   getNativeContractGridDetails(algoId: string, isDemo?: boolean): Promise<any | null>;
 }
@@ -58,6 +61,7 @@ export const DEFAULT_BTC_SIGNALS_CONFIG: BtcSignalsConfig = {
   botMonitorIntervalSec: 30,
   minProbabilityEdgePct: 54,
   signalValidityMinutes: 30,
+  trackedAlgoIds: [],
   telegramPreferences: {
     onLongOpportunity: true,
     onShortOpportunity: true,
@@ -66,6 +70,19 @@ export const DEFAULT_BTC_SIGNALS_CONFIG: BtcSignalsConfig = {
     onSignalInvalidated: true,
   },
 };
+
+export function sanitizeTrackedAlgoIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const clean = String(item ?? '').trim();
+    if (/^\d{4,32}$/.test(clean)) {
+      seen.add(clean);
+      if (seen.size >= 10) break;
+    }
+  }
+  return Array.from(seen);
+}
 
 const BTC_RANGE_SPAN_USD = 1000;
 const BTC_GRID_COUNT = 10;
@@ -624,6 +641,7 @@ export class BtcXPerpSignalMonitor {
         config: {
           ...defaults.config,
           ...(parsed.config || {}),
+          trackedAlgoIds: sanitizeTrackedAlgoIds(parsed.config?.trackedAlgoIds),
           telegramPreferences: {
             ...defaults.config.telegramPreferences,
             ...(parsed.config?.telegramPreferences || {}),
@@ -697,6 +715,7 @@ export class BtcXPerpSignalMonitor {
   public getConfig(): BtcSignalsConfig {
     return {
       ...this.state.config,
+      trackedAlgoIds: [...(this.state.config.trackedAlgoIds || [])],
       telegramPreferences: { ...this.state.config.telegramPreferences },
     };
   }
@@ -705,6 +724,10 @@ export class BtcXPerpSignalMonitor {
     const next: BtcSignalsConfig = {
       ...this.state.config,
       ...updates,
+      trackedAlgoIds:
+        updates.trackedAlgoIds !== undefined
+          ? sanitizeTrackedAlgoIds(updates.trackedAlgoIds)
+          : sanitizeTrackedAlgoIds(this.state.config.trackedAlgoIds),
       telegramPreferences: {
         ...this.state.config.telegramPreferences,
         ...(updates.telegramPreferences || {}),
@@ -805,7 +828,10 @@ export class BtcXPerpSignalMonitor {
     const gridNum = parseInt(raw.gridNum || '10', 10) || 10;
     const lever = parseFloat(raw.lever || '1') || 1;
     const investedMarginUSD = parseFloat(raw.investment || raw.sz || '0') || 0;
+    const investmentCcy = String(raw.investmentCcy || raw.ccy || 'USDC').toUpperCase();
     const currentPx = parseFloat(raw.last || raw.curPx || '0') || fallbackPrice || 0;
+    const openPx = parseFloat(raw.openPx || raw.runPx || raw.triggerPx || '0') || undefined;
+    const liqPx = parseFloat(raw.liqPx || '0') || undefined;
 
     const gridProfitUSD = parseFloat(raw.gridProfit || '0') || 0;
     const floatProfitUSD = parseFloat(raw.floatProfit || '0') || 0;
@@ -885,11 +911,14 @@ export class BtcXPerpSignalMonitor {
       closeReasonLabel,
       cancelType,
       currentPx,
+      openPx,
+      liqPx,
       minPx,
       maxPx,
       gridNum,
       lever,
       investedMarginUSD: parseFloat(investedMarginUSD.toFixed(2)),
+      investmentCcy,
       tpRatio,
       slRatio,
       tpMarginPct,
@@ -932,17 +961,36 @@ export class BtcXPerpSignalMonitor {
         this.state.currentPrice = livePx;
       }
 
-      if (!this.okxPort.hasCredentials() || this.okxPort.isCredentialsPermanentlyFailed()) {
+      if (!this.okxPort.hasCredentials()) {
+        this.lastBotSyncError =
+          'Cheile API OKX nu sunt configurate. Configurează API Key, Secret și Passphrase în tabul [5: CONEXIUNE OKX EEA].';
         this.state.lastBotSyncAt = Date.now();
         this.saveState();
         return { activeBots: this.state.activeBots, newlyClosedBots: [] };
       }
 
-      // Fetch ALL directions (long, short, neutral) from OKX read-only endpoints
-      const [pendingRaw, historyRaw] = await Promise.all([
-        this.okxPort.getNativeContractGridBots('pending', false, true),
-        this.okxPort.getNativeContractGridBots('history', false, true),
-      ]);
+      if (this.okxPort.isCredentialsPermanentlyFailed()) {
+        const authStatus = this.okxPort.getAuthStatus?.();
+        this.lastBotSyncError =
+          authStatus?.message ||
+          'Autentificarea OKX este suspendată (Cod 50105 / cheie invalidă). Verifică acreditările în tabul [5: CONEXIUNE OKX EEA].';
+        this.state.lastBotSyncAt = Date.now();
+        this.saveState();
+        return { activeBots: this.state.activeBots, newlyClosedBots: [] };
+      }
+
+      // Fetch ALL directions (long, short, neutral) from OKX read-only endpoints.
+      // Query pending first so any OKX API/auth error is captured cleanly without overwriting activeBots.
+      const pendingRaw = await this.okxPort.getNativeContractGridBots('pending', false, true);
+      const pendingError = this.okxPort.getLastNativeGridError?.() || '';
+      const historyRaw = await this.okxPort.getNativeContractGridBots('history', false, true);
+
+      if (pendingError && pendingRaw.length === 0) {
+        this.lastBotSyncError = pendingError;
+        this.state.lastBotSyncAt = Date.now();
+        this.saveState();
+        return { activeBots: this.state.activeBots, newlyClosedBots: [] };
+      }
 
       const prevActiveIds = new Set(
         this.state.activeBots.filter((b) => b.state === 'running' || b.state === 'stopping').map((b) => b.algoId)
@@ -951,11 +999,18 @@ export class BtcXPerpSignalMonitor {
       const btcPendingRaw = pendingRaw.filter((r) => isBtcXPerpInstrument(r?.instId, r?.instFamily));
       const btcHistoryRaw = historyRaw.filter((r) => isBtcXPerpInstrument(r?.instId, r?.instFamily));
 
+      const pendingAlgoIds = new Set(
+        btcPendingRaw.map((r) => String(r?.algoId || '')).filter(Boolean)
+      );
+      const historyAlgoIds = new Set(
+        btcHistoryRaw.map((r) => String(r?.algoId || '')).filter(Boolean)
+      );
+
       const activeBots: BtcMonitoredBot[] = [];
       for (const raw of btcPendingRaw) {
         const algoId = String(raw.algoId || '');
         if (!algoId) continue;
-        // Fetch live details for accurate TP/SL & PnL metrics (read-only)
+        // Fetch live details for accurate TP/SL, liqPx, floatProfit & PnL metrics (read-only)
         const details = await this.okxPort.getNativeContractGridDetails(algoId, false).catch(() => null);
         const merged = details ? { ...raw, ...details } : raw;
         const mapped = this.mapRawBot(merged, this.state.currentPrice);
@@ -964,9 +1019,30 @@ export class BtcXPerpSignalMonitor {
         }
       }
 
+      // Direct read-only lookup fallback for user-pinned algoIds (e.g. if OKX listing omitted a directional bot)
+      const trackedIds = sanitizeTrackedAlgoIds(this.state.config.trackedAlgoIds);
+      const extraClosedFromTracked: any[] = [];
+      for (const trackedId of trackedIds) {
+        if (pendingAlgoIds.has(trackedId)) continue;
+        const details = await this.okxPort
+          .getNativeContractGridDetails(trackedId, false)
+          .catch(() => null);
+        if (!details) continue;
+        const detInst = String(details.instId || '').toUpperCase();
+        const isBtcContract =
+          isBtcXPerpInstrument(details.instId, details.instFamily) || detInst.startsWith('BTC-');
+        if (!isBtcContract) continue;
+        const mapped = this.mapRawBot(details, this.state.currentPrice);
+        if (mapped.state === 'running' || mapped.state === 'stopping') {
+          activeBots.push(mapped);
+        } else if (!historyAlgoIds.has(trackedId)) {
+          extraClosedFromTracked.push(details);
+        }
+      }
+
       const activeIdSet = new Set(activeBots.map((b) => b.algoId));
       const historyMap = new Map<string, any>();
-      for (const h of btcHistoryRaw) {
+      for (const h of [...btcHistoryRaw, ...extraClosedFromTracked]) {
         if (h?.algoId) historyMap.set(String(h.algoId), h);
       }
 
@@ -976,7 +1052,7 @@ export class BtcXPerpSignalMonitor {
       for (const prevId of prevActiveIds) {
         if (!activeIdSet.has(prevId)) candidateClosedIds.add(prevId);
       }
-      for (const h of btcHistoryRaw.slice(0, 10)) {
+      for (const h of [...btcHistoryRaw.slice(0, 10), ...extraClosedFromTracked]) {
         const id = String(h?.algoId || '');
         if (id && !activeIdSet.has(id) && !this.state.notifiedClosedAlgoIds.includes(id)) {
           // Only trigger live close alert if it was previously tracked as active OR closed very recently (last 15m)
@@ -1013,7 +1089,7 @@ export class BtcXPerpSignalMonitor {
       for (const cb of newlyClosedBots) {
         closedMap.set(cb.algoId, cb);
       }
-      for (const h of btcHistoryRaw.slice(0, 25)) {
+      for (const h of [...btcHistoryRaw.slice(0, 25), ...extraClosedFromTracked]) {
         const mapped = this.mapRawBot({ ...h, state: h.state || 'stopped' }, this.state.currentPrice);
         if (!closedMap.has(mapped.algoId)) {
           closedMap.set(mapped.algoId, mapped);

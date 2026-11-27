@@ -3001,6 +3001,10 @@ export const OKXNativeGridPanel: React.FC<OKXNativeGridPanelProps> = ({
             </div>
           </div>
 
+          <div className="bg-black/60 border border-cyan-500/25 rounded px-2.5 py-1.5 text-[11px] text-zinc-400">
+            <strong className="text-cyan-300">Notă filtrare direcție:</strong> Acest tab monitorizează exclusiv boții <strong className="text-zinc-200">NEUTRAL Grid</strong>. Orice bot manual <strong className="text-emerald-400">LONG</strong> sau <strong className="text-rose-400">SHORT</strong> pe BTC-USD UM X-PERP este detectat și afișat live (read-only) în primul tab: <strong className="text-amber-300">BTC X-PERP Signals</strong>.
+          </div>
+
           {displayedBots.length === 0 ? (
             <div className="bg-black border border-zinc-800 rounded p-6 text-center text-zinc-400 space-y-1">
               <p className="font-bold text-amber-300">

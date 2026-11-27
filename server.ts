@@ -1689,6 +1689,29 @@ async function startServer() {
         }
         patch.signalValidityMinutes = Math.round(val);
       }
+      if (body.trackedAlgoIds !== undefined) {
+        if (!Array.isArray(body.trackedAlgoIds)) {
+          return res.status(400).json({
+            success: false,
+            error: 'trackedAlgoIds trebuie să fie o listă de ID-uri numerice OKX.',
+          });
+        }
+        const cleanedIds: string[] = [];
+        for (const rawId of body.trackedAlgoIds) {
+          const idStr = String(rawId ?? '').trim();
+          if (!idStr) continue;
+          if (!/^\d{4,32}$/.test(idStr)) {
+            return res.status(400).json({
+              success: false,
+              error: `Bot ID invalid (${idStr}). Introdu doar cifrele din Bot ID-ul OKX.`,
+            });
+          }
+          if (!cleanedIds.includes(idStr) && cleanedIds.length < 10) {
+            cleanedIds.push(idStr);
+          }
+        }
+        patch.trackedAlgoIds = cleanedIds;
+      }
       if (body.telegramPreferences && typeof body.telegramPreferences === 'object') {
         const tp = body.telegramPreferences;
         const cleanTp: any = {};

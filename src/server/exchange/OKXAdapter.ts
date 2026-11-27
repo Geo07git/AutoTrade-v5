@@ -28,6 +28,7 @@ export class OKXAdapter implements IExecutionAdapter {
   private posModeCheckPromise: Promise<void> | null = null;
   private credentialsPermanentlyFailed: boolean = false;
   private lastAuthErrorMessage: string = '';
+  private lastNativeGridError: string = '';
 
   // Bulk instrument cache to avoid per-symbol 429 rate limits on /api/v5/public/instruments
   private bulkInstrumentsPromise: Promise<void> | null = null;
@@ -187,6 +188,8 @@ export class OKXAdapter implements IExecutionAdapter {
     this.isDemo = isDemo;
     this.setRegion(region);
     this.credentialsPermanentlyFailed = false;
+    this.lastAuthErrorMessage = '';
+    this.lastNativeGridError = '';
     this.ipWhitelistFailed = false;
     this.lastIpWhitelistCheck = 0;
     this.unlistedSymbols.clear();
@@ -215,8 +218,12 @@ export class OKXAdapter implements IExecutionAdapter {
   public getAuthStatus(): { failed: boolean; message: string } {
     return {
       failed: this.credentialsPermanentlyFailed,
-      message: this.lastAuthErrorMessage,
+      message: this.credentialsPermanentlyFailed ? this.lastAuthErrorMessage : '',
     };
+  }
+
+  public getLastNativeGridError(): string {
+    return this.lastNativeGridError;
   }
 
   public markCredentialsInvalid(): void {
@@ -231,6 +238,8 @@ export class OKXAdapter implements IExecutionAdapter {
     if (this.isDemo !== isDemo) {
       this.isDemo = isDemo;
       this.credentialsPermanentlyFailed = false;
+      this.lastAuthErrorMessage = '';
+      this.lastNativeGridError = '';
       this.lastBalanceFetchTime = 0;
     }
   }
@@ -676,6 +685,9 @@ export class OKXAdapter implements IExecutionAdapter {
     // Matrix Succeeded
     if (attempt.status === 200 && attempt.json?.code === '0') {
       this.credentialsPermanentlyFailed = false;
+      this.lastAuthErrorMessage = '';
+      this.lastNativeGridError = '';
+      this.ipWhitelistFailed = false;
       const balData = attempt.json.data?.[0];
       const eq = parseFloat(balData?.totalEq || balData?.details?.[0]?.eq || '0');
       const activeReg = attempt.baseUrl.includes('eea') ? 'EEA (Europa/România)' : 'GLOBAL';
@@ -836,6 +848,7 @@ export class OKXAdapter implements IExecutionAdapter {
         const res = await this.request('GET', '/api/v5/account/balance', undefined, true);
         if (res.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
           this.credentialsPermanentlyFailed = false;
+          this.lastAuthErrorMessage = '';
           const accountData = res.data[0];
           const details: any[] = accountData.details || [];
           const relevantDetails = details.filter((d: any) =>
@@ -2761,24 +2774,42 @@ export class OKXAdapter implements IExecutionAdapter {
   public async getNativeContractGridBots(
     mode: 'pending' | 'history' = 'pending',
     isDemo?: boolean,
-    includeAllDirections: boolean = false
+    includeAllDirections: boolean = false,
+    instId?: string
   ): Promise<any[]> {
-    if (!this.hasCredentials() || this.credentialsPermanentlyFailed || this.ipWhitelistFailed) {
+    if (!this.hasCredentials()) {
+      this.lastNativeGridError = 'Cheile API OKX nu sunt configurate.';
       return [];
     }
+    if (this.credentialsPermanentlyFailed) {
+      this.lastNativeGridError =
+        this.lastAuthErrorMessage ||
+        'Autentificarea OKX a eșuat (verifică cheile API și passphrase-ul).';
+      return [];
+    }
+    if (this.ipWhitelistFailed) {
+      this.lastNativeGridError =
+        'Restricție IP Whitelist OKX [50110]. Adaugă IP-ul serverului în cheia API OKX.';
+      return [];
+    }
+    const instFilter = instId ? `&instId=${encodeURIComponent(instId)}` : '';
     const endpoint =
       mode === 'history'
-        ? '/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=contract_grid&limit=50'
-        : '/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=contract_grid&limit=50';
+        ? `/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=contract_grid${instFilter}&limit=50`
+        : `/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=contract_grid${instFilter}&limit=50`;
     try {
       const res = await this.requestWithEnvOverride('GET', endpoint, undefined, true, isDemo);
       if (res?.code === '0' && Array.isArray(res.data)) {
+        this.lastNativeGridError = '';
         if (includeAllDirections) {
           return res.data;
         }
         return res.data.filter((b: any) => !b.direction || b.direction === 'neutral');
       }
-    } catch {}
+      this.lastNativeGridError = `OKX ${mode} code=${res?.code || '?'}: ${res?.msg || 'răspuns invalid'}`;
+    } catch (err: any) {
+      this.lastNativeGridError = err?.message || `Eroare OKX la citirea ${mode}`;
+    }
     return [];
   }
 
@@ -2787,7 +2818,14 @@ export class OKXAdapter implements IExecutionAdapter {
    * GET /api/v5/tradingBot/grid/orders-algo-details?algoOrdType=contract_grid&algoId=...
    */
   public async getNativeContractGridDetails(algoId: string, isDemo?: boolean): Promise<any | null> {
-    if (!this.hasCredentials() || this.credentialsPermanentlyFailed || !algoId) return null;
+    if (
+      !this.hasCredentials() ||
+      this.credentialsPermanentlyFailed ||
+      this.ipWhitelistFailed ||
+      !algoId
+    ) {
+      return null;
+    }
     try {
       const res = await this.requestWithEnvOverride(
         'GET',
@@ -2799,7 +2837,12 @@ export class OKXAdapter implements IExecutionAdapter {
       if (res?.code === '0' && Array.isArray(res.data) && res.data.length > 0) {
         return res.data[0];
       }
-    } catch {}
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg && !msg.includes('51400')) {
+        this.lastNativeGridError = msg;
+      }
+    }
     return null;
   }
 

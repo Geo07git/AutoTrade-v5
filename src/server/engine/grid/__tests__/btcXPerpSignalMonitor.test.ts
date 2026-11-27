@@ -393,6 +393,103 @@ test('monitor & continuity: tracks LONG/SHORT/NEUTRAL read-only, confirms close,
 });
 
 // ---------------------------------------------------------------------------
+// 4. Auth/API error visibility + direct read-only trackedAlgoIds fallback
+// ---------------------------------------------------------------------------
+test('sync errors & trackedAlgoIds: surfaces OKX auth/API errors and resolves pinned SHORT bot via details', async () => {
+  const dir = makeTempDir();
+  try {
+    let credsFailed = true;
+    let transientError = '';
+    const pinnedBotId = '4137268713223610368';
+
+    const okxPort: BtcReadOnlyOkxPort = {
+      hasCredentials: () => true,
+      isCredentialsPermanentlyFailed: () => credsFailed,
+      getAuthStatus: () => ({
+        failed: credsFailed,
+        message: credsFailed ? 'OKX Passphrase sau Cheie API incorectă (Cod 50105).' : '',
+      }),
+      getLastNativeGridError: () => transientError,
+      resolveLiveInstrumentId: async () => 'BTC-USD_UM_XPERP-310404',
+      getKlines: async () => [],
+      getTickerPrice: async () => 59807.3,
+      fetchMarketIntelligenceExtras: async () => ({
+        openInterestUSD: 0,
+        fundingRatePct: 0,
+        nextFundingRatePct: 0,
+        orderBookImbalance: 0,
+        orderBookDepthUSD: 0,
+        spreadBps: 0,
+      }),
+      getNativeContractGridBots: async () => [],
+      getNativeContractGridDetails: async (algoId) => {
+        if (algoId === pinnedBotId) {
+          return {
+            algoId: pinnedBotId,
+            instId: 'BTC-USD_UM_XPERP-310404',
+            direction: 'short',
+            state: 'running',
+            minPx: '59000',
+            maxPx: '60000',
+            gridNum: '10',
+            lever: '5',
+            investment: '37.81',
+            investmentCcy: 'USDC',
+            liqPx: '78062.9',
+            tpRatio: '0.05',
+            slRatio: '0.025',
+            gridProfit: '0.0776',
+            floatProfit: '-0.2869',
+            totalPnl: '-0.2092',
+            arbitrageNum: '3',
+            cTime: String(Date.now() - 600_000),
+            uTime: String(Date.now()),
+          };
+        }
+        return null;
+      },
+    };
+
+    const tgPort: BtcTelegramPort = {
+      isConfigured: () => false,
+      isNotificationsEnabled: () => false,
+      sendMessage: async () => false,
+    };
+
+    const monitor = new BtcXPerpSignalMonitor(okxPort, { dataDir: dir, telegramPort: tgPort });
+
+    // Case 1: 50105 credential failure must surface explicit lastBotSyncError
+    await monitor.syncMonitoredBots();
+    ok(
+      (monitor.getFullStatus().lastBotSyncError || '').includes('50105'),
+      'must surface explicit 50105 auth error instead of silent empty state'
+    );
+
+    // Case 2: Credentials recover, user pins bot ID via trackedAlgoIds -> detected via orders-algo-details
+    credsFailed = false;
+    monitor.updateConfig({ trackedAlgoIds: [pinnedBotId] });
+    const syncPinned = await monitor.syncMonitoredBots();
+    eq(syncPinned.activeBots.length, 1, 'pinned SHORT bot must be detected via orders-algo-details');
+    eq(syncPinned.activeBots[0].algoId, pinnedBotId, 'detected algoId matches pinned ID');
+    eq(syncPinned.activeBots[0].direction, 'short', 'detected direction is short');
+    eq(syncPinned.activeBots[0].investedMarginUSD, 37.81, 'invested margin parsed accurately');
+    eq(syncPinned.activeBots[0].investmentCcy, 'USDC', 'investment currency parsed as USDC');
+    eq(syncPinned.activeBots[0].liqPx, 78062.9, 'estimated liquidation price parsed');
+
+    // Case 3: Transient OKX API error on subsequent poll must surface error AND preserve activeBots
+    transientError = 'OKX HTTP Error [429]: Too Many Requests';
+    const syncErr = await monitor.syncMonitoredBots();
+    eq(syncErr.activeBots.length, 1, 'must preserve activeBots on transient OKX error');
+    ok(
+      (monitor.getFullStatus().lastBotSyncError || '').includes('429'),
+      'must surface transient OKX error to UI'
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 const run = async (): Promise<void> => {

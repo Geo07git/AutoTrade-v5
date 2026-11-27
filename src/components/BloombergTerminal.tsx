@@ -1491,7 +1491,13 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <span>
               BTC X-PERP Signals
               {status?.btcSignals?.recommendedDirection
-                ? ` (${status.btcSignals.recommendedDirection})`
+                ? ` (${status.btcSignals.recommendedDirection}${
+                    (status.btcSignals.activeBotsCount || 0) > 0
+                      ? ` · ${status.btcSignals.activeBotsCount} activ`
+                      : ''
+                  })`
+                : (status?.btcSignals?.activeBotsCount || 0) > 0
+                ? ` (${status?.btcSignals?.activeBotsCount} activ)`
                 : ''}
             </span>
           </button>
@@ -4306,7 +4312,12 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           }`}
         >
           <Activity className="w-4 h-4 mb-0.5" />
-          <span>BTC</span>
+          <span>
+            BTC
+            {(status?.btcSignals?.activeBotsCount || 0) > 0
+              ? ` (${status?.btcSignals?.activeBotsCount})`
+              : ''}
+          </span>
         </button>
 
         <button

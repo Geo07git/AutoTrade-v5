@@ -357,14 +357,16 @@ export class TradeBot {
       {
         hasCredentials: () => this.okxAdapter.hasCredentials(),
         isCredentialsPermanentlyFailed: () => this.okxAdapter.isCredentialsPermanentlyFailed(),
+        getAuthStatus: () => this.okxAdapter.getAuthStatus(),
+        getLastNativeGridError: () => this.okxAdapter.getLastNativeGridError(),
         resolveLiveInstrumentId: (symbol: string) => this.okxAdapter.resolveLiveInstrumentId(symbol),
         getKlines: (symbol: string, interval: string, limit?: number) =>
           this.okxAdapter.getKlines(symbol, interval, limit),
         getTickerPrice: (symbol: string) => this.okxAdapter.getTickerPrice(symbol),
         fetchMarketIntelligenceExtras: (instId: string) =>
           this.okxAdapter.fetchMarketIntelligenceExtras(instId),
-        getNativeContractGridBots: (mode, isDemo, includeAllDirections) =>
-          this.okxAdapter.getNativeContractGridBots(mode, isDemo, includeAllDirections),
+        getNativeContractGridBots: (mode, isDemo, includeAllDirections, instId) =>
+          this.okxAdapter.getNativeContractGridBots(mode, isDemo, includeAllDirections, instId),
         getNativeContractGridDetails: (algoId: string, isDemo?: boolean) =>
           this.okxAdapter.getNativeContractGridDetails(algoId, isDemo),
       },
@@ -1319,6 +1321,7 @@ export class TradeBot {
         this.okxCredsStore.flushSync();
         const bal = await this.okxAdapter.getWalletBalance();
         if (bal > 0) this.cachedLiveWalletBalance = bal;
+        void this.btcSignalMonitor.syncMonitoredBots().catch(() => {});
       }
     } catch {}
     this.logAudit('CONFIG_UPDATED', `Cheile API OKX (${cleanRegion} | ${isDemo ? 'DEMO' : 'LIVE'}) au fost salvate persistent.`);
