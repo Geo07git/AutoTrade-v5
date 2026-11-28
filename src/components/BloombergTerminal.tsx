@@ -500,6 +500,10 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
   const [showKillSwitchConfirm, setShowKillSwitchConfirm] = useState<boolean>(false);
   const [isExecutingKillSwitch, setIsExecutingKillSwitch] = useState<boolean>(false);
 
+  // Server Restart Confirmation Modal state
+  const [showRestartConfirm, setShowRestartConfirm] = useState<boolean>(false);
+  const [isRestartingServer, setIsRestartingServer] = useState<boolean>(false);
+
   // Bot Control Token Modal & settings state
   const [showTokenModal, setShowTokenModal] = useState<boolean>(false);
   const [tokenInput, setTokenInput] = useState<string>(controlToken || '');
@@ -1170,6 +1174,92 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
     }
   };
 
+  const handleRestartServer = async () => {
+    if (isRestartingServer) return;
+    setIsRestartingServer(true);
+    setShowRestartConfirm(false);
+    setLocalBanner({
+      type: 'info',
+      text: 'Se lansează repornirea serverului (scripts/restart-app.ps1 pe Windows)... Aștept /api/health.',
+    });
+
+    try {
+      let prevStartedAt: number | null = null;
+      try {
+        const preHealthRes = await fetch('/api/health');
+        if (preHealthRes.ok) {
+          const preHealth = await preHealthRes.json();
+          if (typeof preHealth?.startedAt === 'number') {
+            prevStartedAt = preHealth.startedAt;
+          }
+        }
+      } catch {}
+
+      const res = await fetch('/api/bot/restart-server', {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await safeJson(res);
+      if (!res.ok || !data.success) {
+        setIsRestartingServer(false);
+        setLocalBanner({
+          type: 'error',
+          text: data.error || 'Nu s-a putut iniția repornirea serverului.',
+        });
+        return;
+      }
+
+      const referenceStartedAt =
+        typeof data.previousStartedAt === 'number'
+          ? data.previousStartedAt
+          : prevStartedAt;
+
+      const deadline = Date.now() + 45_000;
+      const pollHealth = async () => {
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const hRes = await fetch(`/api/health?ts=${Date.now()}`, {
+              cache: 'no-store',
+            });
+            if (hRes.ok) {
+              const hData = await hRes.json();
+              const restarted =
+                hData?.status === 'ok' &&
+                (!referenceStartedAt ||
+                  (typeof hData.startedAt === 'number' &&
+                    hData.startedAt !== referenceStartedAt));
+              if (restarted) {
+                setIsRestartingServer(false);
+                setLocalBanner({
+                  type: 'success',
+                  text: 'Serverul TB5 a fost repornit cu succes și răspunde pe /api/health.',
+                });
+                onRefresh();
+                return;
+              }
+            }
+          } catch {
+            // Expected briefly while port 3000 closes & new server boots
+          }
+        }
+        setIsRestartingServer(false);
+        setLocalBanner({
+          type: 'error',
+          text: 'Serverul nu a revenit în 45s pe /api/health. Verifică consola sau logul autotrade-dev.',
+        });
+      };
+
+      void pollHealth();
+    } catch (err: any) {
+      setIsRestartingServer(false);
+      setLocalBanner({
+        type: 'error',
+        text: err?.message || 'Eroare la lansarea repornirii serverului.',
+      });
+    }
+  };
+
   const selectedLadderBot = useMemo(() => {
     return (
       gridBots.find((b) => b.botId === selectedBotIdForLadder) ||
@@ -1452,6 +1542,21 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <span className="text-emerald-400 font-mono text-[9px] sm:text-[10px]">
               {controlToken ? 'CONECTAT' : 'LIPSEȘTE'}
             </span>
+          </button>
+
+          <button
+            type="button"
+            disabled={isRestartingServer}
+            onClick={() => setShowRestartConfirm(true)}
+            className={`px-2 sm:px-2.5 py-1.5 rounded font-bold text-[10px] sm:text-xs flex items-center justify-center space-x-1 cursor-pointer border transition-colors ${
+              isRestartingServer
+                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400'
+                : 'bg-zinc-900 text-cyan-300 border-cyan-500/40 hover:bg-zinc-800'
+            }`}
+            title="Repornește serverul TB5 (rulează scripts/restart-app.ps1 pe Windows și verifică /api/health)"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRestartingServer ? 'animate-spin' : ''}`} />
+            <span className="truncate">{isRestartingServer ? 'REPORNIRE...' : 'RESTART SERVER'}</span>
           </button>
 
           <button
@@ -4204,6 +4309,80 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
                     ? 'CONFIRMĂ DEZACTIVAREA KILL SWITCH'
                     : 'CONFIRMĂ OPRIREA DE URGENȚĂ'}
                 </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL DE CONFIRMARE RESTART SERVER                                  */}
+      {/* =================================================================== */}
+      {showRestartConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => {
+            if (!isRestartingServer) setShowRestartConfirm(false);
+          }}
+        >
+          <div
+            className="bg-zinc-950 border-2 border-cyan-500 rounded-lg p-5 w-full max-w-md space-y-4 shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded border bg-cyan-950/60 border-cyan-500/50 text-cyan-300">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base tracking-wide text-cyan-300">
+                    REPORNIRE SERVER TB5
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Încarcă modificările noi din cod fără a atinge boții OKX
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isRestartingServer}
+                onClick={() => setShowRestartConfirm(false)}
+                className="text-zinc-400 hover:text-white font-bold text-sm px-2 py-0.5 rounded hover:bg-zinc-900 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs text-zinc-300 bg-black border border-zinc-800 rounded p-3">
+              <p>
+                Pe Windows va executa scriptul{' '}
+                <code className="text-cyan-300 font-mono">scripts/restart-app.ps1</code>:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-zinc-400">
+                <li>Salvează starea curentă în <code className="text-zinc-200">.data/</code>.</li>
+                <li>Oprește procesul serverului de pe portul 3000 (fără a atinge MCP sau alți boți externi).</li>
+                <li>Pornește o instanță nouă <code className="text-zinc-200">npm run dev</code> și verifică <code className="text-zinc-200">/api/health</code>.</li>
+                <li>Boții activi pe OKX rămân neatinși.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2.5 pt-2 border-t border-zinc-800">
+              <button
+                type="button"
+                disabled={isRestartingServer}
+                onClick={() => setShowRestartConfirm(false)}
+                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 font-bold rounded text-xs cursor-pointer"
+              >
+                ANULEAZĂ
+              </button>
+              <button
+                type="button"
+                disabled={isRestartingServer}
+                onClick={() => void handleRestartServer()}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-xs flex items-center space-x-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>CONFIRMĂ RESTART SERVER</span>
               </button>
             </div>
           </div>

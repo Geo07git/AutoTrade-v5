@@ -8,12 +8,16 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import { spawn } from 'child_process';
 import cors from 'cors';
 import crypto from 'crypto';
 import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { flushAllStores } from './src/server/store';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
+
+const SERVER_STARTED_AT = Date.now();
+let isRestartingServer = false;
 
 // Control token. Never hard-code credentials: a personal password and the public default token used to be accepted
 // unconditionally by every control route (kill switch, mode switch, credential update).
@@ -94,6 +98,7 @@ async function startServer() {
       activeProfile: 'NEUTRAL_GRID',
       activePlatform: status.config?.activePlatform || 'OKX_EEA',
       runningGridBots: (status.gridBots || []).filter((b: any) => b.status === 'RUNNING').length,
+      startedAt: SERVER_STARTED_AT,
     });
   });
 
@@ -1767,6 +1772,116 @@ async function startServer() {
         error: err?.message || 'Eroare la trimiterea semnalului X-PERP pe Telegram',
       });
     }
+  });
+
+  // Restart local app server (invokes scripts/restart-app.ps1 on Windows, clean re-exec on POSIX)
+  app.post('/api/bot/restart-server', requireControlAuth, (req, res) => {
+    if (isRestartingServer) {
+      return res.status(409).json({
+        success: false,
+        error: 'Repornirea serverului este deja în curs.',
+      });
+    }
+
+    const repoRoot = path.resolve(process.cwd());
+    const scriptPath = path.resolve(repoRoot, 'scripts', 'restart-app.ps1');
+    if (!scriptPath.startsWith(repoRoot + path.sep)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cale invalidă pentru scriptul de repornire.',
+      });
+    }
+
+    try {
+      flushAllStores();
+    } catch {
+      // best effort flush before restart
+    }
+
+    if (process.platform === 'win32') {
+      if (!fs.existsSync(scriptPath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'Scriptul scripts/restart-app.ps1 nu a fost găsit în directorul proiectului.',
+        });
+      }
+
+      isRestartingServer = true;
+      res.status(202).json({
+        success: true,
+        mode: 'windows_ps1',
+        script: 'scripts/restart-app.ps1',
+        previousStartedAt: SERVER_STARTED_AT,
+        message: 'Scriptul scripts/restart-app.ps1 a fost lansat. Serverul se repornește...',
+      });
+
+      setTimeout(() => {
+        try {
+          const child = spawn(
+            'powershell.exe',
+            [
+              '-NoProfile',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-File',
+              scriptPath,
+              '-Port',
+              String(PORT),
+            ],
+            {
+              cwd: repoRoot,
+              detached: true,
+              stdio: 'ignore',
+              windowsHide: true,
+              shell: false,
+            }
+          );
+          child.unref();
+        } catch (err: any) {
+          isRestartingServer = false;
+          console.error('[Server] Failed to launch scripts/restart-app.ps1:', err?.message || err);
+        }
+      }, 150);
+      return;
+    }
+
+    // Non-Windows fallback (Linux / macOS dev): release port cleanly & re-spawn same entrypoint
+    isRestartingServer = true;
+    res.status(202).json({
+      success: true,
+      mode: 'posix_reexec',
+      previousStartedAt: SERVER_STARTED_AT,
+      message: 'Serverul se repornește...',
+    });
+
+    setTimeout(() => {
+      try {
+        flushAllStores();
+      } catch {}
+      Promise.resolve(viteServer?.close())
+        .catch(() => {})
+        .finally(() => {
+          server.close(() => {
+            try {
+              const child = spawn(
+                process.execPath,
+                [...process.execArgv, ...process.argv.slice(1)],
+                {
+                  cwd: repoRoot,
+                  env: process.env,
+                  detached: true,
+                  stdio: 'ignore',
+                  shell: false,
+                }
+              );
+              child.unref();
+            } catch (err: any) {
+              console.error('[Server] Failed to re-spawn server process:', err?.message || err);
+            }
+            process.exit(0);
+          });
+        });
+    }, 150);
   });
 
   // Catch-all JSON 404 for any unmatched /api/* route so Vite/SPA never returns <!doctype html>
