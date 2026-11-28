@@ -262,13 +262,31 @@ Write-Host ""
 Write-Host "3. pornesc instanta noua (npm run dev)" -ForegroundColor Cyan
 Write-Host ("   log: {0}" -f $outLog) -ForegroundColor DarkGray
 
-$started = Start-Process -FilePath 'npm.cmd' `
-    -ArgumentList 'run', 'dev' `
-    -WorkingDirectory $root `
-    -WindowStyle Hidden `
-    -RedirectStandardOutput $outLog `
-    -RedirectStandardError  $errLog `
-    -PassThru
+$started = $null
+
+# npm.cmd is a shim: it asks npm-prefix.js for the prefix and can then look for
+# <repo>\node_modules\npm\bin\npm-cli.js, which does not exist -> "Cannot find module" and
+# nothing starts (observed: the app stayed down after a sync). node.exe + the global npm CLI by
+# absolute path is deterministic, so prefer it and keep npm.cmd only as a fallback.
+$nodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+$npmCli = if ($nodeExe) { Join-Path (Split-Path $nodeExe) 'node_modules\npm\bin\npm-cli.js' } else { $null }
+if ($nodeExe -and $npmCli -and (Test-Path $npmCli)) {
+    $started = Start-Process -FilePath $nodeExe `
+        -ArgumentList ('"{0}" run dev' -f $npmCli) `
+        -WorkingDirectory $root `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $outLog `
+        -RedirectStandardError  $errLog `
+        -PassThru
+} else {
+    $started = Start-Process -FilePath 'npm.cmd' `
+        -ArgumentList 'run', 'dev' `
+        -WorkingDirectory $root `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $outLog `
+        -RedirectStandardError  $errLog `
+        -PassThru
+}
 
 Write-Host ("   PID parinte {0}" -f $started.Id)
 

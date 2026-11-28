@@ -343,14 +343,33 @@ $changedFiles | ForEach-Object { Write-Log ("  {0}" -f $_) 'DarkGray' }
 
 $lintOk = $true
 $lintRan = $false
+
+# npm.cmd is a shim: it asks npm-prefix.js for the prefix and can end up looking for
+# <repo>\node_modules\npm\bin\npm-cli.js, which does not exist -> "Cannot find module" and the
+# lint NEVER runs (observed: the gate refused a restart for a code that was fine). Calling node.exe
+# with the global npm CLI by absolute path removes the guesswork; npm.cmd stays as a fallback.
+$nodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+$npmCli = if ($nodeExe) { Join-Path (Split-Path $nodeExe) 'node_modules\npm\bin\npm-cli.js' } else { $null }
+$npmUsable = [bool]($nodeExe -and $npmCli -and (Test-Path $npmCli))
+
 if (($runtimeFiles.Count -gt 0 -or $ForceRestart) -and -not $SkipLint) {
     Write-Log ''
-    Write-Log '3. npm run lint' 'Cyan'
-    $lint = Invoke-Exe -FilePath 'npm.cmd' -Arguments @('run', 'lint') -TimeoutSec $LintTimeoutSec
+    Write-Log $(if ($npmUsable) { '3. npm run lint (prin node + npm-cli.js)' } else { '3. npm run lint' }) 'Cyan'
+    $lint = if ($npmUsable) {
+        Invoke-Exe -FilePath $nodeExe -Arguments @($npmCli, 'run', 'lint') -TimeoutSec $LintTimeoutSec
+    } else {
+        Invoke-Exe -FilePath 'npm.cmd' -Arguments @('run', 'lint') -TimeoutSec $LintTimeoutSec
+    }
     $lintRan = $true
+    $lintOutput = ($lint.StdOut + "`n" + $lint.StdErr)
     if ($lint.TimedOut) {
         $lintOk = $false
         Write-Log ("   TIMEOUT dupa {0}s" -f $LintTimeoutSec) 'Red'
+    } elseif ($lintOutput -match 'MODULE_NOT_FOUND|Cannot find module') {
+        # The lint tool itself did not start. Saying "codul nu trece tsc" here would be a lie.
+        $lintOk = $false
+        Write-Log '   LINT-UL NU A PUTUT PORNI (npm rupt in acest context):' 'Red'
+        ($lintOutput -split "`r?`n") | Where-Object { $_.Trim() } | Select-Object -First 6 | ForEach-Object { Write-Log ("  {0}" -f $_) 'Red' }
     } elseif ($lint.ExitCode -ne 0) {
         $lintOk = $false
         Write-Log '   LINT ROSU:' 'Red'
@@ -358,6 +377,9 @@ if (($runtimeFiles.Count -gt 0 -or $ForceRestart) -and -not $SkipLint) {
         ($lint.StdErr -split "`r?`n") | Where-Object { $_.Trim() } | ForEach-Object { Write-Log ("  {0}" -f $_) 'Red' }
     } else {
         Write-Log '   ok' 'Green'
+    }
+    if (-not $lintOk -and $lintOutput -match 'MODULE_NOT_FOUND|Cannot find module') {
+        Exit-With -Code 1 -Message 'Lint-ul nu a putut rula (npm nu e utilizabil din acest context), deci NU pot valida codul si NU repornesc. Instanta veche ramane sus. Rezolva npm-ul (npm -v in repo) si ruleaza din nou.' -Color Red
     }
 } elseif ($SkipLint) {
     Write-Log ''
