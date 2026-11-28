@@ -509,6 +509,12 @@ Alte scripturi: `npm run lint` (tsc --noEmit), `npm test`, `npm run clean`, `npm
 > **macOS**: `npm run clean` și `npm run electron:build` nu sunt portabile — vezi §6.4. Pentru tot
 > restul, comenzile de mai sus sunt identice pe Windows și pe Mac.
 
+**Repornire pe Windows (oprește instanța de pe portul 3000, pornește una nouă, verifică health):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1
+```
+
 ### 6.9 Primul contact
 
 1. Deschide `http://localhost:3000` → modul e `PAPER`, capital virtual 500 USDT.
