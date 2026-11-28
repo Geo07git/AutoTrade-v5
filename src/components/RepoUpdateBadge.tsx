@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Download, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, X } from 'lucide-react';
 
 /**
  * Proactive "update available" badge.
@@ -67,6 +67,7 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
 }) => {
   const [status, setStatus] = useState<RepoUpdateStatusView | null>(null);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [checking, setChecking] = useState<boolean>(false);
   // Dismissed per remote revision: a new update must reappear, a dismissed one stays dismissed.
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const aliveRef = useRef<boolean>(true);
@@ -132,7 +133,56 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
   const behind = status?.behind ?? 0;
   const blocked = Boolean(status?.blockedReason);
   const updateKey = status ? `${status.headSha}:${status.remoteSha}` : '';
-  const hidden = behind === 0 || (dismissedKey !== null && dismissedKey === updateKey);
+
+  // Four states, and three of them are ALWAYS visible. A badge that disappears when there is
+  // nothing to do is indistinguishable from a badge that is broken, so "COD LA ZI" stays on
+  // screen and doubles as the "check now" button.
+  const variant: 'blocked' | 'update' | 'offline' | 'current' =
+    behind > 0 ? (blocked ? 'blocked' : 'update') : status && status.ok ? 'current' : 'offline';
+  const isDismissed =
+    (variant === 'update' || variant === 'blocked') && dismissedKey !== null && dismissedKey === updateKey;
+
+  const chipClass =
+    variant === 'update'
+      ? 'bg-amber-500 text-black border-amber-300'
+      : variant === 'blocked'
+      ? 'bg-rose-950/95 text-rose-200 border-rose-500'
+      : variant === 'offline'
+      ? 'bg-rose-950/90 text-rose-300 border-rose-500/60'
+      : 'bg-black/90 text-emerald-400/85 border-emerald-500/30';
+
+  const titleText =
+    variant === 'blocked'
+      ? `${status?.blockedReason}\n\nRezolva blocajul si reia. Manual: scripts\\sync-repo.ps1 -Restart`
+      : variant === 'update'
+      ? `${status?.summary}\n\nClick = git pull --ff-only + npm run lint${
+          status?.restartRequired
+            ? ' + repornire automata (copie .data/, shutdown curat)'
+            : ' (fara restart: doar fisiere non-runtime)'
+        }.\nVerificat automat la ${fmtClock(status?.checkedAt || 0)} (${status?.branch || 'main'} ${
+          status?.headSha
+        } -> ${status?.remoteSha}).`
+      : variant === 'offline'
+      ? `Nu pot verifica origin: ${status?.error || 'eroare necunoscuta'}.\nClick = reincearca acum.`
+      : `Cod la zi cu origin/${status?.branch || 'main'} (${status?.headSha}).\nVerificare automata la 5 min, ultima la ${fmtClock(
+          status?.checkedAt || 0
+        )}. Click = verifica acum.`;
+
+  const handleRecheck = async () => {
+    if (checking) return;
+    setChecking(true);
+    const next = await readStatus(true);
+    setChecking(false);
+    if (!next) {
+      notify('error', 'Nu pot verifica origin acum (offline sau token respins).');
+    } else if (!next.ok) {
+      notify('error', next.error || 'Nu pot contacta origin.');
+    } else if (next.behind > 0) {
+      notify('info', `Origin are ${next.behind} commit(uri) noi pe ${next.branch}.`);
+    } else {
+      notify('success', `Cod la zi cu origin/${next.branch} (${next.headSha}).`);
+    }
+  };
 
   const handleSync = async () => {
     if (!status || syncingRef.current) return;
@@ -259,56 +309,58 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
     );
   };
 
-  if (!status || hidden) return null;
+  if (!status || isDismissed) return null;
 
   return (
     <div className="fixed right-2 bottom-24 lg:bottom-3 z-[60] flex items-center">
       <div
-        className={`flex items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] font-mono shadow-lg backdrop-blur ${
-          blocked
-            ? 'bg-rose-950/95 text-rose-200 border-rose-500'
-            : 'bg-amber-500 text-black border-amber-300'
-        }`}
-        title={
-          blocked
-            ? `${status.blockedReason}\n\nRezolva blocajul si reia. Manual: scripts\\sync-repo.ps1 -Restart`
-            : `${status.summary}\n\nClick pe buton = git pull --ff-only + npm run lint${
-                status.restartRequired
-                  ? ' + repornire automata (copie .data/, shutdown curat)'
-                  : ' (fara restart: doar fisiere non-runtime)'
-              }.\nVerificat automat la ${fmtClock(status.checkedAt)} (${status.branch || 'main'} ${status.headSha} -> ${status.remoteSha}).`
-        }
+        className={`flex items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] font-mono shadow-lg backdrop-blur ${chipClass}`}
+        title={titleText}
       >
-        {blocked ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <Download className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-bounce' : ''}`} />}
+        {variant === 'update' ? (
+          <Download className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-bounce' : ''}`} />
+        ) : variant === 'current' ? (
+          <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${checking ? 'animate-spin' : ''}`} />
+        ) : (
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+        )}
 
         <button
           type="button"
           disabled={syncing}
-          onClick={() => void handleSync()}
+          onClick={() => void (variant === 'update' || variant === 'blocked' ? handleSync() : handleRecheck())}
           className="font-black tracking-wide cursor-pointer disabled:cursor-wait whitespace-nowrap"
         >
           {syncing
             ? 'SYNC IN CURS...'
-            : blocked
+            : variant === 'update'
+            ? `UPDATE DISPONIBIL (${behind})`
+            : variant === 'blocked'
             ? `UPDATE ${behind} BLOCAT`
-            : `UPDATE DISPONIBIL (${behind})`}
+            : variant === 'offline'
+            ? 'GIT OFFLINE'
+            : 'COD LA ZI'}
         </button>
 
-        <span className={`hidden sm:inline text-[9px] ${blocked ? 'text-rose-300/80' : 'text-black/60'}`}>
-          {status.headSha} -&gt; {status.remoteSha}
+        <span className={`hidden sm:inline text-[9px] ${variant === 'current' ? 'text-emerald-400/50' : blocked ? 'text-rose-300/80' : 'text-black/60'}`}>
+          {variant === 'update' || variant === 'blocked'
+            ? `${status.headSha} -> ${status.remoteSha}`
+            : `${status.headSha} ${fmtClock(status.checkedAt)}`}
         </span>
 
-        <button
-          type="button"
-          disabled={syncing}
-          onClick={() => setDismissedKey(updateKey)}
-          title="Ascunde pana la urmatorul commit pe origin (sincronizarea ramane disponibila din scripts\\sync-repo.ps1)"
-          className={`ml-0.5 rounded p-0.5 cursor-pointer disabled:opacity-40 ${
-            blocked ? 'hover:bg-rose-900' : 'hover:bg-amber-600'
-          }`}
-        >
-          <X className="w-3 h-3" />
-        </button>
+        {(variant === 'update' || variant === 'blocked') && (
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={() => setDismissedKey(updateKey)}
+            title="Ascunde pana la urmatorul commit pe origin (sincronizarea ramane disponibila din scripts\\sync-repo.ps1)"
+            className={`ml-0.5 rounded p-0.5 cursor-pointer disabled:opacity-40 ${
+              blocked ? 'hover:bg-rose-900' : 'hover:bg-amber-600'
+            }`}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
     </div>
   );
