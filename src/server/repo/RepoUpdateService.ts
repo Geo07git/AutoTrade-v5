@@ -45,6 +45,11 @@ export interface RepoUpdateStatus extends RepoUpdateDecision {
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_INTERVAL_MS = 60 * 1000;
+/**
+ * Hard backstop for the "a sync is running" flag. A docs-only sync finishes WITHOUT a restart, so
+ * nothing would ever reset it; left unbounded it would 409 every later attempt until a restart.
+ */
+const SYNC_BACKSTOP_MS = 10 * 60 * 1000;
 const GIT_TIMEOUT_MS = 25_000;
 const MAX_BUFFER = 200_000;
 
@@ -155,6 +160,7 @@ export class RepoUpdateService {
   private timer?: NodeJS.Timeout;
   private inFlight?: Promise<RepoUpdateStatus>;
   private syncing = false;
+  private syncingSince = 0;
   /** HEAD at boot: the only way to know what the running code actually is. */
   private runningShaFull = '';
 
@@ -244,6 +250,16 @@ export class RepoUpdateService {
         return fallback as RepoUpdateStatus;
       })
       .then((next) => {
+        // Clear the in-flight flag as soon as the evidence says the sync is over: nothing left to
+        // pull (a docs-only pull never restarts the process) or the backstop elapsed (a failed
+        // launch must not lock the feature out forever).
+        if (
+          this.syncing &&
+          ((next.ok && next.behind === 0 && !next.stale) || Date.now() - this.syncingSince > SYNC_BACKSTOP_MS)
+        ) {
+          this.syncing = false;
+          this.syncingSince = 0;
+        }
         this.status = { ...next, checking: false, nextCheckAt: Date.now() + this.intervalMs };
         this.inFlight = undefined;
         return this.getStatus();
@@ -259,6 +275,7 @@ export class RepoUpdateService {
 
   markSyncing(value: boolean): void {
     this.syncing = value;
+    this.syncingSince = value ? Date.now() : 0;
   }
 
   getRepoRoot(): string {

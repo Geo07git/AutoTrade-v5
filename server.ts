@@ -1831,7 +1831,10 @@ async function startServer() {
             ],
             {
               cwd: repoRoot,
-              detached: true,
+              // NOT detached. DETACHED_PROCESS leaves powershell.exe with no console at all and it
+              // exits 0 WITHOUT executing the script (verified: the log never appeared, the pull
+              // never happened). Killing the node process does not kill this child on Windows, so
+              // the sync still outlives the process it is about to restart.
               stdio: 'ignore',
               windowsHide: true,
               shell: false,
@@ -2033,7 +2036,10 @@ async function startServer() {
             ],
             {
               cwd: repoRoot,
-              detached: true,
+              // NOT detached. DETACHED_PROCESS leaves powershell.exe with no console at all and it
+              // exits 0 WITHOUT executing the script (verified: the log never appeared, the pull
+              // never happened). Killing the node process does not kill this child on Windows, so
+              // the sync still outlives the process it is about to restart.
               stdio: 'ignore',
               windowsHide: true,
               shell: false,
