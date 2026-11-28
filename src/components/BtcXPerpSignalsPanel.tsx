@@ -810,6 +810,98 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           </div>
         )}
 
+        {activeBots.some((b) => b.limitStatus && b.limitStatus !== 'INSIDE') && (
+          <div className="space-y-2">
+            {activeBots
+              .filter((b) => b.limitStatus && b.limitStatus !== 'INSIDE')
+              .map((b) => {
+                const isBreach = b.limitStatus === 'OUT_LOW' || b.limitStatus === 'OUT_HIGH';
+                const sr = b.suggestedNewRange;
+                return (
+                  <div
+                    key={`limit-advisory-${b.algoId}`}
+                    className={`rounded border p-3 text-xs space-y-2 ${
+                      isBreach
+                        ? 'bg-rose-950/40 border-rose-500/50 text-rose-100'
+                        : 'bg-amber-950/40 border-amber-500/50 text-amber-100'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle
+                          className={`w-4 h-4 shrink-0 mt-0.5 ${
+                            isBreach ? 'text-rose-400' : 'text-amber-400'
+                          }`}
+                        />
+                        <div className="space-y-0.5">
+                          <div className="font-bold">
+                            {isBreach
+                              ? `Bot #${b.algoId} (${b.direction.toUpperCase()}) a ajuns la limită / în afara benzii`
+                              : `Bot #${b.algoId} (${b.direction.toUpperCase()}) se apropie de limită`}
+                          </div>
+                          {b.limitMessage && (
+                            <p className="text-[11px] opacity-90">{b.limitMessage}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {sr && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = [
+                              `Instrument: ${displayInstrument} (${b.instId})`,
+                              `Bot existent: #${b.algoId} (${b.direction.toUpperCase()})`,
+                              `Recomandare schimbare limite (Manual în OKX):`,
+                              `Direcție analizată: ${sr.direction}`,
+                              `Preț minim nou: ${sr.minPx}`,
+                              `Preț maxim nou: ${sr.maxPx}`,
+                              `Număr grile: 10 (pas ${formatUsd(sr.gridStepUSD, stepDecimals)})`,
+                              `Take Profit: 5% din invested margin`,
+                              `Stop Loss: 2.5% din invested margin`,
+                            ].join('\n');
+                            try {
+                              navigator.clipboard.writeText(text);
+                              onNotify({
+                                type: 'info',
+                                text: `Limitele noi sugerate pentru #${b.algoId} au fost copiate în clipboard.`,
+                              });
+                            } catch {}
+                          }}
+                          className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-black font-bold text-[11px] flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Copiază limite noi</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {sr && (
+                      <div className="bg-black/60 border border-zinc-800 rounded px-2.5 py-2 font-mono text-[11px] flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span>
+                          Recomandare limite noi OKX:{' '}
+                          <strong className="text-emerald-300">
+                            {formatUsd(sr.minPx, gridBoundDecimals)}
+                          </strong>{' '}
+                          –{' '}
+                          <strong className="text-rose-300">
+                            {formatUsd(sr.maxPx, gridBoundDecimals)}
+                          </strong>
+                        </span>
+                        <span className="text-zinc-300">
+                          10 grile · Pas {formatUsd(sr.gridStepUSD, stepDecimals)}
+                        </span>
+                        <span className={directionTextClass(sr.direction)}>
+                          Direcție analizată: <strong>{sr.direction}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+
         {activeBots.length === 0 ? (
           <div className="bg-black border border-zinc-800 rounded p-5 text-center text-xs text-zinc-400 space-y-1">
             <p className="text-zinc-200 font-semibold">
@@ -1092,6 +1184,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                 ['onBotClosed', 'Închiderea confirmată a unui bot (TP/SL/Manual)'],
                 ['onNextRecommendation', 'Recomandare imediată pentru următorul bot'],
                 ['onSignalInvalidated', 'Invalidarea semnalului (ieșire din interval / expirare)'],
+                ['onBotLimitReached', 'Alertă atingere / ieșire din limitele botului (+ recomandare limite noi)'],
               ] as Array<[keyof BtcTelegramPreferences, string]>
             ).map(([key, label]) => {
               const checked = cfg?.telegramPreferences?.[key] ?? true;

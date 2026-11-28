@@ -1591,19 +1591,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
       {/* =================================================================== */}
       {/* 2. NAVIGATION TABS BAR (DESKTOP / TABLET)                           */}
       {/* =================================================================== */}
-      <nav className="hidden lg:flex bg-zinc-950 border-b border-amber-500/30 px-3 py-1 items-center justify-between gap-2 overflow-x-auto shrink-0">
-        <div className="flex items-center space-x-1.5">
+      <nav className="hidden lg:flex bg-zinc-950 border-b border-amber-500/30 px-3 py-1 items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center space-x-1.5 min-w-0">
           <button
             onClick={() => setActiveTab('BTC_SIGNALS')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'BTC_SIGNALS'
                 ? 'bg-amber-400 text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]'
                 : 'bg-black text-amber-300 border border-amber-500/40 hover:bg-zinc-900'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" />
+            <Activity className="w-3.5 h-3.5 shrink-0" />
             <span>
-              BTC / ZEC X-PERP Signals
+              BTC / ZEC Signals
               {(() => {
                 const btcDir = status?.btcSignals?.recommendedDirection;
                 const zecDir = status?.zecSignals?.recommendedDirection;
@@ -1621,117 +1621,117 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
 
           <button
             onClick={() => setActiveTab('NATIVE_GRID')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'NATIVE_GRID'
                 ? 'bg-cyan-400 text-black shadow-[0_0_10px_rgba(34,211,238,0.4)]'
                 : 'bg-black text-cyan-300 border border-cyan-500/40 hover:bg-zinc-900'
             }`}
           >
-            <Zap className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5 shrink-0" />
             <span>[1:OKX NATIVE &amp; AUTO-LIMIT GRID] ({runningNativeBotsCount})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('SCANNER')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'SCANNER'
                 ? 'bg-amber-500 text-black'
                 : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
             }`}
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5 shrink-0" />
             <span>[2:UNIVERS SCANNER GRID] ({gridCandidates.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('LADDER')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'LADDER'
                 ? 'bg-amber-500 text-black'
                 : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
             }`}
           >
-            <ArrowUpDown className="w-3.5 h-3.5" />
+            <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
             <span>[3:TREPTE GRILĂ &amp; ORDINE]</span>
           </button>
 
           <button
             onClick={() => setActiveTab('JOURNAL')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'JOURNAL'
                 ? 'bg-amber-500 text-black'
                 : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
             }`}
           >
-            <List className="w-3.5 h-3.5" />
+            <List className="w-3.5 h-3.5 shrink-0" />
             <span>[4:GRID JOURNAL &amp; LOGURI] ({logs.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('API')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'API'
                 ? 'bg-amber-500 text-black'
                 : 'bg-black text-amber-400 border border-amber-500/30 hover:bg-zinc-900'
             }`}
           >
-            <Key className="w-3.5 h-3.5" />
+            <Key className="w-3.5 h-3.5 shrink-0" />
             <span>[5:CONEXIUNE OKX EEA &amp; PLATFORME]</span>
           </button>
 
           <button
             onClick={() => setActiveTab('ANAF_TAX')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'ANAF_TAX'
                 ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
                 : 'bg-black text-emerald-400 border border-emerald-500/40 hover:bg-zinc-900'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-3.5 h-3.5 shrink-0" />
             <span>[6:ANAF FISCAL &amp; DECLARAȚIA UNICĂ]</span>
           </button>
 
           <button
             onClick={() => setActiveTab('RESEARCH')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'RESEARCH'
                 ? 'bg-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
                 : 'bg-black text-purple-300 border border-purple-500/40 hover:bg-zinc-900'
             }`}
           >
-            <BarChart2 className="w-3.5 h-3.5" />
+            <BarChart2 className="w-3.5 h-3.5 shrink-0" />
             <span>[7: HISTORICAL RESEARCH &amp; BACKTEST]</span>
           </button>
 
           <button
             onClick={() => setActiveTab('AI_AGENT')}
-            className={`px-3 py-1 rounded text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-bold leading-tight text-left flex items-center space-x-1.5 cursor-pointer transition-colors ${
               activeTab === 'AI_AGENT'
                 ? 'bg-violet-500 text-white shadow-[0_0_10px_rgba(139,92,246,0.5)]'
                 : 'bg-black text-violet-300 border border-violet-500/40 hover:bg-zinc-900'
             }`}
           >
-            <BrainCircuit className="w-3.5 h-3.5" />
+            <BrainCircuit className="w-3.5 h-3.5 shrink-0" />
             <span>[8: DEEPSEEK AGENT] ({status?.deepSeekAgent?.mode || 'OFF'})</span>
           </button>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 shrink-0">
           {execMode === 'PAPER' && (
             <button
               onClick={onResetPaper}
-              className="px-2.5 py-1 rounded text-[11px] bg-zinc-900 hover:bg-zinc-800 text-amber-300 border border-amber-500/30 cursor-pointer"
+              className="px-2.5 py-1 rounded text-[11px] bg-zinc-900 hover:bg-zinc-800 text-amber-300 border border-amber-500/30 cursor-pointer whitespace-nowrap"
             >
               Reset Cont Paper ($200)
             </button>
           )}
           <button
             onClick={onRefresh}
-            className={`px-2.5 py-1 rounded text-[11px] bg-zinc-900 hover:bg-zinc-800 text-amber-400 border flex items-center space-x-1 cursor-pointer transition-all ${
+            className={`px-2.5 py-1 rounded text-[11px] bg-zinc-900 hover:bg-zinc-800 text-amber-400 border flex items-center space-x-1 cursor-pointer transition-all whitespace-nowrap ${
               rxFlash ? 'border-emerald-400 text-emerald-300' : 'border-amber-500/30'
             }`}
           >
-            <RefreshCw className={`w-3 h-3 ${rxFlash ? 'animate-spin text-emerald-400' : ''}`} />
+            <RefreshCw className={`w-3 h-3 shrink-0 ${rxFlash ? 'animate-spin text-emerald-400' : ''}`} />
             <span>Sync ({secSinceSync}s)</span>
           </button>
         </div>

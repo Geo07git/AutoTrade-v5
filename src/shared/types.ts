@@ -1663,6 +1663,8 @@ export interface BtcSignalRecommendation {
   invalidatedReason?: string;
 }
 
+export type XPerpBotLimitStatus = 'INSIDE' | 'NEAR_MIN' | 'NEAR_MAX' | 'OUT_LOW' | 'OUT_HIGH';
+
 export interface BtcMonitoredBot {
   algoId: string;
   instId: string;
@@ -1695,6 +1697,15 @@ export interface BtcMonitoredBot {
   bandPositionPct: number | null;
   tpProgressPct: number | null;
   slProgressPct: number | null;
+  limitStatus?: XPerpBotLimitStatus;
+  limitMessage?: string;
+  suggestedNewRange?: {
+    direction: BtcGridDirection;
+    minPx: number;
+    maxPx: number;
+    rangeSpanUSD: number;
+    gridStepUSD: number;
+  };
   cTime: number;
   uTime: number;
   confirmedClosedAt?: number;
@@ -1706,6 +1717,7 @@ export interface BtcTelegramPreferences {
   onBotClosed: boolean;
   onNextRecommendation: boolean;
   onSignalInvalidated: boolean;
+  onBotLimitReached?: boolean;
 }
 
 export interface BtcSignalsConfig {

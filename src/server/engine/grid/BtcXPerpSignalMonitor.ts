@@ -16,6 +16,7 @@ import {
   BtcSupportResistanceLevel,
   Kline,
   XPerpAssetKey,
+  XPerpBotLimitStatus,
 } from '../../../shared/types';
 import { telegramService } from '../../telegram/TelegramService';
 import { writeJsonAtomic } from '../../utils/atomicFile';
@@ -70,6 +71,7 @@ export const DEFAULT_BTC_SIGNALS_CONFIG: BtcSignalsConfig = {
     onBotClosed: true,
     onNextRecommendation: true,
     onSignalInvalidated: true,
+    onBotLimitReached: true,
   },
 };
 
@@ -143,6 +145,7 @@ interface PersistedBtcSignalsState {
   lastDispatchedSignalAt: number;
   lastInvalidatedSignalId: string;
   lastClosedDirection: BtcGridDirection | null;
+  botLimitAlerts: Record<string, { status: XPerpBotLimitStatus; alertedAt: number }>;
 }
 
 export function isXPerpInstrumentForAsset(
@@ -751,6 +754,7 @@ export class BtcXPerpSignalMonitor {
       lastDispatchedSignalAt: 0,
       lastInvalidatedSignalId: '',
       lastClosedDirection: null,
+      botLimitAlerts: {},
     };
 
     try {
@@ -777,6 +781,10 @@ export class BtcXPerpSignalMonitor {
         notifiedClosedAlgoIds: Array.isArray(parsed.notifiedClosedAlgoIds)
           ? parsed.notifiedClosedAlgoIds
           : [],
+        botLimitAlerts:
+          parsed.botLimitAlerts && typeof parsed.botLimitAlerts === 'object'
+            ? parsed.botLimitAlerts
+            : {},
       };
     } catch {
       return defaults;
@@ -1234,11 +1242,18 @@ export class BtcXPerpSignalMonitor {
         }
       }
 
+      for (const bot of activeBots) {
+        this.applyBotLimitAdvisory(bot);
+      }
+
       this.state.activeBots = activeBots;
       this.state.recentClosedBots = Array.from(closedMap.values())
         .sort((a, b) => b.uTime - a.uTime)
         .slice(0, 40);
       this.state.lastBotSyncAt = Date.now();
+
+      // Notify if any running bot approaches or breaches its minPx / maxPx grid boundaries
+      await this.checkAndHandleBotLimitAlerts(activeBots);
 
       // Continuity workflow when one or more bots close:
       // 1) Record closed direction, 2) Immediately dispatch existing valid recommendation on Telegram,
@@ -1266,6 +1281,161 @@ export class BtcXPerpSignalMonitor {
       return { activeBots: this.state.activeBots, newlyClosedBots: [] };
     } finally {
       this.isSyncingBots = false;
+    }
+  }
+
+  private evaluateBotLimitStatus(bot: BtcMonitoredBot): XPerpBotLimitStatus {
+    const span = bot.maxPx - bot.minPx;
+    if (!(span > 0) || !(bot.currentPx > 0) || !(bot.minPx > 0) || !(bot.maxPx > bot.minPx)) {
+      return 'INSIDE';
+    }
+    if (bot.currentPx <= bot.minPx) return 'OUT_LOW';
+    if (bot.currentPx >= bot.maxPx) return 'OUT_HIGH';
+    const rel = (bot.currentPx - bot.minPx) / span;
+    if (rel <= 0.08) return 'NEAR_MIN';
+    if (rel >= 0.92) return 'NEAR_MAX';
+    return 'INSIDE';
+  }
+
+  private applyBotLimitAdvisory(bot: BtcMonitoredBot): void {
+    const limitStatus = this.evaluateBotLimitStatus(bot);
+    bot.limitStatus = limitStatus;
+    if (limitStatus === 'INSIDE') {
+      bot.limitMessage = undefined;
+      bot.suggestedNewRange = undefined;
+      return;
+    }
+
+    const activeRec = this.state.activeRecommendation;
+    const suggestedDirection: BtcGridDirection =
+      activeRec && !activeRec.invalidatedAt
+        ? activeRec.direction
+        : bot.direction === 'short'
+        ? 'SHORT'
+        : bot.direction === 'long'
+        ? 'LONG'
+        : activeRec?.direction || 'LONG';
+
+    const cachedInd = activeRec?.indicators;
+    const fallbackAtr = Math.max(0.01, (bot.maxPx - bot.minPx) * 0.35);
+    const atr1hUSD =
+      cachedInd && cachedInd.atr1hUSD > 0 ? cachedInd.atr1hUSD : fallbackAtr;
+
+    const dynRange = computeDynamicGridRangeForAsset({
+      asset: this.assetSpec.asset,
+      currentPrice: bot.currentPx,
+      direction: suggestedDirection,
+      atr1hUSD,
+      nearestSupport: cachedInd?.nearestSupport ?? null,
+      nearestResistance: cachedInd?.nearestResistance ?? null,
+    });
+
+    bot.suggestedNewRange = {
+      direction: suggestedDirection,
+      minPx: dynRange.minPx,
+      maxPx: dynRange.maxPx,
+      rangeSpanUSD: dynRange.rangeSpanUSD,
+      gridStepUSD: dynRange.gridStepUSD,
+    };
+
+    const pxDec = this.assetSpec.priceDecimals;
+    const gridDec = this.assetSpec.gridDecimals;
+    const pxStr = `$${bot.currentPx.toFixed(pxDec)}`;
+    const minStr = `$${bot.minPx.toFixed(gridDec)}`;
+    const maxStr = `$${bot.maxPx.toFixed(gridDec)}`;
+
+    if (limitStatus === 'OUT_LOW') {
+      bot.limitMessage = `Prețul (${pxStr}) a coborât la/sub limita inferioară (${minStr}). Botul nu mai face arbitraje până nu revine în interval sau nu ajustezi limitele.`;
+    } else if (limitStatus === 'OUT_HIGH') {
+      bot.limitMessage = `Prețul (${pxStr}) a urcat la/peste limita superioară (${maxStr}). Botul nu mai face arbitraje până nu revine în interval sau nu ajustezi limitele.`;
+    } else if (limitStatus === 'NEAR_MIN') {
+      bot.limitMessage = `Prețul (${pxStr}) se apropie de limita inferioară (${minStr}). Pregătește schimbarea limitelor dacă sparge pragul.`;
+    } else {
+      bot.limitMessage = `Prețul (${pxStr}) se apropie de limita superioară (${maxStr}). Pregătește schimbarea limitelor dacă sparge pragul.`;
+    }
+  }
+
+  private async checkAndHandleBotLimitAlerts(activeBots: BtcMonitoredBot[]): Promise<void> {
+    if (!this.state.botLimitAlerts || typeof this.state.botLimitAlerts !== 'object') {
+      this.state.botLimitAlerts = {};
+    }
+
+    const activeIds = new Set(activeBots.map((b) => b.algoId));
+    for (const storedId of Object.keys(this.state.botLimitAlerts)) {
+      if (!activeIds.has(storedId)) {
+        delete this.state.botLimitAlerts[storedId];
+      }
+    }
+
+    const sendEnabled = this.state.config.telegramPreferences.onBotLimitReached !== false;
+    const now = Date.now();
+    const cooldownMs = 30 * 60_000;
+
+    for (const bot of activeBots) {
+      if (bot.state !== 'running') continue;
+      const status = bot.limitStatus || 'INSIDE';
+      const prev = this.state.botLimitAlerts[bot.algoId];
+
+      // Hysteresis reset: require price to re-enter comfortably inside (15%–85% of band)
+      // before clearing an active limit alert, preventing oscillation spam right at minPx/maxPx.
+      if (status === 'INSIDE') {
+        if (
+          prev &&
+          prev.status !== 'INSIDE' &&
+          bot.bandPositionPct !== null &&
+          bot.bandPositionPct >= 15 &&
+          bot.bandPositionPct <= 85
+        ) {
+          delete this.state.botLimitAlerts[bot.algoId];
+        }
+        continue;
+      }
+
+      const isBreach = status === 'OUT_LOW' || status === 'OUT_HIGH';
+      const prevWasNear = prev?.status === 'NEAR_MIN' || prev?.status === 'NEAR_MAX';
+
+      let shouldNotify = false;
+      if (!prev) {
+        shouldNotify = true;
+      } else if (isBreach && prevWasNear) {
+        // Immediate upgrade notification when NEAR_* crosses into OUT_*
+        shouldNotify = true;
+      } else if (prev.status !== status && now - prev.alertedAt >= cooldownMs) {
+        shouldNotify = true;
+      }
+
+      if (!shouldNotify) continue;
+
+      this.state.botLimitAlerts[bot.algoId] = { status, alertedAt: now };
+
+      if (!sendEnabled || !bot.suggestedNewRange) continue;
+
+      const pxDec = this.assetSpec.priceDecimals;
+      const gridDec = this.assetSpec.gridDecimals;
+      const stepDec = this.assetSpec.asset === 'ZEC' ? 2 : 0;
+      const pnlSign = bot.totalPnlUSD >= 0 ? '+' : '';
+      const dirLabel = bot.direction.toUpperCase();
+      const title = isBreach
+        ? `🚨 BOT ${this.assetSpec.displayInstrument} LA LIMITĂ / ÎN AFARA BENZII`
+        : `⚠️ BOT ${this.assetSpec.displayInstrument} APROAPE DE LIMITĂ`;
+      const actionLine = isBreach
+        ? `Ajustează manual limitele în OKX sau oprește botul curent ca să nu ții marja ($${bot.investedMarginUSD.toFixed(2)} ${bot.investmentCcy || 'USDC'}) blocată fără arbitraje.`
+        : `Monitorizează pragul; dacă îl sparge, ajustează manual limitele în OKX pe noul interval sugerat.`;
+
+      const msg =
+        `${title}\n\n` +
+        `• Bot #${bot.algoId} (${dirLabel} · ${bot.lever}x)\n` +
+        `• Interval bot actual: $${bot.minPx.toFixed(gridDec)} – $${bot.maxPx.toFixed(gridDec)}\n` +
+        `• Preț ${this.assetSpec.asset} actual: $${bot.currentPx.toFixed(pxDec)} (Poziție: ${bot.bandPositionPct ?? 0}%)\n` +
+        `• PnL curent: ${pnlSign}$${bot.totalPnlUSD.toFixed(2)} (${pnlSign}${bot.totalPnlPct.toFixed(2)}%) · Grid: +$${bot.gridProfitUSD.toFixed(2)} (${bot.arbitrageNum} arb)\n\n` +
+        `📐 RECOMANDARE SCHIMBARE LIMITE (Manual în OKX):\n` +
+        `• ${actionLine}\n` +
+        `• Interval nou sugerat: $${bot.suggestedNewRange.minPx.toFixed(gridDec)} – $${bot.suggestedNewRange.maxPx.toFixed(gridDec)} (10 grile, pas $${bot.suggestedNewRange.gridStepUSD.toFixed(stepDec)})\n` +
+        `• Direcție analizată: ${bot.suggestedNewRange.direction} · TP 5% / SL 2.5% din marjă\n` +
+        `• Read-Only: TB5 nu modifică botul automat.\n` +
+        `• Ora: ${formatBucharestDateTime()} (București)`;
+
+      await this.telegramPort.sendMessage(msg).catch(() => false);
     }
   }
 

@@ -1742,6 +1742,7 @@ async function startServer() {
         if (typeof tp.onBotClosed === 'boolean') cleanTp.onBotClosed = tp.onBotClosed;
         if (typeof tp.onNextRecommendation === 'boolean') cleanTp.onNextRecommendation = tp.onNextRecommendation;
         if (typeof tp.onSignalInvalidated === 'boolean') cleanTp.onSignalInvalidated = tp.onSignalInvalidated;
+        if (typeof tp.onBotLimitReached === 'boolean') cleanTp.onBotLimitReached = tp.onBotLimitReached;
         patch.telegramPreferences = cleanTp;
       }
 

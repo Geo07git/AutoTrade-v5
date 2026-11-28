@@ -646,6 +646,132 @@ test('ZEC monitor: uses dynamic ATR range, isolated state file, and filters stri
 });
 
 // ---------------------------------------------------------------------------
+// 6. Active bot limit advisory (NEAR_MIN/OUT_LOW) + Telegram anti-spam hysteresis
+// ---------------------------------------------------------------------------
+test('bot limit alerts: detects NEAR_MIN/OUT_LOW, suggests new range, and deduplicates with hysteresis', async () => {
+  const dir = makeTempDir();
+  try {
+    let livePx = 59500;
+    const rawBot = {
+      algoId: 'BTC_SHORT_LIMIT',
+      instId: 'BTC-USD_UM_XPERP-310404',
+      direction: 'short',
+      state: 'running',
+      minPx: '59000',
+      maxPx: '60000',
+      gridNum: '10',
+      lever: '5',
+      investment: '37.81',
+      investmentCcy: 'USDC',
+      tpRatio: '0.05',
+      slRatio: '0.025',
+      gridProfit: '0.18',
+      floatProfit: '-0.12',
+      totalPnl: '0.06',
+      arbitrageNum: '3',
+      cTime: String(Date.now() - 600_000),
+      uTime: String(Date.now()),
+    };
+
+    const okxPort: BtcReadOnlyOkxPort = {
+      hasCredentials: () => true,
+      isCredentialsPermanentlyFailed: () => false,
+      resolveLiveInstrumentId: async () => 'BTC-USD_UM_XPERP-310404',
+      getKlines: async () => [],
+      getTickerPrice: async () => livePx,
+      fetchMarketIntelligenceExtras: async () => ({
+        openInterestUSD: 400_000_000,
+        fundingRatePct: -0.005,
+        nextFundingRatePct: -0.005,
+        orderBookImbalance: 0,
+        orderBookDepthUSD: 2_000_000,
+        spreadBps: 1.0,
+      }),
+      getNativeContractGridBots: async (mode) => (mode === 'pending' ? [rawBot] : []),
+      getNativeContractGridDetails: async (algoId) => (algoId === rawBot.algoId ? rawBot : null),
+    };
+
+    const messages: string[] = [];
+    const tgPort: BtcTelegramPort = {
+      isConfigured: () => true,
+      isNotificationsEnabled: () => true,
+      sendMessage: async (text) => {
+        messages.push(text);
+        return true;
+      },
+    };
+
+    const monitor = new BtcXPerpSignalMonitor(okxPort, { dataDir: dir, telegramPort: tgPort });
+
+    // 1) Inside band ($59,500) -> INSIDE, no Telegram alert
+    const s1 = await monitor.syncMonitoredBots();
+    eq(s1.activeBots.length, 1, 'bot detected inside band');
+    eq(s1.activeBots[0].limitStatus, 'INSIDE', '59500 is INSIDE 59000-60000');
+    eq(s1.activeBots[0].suggestedNewRange, undefined, 'no suggested range while INSIDE');
+    eq(messages.length, 0, 'no Telegram alert when inside band');
+
+    // 2) Approaching lower bound ($59,050 -> 5% <= 8%) -> NEAR_MIN alert once
+    livePx = 59050;
+    const s2 = await monitor.syncMonitoredBots();
+    eq(s2.activeBots[0].limitStatus, 'NEAR_MIN', '59050 is NEAR_MIN');
+    ok(s2.activeBots[0].limitMessage?.includes('59,000') || s2.activeBots[0].limitMessage?.includes('59000'), 'limitMessage mentions lower bound');
+    ok(s2.activeBots[0].suggestedNewRange !== undefined, 'suggestedNewRange populated on NEAR_MIN');
+    eq(messages.length, 1, 'sends NEAR_MIN Telegram alert once');
+    ok(messages[0].includes('APROAPE DE LIMITĂ'), 'Telegram alert uses NEAR warning header');
+    ok(messages[0].includes('RECOMANDARE SCHIMBARE LIMITE'), 'Telegram alert includes new range recommendation');
+
+    // Repeat poll at $59,040 -> zero duplicate alert
+    livePx = 59040;
+    await monitor.syncMonitoredBots();
+    eq(messages.length, 1, 'deduplicates repeated NEAR_MIN polls');
+
+    // 3) Cross below $59,000 ($58,950) -> immediate upgrade to OUT_LOW
+    livePx = 58950;
+    const s3 = await monitor.syncMonitoredBots();
+    eq(s3.activeBots[0].limitStatus, 'OUT_LOW', '58950 is OUT_LOW');
+    const sug = s3.activeBots[0].suggestedNewRange!;
+    eq(sug.rangeSpanUSD, 1000, 'suggested new BTC range preserves $1,000 span');
+    eq(sug.gridStepUSD, 100, 'suggested new BTC range preserves $100 step');
+    ok(sug.minPx < 58950 && 58950 < sug.maxPx, 'suggested range encloses current price 58950');
+    eq(messages.length, 2, 'immediately upgrades NEAR_MIN -> OUT_LOW on Telegram');
+    ok(messages[1].includes('LA LIMITĂ / ÎN AFARA BENZII'), 'Telegram breach alert uses urgent header');
+
+    // Bounce back slightly to $59,040 (4% < 15% hysteresis) and drop again -> no spam
+    livePx = 59040;
+    await monitor.syncMonitoredBots();
+    livePx = 58960;
+    await monitor.syncMonitoredBots();
+    eq(messages.length, 2, '15%-85% hysteresis suppresses oscillation spam near boundary');
+
+    // 4) Full recovery to $59,500 (50% inside 15%-85%) clears hysteresis lock
+    livePx = 59500;
+    const s4 = await monitor.syncMonitoredBots();
+    eq(s4.activeBots[0].limitStatus, 'INSIDE', 'recovers cleanly to INSIDE');
+
+    // Drop again to $59,050 triggers fresh alert because hysteresis cleared
+    livePx = 59050;
+    await monitor.syncMonitoredBots();
+    eq(messages.length, 3, 'fires again after full 15%-85% hysteresis reset');
+
+    // 5) Recover and disable onBotLimitReached toggle -> zero Telegram alerts on subsequent breach
+    livePx = 59500;
+    await monitor.syncMonitoredBots();
+    monitor.updateConfig({
+      telegramPreferences: {
+        ...monitor.getConfig().telegramPreferences,
+        onBotLimitReached: false,
+      },
+    });
+    livePx = 58900;
+    const s5 = await monitor.syncMonitoredBots();
+    eq(s5.activeBots[0].limitStatus, 'OUT_LOW', 'UI limitStatus still updates when Telegram toggle is off');
+    eq(messages.length, 3, 'respects onBotLimitReached=false without sending Telegram alert');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 const run = async (): Promise<void> => {
