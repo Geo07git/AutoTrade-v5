@@ -273,7 +273,10 @@ if ($Status) {
 # fara sa refuze singur. Verificam totusi explicit: daca cineva a scos regula din .gitignore
 # sau a comis din greseala un secret / un fisier din .data, ne oprim INAINTE de a-l asterne
 # in working tree (si inainte de a-l expune la `git add -A`).
-$ignoreCheck = Invoke-Git -GitArgs @('check-ignore', '-q', '.data')
+# Probe a CHILD path, not `.data` itself: a directory-only rule (`.data/`) matches only once git
+# knows the path is a directory, so on a fresh clone probing `.data` would report "not ignored"
+# and block a sync that is actually safe.
+$ignoreCheck = Invoke-Git -GitArgs @('check-ignore', '-q', '.data/probe')
 if ($ignoreCheck.ExitCode -ne 0) {
     Exit-With -Code 1 -Message '.data\ nu mai este ignorat de git. Nu fac pull pana nu revine regula .data/ in .gitignore - altfel urmatorul git add -A ar comite chei, pozitii si ordine.' -Color Red
 }

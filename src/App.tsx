@@ -12,6 +12,7 @@ import {
   ProfileType,
 } from './shared/types';
 import { BloombergTerminal } from './components/BloombergTerminal';
+import { RepoUpdateBadge } from './components/RepoUpdateBadge';
 import { useDynamicTaskbar } from './hooks/useDynamicTaskbar';
 
 export default function App() {
@@ -520,7 +521,8 @@ export default function App() {
   };
 
   return (
-    <BloombergTerminal
+    <>
+      <BloombergTerminal
       status={status}
       logs={logs}
       orders={orders}
@@ -555,5 +557,29 @@ export default function App() {
       successMessage={successMessage}
       onDismissAlert={handleDismissAlert}
     />
+
+      {/*
+        Proactive origin watch. The server decides whether there is an update (5 min poll, git
+        fetch = read-only); this badge only shows it. The pull itself stays one click, and that
+        click runs scripts/sync-repo.ps1 (ff-only + lint gate + backup + clean shutdown + restart).
+      */}
+      <RepoUpdateBadge
+        controlToken={controlToken}
+        onNotify={(type, text) => {
+          if (type === 'error') {
+            setSuccessMessage(null);
+            setErrorMessage(text);
+          } else {
+            setErrorMessage(null);
+            setSuccessMessage(text);
+          }
+        }}
+        onRefresh={() => {
+          fetchStatus();
+          fetchLogs();
+          fetchOrders();
+        }}
+      />
+    </>
   );
 }

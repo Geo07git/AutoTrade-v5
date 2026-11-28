@@ -14,6 +14,7 @@ import crypto from 'crypto';
 import { tradeBot } from './src/server/pipeline/TradeBot';
 import { telegramService } from './src/server/telegram/TelegramService';
 import { flushAllStores } from './src/server/store';
+import { repoUpdate } from './src/server/repo/RepoUpdateService';
 import { getBucharestHourlyInterval, formatBucharestTime } from './src/server/utils/timezone';
 
 const SERVER_STARTED_AT = Date.now();
@@ -1928,6 +1929,120 @@ async function startServer() {
     }, 250);
   });
 
+  // =========================================================================
+  // REPO UPDATE WATCH - proactive "update available" badge
+  //
+  // The CHECK is automatic and lives on the server (5 min poll, git fetch = read-only: it writes
+  // only remote refs inside .git, never the working tree). A closed browser therefore cannot hide
+  // an update. The PULL stays one explicit click, because that click changes what code runs -
+  // and the script that performs it is the only actor allowed to restart the process.
+  // =========================================================================
+  app.get('/api/bot/repo/status', requireControlAuth, async (req, res) => {
+    try {
+      const force = req.query.force === '1' || req.query.force === 'true';
+      const repoStatus = await repoUpdate.check(force);
+      res.json({ success: true, ...repoStatus });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Eroare la verificarea starii repo-ului',
+      });
+    }
+  });
+
+  app.post('/api/bot/repo/sync', requireControlAuth, async (req, res) => {
+    try {
+      if (isRestartingServer) {
+        return res.status(409).json({ success: false, error: 'Serverul se reporneste deja.' });
+      }
+      if (repoUpdate.isSyncing()) {
+        return res.status(409).json({
+          success: false,
+          error: 'O sincronizare este deja in curs. Urmareste %TEMP%\\autotrade-sync.log.',
+        });
+      }
+
+      // Recheck, never decide on a 5-minute-old cache: the pull must be justified by origin, now.
+      const repoStatus = await repoUpdate.check(true);
+      if (!repoStatus.ok) {
+        return res.status(409).json({
+          success: false,
+          error: repoStatus.error || 'Nu pot verifica origin acum. Nu pornesc sync-ul pe orb.',
+          status: repoStatus,
+        });
+      }
+      if (repoStatus.blockedReason) {
+        return res.status(409).json({ success: false, error: repoStatus.blockedReason, status: repoStatus });
+      }
+      if (repoStatus.behind === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Codul este deja la zi cu origin. Nu e nimic de tras.',
+          status: repoStatus,
+        });
+      }
+      if (process.platform !== 'win32') {
+        return res.status(501).json({
+          success: false,
+          error:
+            'Sync-ul automat ruleaza doar pe Windows (scripts/sync-repo.ps1). Pe POSIX ruleaza scriptul manual.',
+        });
+      }
+
+      const repoRoot = path.resolve(process.cwd());
+      const scriptPath = path.resolve(repoRoot, 'scripts', 'sync-repo.ps1');
+      if (!scriptPath.startsWith(repoRoot + path.sep) || !fs.existsSync(scriptPath)) {
+        return res.status(404).json({ success: false, error: 'scripts/sync-repo.ps1 nu a fost gasit.' });
+      }
+
+      repoUpdate.markSyncing(true);
+      res.status(202).json({
+        success: true,
+        behind: repoStatus.behind,
+        restartRequired: repoStatus.restartRequired,
+        commits: repoStatus.incomingCommits,
+        message: repoStatus.restartRequired
+          ? `Se trag ${repoStatus.behind} commit(uri), se ruleaza lint si serverul se reporneste automat. Log: %TEMP%\\autotrade-sync.log`
+          : `Se trag ${repoStatus.behind} commit(uri) si se ruleaza lint. Fara restart (doar fisiere non-runtime). Log: %TEMP%\\autotrade-sync.log`,
+      });
+
+      // Detached on purpose: the sync kills this very process during the restart, so the script
+      // must outlive it. sync-repo.ps1 is ff-only, refuses over local edits, guards secrets,
+      // gates on lint, and launches restart-app.ps1 (backup + clean shutdown) itself.
+      setTimeout(() => {
+        try {
+          const child = spawn(
+            'powershell.exe',
+            [
+              '-NoProfile',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-File',
+              scriptPath,
+              '-Restart',
+              '-Port',
+              String(PORT),
+            ],
+            {
+              cwd: repoRoot,
+              detached: true,
+              stdio: 'ignore',
+              windowsHide: true,
+              shell: false,
+            }
+          );
+          child.unref();
+        } catch (err: any) {
+          repoUpdate.markSyncing(false);
+          console.error('[Repo] Failed to launch scripts/sync-repo.ps1:', err?.message || err);
+        }
+      }, 300);
+    } catch (err: any) {
+      repoUpdate.markSyncing(false);
+      res.status(500).json({ success: false, error: err?.message || 'Eroare la pornirea sincronizarii' });
+    }
+  });
+
   // Catch-all JSON 404 for any unmatched /api/* route so Vite/SPA never returns <!doctype html>
   app.all('/api/*', (req, res) => {
     res.status(404).json({
@@ -1981,6 +2096,8 @@ async function startServer() {
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
     tradeBot.start().catch((err) => console.error('[TradeBot] Failed to start TradeBot background loop:', err));
+    // Unattended origin watch so the update badge is populated without anyone opening the UI.
+    repoUpdate.start();
   });
 
   server.on('error', (err: any) => {
