@@ -25,6 +25,10 @@ export interface RepoUpdateStatus extends RepoUpdateDecision {
   branch: string;
   headSha: string;
   remoteSha: string;
+  /** Commit the RUNNING process was started from (short). */
+  runningSha: string;
+  /** True when HEAD moved after this process started: disk is newer than what is running. */
+  stale: boolean;
   behind: number;
   ahead: number;
   dirtyFiles: string[];
@@ -52,6 +56,8 @@ function emptyStatus(repoRoot: string, checkIntervalMs: number): RepoUpdateStatu
     branch: 'main',
     headSha: '',
     remoteSha: '',
+    runningSha: '',
+    stale: false,
     behind: 0,
     ahead: 0,
     dirtyFiles: [],
@@ -149,6 +155,8 @@ export class RepoUpdateService {
   private timer?: NodeJS.Timeout;
   private inFlight?: Promise<RepoUpdateStatus>;
   private syncing = false;
+  /** HEAD at boot: the only way to know what the running code actually is. */
+  private runningShaFull = '';
 
   constructor(repoRoot: string = process.cwd(), intervalMs?: number) {
     const envInterval = Number(process.env.REPO_UPDATE_CHECK_MS);
@@ -156,6 +164,16 @@ export class RepoUpdateService {
     this.intervalMs = Math.max(MIN_INTERVAL_MS, Math.round(requested));
     this.repoRoot = path.resolve(repoRoot);
     this.status = emptyStatus(this.repoRoot, this.intervalMs);
+    void this.captureRunningSha();
+  }
+
+  /**
+   * Records the commit this process was started from. A pull that never restarted leaves HEAD
+   * ahead of it, which is exactly the state that must not be reported as "up to date".
+   */
+  private async captureRunningSha(): Promise<void> {
+    const res = await runGit(['rev-parse', 'HEAD'], this.repoRoot, 10_000);
+    if (res.code === 0) this.runningShaFull = res.stdout.trim();
   }
 
   /**
@@ -274,7 +292,11 @@ export class RepoUpdateService {
     const dataIgnored = ignoreRes.code === 0;
 
     const headRes = await runGit(['rev-parse', 'HEAD'], this.repoRoot, 10_000);
-    const headSha = headRes.code === 0 ? headRes.stdout.trim() : '';
+    const headFull = headRes.code === 0 ? headRes.stdout.trim() : '';
+    const headSha = headFull;
+    // Unknown running sha (git failed at boot) is NOT treated as stale: a guard that fires on
+    // missing data is worse than no guard.
+    const stale = Boolean(this.runningShaFull) && Boolean(headFull) && this.runningShaFull !== headFull;
 
     const fetchRes = await runGit(['fetch', 'origin', '--prune'], this.repoRoot, GIT_TIMEOUT_MS);
     if (fetchRes.code !== 0) {
@@ -287,7 +309,7 @@ export class RepoUpdateService {
         ok: false,
         error: (fetchRes.stderr || fetchRes.stdout || 'git fetch a esuat.').trim().slice(0, 400),
         summary: 'Nu pot contacta origin (offline sau remote inaccesibil).',
-        ...deriveRepoUpdateDecision({ dataIgnored, behind: 0, ahead: 0, dirtyFiles: [], incomingFiles: [] }),
+        ...deriveRepoUpdateDecision({ dataIgnored, behind: 0, ahead: 0, dirtyFiles: [], incomingFiles: [], stale }),
       };
     }
 
@@ -344,7 +366,7 @@ export class RepoUpdateService {
       }
     }
 
-    const decision = deriveRepoUpdateDecision({ dataIgnored, behind, ahead, dirtyFiles, incomingFiles });
+    const decision = deriveRepoUpdateDecision({ dataIgnored, behind, ahead, dirtyFiles, incomingFiles, stale });
 
     return {
       ...base,
@@ -354,6 +376,8 @@ export class RepoUpdateService {
       branch,
       headSha: headSha.slice(0, 7),
       remoteSha: remoteSha.slice(0, 7),
+      runningSha: this.runningShaFull.slice(0, 7),
+      stale,
       behind,
       ahead,
       dirtyFiles,

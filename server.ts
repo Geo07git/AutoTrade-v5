@@ -1974,10 +1974,10 @@ async function startServer() {
       if (repoStatus.blockedReason) {
         return res.status(409).json({ success: false, error: repoStatus.blockedReason, status: repoStatus });
       }
-      if (repoStatus.behind === 0) {
+      if (repoStatus.behind === 0 && !repoStatus.stale) {
         return res.status(400).json({
           success: false,
-          error: 'Codul este deja la zi cu origin. Nu e nimic de tras.',
+          error: 'Codul este deja la zi cu origin si ruleaza. Nu e nimic de tras.',
           status: repoStatus,
         });
       }
@@ -1999,9 +1999,12 @@ async function startServer() {
       res.status(202).json({
         success: true,
         behind: repoStatus.behind,
+        stale: repoStatus.stale,
         restartRequired: repoStatus.restartRequired,
         commits: repoStatus.incomingCommits,
-        message: repoStatus.restartRequired
+        message: repoStatus.stale
+          ? `Codul de pe disc (${repoStatus.headSha}) nu ruleaza (procesul e pornit din ${repoStatus.runningSha}). Rulez lint si repornesc. Log: %TEMP%\\autotrade-sync.log`
+          : repoStatus.restartRequired
           ? `Se trag ${repoStatus.behind} commit(uri), se ruleaza lint si serverul se reporneste automat. Log: %TEMP%\\autotrade-sync.log`
           : `Se trag ${repoStatus.behind} commit(uri) si se ruleaza lint. Fara restart (doar fisiere non-runtime). Log: %TEMP%\\autotrade-sync.log`,
       });
@@ -2009,6 +2012,10 @@ async function startServer() {
       // Detached on purpose: the sync kills this very process during the restart, so the script
       // must outlive it. sync-repo.ps1 is ff-only, refuses over local edits, guards secrets,
       // gates on lint, and launches restart-app.ps1 (backup + clean shutdown) itself.
+      //
+      // -ForceRestart when there is nothing to pull: this is the recovery path for "a pull landed
+      // but the restart did not" (lint gate). Without it that state could only be fixed by hand,
+      // while the desk happily reported "up to date".
       setTimeout(() => {
         try {
           const child = spawn(
@@ -2020,6 +2027,7 @@ async function startServer() {
               '-File',
               scriptPath,
               '-Restart',
+              ...(repoStatus.behind === 0 ? ['-ForceRestart'] : []),
               '-Port',
               String(PORT),
             ],

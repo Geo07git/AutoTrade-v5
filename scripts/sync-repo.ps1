@@ -251,10 +251,19 @@ if ($ahead -gt 0) {
 }
 
 if ($behind -eq 0) {
-    if ($Status) {
+    if ($Restart -and $ForceRestart) {
+        # "Cod nou pe disc, dar procesul ruleaza o versiune veche" (de ex. un pull al carui lint a
+        # picat, apoi reparat): nu e nimic de tras, dar arborele curent trebuie verificat si
+        # incarcat. Lint-ul de mai jos ramane poarta, deci un cod stricat tot nu ajunge live.
+        Write-Log ''
+        Write-Log 'Repo deja la zi, dar s-a cerut restart verificat (-ForceRestart): rulez lint pe arborele curent, apoi repornesc.' 'Yellow'
+    }
+    elseif ($Status) {
         Exit-With -Code 2 -Message 'Repo deja la zi cu origin/main.' -Color Green
     }
-    Exit-With -Code 2 -Message 'Repo deja la zi cu origin/main. Nimic de facut.' -Color Green
+    else {
+        Exit-With -Code 2 -Message 'Repo deja la zi cu origin/main. Nimic de facut.' -Color Green
+    }
 }
 
 # Ce vine, ca sa stim daca merita restart
@@ -334,7 +343,7 @@ $changedFiles | ForEach-Object { Write-Log ("  {0}" -f $_) 'DarkGray' }
 
 $lintOk = $true
 $lintRan = $false
-if ($runtimeFiles.Count -gt 0 -and -not $SkipLint) {
+if (($runtimeFiles.Count -gt 0 -or $ForceRestart) -and -not $SkipLint) {
     Write-Log ''
     Write-Log '3. npm run lint' 'Cyan'
     $lint = Invoke-Exe -FilePath 'npm.cmd' -Arguments @('run', 'lint') -TimeoutSec $LintTimeoutSec

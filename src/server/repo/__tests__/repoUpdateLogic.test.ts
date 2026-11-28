@@ -20,6 +20,7 @@ const inputs = (over: Partial<RepoUpdateInputs> = {}): RepoUpdateInputs => ({
   ahead: 0,
   dirtyFiles: [],
   incomingFiles: [],
+  stale: false,
   ...over,
 });
 
@@ -83,6 +84,23 @@ test('.data no longer ignored stops everything, even when there is nothing to pu
   eq(d.canSync, false, 'no sync while secrets could be committed');
   eq(Boolean(d.blockedReason), true, 'and it is a block, not a footnote');
   eq(d.blockedReason!.includes('.data'), true, 'naming the directory that is at risk');
+});
+
+test('a stale process is actionable even with nothing to pull', () => {
+  // The pull landed but the restart did not (lint gate). origin has nothing new, yet the running
+  // code is old - so the badge must NOT say "cod la zi" and go quiet.
+  const d = deriveRepoUpdateDecision(inputs({ stale: true }));
+  eq(d.canSync, true, 'there IS work to do: verify the tree and restart');
+  eq(d.restartRequired, true, 'a restart is exactly what is missing');
+  eq(d.blockedReason, undefined, 'nothing blocks it');
+  eq(d.summary.includes('lint'), true, 'the summary names what the click will run');
+});
+
+test('a stale process does not need a clean tree to be restarted', () => {
+  // Restarting reads the working tree, it never merges into it, so local edits are irrelevant.
+  const d = deriveRepoUpdateDecision(inputs({ stale: true, dirtyFiles: ['server.ts'], ahead: 2 }));
+  eq(d.canSync, true, 'local edits do not prevent loading the code that is already on disk');
+  eq(d.restartRequired, true, 'the restart is still the point');
 });
 
 test('runtime path detection matches scripts/sync-repo.ps1', () => {

@@ -26,6 +26,8 @@ interface RepoUpdateStatusView {
   remoteSha: string;
   behind: number;
   ahead: number;
+  runningSha: string;
+  stale: boolean;
   dirtyFiles: string[];
   incomingCommits: { sha: string; subject: string }[];
   blockedReason?: string;
@@ -140,14 +142,26 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
   // Four states, and three of them are ALWAYS visible. A badge that disappears when there is
   // nothing to do is indistinguishable from a badge that is broken, so "COD LA ZI" stays on
   // screen and doubles as the "check now" button.
-  const variant: 'blocked' | 'update' | 'offline' | 'current' =
-    behind > 0 ? (blocked ? 'blocked' : 'update') : status && status.ok ? 'current' : 'offline';
+  const variant: 'blocked' | 'update' | 'stale' | 'offline' | 'current' =
+    behind > 0
+      ? blocked
+        ? 'blocked'
+        : 'update'
+      : behind === 0 && status?.stale
+      ? 'stale'
+      : status && status.ok
+      ? 'current'
+      : 'offline';
   const isDismissed =
-    (variant === 'update' || variant === 'blocked') && dismissedKey !== null && dismissedKey === updateKey;
+    (variant === 'update' || variant === 'blocked' || variant === 'stale') &&
+    dismissedKey !== null &&
+    dismissedKey === updateKey;
 
   const chipClass =
     variant === 'update'
       ? 'bg-amber-500 text-black border-amber-300'
+      : variant === 'stale'
+      ? 'bg-amber-400 text-black border-amber-200'
       : variant === 'blocked'
       ? 'bg-rose-950/95 text-rose-200 border-rose-500'
       : variant === 'offline'
@@ -167,6 +181,10 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         } -> ${status?.remoteSha}).`
       : variant === 'offline'
       ? `Nu pot verifica origin: ${status?.error || 'eroare necunoscuta'}.\nClick = reincearca acum.`
+      : variant === 'stale'
+      ? `Codul de pe disc (${
+          status?.headSha
+        }) nu ruleaza: procesul a pornit din ${status?.runningSha}.\n\nClick = npm run lint pe arborele curent, apoi repornire (backup .data/, shutdown curat).\nDaca lint-ul pica, serverul vechi ramane sus.\nSe intampla dupa un pull al carui restart nu a avut loc.`
       : `Cod la zi cu origin/${status?.branch || 'main'} (${status?.headSha}).\nVerificare automata la 5 min, ultima la ${fmtClock(
           status?.checkedAt || 0
         )}. Click = verifica acum.`;
@@ -200,19 +218,29 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
       .map((c) => `- ${c.sha} ${c.subject}`)
       .join('\n');
 
+    const staleOnly = Boolean(status.stale) && status.behind === 0;
+
     // The click on the badge IS the decision. A docs-only pull changes nothing that is running,
     // so it goes straight through; only a pull that will replace the running process stops to be
     // read first. That is the single question worth asking, and it is asked once.
     if (status.restartRequired) {
       const confirmed = window.confirm(
-        `Aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}?\n\n` +
-          (commitPreview ? `${commitPreview}\n\n` : '') +
-          'Ce se intampla, in ordine:\n' +
-          '1. git pull --ff-only (fara merge, fara rebase; refuza daca ai modificari locale)\n' +
-          '2. npm run lint pe codul nou\n' +
-          '3. repornire automata: copie .data/, shutdown curat, pornire, /api/health\n' +
-          '\nDaca lint-ul pica, serverul vechi ramane sus si functional.\n' +
-          'Log: %TEMP%\\autotrade-sync.log'
+        staleOnly
+          ? `Repornesc serverul ca sa incarce codul de pe disc?\n\n` +
+            `Procesul ruleaza ${status.runningSha || '?'}, discul are ${status.headSha}.\n\n` +
+            'Ce se intampla:\n' +
+            '1. npm run lint pe arborele curent\n' +
+            '2. repornire automata: copie .data/, shutdown curat, pornire, /api/health\n' +
+            '\nDaca lint-ul pica, serverul vechi ramane sus si functional.\n' +
+            'Log: %TEMP%\\autotrade-sync.log'
+          : `Aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}?\n\n` +
+            (commitPreview ? `${commitPreview}\n\n` : '') +
+            'Ce se intampla, in ordine:\n' +
+            '1. git pull --ff-only (fara merge, fara rebase; refuza daca ai modificari locale)\n' +
+            '2. npm run lint pe codul nou\n' +
+            '3. repornire automata: copie .data/, shutdown curat, pornire, /api/health\n' +
+            '\nDaca lint-ul pica, serverul vechi ramane sus si functional.\n' +
+            'Log: %TEMP%\\autotrade-sync.log'
       );
       if (!confirmed) return;
     }
@@ -221,9 +249,11 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
     setSyncing(true);
     notify(
       'info',
-      `Se aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}. Astept pull-ul${
-        status.restartRequired ? ' si repornirea serverului' : ''
-      }...`
+      staleOnly
+        ? 'Rulez lint pe codul de pe disc si repornesc serverul...'
+        : `Se aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}. Astept pull-ul${
+            status.restartRequired ? ' si repornirea serverului' : ''
+          }...`
     );
 
     let previousStartedAt: number | null = null;
@@ -284,7 +314,10 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         // Expected while the restart script swaps the process: the port is briefly closed.
       }
 
-      // (b) Docs-only pull: no restart, the commits are simply part of HEAD now.
+      // (b) Nothing left to pull. Only a pull that needed NO restart can be called done here: if
+      // the process had to be replaced, "behind === 0" just means the pull landed - the running
+      // code may still be the old one (lint gate, failed restart). Calling that a success would be
+      // the exact lie this badge exists to prevent.
       try {
         const sRes = await fetch('/api/bot/repo/status?force=1', {
           headers: authHeaders(),
@@ -292,7 +325,9 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         });
         if (sRes.ok) {
           const sData = await sRes.json();
-          if (sData && sData.success !== false && sData.ok && (sData.behind ?? 1) === 0) {
+          const nothingLeft =
+            sData && sData.success !== false && sData.ok && (sData.behind ?? 1) === 0 && !sData.stale;
+          if (nothingLeft && !status.restartRequired) {
             if (aliveRef.current) setStatus(sData as RepoUpdateStatusView);
             syncingRef.current = false;
             setSyncing(false);
@@ -309,6 +344,18 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
 
     syncingRef.current = false;
     setSyncing(false);
+    const finalStatus = await readStatus(true).catch(() => null);
+    if (finalStatus && finalStatus.ok && finalStatus.behind === 0 && finalStatus.stale) {
+      // The pull landed but the process was never replaced: most likely the lint gate refused.
+      // Say exactly that - the badge now shows RESTART NECESAR until it is resolved.
+      notify(
+        'error',
+        `Codul de pe disc (${finalStatus.headSha}) NU ruleaza: procesul e tot pe ${
+          finalStatus.runningSha || '?'
+        }. Nu a repornit (probabil lint rosu). Vezi %TEMP%\\autotrade-sync.log.`
+      );
+      return;
+    }
     notify(
       'error',
       'Sync-ul nu a raportat finalizare in 6 minute. Verifica %TEMP%\\autotrade-sync.log si /api/health.'
@@ -327,7 +374,7 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         }`}
         title={titleText}
       >
-        {variant === 'update' ? (
+        {variant === 'update' || variant === 'stale' ? (
           <Download className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-bounce' : ''}`} />
         ) : variant === 'current' ? (
           <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${checking ? 'animate-spin' : ''}`} />
@@ -338,13 +385,19 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         <button
           type="button"
           disabled={syncing}
-          onClick={() => void (variant === 'update' || variant === 'blocked' ? handleSync() : handleRecheck())}
+          onClick={() =>
+            void (variant === 'update' || variant === 'blocked' || variant === 'stale'
+              ? handleSync()
+              : handleRecheck())
+          }
           className="font-black tracking-wide cursor-pointer disabled:cursor-wait whitespace-nowrap"
         >
           {syncing
             ? 'SYNC IN CURS...'
             : variant === 'update'
             ? `UPDATE DISPONIBIL (${behind})`
+            : variant === 'stale'
+            ? 'RESTART NECESAR'
             : variant === 'blocked'
             ? `UPDATE ${behind} BLOCAT`
             : variant === 'offline'
@@ -352,13 +405,23 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
             : 'COD LA ZI'}
         </button>
 
-        <span className={`hidden sm:inline text-[9px] ${variant === 'current' ? 'text-emerald-400/50' : blocked ? 'text-rose-300/80' : 'text-black/60'}`}>
+        <span
+          className={`hidden sm:inline text-[9px] ${
+            variant === 'current'
+              ? 'text-emerald-400/50'
+              : blocked
+              ? 'text-rose-300/80'
+              : 'text-black/60'
+          }`}
+        >
           {variant === 'update' || variant === 'blocked'
             ? `${status.headSha} -> ${status.remoteSha}`
+            : variant === 'stale'
+            ? `${status.runningSha || '?'} -> ${status.headSha}`
             : `${status.headSha} ${fmtClock(status.checkedAt)}`}
         </span>
 
-        {(variant === 'update' || variant === 'blocked') && (
+        {(variant === 'update' || variant === 'blocked' || variant === 'stale') && (
           <button
             type="button"
             disabled={syncing}

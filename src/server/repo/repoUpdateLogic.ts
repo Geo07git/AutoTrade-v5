@@ -16,6 +16,14 @@ export interface RepoUpdateInputs {
   dirtyFiles: string[];
   /** Files the incoming commits touch, used to know whether a restart is needed. */
   incomingFiles: string[];
+  /**
+   * The file on disk is newer than the code this process is running.
+   *
+   * Happens whenever a pull succeeded but the restart did not (lint gate, restart failure).
+   * Without this the badge would say "up to date with origin", which is true about `.git` and a
+   * lie about the process: the desk would keep trading old code while showing a green check.
+   */
+  stale: boolean;
 }
 
 export interface RepoUpdateDecision {
@@ -59,8 +67,16 @@ export function deriveRepoUpdateDecision(inputs: RepoUpdateInputs): RepoUpdateDe
 
   // Nothing to pull is answered FIRST, before the local-tree checks: a dirty or unpushed tree is
   // not a blocker when there is no update, and reporting it as "sync blocked" would be a lie that
-  // makes the desk look broken.
+  // makes the desk look broken. A stale process is the exception: then there IS work to do, even
+  // though origin has nothing new.
   if (inputs.behind === 0) {
+    if (inputs.stale) {
+      return {
+        canSync: true,
+        restartRequired: true,
+        summary: 'Cod nou pe disc, dar serverul ruleaza o versiune veche: click = lint + restart.',
+      };
+    }
     return {
       canSync: false,
       restartRequired: false,
