@@ -924,6 +924,7 @@ export interface BotStatusResponse {
   gridAnalyzer?: GridAnalyzerStatusSummary;
   deepSeekAgent?: Omit<DeepSeekAgentStatus, 'decisions'>;
   btcSignals?: BtcSignalsStatusSummary;
+  zecSignals?: BtcSignalsStatusSummary;
   gridBots?: GridBotInstance[];
   recentArbitrages?: GridArbitrageEvent[];
   gridCandidates?: GridCandidateAnalysis[];
@@ -1626,19 +1627,22 @@ export interface BtcHistoricalCalibrationResult {
   note: string;
 }
 
+export type XPerpAssetKey = 'BTC' | 'ZEC';
+
 export interface BtcSignalRecommendation {
   id: string;
+  asset?: XPerpAssetKey;
   instId: string;
-  displayInstrument: 'BTC-USD UM X-PERP';
+  displayInstrument: string;
   botType: 'OKX Native Futures Grid';
   direction: BtcGridDirection;
   preferredAlternationFrom?: BtcGridDirection | null;
   currentPrice: number;
   minPx: number;
   maxPx: number;
-  rangeSpanUSD: 1000;
+  rangeSpanUSD: number;
   gridNum: 10;
-  gridStepUSD: 100;
+  gridStepUSD: number;
   tpMarginPct: 5;
   slMarginPct: 2.5;
   tpSlBasis: 'INVESTED_MARGIN';
@@ -1734,6 +1738,8 @@ export interface BtcSignalHistoryEntry {
 }
 
 export interface BtcSignalsStatusSummary {
+  asset?: XPerpAssetKey;
+  displayInstrument?: string;
   enabled: boolean;
   instId: string;
   currentPrice: number;
@@ -1748,6 +1754,8 @@ export interface BtcSignalsStatusSummary {
 }
 
 export interface BtcSignalsFullStatus {
+  asset?: XPerpAssetKey;
+  displayInstrument?: string;
   config: BtcSignalsConfig;
   readOnlyGuaranteed: true;
   instId: string;

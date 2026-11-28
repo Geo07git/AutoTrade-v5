@@ -19,6 +19,8 @@ import {
   AnafTaxSummary,
   BtcSignalsConfig,
   BtcSignalsFullStatus,
+  BtcSignalsStatusSummary,
+  XPerpAssetKey,
 } from '../../shared/types';
 import { IExecutionAdapter } from '../exchange/IExecutionAdapter';
 import { OKXAdapter } from '../exchange/OKXAdapter';
@@ -161,6 +163,7 @@ export class TradeBot {
   private deepSeekAgent: DeepSeekAgent;
   private researchCoordinator: ResearchCoordinator;
   private btcSignalMonitor: BtcXPerpSignalMonitor;
+  private zecSignalMonitor: BtcXPerpSignalMonitor;
 
   private state: BotState = 'INITIALIZING';
   private lastSyncTime: number = Date.now();
@@ -351,29 +354,36 @@ export class TradeBot {
     );
     this.anafTaxEngine = new AnafTaxEngine(this.okxAdapter);
     this.researchCoordinator = new ResearchCoordinator(this.okxAdapter);
-    // Dedicated, strictly read-only BTC-USD UM X-PERP monitor & signal advisor.
+    // Dedicated, strictly read-only BTC & ZEC UM X-PERP monitors & signal advisors.
     // Receives a narrow read-only OKX facade; zero order/stop/amend paths exist here.
-    this.btcSignalMonitor = new BtcXPerpSignalMonitor(
-      {
-        hasCredentials: () => this.okxAdapter.hasCredentials(),
-        isCredentialsPermanentlyFailed: () => this.okxAdapter.isCredentialsPermanentlyFailed(),
-        getAuthStatus: () => this.okxAdapter.getAuthStatus(),
-        getLastNativeGridError: () => this.okxAdapter.getLastNativeGridError(),
-        resolveLiveInstrumentId: (symbol: string) => this.okxAdapter.resolveLiveInstrumentId(symbol),
-        getKlines: (symbol: string, interval: string, limit?: number) =>
-          this.okxAdapter.getKlines(symbol, interval, limit),
-        getTickerPrice: (symbol: string) => this.okxAdapter.getTickerPrice(symbol),
-        fetchMarketIntelligenceExtras: (instId: string) =>
-          this.okxAdapter.fetchMarketIntelligenceExtras(instId),
-        getNativeContractGridBots: (mode, isDemo, includeAllDirections, instId) =>
-          this.okxAdapter.getNativeContractGridBots(mode, isDemo, includeAllDirections, instId),
-        getNativeContractGridDetails: (algoId: string, isDemo?: boolean) =>
-          this.okxAdapter.getNativeContractGridDetails(algoId, isDemo),
-      },
-      {
-        telegramPort: telegramService,
-      }
-    );
+    const xPerpReadOnlyPort = {
+      hasCredentials: () => this.okxAdapter.hasCredentials(),
+      isCredentialsPermanentlyFailed: () => this.okxAdapter.isCredentialsPermanentlyFailed(),
+      getAuthStatus: () => this.okxAdapter.getAuthStatus(),
+      getLastNativeGridError: () => this.okxAdapter.getLastNativeGridError(),
+      resolveLiveInstrumentId: (symbol: string) => this.okxAdapter.resolveLiveInstrumentId(symbol),
+      getKlines: (symbol: string, interval: string, limit?: number) =>
+        this.okxAdapter.getKlines(symbol, interval, limit),
+      getTickerPrice: (symbol: string) => this.okxAdapter.getTickerPrice(symbol),
+      fetchMarketIntelligenceExtras: (instId: string) =>
+        this.okxAdapter.fetchMarketIntelligenceExtras(instId),
+      getNativeContractGridBots: (
+        mode?: 'pending' | 'history',
+        isDemo?: boolean,
+        includeAllDirections?: boolean,
+        instId?: string
+      ) => this.okxAdapter.getNativeContractGridBots(mode, isDemo, includeAllDirections, instId),
+      getNativeContractGridDetails: (algoId: string, isDemo?: boolean) =>
+        this.okxAdapter.getNativeContractGridDetails(algoId, isDemo),
+    };
+    this.btcSignalMonitor = new BtcXPerpSignalMonitor(xPerpReadOnlyPort, {
+      asset: 'BTC',
+      telegramPort: telegramService,
+    });
+    this.zecSignalMonitor = new BtcXPerpSignalMonitor(xPerpReadOnlyPort, {
+      asset: 'ZEC',
+      telegramPort: telegramService,
+    });
 
     // DeepSeek autonomous agent — decision layer on top of the OKX native grid engine.
     // It never switches execution mode, never touches the kill switch and never trades outside
@@ -1322,6 +1332,7 @@ export class TradeBot {
         const bal = await this.okxAdapter.getWalletBalance();
         if (bal > 0) this.cachedLiveWalletBalance = bal;
         void this.btcSignalMonitor.syncMonitoredBots().catch(() => {});
+        void this.zecSignalMonitor.syncMonitoredBots().catch(() => {});
       }
     } catch {}
     this.logAudit('CONFIG_UPDATED', `Cheile API OKX (${cleanRegion} | ${isDemo ? 'DEMO' : 'LIVE'}) au fost salvate persistent.`);
@@ -1939,6 +1950,7 @@ export class TradeBot {
         gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
         deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
         btcSignals: this.btcSignalMonitor.getStatusSummary(),
+        zecSignals: this.zecSignalMonitor.getStatusSummary(),
         gridBots: this.gridEngine.getVisibleBots(),
         recentArbitrages: this.journal.getArbitrages(100),
         gridCandidates: this.gridCandidates,
@@ -2026,6 +2038,7 @@ export class TradeBot {
       gridAnalyzer: this.gridBotAnalyzer.getStatusSummary(),
       deepSeekAgent: this.deepSeekAgent.getStatusSummary(),
       btcSignals: this.btcSignalMonitor.getStatusSummary(),
+      zecSignals: this.zecSignalMonitor.getStatusSummary(),
       gridBots: this.gridEngine.getVisibleBots(),
       recentArbitrages: this.journal.getArbitrages(100),
       gridCandidates: this.gridCandidates,
@@ -2604,8 +2617,9 @@ export class TradeBot {
       this.deepSeekAgent.startLoop();
     }
 
-    // BTC-USD UM X-PERP Read-Only Signal & Grid Monitor (120s analysis, 30s bot sync, immediate startup analysis)
+    // BTC & ZEC UM X-PERP Read-Only Signal & Grid Monitors (120s analysis, 30s bot sync, immediate startup analysis)
     this.btcSignalMonitor.start();
+    this.zecSignalMonitor.start();
   }
 
   // Compatibility helpers for server routes
@@ -2656,47 +2670,63 @@ export class TradeBot {
     return this.anafTaxEngine;
   }
 
-  public getBtcSignalsFullStatus(): BtcSignalsFullStatus {
-    return this.btcSignalMonitor.getFullStatus();
+  private getSignalMonitor(asset: XPerpAssetKey = 'BTC'): BtcXPerpSignalMonitor {
+    return asset === 'ZEC' ? this.zecSignalMonitor : this.btcSignalMonitor;
   }
 
-  public async syncBtcSignalsBots(): Promise<BtcSignalsFullStatus> {
-    await this.btcSignalMonitor.syncMonitoredBots();
-    return this.btcSignalMonitor.getFullStatus();
+  public getXPerpSummaries(): { BTC: BtcSignalsStatusSummary; ZEC: BtcSignalsStatusSummary } {
+    return {
+      BTC: this.btcSignalMonitor.getStatusSummary(),
+      ZEC: this.zecSignalMonitor.getStatusSummary(),
+    };
+  }
+
+  public getBtcSignalsFullStatus(asset: XPerpAssetKey = 'BTC'): BtcSignalsFullStatus {
+    return this.getSignalMonitor(asset).getFullStatus();
+  }
+
+  public async syncBtcSignalsBots(asset: XPerpAssetKey = 'BTC'): Promise<BtcSignalsFullStatus> {
+    const monitor = this.getSignalMonitor(asset);
+    await monitor.syncMonitoredBots();
+    return monitor.getFullStatus();
   }
 
   public updateBtcSignalsConfig(
-    updates: Partial<BtcSignalsConfig>
+    updates: Partial<BtcSignalsConfig>,
+    asset: XPerpAssetKey = 'BTC'
   ): { success: boolean; config: BtcSignalsConfig; status: BtcSignalsFullStatus } {
-    const config = this.btcSignalMonitor.updateConfig(updates || {});
+    const monitor = this.getSignalMonitor(asset);
+    const config = monitor.updateConfig(updates || {});
     return {
       success: true,
       config,
-      status: this.btcSignalMonitor.getFullStatus(),
+      status: monitor.getFullStatus(),
     };
   }
 
-  public async runBtcSignalsAnalysisNow(): Promise<{
+  public async runBtcSignalsAnalysisNow(asset: XPerpAssetKey = 'BTC'): Promise<{
     success: boolean;
     status: BtcSignalsFullStatus;
   }> {
-    await this.btcSignalMonitor.syncMonitoredBots().catch(() => {});
-    await this.btcSignalMonitor.runMarketAnalysis('MANUAL');
+    const monitor = this.getSignalMonitor(asset);
+    await monitor.syncMonitoredBots().catch(() => {});
+    await monitor.runMarketAnalysis('MANUAL');
     return {
       success: true,
-      status: this.btcSignalMonitor.getFullStatus(),
+      status: monitor.getFullStatus(),
     };
   }
 
-  public async sendBtcSignalToTelegramNow(): Promise<{
+  public async sendBtcSignalToTelegramNow(asset: XPerpAssetKey = 'BTC'): Promise<{
     success: boolean;
     error?: string;
     status: BtcSignalsFullStatus;
   }> {
-    const res = await this.btcSignalMonitor.sendCurrentRecommendationToTelegram();
+    const monitor = this.getSignalMonitor(asset);
+    const res = await monitor.sendCurrentRecommendationToTelegram();
     return {
       ...res,
-      status: this.btcSignalMonitor.getFullStatus(),
+      status: monitor.getFullStatus(),
     };
   }
 }

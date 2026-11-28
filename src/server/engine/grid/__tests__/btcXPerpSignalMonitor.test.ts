@@ -25,7 +25,9 @@ import {
   BtcTelegramPort,
   calibrateBtcHistoricalProbabilities,
   computeDynamicBtcGridRange,
+  computeDynamicGridRangeForAsset,
   isBtcXPerpInstrument,
+  isXPerpInstrumentForAsset,
 } from '../BtcXPerpSignalMonitor';
 import type { Kline } from '../../../../shared/types';
 
@@ -484,6 +486,160 @@ test('sync errors & trackedAlgoIds: surfaces OKX auth/API errors and resolves pi
       (monitor.getFullStatus().lastBotSyncError || '').includes('429'),
       'must surface transient OKX error to UI'
     );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 5. ZEC-USD UM X-PERP dynamic ATR band, isolated persistence & bot filtering
+// ---------------------------------------------------------------------------
+test('ZEC monitor: uses dynamic ATR range, isolated state file, and filters strictly ZEC X-PERP bots', async () => {
+  const dir = makeTempDir();
+  try {
+    // Generate realistic oscillating ZEC candles around $740
+    const makeZecKlines = (count: number, basePrice = 740): Kline[] => {
+      const out: Kline[] = [];
+      const startTs = Date.UTC(2026, 10, 1, 0, 0, 0);
+      let prevClose = basePrice;
+      for (let i = 0; i < count; i++) {
+        const wave = Math.sin(i / 5) * 18 + Math.cos(i / 9) * 12;
+        const micro = Math.sin(i * 1.1) * 3;
+        const close = Math.max(100, basePrice + wave + micro);
+        const open = prevClose;
+        const high = Math.max(open, close) + 4 + Math.abs(Math.sin(i) * 3);
+        const low = Math.min(open, close) - 4 - Math.abs(Math.cos(i) * 3);
+        out.push({
+          timestamp: startTs + i * 3600_000,
+          open: parseFloat(open.toFixed(2)),
+          high: parseFloat(high.toFixed(2)),
+          low: parseFloat(low.toFixed(2)),
+          close: parseFloat(close.toFixed(2)),
+          volume: 15000 + Math.abs(Math.sin(i * 0.6)) * 8000,
+        });
+        prevClose = close;
+      }
+      return out;
+    };
+
+    const klines1h = makeZecKlines(180, 740);
+    const klines15m = makeZecKlines(120, 742);
+    const klines4h = makeZecKlines(80, 738);
+    const currentPx = klines15m[klines15m.length - 1].close;
+
+    const rawBots = [
+      {
+        algoId: 'ZEC_LONG_1',
+        instId: 'ZEC-USD_UM_XPERP-310530',
+        direction: 'long',
+        state: 'running',
+        minPx: '710',
+        maxPx: '760',
+        gridNum: '10',
+        lever: '5',
+        investment: '50',
+        investmentCcy: 'USDC',
+        tpRatio: '0.05',
+        slRatio: '0.025',
+        gridProfit: '0.90',
+        floatProfit: '0.30',
+        totalPnl: '1.20',
+        arbitrageNum: '5',
+        cTime: String(Date.now() - 3600_000),
+        uTime: String(Date.now()),
+      },
+      // BTC bot MUST be excluded by ZEC monitor
+      {
+        algoId: 'BTC_SHORT_9',
+        instId: 'BTC-USD_UM_XPERP-310404',
+        direction: 'short',
+        state: 'running',
+        minPx: '59000',
+        maxPx: '60000',
+        gridNum: '10',
+        lever: '5',
+        investment: '37.81',
+        cTime: String(Date.now() - 1800_000),
+        uTime: String(Date.now()),
+      },
+    ];
+
+    const okxPort: BtcReadOnlyOkxPort = {
+      hasCredentials: () => true,
+      isCredentialsPermanentlyFailed: () => false,
+      resolveLiveInstrumentId: async (base) =>
+        base === 'ZEC-USD_UM_XPERP' ? 'ZEC-USD_UM_XPERP-310530' : 'BTC-USD_UM_XPERP-310404',
+      getKlines: async (_sym, interval) =>
+        interval === '15m' ? klines15m : interval === '4H' ? klines4h : klines1h,
+      getTickerPrice: async () => currentPx,
+      fetchMarketIntelligenceExtras: async () => ({
+        openInterestUSD: 42_000_000,
+        fundingRatePct: 0.009,
+        nextFundingRatePct: 0.008,
+        orderBookImbalance: 0.12,
+        orderBookDepthUSD: 620_000,
+        spreadBps: 2.1,
+      }),
+      getNativeContractGridBots: async (mode) => (mode === 'pending' ? rawBots : []),
+      getNativeContractGridDetails: async (algoId) =>
+        rawBots.find((b) => b.algoId === algoId) || null,
+    };
+
+    const tgPort: BtcTelegramPort = {
+      isConfigured: () => false,
+      isNotificationsEnabled: () => false,
+      sendMessage: async () => false,
+    };
+
+    const zecMonitor = new BtcXPerpSignalMonitor(okxPort, {
+      asset: 'ZEC',
+      dataDir: dir,
+      telegramPort: tgPort,
+    });
+
+    const rec = await zecMonitor.runMarketAnalysis('MANUAL');
+    eq(rec.asset, 'ZEC', 'recommendation asset is ZEC');
+    eq(rec.displayInstrument, 'ZEC-USD UM X-PERP', 'display instrument is ZEC-USD UM X-PERP');
+    eq(rec.gridNum, 10, 'must recommend 10 grids for ZEC');
+    eq(rec.tpMarginPct, 5, 'ZEC TP is 5% invested margin');
+    eq(rec.slMarginPct, 2.5, 'ZEC SL is 2.5% invested margin');
+    ok(rec.rangeSpanUSD >= 20 && rec.rangeSpanUSD <= 150, `ZEC ATR span is realistic (${rec.rangeSpanUSD})`);
+    ok(
+      Math.abs((rec.maxPx - rec.minPx) - rec.rangeSpanUSD) < 1e-6,
+      'maxPx - minPx matches dynamic rangeSpanUSD'
+    );
+    ok(
+      Math.abs(rec.gridStepUSD - rec.rangeSpanUSD / 10) < 1e-4,
+      'gridStepUSD equals rangeSpanUSD / 10'
+    );
+    ok(rec.minPx < currentPx && currentPx < rec.maxPx, 'current ZEC price sits inside band');
+
+    const sync = await zecMonitor.syncMonitoredBots();
+    eq(sync.activeBots.length, 1, 'ZEC monitor detects only ZEC bot and excludes BTC bot');
+    eq(sync.activeBots[0].algoId, 'ZEC_LONG_1', 'detected ZEC bot algoId matches');
+
+    ok(
+      fs.existsSync(path.join(dir, 'zec_xperp_signals.json')),
+      'ZEC state persisted to isolated zec_xperp_signals.json'
+    );
+    eq(
+      fs.existsSync(path.join(dir, 'btc_xperp_signals.json')),
+      false,
+      'ZEC monitor must not write into btc_xperp_signals.json'
+    );
+
+    eq(isXPerpInstrumentForAsset('ZEC', 'ZEC-USD_UM_XPERP-310530'), true, 'matches ZEC X-PERP');
+    eq(isXPerpInstrumentForAsset('ZEC', 'BTC-USD_UM_XPERP-310404'), false, 'rejects BTC in ZEC matcher');
+
+    const zecDyn = computeDynamicGridRangeForAsset({
+      asset: 'ZEC',
+      currentPrice: 740.5,
+      direction: 'LONG',
+      atr1hUSD: 12.2,
+      nearestSupport: { price: 730, type: 'SUPPORT', distancePct: -1.4, touchCount: 2, strengthScore: 2 },
+      nearestResistance: { price: 762, type: 'RESISTANCE', distancePct: 2.9, touchCount: 2, strengthScore: 2 },
+    });
+    ok(zecDyn.rangeSpanUSD >= 40 && zecDyn.maxPx - zecDyn.minPx === zecDyn.rangeSpanUSD, 'ZEC dynamic range is consistent');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

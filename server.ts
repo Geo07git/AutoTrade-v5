@@ -1611,32 +1611,46 @@ async function startServer() {
   });
 
   // =========================================================================
-  // BTC-USD UM X-PERP SIGNAL & READ-ONLY GRID MONITOR ENDPOINTS
+  // BTC & ZEC UM X-PERP SIGNAL & READ-ONLY GRID MONITOR ENDPOINTS
   // Strictly read-only vs OKX bots: zero create/amend/stop/order paths.
   // =========================================================================
+  const parseXPerpAsset = (raw: unknown): 'BTC' | 'ZEC' =>
+    String(raw ?? '').trim().toUpperCase() === 'ZEC' ? 'ZEC' : 'BTC';
+
   app.get('/api/bot/btc-signals/status', async (req, res) => {
     try {
+      const asset = parseXPerpAsset(req.query.asset);
       const shouldSync = req.query.sync === '1' || req.query.sync === 'true';
       const status = shouldSync
-        ? await tradeBot.syncBtcSignalsBots()
-        : tradeBot.getBtcSignalsFullStatus();
-      res.json({ success: true, status });
+        ? await tradeBot.syncBtcSignalsBots(asset)
+        : tradeBot.getBtcSignalsFullStatus(asset);
+      res.json({
+        success: true,
+        asset,
+        status,
+        summaries: tradeBot.getXPerpSummaries(),
+      });
     } catch (err: any) {
       res.status(500).json({
         success: false,
-        error: err?.message || 'Eroare la citirea statusului BTC X-PERP Signals',
+        error: err?.message || 'Eroare la citirea statusului X-PERP Signals',
       });
     }
   });
 
   app.post('/api/bot/btc-signals/analyze', requireControlAuth, async (req, res) => {
     try {
-      const result = await tradeBot.runBtcSignalsAnalysisNow();
-      res.json(result);
+      const asset = parseXPerpAsset(req.body?.asset ?? req.query.asset);
+      const result = await tradeBot.runBtcSignalsAnalysisNow(asset);
+      res.json({
+        ...result,
+        asset,
+        summaries: tradeBot.getXPerpSummaries(),
+      });
     } catch (err: any) {
       res.status(500).json({
         success: false,
-        error: err?.message || 'Eroare la rularea analizei BTC-USD UM X-PERP',
+        error: err?.message || 'Eroare la rularea analizei X-PERP',
       });
     }
   });
@@ -1644,6 +1658,7 @@ async function startServer() {
   app.post('/api/bot/btc-signals/config', requireControlAuth, (req, res) => {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const asset = parseXPerpAsset(body.asset ?? req.query.asset);
       const patch: any = {};
 
       if (typeof body.enabled === 'boolean') {
@@ -1723,24 +1738,33 @@ async function startServer() {
         patch.telegramPreferences = cleanTp;
       }
 
-      const result = tradeBot.updateBtcSignalsConfig(patch);
-      res.json(result);
+      const result = tradeBot.updateBtcSignalsConfig(patch, asset);
+      res.json({
+        ...result,
+        asset,
+        summaries: tradeBot.getXPerpSummaries(),
+      });
     } catch (err: any) {
       res.status(500).json({
         success: false,
-        error: err?.message || 'Eroare la salvarea configurației BTC Signals',
+        error: err?.message || 'Eroare la salvarea configurației X-PERP Signals',
       });
     }
   });
 
   app.post('/api/bot/btc-signals/test-telegram', requireControlAuth, async (req, res) => {
     try {
-      const result = await tradeBot.sendBtcSignalToTelegramNow();
-      res.json(result);
+      const asset = parseXPerpAsset(req.body?.asset ?? req.query.asset);
+      const result = await tradeBot.sendBtcSignalToTelegramNow(asset);
+      res.json({
+        ...result,
+        asset,
+        summaries: tradeBot.getXPerpSummaries(),
+      });
     } catch (err: any) {
       res.status(500).json({
         success: false,
-        error: err?.message || 'Eroare la trimiterea semnalului BTC pe Telegram',
+        error: err?.message || 'Eroare la trimiterea semnalului X-PERP pe Telegram',
       });
     }
   });

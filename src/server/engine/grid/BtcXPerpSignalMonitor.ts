@@ -15,6 +15,7 @@ import {
   BtcSignalsStatusSummary,
   BtcSupportResistanceLevel,
   Kline,
+  XPerpAssetKey,
 } from '../../../shared/types';
 import { telegramService } from '../../telegram/TelegramService';
 import { formatBucharestDateTime } from '../../utils/timezone';
@@ -92,6 +93,40 @@ const BTC_SL_MARGIN_PCT = 2.5;
 const MIN_CALIBRATION_BARS = 100;
 const MIN_CALIBRATION_SAMPLES = 8;
 
+interface XPerpAssetSpec {
+  asset: XPerpAssetKey;
+  defaultInstId: string;
+  displayInstrument: string;
+  stateFileName: string;
+  fixedRangeSpanUSD: number | null;
+  highVolAtrPct: number;
+  priceDecimals: number;
+  gridDecimals: number;
+}
+
+const XPERP_ASSET_SPECS: Record<XPerpAssetKey, XPerpAssetSpec> = {
+  BTC: {
+    asset: 'BTC',
+    defaultInstId: 'BTC-USD_UM_XPERP',
+    displayInstrument: 'BTC-USD UM X-PERP',
+    stateFileName: 'btc_xperp_signals.json',
+    fixedRangeSpanUSD: BTC_RANGE_SPAN_USD,
+    highVolAtrPct: 1.8,
+    priceDecimals: 1,
+    gridDecimals: 0,
+  },
+  ZEC: {
+    asset: 'ZEC',
+    defaultInstId: 'ZEC-USD_UM_XPERP',
+    displayInstrument: 'ZEC-USD UM X-PERP',
+    stateFileName: 'zec_xperp_signals.json',
+    fixedRangeSpanUSD: null,
+    highVolAtrPct: 3.0,
+    priceDecimals: 2,
+    gridDecimals: 1,
+  },
+};
+
 interface PersistedBtcSignalsState {
   config: BtcSignalsConfig;
   instId: string;
@@ -109,13 +144,22 @@ interface PersistedBtcSignalsState {
   lastClosedDirection: BtcGridDirection | null;
 }
 
-export function isBtcXPerpInstrument(rawInstId?: string, instFamily?: string): boolean {
+export function isXPerpInstrumentForAsset(
+  asset: XPerpAssetKey,
+  rawInstId?: string,
+  instFamily?: string
+): boolean {
   const inst = String(rawInstId || '').trim().toUpperCase();
   const family = String(instFamily || '').trim().toUpperCase();
   if (!inst) return false;
-  if (inst.startsWith('BTC-USD') && inst.includes('_UM_XPERP')) return true;
-  if (family === 'BTC-USD' && inst.includes('XPERP')) return true;
+  const prefix = `${asset}-USD`;
+  if (inst.startsWith(prefix) && inst.includes('_UM_XPERP')) return true;
+  if (family.startsWith(prefix) && inst.includes('XPERP')) return true;
   return false;
+}
+
+export function isBtcXPerpInstrument(rawInstId?: string, instFamily?: string): boolean {
+  return isXPerpInstrumentForAsset('BTC', rawInstId, instFamily);
 }
 
 export function computeEmaSeries(values: number[], period: number): number[] {
@@ -578,9 +622,85 @@ export function computeDynamicBtcGridRange(params: {
   return { minPx, maxPx };
 }
 
+export function computeDynamicGridRangeForAsset(params: {
+  asset: XPerpAssetKey;
+  currentPrice: number;
+  direction: BtcGridDirection;
+  atr1hUSD: number;
+  nearestSupport: BtcSupportResistanceLevel | null;
+  nearestResistance: BtcSupportResistanceLevel | null;
+}): { minPx: number; maxPx: number; rangeSpanUSD: number; gridStepUSD: number } {
+  const { asset, currentPrice, direction, atr1hUSD, nearestSupport, nearestResistance } = params;
+  if (asset === 'BTC') {
+    const { minPx, maxPx } = computeDynamicBtcGridRange({
+      currentPrice,
+      direction,
+      atr1hUSD,
+      nearestSupport,
+      nearestResistance,
+    });
+    return {
+      minPx,
+      maxPx,
+      rangeSpanUSD: BTC_RANGE_SPAN_USD,
+      gridStepUSD: BTC_GRID_STEP_USD,
+    };
+  }
+
+  // ZEC / alt-perp dynamic ATR-calibrated band with clean 10-grid step precision
+  const safePrice = Math.max(1, currentPrice);
+  const rawSpan = Math.max(safePrice * 0.04, atr1hUSD * 3.5);
+  let rangeSpanUSD: number;
+  let decimals: number;
+  if (safePrice >= 200) {
+    rangeSpanUSD = Math.max(20, Math.round(rawSpan / 10) * 10);
+    decimals = 1;
+  } else if (safePrice >= 40) {
+    rangeSpanUSD = Math.max(4, Math.round(rawSpan / 2) * 2);
+    decimals = 2;
+  } else {
+    rangeSpanUSD = Math.max(1, parseFloat(rawSpan.toFixed(1)));
+    decimals = 2;
+  }
+
+  const volShift = Math.min(0.08, Math.max(0, (atr1hUSD / safePrice) * 3));
+  const belowRatio = direction === 'LONG' ? 0.36 + volShift * 0.4 : 0.64 - volShift * 0.4;
+
+  const roundPx = (v: number) => parseFloat(v.toFixed(decimals));
+  let minPx = roundPx(safePrice - rangeSpanUSD * belowRatio);
+
+  if (direction === 'LONG' && nearestSupport && nearestSupport.price < safePrice) {
+    const distBelow = safePrice - nearestSupport.price;
+    if (distBelow >= rangeSpanUSD * 0.18 && distBelow <= rangeSpanUSD * 0.55) {
+      minPx = roundPx(nearestSupport.price - rangeSpanUSD * 0.06);
+    }
+  } else if (direction === 'SHORT' && nearestResistance && nearestResistance.price > safePrice) {
+    const distAbove = nearestResistance.price - safePrice;
+    if (distAbove >= rangeSpanUSD * 0.18 && distAbove <= rangeSpanUSD * 0.55) {
+      const targetMax = roundPx(nearestResistance.price + rangeSpanUSD * 0.06);
+      minPx = roundPx(targetMax - rangeSpanUSD);
+    }
+  }
+
+  const minEdgeMargin = rangeSpanUSD * 0.15;
+  if (safePrice - minPx < minEdgeMargin) {
+    minPx = roundPx(safePrice - minEdgeMargin);
+  }
+  minPx = Math.max(roundPx(safePrice * 0.5), minPx);
+  let maxPx = roundPx(minPx + rangeSpanUSD);
+  if (maxPx - safePrice < minEdgeMargin) {
+    maxPx = roundPx(safePrice + minEdgeMargin);
+    minPx = roundPx(maxPx - rangeSpanUSD);
+  }
+
+  const gridStepUSD = parseFloat((rangeSpanUSD / BTC_GRID_COUNT).toFixed(2));
+  return { minPx, maxPx, rangeSpanUSD, gridStepUSD };
+}
+
 export class BtcXPerpSignalMonitor {
   private okxPort: BtcReadOnlyOkxPort;
   private telegramPort: BtcTelegramPort;
+  private assetSpec: XPerpAssetSpec;
   private stateFile: string;
   private state: PersistedBtcSignalsState;
 
@@ -594,17 +714,20 @@ export class BtcXPerpSignalMonitor {
   constructor(
     okxPort: BtcReadOnlyOkxPort,
     options?: {
+      asset?: XPerpAssetKey;
       dataDir?: string;
       telegramPort?: BtcTelegramPort;
     }
   ) {
+    const asset: XPerpAssetKey = options?.asset === 'ZEC' ? 'ZEC' : 'BTC';
+    this.assetSpec = XPERP_ASSET_SPECS[asset];
     this.okxPort = okxPort;
     this.telegramPort = options?.telegramPort || telegramService;
     const dataDir = options?.dataDir || path.join(process.cwd(), '.data');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
-    this.stateFile = path.join(dataDir, 'btc_xperp_signals.json');
+    this.stateFile = path.join(dataDir, this.assetSpec.stateFileName);
     this.state = this.loadState();
   }
 
@@ -614,7 +737,7 @@ export class BtcXPerpSignalMonitor {
         ...DEFAULT_BTC_SIGNALS_CONFIG,
         telegramPreferences: { ...DEFAULT_BTC_SIGNALS_CONFIG.telegramPreferences },
       },
-      instId: 'BTC-USD_UM_XPERP',
+      instId: this.assetSpec.defaultInstId,
       currentPrice: 0,
       lastAnalysisAt: 0,
       lastBotSyncAt: 0,
@@ -760,6 +883,8 @@ export class BtcXPerpSignalMonitor {
   public getStatusSummary(): BtcSignalsStatusSummary {
     const rec = this.state.activeRecommendation;
     return {
+      asset: this.assetSpec.asset,
+      displayInstrument: this.assetSpec.displayInstrument,
       enabled: this.state.config.enabled,
       instId: this.state.instId,
       currentPrice: this.state.currentPrice,
@@ -776,6 +901,8 @@ export class BtcXPerpSignalMonitor {
 
   public getFullStatus(): BtcSignalsFullStatus {
     return {
+      asset: this.assetSpec.asset,
+      displayInstrument: this.assetSpec.displayInstrument,
       config: this.getConfig(),
       readOnlyGuaranteed: true,
       instId: this.state.instId,
@@ -797,13 +924,13 @@ export class BtcXPerpSignalMonitor {
 
   private async resolveBtcInstrument(): Promise<string> {
     try {
-      const resolved = await this.okxPort.resolveLiveInstrumentId('BTC-USD_UM_XPERP');
-      if (resolved && resolved.includes('BTC') && resolved.includes('_UM_XPERP')) {
+      const resolved = await this.okxPort.resolveLiveInstrumentId(this.assetSpec.defaultInstId);
+      if (resolved && resolved.includes(this.assetSpec.asset) && resolved.includes('_UM_XPERP')) {
         this.state.instId = resolved;
         return resolved;
       }
     } catch {}
-    return this.state.instId || 'BTC-USD_UM_XPERP';
+    return this.state.instId || this.assetSpec.defaultInstId;
   }
 
   private mapRawBot(raw: any, fallbackPrice: number): BtcMonitoredBot {
@@ -996,8 +1123,12 @@ export class BtcXPerpSignalMonitor {
         this.state.activeBots.filter((b) => b.state === 'running' || b.state === 'stopping').map((b) => b.algoId)
       );
 
-      const btcPendingRaw = pendingRaw.filter((r) => isBtcXPerpInstrument(r?.instId, r?.instFamily));
-      const btcHistoryRaw = historyRaw.filter((r) => isBtcXPerpInstrument(r?.instId, r?.instFamily));
+      const btcPendingRaw = pendingRaw.filter((r) =>
+        isXPerpInstrumentForAsset(this.assetSpec.asset, r?.instId, r?.instFamily)
+      );
+      const btcHistoryRaw = historyRaw.filter((r) =>
+        isXPerpInstrumentForAsset(this.assetSpec.asset, r?.instId, r?.instFamily)
+      );
 
       const pendingAlgoIds = new Set(
         btcPendingRaw.map((r) => String(r?.algoId || '')).filter(Boolean)
@@ -1022,6 +1153,7 @@ export class BtcXPerpSignalMonitor {
       // Direct read-only lookup fallback for user-pinned algoIds (e.g. if OKX listing omitted a directional bot)
       const trackedIds = sanitizeTrackedAlgoIds(this.state.config.trackedAlgoIds);
       const extraClosedFromTracked: any[] = [];
+      const assetPrefix = `${this.assetSpec.asset}-`;
       for (const trackedId of trackedIds) {
         if (pendingAlgoIds.has(trackedId)) continue;
         const details = await this.okxPort
@@ -1029,9 +1161,10 @@ export class BtcXPerpSignalMonitor {
           .catch(() => null);
         if (!details) continue;
         const detInst = String(details.instId || '').toUpperCase();
-        const isBtcContract =
-          isBtcXPerpInstrument(details.instId, details.instFamily) || detInst.startsWith('BTC-');
-        if (!isBtcContract) continue;
+        const isAssetContract =
+          isXPerpInstrumentForAsset(this.assetSpec.asset, details.instId, details.instFamily) ||
+          detInst.startsWith(assetPrefix);
+        if (!isAssetContract) continue;
         const mapped = this.mapRawBot(details, this.state.currentPrice);
         if (mapped.state === 'running' || mapped.state === 'stopping') {
           activeBots.push(mapped);
@@ -1151,7 +1284,7 @@ export class BtcXPerpSignalMonitor {
 
     let reason: string | undefined;
     if (px < rec.minPx || px > rec.maxPx) {
-      reason = `Prețul BTC ($${px.toFixed(1)}) a ieșit din intervalul recomandat ($${rec.minPx} – $${rec.maxPx}).`;
+      reason = `Prețul ${this.assetSpec.asset} ($${px.toFixed(this.assetSpec.priceDecimals)}) a ieșit din intervalul recomandat ($${rec.minPx} – $${rec.maxPx}).`;
     } else if (Date.now() > rec.validUntil) {
       reason = `Semnalul a expirat după fereastra de valabilitate (${formatBucharestDateTime(new Date(rec.validUntil))}).`;
     }
@@ -1173,10 +1306,10 @@ export class BtcXPerpSignalMonitor {
     ) {
       this.state.lastInvalidatedSignalId = rec.id;
       const msg =
-        `⚠️ INVALIDARE SEMNAL BTC-USD UM X-PERP\n\n` +
+        `⚠️ INVALIDARE SEMNAL ${this.assetSpec.displayInstrument}\n\n` +
         `• Direcție anterioară: ${rec.direction}\n` +
         `• Interval recomandat: $${rec.minPx} – $${rec.maxPx}\n` +
-        `• Preț BTC curent: $${px.toFixed(1)}\n` +
+        `• Preț ${this.assetSpec.asset} curent: $${px.toFixed(this.assetSpec.priceDecimals)}\n` +
         `• Motiv: ${reason}\n` +
         `• Ora: ${formatBucharestDateTime()} (București)`;
       await this.telegramPort.sendMessage(msg).catch(() => false);
@@ -1196,14 +1329,14 @@ export class BtcXPerpSignalMonitor {
       const dirLabel = closedBot.direction.toUpperCase();
       const pnlSign = closedBot.totalPnlUSD >= 0 ? '+' : '';
       const closeMsg =
-        `🏁 BOT BTC-USD UM X-PERP ÎNCHIS (${dirLabel})\n\n` +
+        `🏁 BOT ${this.assetSpec.displayInstrument} ÎNCHIS (${dirLabel})\n\n` +
         `• Algo ID: ${closedBot.algoId}\n` +
         `• Instrument: ${closedBot.instId}\n` +
         `• Motiv închidere: ${closedBot.closeReasonLabel || closedBot.state}\n` +
         `• Invested Margin: $${closedBot.investedMarginUSD.toFixed(2)}\n` +
         `• PnL Realizat + Total: ${pnlSign}$${closedBot.totalPnlUSD.toFixed(2)} (${pnlSign}${closedBot.totalPnlPct.toFixed(2)}%)\n` +
         `• Arbitraje finalizate: ${closedBot.arbitrageNum}\n` +
-        `• Preț BTC actual: $${(this.state.currentPrice || closedBot.currentPx).toFixed(1)}\n` +
+        `• Preț ${this.assetSpec.asset} actual: $${(this.state.currentPrice || closedBot.currentPx).toFixed(this.assetSpec.priceDecimals)}\n` +
         `• Ora confirmării: ${formatBucharestDateTime()} (București)`;
       await this.telegramPort.sendMessage(closeMsg).catch(() => false);
     }
@@ -1605,7 +1738,7 @@ export class BtcXPerpSignalMonitor {
         if (riskStatus === 'VALID') riskStatus = 'HIGH_RISK';
         riskReasons.push('Semnale mixte între indicatori — piață fără direcție dominantă clară.');
       }
-      if (atr1h.atrPct > 1.8) {
+      if (atr1h.atrPct > this.assetSpec.highVolAtrPct) {
         if (riskStatus === 'VALID') riskStatus = 'HIGH_RISK';
         riskReasons.push(`Volatilitate ridicată (ATR 1H ${atr1h.atrPct}% / $${atr1h.atrUsd}) — risc de atingere rapidă a SL 2.5%.`);
       }
@@ -1614,7 +1747,8 @@ export class BtcXPerpSignalMonitor {
         riskReasons.push(`Spread ridicat (${extras.spreadBps.toFixed(1)} bps).`);
       }
 
-      const { minPx, maxPx } = computeDynamicBtcGridRange({
+      const { minPx, maxPx, rangeSpanUSD, gridStepUSD } = computeDynamicGridRangeForAsset({
+        asset: this.assetSpec.asset,
         currentPrice,
         direction,
         atr1hUSD: atr1h.atrUsd,
@@ -1638,18 +1772,19 @@ export class BtcXPerpSignalMonitor {
       const validUntil = issuedAt + this.state.config.signalValidityMinutes * 60_000;
 
       const recommendation: BtcSignalRecommendation = {
-        id: `BTC_SIG_${issuedAt}`,
+        id: `${this.assetSpec.asset}_SIG_${issuedAt}`,
+        asset: this.assetSpec.asset,
         instId,
-        displayInstrument: 'BTC-USD UM X-PERP',
+        displayInstrument: this.assetSpec.displayInstrument,
         botType: 'OKX Native Futures Grid',
         direction,
         preferredAlternationFrom: lastDir,
-        currentPrice: parseFloat(currentPrice.toFixed(1)),
+        currentPrice: parseFloat(currentPrice.toFixed(this.assetSpec.priceDecimals)),
         minPx,
         maxPx,
-        rangeSpanUSD: BTC_RANGE_SPAN_USD,
+        rangeSpanUSD,
         gridNum: BTC_GRID_COUNT,
-        gridStepUSD: BTC_GRID_STEP_USD,
+        gridStepUSD,
         tpMarginPct: BTC_TP_MARGIN_PCT,
         slMarginPct: BTC_SL_MARGIN_PCT,
         tpSlBasis: 'INVESTED_MARGIN',
@@ -1695,7 +1830,7 @@ export class BtcXPerpSignalMonitor {
 
       return recommendation;
     } catch (err: any) {
-      this.lastAnalysisError = err?.message || 'Eroare la analiza BTC-USD UM X-PERP';
+      this.lastAnalysisError = err?.message || `Eroare la analiza ${this.assetSpec.displayInstrument}`;
       throw err;
     } finally {
       this.isAnalyzing = false;
@@ -1703,9 +1838,9 @@ export class BtcXPerpSignalMonitor {
   }
 
   private buildSignalSignature(rec: BtcSignalRecommendation): string {
-    // Bucket range to $100 so minor $20 range jitter doesn't spam Telegram every 120s
-    const minBucket = Math.round(rec.minPx / 100) * 100;
-    return `${rec.direction}:${minBucket}:${rec.riskStatus}:${rec.probabilityStatus}`;
+    const bucketUnit = Math.max(1, rec.gridStepUSD || 100);
+    const minBucket = Math.round(rec.minPx / bucketUnit) * bucketUnit;
+    return `${this.assetSpec.asset}:${rec.direction}:${minBucket}:${rec.riskStatus}:${rec.probabilityStatus}`;
   }
 
   private async maybeSendOpportunityTelegram(
@@ -1734,8 +1869,8 @@ export class BtcXPerpSignalMonitor {
 
     const title =
       rec.direction === 'LONG'
-        ? '🟢 OPORTUNITATE LONG — BTC-USD UM X-PERP'
-        : '🔴 OPORTUNITATE SHORT — BTC-USD UM X-PERP';
+        ? `🟢 OPORTUNITATE LONG — ${this.assetSpec.displayInstrument}`
+        : `🔴 OPORTUNITATE SHORT — ${this.assetSpec.displayInstrument}`;
 
     const text = this.formatRecommendationTelegramMessage(rec, title);
     const sent = await this.telegramPort.sendMessage(text).catch(() => false);
@@ -1767,9 +1902,9 @@ export class BtcXPerpSignalMonitor {
 
     return (
       `${header}\n\n` +
-      `• Instrument: BTC-USD UM X-PERP (${rec.instId})\n` +
+      `• Instrument: ${this.assetSpec.displayInstrument} (${rec.instId})\n` +
       `• Direcție recomandată: ${rec.direction} (OKX Native Futures Grid — deschidere manuală)\n` +
-      `• Preț BTC actual: $${rec.currentPrice.toFixed(1)}\n` +
+      `• Preț ${this.assetSpec.asset} actual: $${rec.currentPrice.toFixed(this.assetSpec.priceDecimals)}\n` +
       `• Interval recomandat: $${rec.minPx} – $${rec.maxPx} (diferență $${rec.rangeSpanUSD})\n` +
       `• Grile: ${rec.gridNum} grile (distanță $${rec.gridStepUSD} / grilă)\n` +
       `• TP / SL: TP ${rec.tpMarginPct}% și SL ${rec.slMarginPct}% din invested margin\n` +
@@ -1791,8 +1926,8 @@ export class BtcXPerpSignalMonitor {
     }
     const header =
       rec.direction === 'LONG'
-        ? '🟢 SEMNAL BTC-USD UM X-PERP — LONG'
-        : '🔴 SEMNAL BTC-USD UM X-PERP — SHORT';
+        ? `🟢 SEMNAL ${this.assetSpec.displayInstrument} — LONG`
+        : `🔴 SEMNAL ${this.assetSpec.displayInstrument} — SHORT`;
     const sent = await this.telegramPort.sendMessage(
       this.formatRecommendationTelegramMessage(rec, header),
       undefined,

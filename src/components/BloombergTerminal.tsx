@@ -1489,16 +1489,19 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
           >
             <Activity className="w-3.5 h-3.5" />
             <span>
-              BTC X-PERP Signals
-              {status?.btcSignals?.recommendedDirection
-                ? ` (${status.btcSignals.recommendedDirection}${
-                    (status.btcSignals.activeBotsCount || 0) > 0
-                      ? ` · ${status.btcSignals.activeBotsCount} activ`
-                      : ''
-                  })`
-                : (status?.btcSignals?.activeBotsCount || 0) > 0
-                ? ` (${status?.btcSignals?.activeBotsCount} activ)`
-                : ''}
+              BTC / ZEC X-PERP Signals
+              {(() => {
+                const btcDir = status?.btcSignals?.recommendedDirection;
+                const zecDir = status?.zecSignals?.recommendedDirection;
+                const totalActive =
+                  (status?.btcSignals?.activeBotsCount || 0) +
+                  (status?.zecSignals?.activeBotsCount || 0);
+                const parts: string[] = [];
+                if (btcDir) parts.push(`BTC:${btcDir}`);
+                if (zecDir) parts.push(`ZEC:${zecDir}`);
+                if (totalActive > 0) parts.push(`${totalActive} activ`);
+                return parts.length > 0 ? ` (${parts.join(' · ')})` : '';
+              })()}
             </span>
           </button>
 
@@ -3843,13 +3846,15 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         )}
 
         {/* ================================================================= */}
-        {/* TAB PRINCIPAL DEFAULT: BTC X-PERP SIGNAL & READ-ONLY GRID MONITOR */}
+        {/* TAB PRINCIPAL DEFAULT: BTC / ZEC X-PERP SIGNALS & GRID MONITOR    */}
         {/* ================================================================= */}
         {activeTab === 'BTC_SIGNALS' && (
           <BtcXPerpSignalsPanel
             controlToken={controlToken}
             onNotify={(banner) => setLocalBanner(banner)}
             onRefreshParent={onRefresh}
+            btcSummary={status?.btcSignals}
+            zecSummary={status?.zecSignals}
           />
         )}
 
@@ -4313,9 +4318,9 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
         >
           <Activity className="w-4 h-4 mb-0.5" />
           <span>
-            BTC
-            {(status?.btcSignals?.activeBotsCount || 0) > 0
-              ? ` (${status?.btcSignals?.activeBotsCount})`
+            BTC/ZEC
+            {((status?.btcSignals?.activeBotsCount || 0) + (status?.zecSignals?.activeBotsCount || 0)) > 0
+              ? ` (${(status?.btcSignals?.activeBotsCount || 0) + (status?.zecSignals?.activeBotsCount || 0)})`
               : ''}
           </span>
         </button>

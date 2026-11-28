@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   BtcSignalsFullStatus,
+  BtcSignalsStatusSummary,
   BtcTelegramPreferences,
   BtcMonitoredBot,
   BtcSignalHistoryEntry,
   BtcIndicatorContribution,
+  XPerpAssetKey,
 } from '../shared/types';
 import {
   Activity,
@@ -31,6 +33,8 @@ interface BtcXPerpSignalsPanelProps {
   controlToken: string;
   onNotify: (banner: { type: 'success' | 'error' | 'info'; text: string }) => void;
   onRefreshParent?: () => void;
+  btcSummary?: BtcSignalsStatusSummary | null;
+  zecSummary?: BtcSignalsStatusSummary | null;
 }
 
 const formatUsd = (val?: number | null, decimals = 1): string => {
@@ -72,8 +76,12 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   controlToken,
   onNotify,
   onRefreshParent,
+  btcSummary,
+  zecSummary,
 }) => {
-  const [status, setStatus] = useState<BtcSignalsFullStatus | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<XPerpAssetKey>('BTC');
+  const [statusByAsset, setStatusByAsset] = useState<Partial<Record<XPerpAssetKey, BtcSignalsFullStatus>>>({});
+  const [summaries, setSummaries] = useState<Partial<Record<XPerpAssetKey, BtcSignalsStatusSummary>>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAnalyzingNow, setIsAnalyzingNow] = useState<boolean>(false);
   const [isSyncingBots, setIsSyncingBots] = useState<boolean>(false);
@@ -83,31 +91,61 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   const [copiedParams, setCopiedParams] = useState<boolean>(false);
   const [manualAlgoIdInput, setManualAlgoIdInput] = useState<string>('');
 
-  const fetchStatus = useCallback(async (syncBots = false) => {
-    if (syncBots) setIsSyncingBots(true);
-    try {
-      const res = await fetch(`/api/bot/btc-signals/status${syncBots ? '?sync=1' : ''}`);
-      const data = await res.json();
-      if (data?.success && data.status) {
-        setStatus(data.status);
+  const status = statusByAsset[selectedAsset] || null;
+  const priceDecimals = selectedAsset === 'ZEC' ? 2 : 1;
+  const gridBoundDecimals = selectedAsset === 'ZEC' ? 1 : 0;
+  const stepDecimals = selectedAsset === 'ZEC' ? 2 : 0;
+  const atrDecimals = selectedAsset === 'ZEC' ? 2 : 0;
+  const displayInstrument =
+    status?.displayInstrument ||
+    (selectedAsset === 'ZEC' ? 'ZEC-USD UM X-PERP' : 'BTC-USD UM X-PERP');
+
+  const fetchStatus = useCallback(
+    async (syncBots = false, targetAsset: XPerpAssetKey = selectedAsset) => {
+      if (syncBots) setIsSyncingBots(true);
+      try {
+        const params = new URLSearchParams({ asset: targetAsset });
+        if (syncBots) params.set('sync', '1');
+        const res = await fetch(`/api/bot/btc-signals/status?${params.toString()}`);
+        const data = await res.json();
+        if (data?.success && data.status) {
+          const resolvedAsset: XPerpAssetKey = data.asset === 'ZEC' ? 'ZEC' : targetAsset;
+          setStatusByAsset((prev) => ({ ...prev, [resolvedAsset]: data.status }));
+        }
+        if (data?.summaries) {
+          setSummaries((prev) => ({ ...prev, ...data.summaries }));
+        }
+      } catch {
+        // keep previous state silently on background poll
+      } finally {
+        setIsLoading(false);
+        setIsSyncingBots(false);
       }
-    } catch {
-      // keep previous state silently on background poll
-    } finally {
-      setIsLoading(false);
-      setIsSyncingBots(false);
-    }
-  }, []);
+    },
+    [selectedAsset]
+  );
 
   useEffect(() => {
-    void fetchStatus(true);
+    void fetchStatus(true, selectedAsset);
     const interval = setInterval(() => {
-      void fetchStatus(false);
+      void fetchStatus(false, selectedAsset);
     }, 10_000);
     return () => clearInterval(interval);
-  }, [fetchStatus]);
+  }, [fetchStatus, selectedAsset]);
+
+  const handleSelectAsset = (asset: XPerpAssetKey) => {
+    if (asset === selectedAsset) return;
+    setSelectedAsset(asset);
+    setManualAlgoIdInput('');
+    setCopiedParams(false);
+    if (!statusByAsset[asset]) {
+      setIsLoading(true);
+    }
+  };
 
   const handleAnalyzeNow = async () => {
+    const targetAsset = selectedAsset;
+    const label = targetAsset === 'ZEC' ? 'ZEC-USD UM X-PERP' : 'BTC-USD UM X-PERP';
     setIsAnalyzingNow(true);
     try {
       const res = await fetch('/api/bot/btc-signals/analyze', {
@@ -116,28 +154,32 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           'Content-Type': 'application/json',
           'x-bot-token': controlToken,
         },
+        body: JSON.stringify({ asset: targetAsset }),
       });
       const data = await res.json();
+      if (data?.summaries) {
+        setSummaries((prev) => ({ ...prev, ...data.summaries }));
+      }
       if (data?.success && data.status) {
-        setStatus(data.status);
+        setStatusByAsset((prev) => ({ ...prev, [targetAsset]: data.status }));
         const rec = data.status.activeRecommendation;
         onNotify({
           type: 'success',
           text: rec
-            ? `Analiză BTC-USD UM X-PERP finalizată: ${rec.direction} ($${rec.minPx} – $${rec.maxPx}).`
-            : 'Analiză BTC-USD UM X-PERP actualizată.',
+            ? `Analiză ${label} finalizată: ${rec.direction} ($${rec.minPx} – $${rec.maxPx}).`
+            : `Analiză ${label} actualizată.`,
         });
         onRefreshParent?.();
       } else {
         onNotify({
           type: 'error',
-          text: data?.error || 'Eroare la rularea analizei BTC-USD UM X-PERP.',
+          text: data?.error || `Eroare la rularea analizei ${label}.`,
         });
       }
     } catch (err: any) {
       onNotify({
         type: 'error',
-        text: err?.message || 'Eroare de rețea la rularea analizei BTC.',
+        text: err?.message || `Eroare de rețea la rularea analizei ${targetAsset}.`,
       });
     } finally {
       setIsAnalyzingNow(false);
@@ -150,6 +192,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
     trackedAlgoIds?: string[];
     telegramPreferences?: Partial<BtcTelegramPreferences>;
   }) => {
+    const targetAsset = selectedAsset;
     setIsSavingConfig(true);
     try {
       const res = await fetch('/api/bot/btc-signals/config', {
@@ -158,12 +201,15 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           'Content-Type': 'application/json',
           'x-bot-token': controlToken,
         },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({ ...patch, asset: targetAsset }),
       });
       const data = await res.json();
+      if (data?.summaries) {
+        setSummaries((prev) => ({ ...prev, ...data.summaries }));
+      }
       if (data?.success && data.status) {
-        setStatus(data.status);
-        onNotify({ type: 'success', text: 'Preferințele BTC X-PERP Signals au fost salvate.' });
+        setStatusByAsset((prev) => ({ ...prev, [targetAsset]: data.status }));
+        onNotify({ type: 'success', text: `Preferințele ${targetAsset} X-PERP Signals au fost salvate.` });
         onRefreshParent?.();
       } else {
         onNotify({ type: 'error', text: data?.error || 'Eroare la salvarea configurației.' });
@@ -186,16 +232,18 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
     const nextIds = existing.includes(clean) ? existing : [...existing, clean].slice(-10);
     await handleUpdateConfig({ trackedAlgoIds: nextIds });
     setManualAlgoIdInput('');
-    await fetchStatus(true);
+    await fetchStatus(true, selectedAsset);
   };
 
   const handleRemoveTrackedAlgoId = async (algoId: string) => {
     const existing = status?.config?.trackedAlgoIds || [];
     await handleUpdateConfig({ trackedAlgoIds: existing.filter((id) => id !== algoId) });
-    await fetchStatus(true);
+    await fetchStatus(true, selectedAsset);
   };
 
   const handleSendTelegramNow = async () => {
+    const targetAsset = selectedAsset;
+    const label = targetAsset === 'ZEC' ? 'ZEC-USD UM X-PERP' : 'BTC-USD UM X-PERP';
     setIsSendingTelegram(true);
     try {
       const res = await fetch('/api/bot/btc-signals/test-telegram', {
@@ -204,11 +252,17 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           'Content-Type': 'application/json',
           'x-bot-token': controlToken,
         },
+        body: JSON.stringify({ asset: targetAsset }),
       });
       const data = await res.json();
-      if (data?.status) setStatus(data.status);
+      if (data?.summaries) {
+        setSummaries((prev) => ({ ...prev, ...data.summaries }));
+      }
+      if (data?.status) {
+        setStatusByAsset((prev) => ({ ...prev, [targetAsset]: data.status }));
+      }
       if (data?.success) {
-        onNotify({ type: 'success', text: 'Recomandarea curentă BTC-USD UM X-PERP a fost trimisă pe Telegram.' });
+        onNotify({ type: 'success', text: `Recomandarea curentă ${label} a fost trimisă pe Telegram.` });
       } else {
         onNotify({ type: 'error', text: data?.error || 'Nu s-a putut trimite mesajul pe Telegram.' });
       }
@@ -223,12 +277,12 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
     const rec = status?.activeRecommendation;
     if (!rec) return;
     const text = [
-      `Instrument: BTC-USD UM X-PERP (${rec.instId})`,
+      `Instrument: ${displayInstrument} (${rec.instId})`,
       `Tip bot: OKX Native Futures Grid (Manual)`,
       `Direcție: ${rec.direction}`,
       `Preț minim: ${rec.minPx}`,
       `Preț maxim: ${rec.maxPx}`,
-      `Număr grile: ${rec.gridNum} (pas $${rec.gridStepUSD})`,
+      `Număr grile: ${rec.gridNum} (pas ${formatUsd(rec.gridStepUSD, stepDecimals)})`,
       `Take Profit: ${rec.tpMarginPct}% din invested margin`,
       `Stop Loss: ${rec.slMarginPct}% din invested margin`,
     ].join('\n');
@@ -249,16 +303,81 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
   const signalHistory = status?.signalHistory || [];
   const currentPrice = status?.currentPrice || rec?.currentPrice || 0;
 
+  const effectiveSummary = (asset: XPerpAssetKey): BtcSignalsStatusSummary | null =>
+    summaries[asset] || (asset === 'BTC' ? btcSummary : zecSummary) || null;
+
   return (
     <div className="space-y-4 p-1">
       {/* =================================================================== */}
-      {/* 1. HEADER & LIVE OVERVIEW + CONTROALE MANUALE                       */}
+      {/* 1. SELECTOR 2 POZIȚII (BTC | ZEC) + HEADER & CONTROALE MANUALE      */}
       {/* =================================================================== */}
       <section className="bg-zinc-950 border border-zinc-800 rounded p-4 space-y-3">
+        {/* 2-position segmented switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-3">
+          <div
+            role="group"
+            aria-label="Selector contract X-PERP"
+            className="inline-flex bg-black border border-zinc-800 rounded p-1 gap-1"
+          >
+            {(['BTC', 'ZEC'] as XPerpAssetKey[]).map((assetKey) => {
+              const isActive = selectedAsset === assetKey;
+              const sum = effectiveSummary(assetKey);
+              const decimals = assetKey === 'ZEC' ? 2 : 1;
+              const dir = sum?.recommendedDirection;
+              const botsCount = sum?.activeBotsCount || 0;
+              return (
+                <button
+                  key={assetKey}
+                  type="button"
+                  onClick={() => handleSelectAsset(assetKey)}
+                  className={`px-3.5 py-2 rounded text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors whitespace-nowrap ${
+                    isActive
+                      ? 'bg-amber-400 text-black'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-900'
+                  }`}
+                >
+                  <span>{assetKey}-USD UM X-PERP</span>
+                  {sum && sum.currentPrice > 0 && (
+                    <span className={`font-mono tabular-nums ${isActive ? 'text-black/80' : 'text-zinc-400'}`}>
+                      {formatUsd(sum.currentPrice, decimals)}
+                    </span>
+                  )}
+                  {dir && (
+                    <span
+                      className={`font-black ${
+                        isActive
+                          ? 'text-black'
+                          : dir === 'LONG'
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      {dir}
+                    </span>
+                  )}
+                  {botsCount > 0 && (
+                    <span
+                      className={`font-mono ${
+                        isActive ? 'text-black/90' : 'text-cyan-300'
+                      }`}
+                    >
+                      · {botsCount} {botsCount === 1 ? 'bot' : 'boți'}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="text-[11px] text-zinc-400">
+            Fiecare contract rulează separat analiza OKX (120s), monitorizarea boților (30s) și alertele Telegram.
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800 pb-3">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-              <span className="font-semibold text-cyan-300">BTC-USD UM X-PERP</span>
+              <span className="font-semibold text-cyan-300">{displayInstrument}</span>
               <span aria-hidden="true">·</span>
               <span>OKX Native Futures Grid (Deschidere exclusiv manuală)</span>
               <span aria-hidden="true">·</span>
@@ -269,9 +388,9 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             </div>
 
             <h2 className="font-bold text-base text-white tracking-tight flex flex-wrap items-center gap-3">
-              <span>BTC X-PERP Signal &amp; Grid Monitor</span>
+              <span>{selectedAsset} X-PERP Signal &amp; Grid Monitor</span>
               <span className="font-mono text-lg font-black text-amber-300 tabular-nums">
-                {currentPrice > 0 ? formatUsd(currentPrice, 1) : 'Se încarcă prețul...'}
+                {currentPrice > 0 ? formatUsd(currentPrice, priceDecimals) : 'Se încarcă prețul...'}
               </span>
               {ind && (
                 <span
@@ -286,7 +405,12 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             </h2>
 
             <div className="text-[11px] text-zinc-400 flex flex-wrap items-center gap-3 tabular-nums">
-              <span>Contract activ: <strong className="text-zinc-200 font-mono">{status?.instId || 'BTC-USD_UM_XPERP'}</strong></span>
+              <span>
+                Contract activ:{' '}
+                <strong className="text-zinc-200 font-mono">
+                  {status?.instId || `${selectedAsset}-USD_UM_XPERP`}
+                </strong>
+              </span>
               <span aria-hidden="true">·</span>
               <span>Ultima analiză: <strong className="text-zinc-200">{formatRoTime(status?.lastAnalysisAt)}</strong></span>
               <span aria-hidden="true">·</span>
@@ -311,7 +435,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             </button>
 
             <select
-              aria-label="Interval analiză piață BTC"
+              aria-label={`Interval analiză piață ${selectedAsset}`}
               value={cfg?.analysisIntervalSec || 120}
               disabled={isSavingConfig}
               onChange={(e) => void handleUpdateConfig({ analysisIntervalSec: parseInt(e.target.value, 10) })}
@@ -336,7 +460,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             <button
               type="button"
               disabled={isSyncingBots}
-              onClick={() => void fetchStatus(true)}
+              onClick={() => void fetchStatus(true, selectedAsset)}
               className="px-3 py-2 rounded bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 border border-zinc-700 text-zinc-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
@@ -394,7 +518,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
 
           {isLoading && !rec ? (
             <div className="p-8 text-center text-xs text-zinc-400">
-              Se rulează prima analiză live BTC-USD UM X-PERP...
+              Se rulează prima analiză live {displayInstrument}...
             </div>
           ) : !rec ? (
             <div className="bg-black border border-zinc-800 rounded p-6 text-center text-xs text-zinc-400 space-y-2">
@@ -553,7 +677,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           <div className="grid grid-cols-2 gap-2.5 text-xs tabular-nums">
             <div className="bg-black border border-zinc-800 rounded p-2.5">
               <div className="text-[10px] text-zinc-400">Instrument &amp; Tip</div>
-              <div className="font-bold text-white mt-0.5">BTC-USD UM X-PERP</div>
+              <div className="font-bold text-white mt-0.5">{displayInstrument}</div>
               <div className="text-[10px] text-cyan-300">OKX Native Futures Grid</div>
             </div>
 
@@ -568,7 +692,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             <div className="bg-black border border-zinc-800 rounded p-2.5">
               <div className="text-[10px] text-zinc-400">Preț Minim Recomandat</div>
               <div className="font-mono font-black text-sm text-emerald-300 mt-0.5">
-                {rec ? formatUsd(rec.minPx, 0) : '—'}
+                {rec ? formatUsd(rec.minPx, gridBoundDecimals) : '—'}
               </div>
               <div className="text-[10px] text-zinc-500">
                 {rec && currentPrice > 0
@@ -580,21 +704,32 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             <div className="bg-black border border-zinc-800 rounded p-2.5">
               <div className="text-[10px] text-zinc-400">Preț Maxim Recomandat</div>
               <div className="font-mono font-black text-sm text-rose-300 mt-0.5">
-                {rec ? formatUsd(rec.maxPx, 0) : '—'}
+                {rec ? formatUsd(rec.maxPx, gridBoundDecimals) : '—'}
               </div>
               <div className="text-[10px] text-zinc-500">
                 {rec && currentPrice > 0
                   ? `+${(((rec.maxPx - currentPrice) / currentPrice) * 100).toFixed(2)}% față de preț`
-                  : 'Diferență exactă $1,000'}
+                  : selectedAsset === 'BTC'
+                  ? 'Diferență exactă $1,000'
+                  : 'Bandă dinamică ATR'}
               </div>
             </div>
 
             <div className="bg-black border border-zinc-800 rounded p-2.5">
               <div className="text-[10px] text-zinc-400">Grile &amp; Interval</div>
               <div className="font-mono font-bold text-white mt-0.5">
-                10 grile · Pas $100
+                10 grile · Pas{' '}
+                {rec
+                  ? formatUsd(rec.gridStepUSD, stepDecimals)
+                  : selectedAsset === 'BTC'
+                  ? '$100'
+                  : 'dinamic'}
               </div>
-              <div className="text-[10px] text-zinc-400">Lățime fixă: $1,000</div>
+              <div className="text-[10px] text-zinc-400">
+                {selectedAsset === 'BTC'
+                  ? 'Lățime fixă: $1,000'
+                  : `Lățime ATR: ${rec ? formatUsd(rec.rangeSpanUSD, gridBoundDecimals) : 'dinamică'}`}
+              </div>
             </div>
 
             <div className="bg-black border border-zinc-800 rounded p-2.5">
@@ -623,10 +758,10 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           <div>
             <h3 className="font-bold text-sm text-white flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              <span>Boți Activi OKX BTC-USD UM X-PERP (LONG / SHORT / NEUTRAL — Read-Only)</span>
+              <span>Boți Activi OKX {displayInstrument} (LONG / SHORT / NEUTRAL — Read-Only)</span>
             </h3>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              Detectează automat orice bot BTC-USD UM X-PERP creat manual în OKX (LONG, SHORT sau NEUTRAL) la fiecare 30s. Nicio comandă de modificare sau oprire nu este disponibilă aici.
+              Detectează automat orice bot {displayInstrument} creat manual în OKX (LONG, SHORT sau NEUTRAL) la fiecare 30s. Nicio comandă de modificare sau oprire nu este disponibilă aici.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -678,7 +813,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
         {activeBots.length === 0 ? (
           <div className="bg-black border border-zinc-800 rounded p-5 text-center text-xs text-zinc-400 space-y-1">
             <p className="text-zinc-200 font-semibold">
-              Niciun bot activ detectat momentan pe BTC-USD UM X-PERP.
+              Niciun bot activ detectat momentan pe {displayInstrument}.
             </p>
             <p>
               Analiza de piață continuă automat la fiecare {cfg?.analysisIntervalSec || 120}s pentru a menține pregătită următoarea recomandare. Poți fixa un Bot ID OKX în câmpul „Pin Bot ID OKX” pentru verificare directă read-only.
@@ -714,16 +849,16 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                       </div>
                     </td>
                     <td className="py-2.5 px-2 text-right align-top font-mono">
-                      <div className="font-bold text-white">{formatUsd(bot.currentPx, 1)}</div>
+                      <div className="font-bold text-white">{formatUsd(bot.currentPx, priceDecimals)}</div>
                       {bot.liqPx ? (
                         <div className="text-[10px] text-amber-300">
-                          Liq: {formatUsd(bot.liqPx, 1)}
+                          Liq: {formatUsd(bot.liqPx, priceDecimals)}
                         </div>
                       ) : null}
                     </td>
                     <td className="py-2.5 px-2 align-top min-w-[170px]">
                       <div className="font-mono text-zinc-200">
-                        {formatUsd(bot.minPx, 0)} – {formatUsd(bot.maxPx, 0)}
+                        {formatUsd(bot.minPx, gridBoundDecimals)} – {formatUsd(bot.maxPx, gridBoundDecimals)}
                       </div>
                       <div className="w-full h-1.5 bg-zinc-900 rounded overflow-hidden mt-1">
                         <div
@@ -814,7 +949,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                 <div className="text-[10px] text-zinc-400">Structură &amp; EMA</div>
                 <div className="font-bold text-white mt-0.5">{ind.structure1h.replace('_', ' ')}</div>
                 <div className="text-[10px] text-zinc-400 font-mono">
-                  1H {formatUsd(ind.ema20_1h, 0)} / {formatUsd(ind.ema50_1h, 0)}
+                  1H {formatUsd(ind.ema20_1h, priceDecimals)} / {formatUsd(ind.ema50_1h, priceDecimals)}
                 </div>
               </div>
 
@@ -841,10 +976,10 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
               <div className="bg-black border border-zinc-800 rounded p-2.5">
                 <div className="text-[10px] text-zinc-400">ATR &amp; Volatilitate</div>
                 <div className="font-mono font-bold text-amber-300 mt-0.5">
-                  1H: ${ind.atr1hUSD.toFixed(0)} ({ind.atr1hPct.toFixed(2)}%)
+                  1H: ${ind.atr1hUSD.toFixed(atrDecimals)} ({ind.atr1hPct.toFixed(2)}%)
                 </div>
                 <div className="text-[10px] text-zinc-400 font-mono">
-                  15m: ${ind.atr15mUSD.toFixed(0)}
+                  15m: ${ind.atr15mUSD.toFixed(atrDecimals)}
                 </div>
               </div>
 
@@ -861,10 +996,10 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
               <div className="bg-black border border-zinc-800 rounded p-2.5">
                 <div className="text-[10px] text-zinc-400">Suport / Rezistență</div>
                 <div className="font-mono font-bold text-emerald-300 mt-0.5">
-                  S: {ind.nearestSupport ? formatUsd(ind.nearestSupport.price, 0) : '—'}
+                  S: {ind.nearestSupport ? formatUsd(ind.nearestSupport.price, priceDecimals) : '—'}
                 </div>
                 <div className="font-mono text-[10px] text-rose-300">
-                  R: {ind.nearestResistance ? formatUsd(ind.nearestResistance.price, 0) : '—'}
+                  R: {ind.nearestResistance ? formatUsd(ind.nearestResistance.price, priceDecimals) : '—'}
                 </div>
               </div>
 
@@ -988,7 +1123,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
             <h3 className="font-bold text-sm text-white flex items-center gap-2">
               <History className="w-4 h-4 text-cyan-400" />
-              <span>Istoric BTC-USD UM X-PERP</span>
+              <span>Istoric {displayInstrument}</span>
             </h3>
             <div className="flex items-center gap-1.5 text-xs">
               <button
@@ -1028,8 +1163,10 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                     <tr className="border-b border-zinc-800 text-zinc-400 text-[11px] sticky top-0 bg-zinc-950">
                       <th className="py-2 px-2">Ora (București)</th>
                       <th className="py-2 px-2">Direcție</th>
-                      <th className="py-2 px-2 text-right">Preț BTC</th>
-                      <th className="py-2 px-2">Interval Grid ($1k)</th>
+                      <th className="py-2 px-2 text-right">Preț {selectedAsset}</th>
+                      <th className="py-2 px-2">
+                        {selectedAsset === 'BTC' ? 'Interval Grid ($1k)' : 'Interval Grid (ATR)'}
+                      </th>
                       <th className="py-2 px-2 text-right">Probabilitate</th>
                       <th className="py-2 px-2">Trigger / Status</th>
                     </tr>
@@ -1044,10 +1181,10 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                           {s.direction}
                         </td>
                         <td className="py-2 px-2 text-right font-mono text-zinc-200">
-                          {formatUsd(s.priceAtSignal, 1)}
+                          {formatUsd(s.priceAtSignal, priceDecimals)}
                         </td>
                         <td className="py-2 px-2 font-mono text-zinc-300 whitespace-nowrap">
-                          {formatUsd(s.minPx, 0)} – {formatUsd(s.maxPx, 0)}
+                          {formatUsd(s.minPx, gridBoundDecimals)} – {formatUsd(s.maxPx, gridBoundDecimals)}
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
                           {s.probabilityStatus === 'CALIBRATED' && s.chosenProbabilityPct !== null
@@ -1071,7 +1208,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
             )
           ) : closedBots.length === 0 ? (
             <div className="bg-black border border-zinc-800 rounded p-6 text-center text-xs text-zinc-400">
-              Niciun bot BTC-USD UM X-PERP închis în istoric.
+              Niciun bot {displayInstrument} închis în istoric.
             </div>
           ) : (
             <div className="overflow-x-auto max-h-80 overflow-y-auto">
@@ -1099,7 +1236,7 @@ export const BtcXPerpSignalsPanel: React.FC<BtcXPerpSignalsPanelProps> = ({
                         {b.direction}
                       </td>
                       <td className="py-2 px-2 font-mono text-zinc-300 whitespace-nowrap">
-                        {formatUsd(b.minPx, 0)} – {formatUsd(b.maxPx, 0)} ({b.gridNum}g)
+                        {formatUsd(b.minPx, gridBoundDecimals)} – {formatUsd(b.maxPx, gridBoundDecimals)} ({b.gridNum}g)
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-zinc-200">
                         ${b.investedMarginUSD.toFixed(2)}
