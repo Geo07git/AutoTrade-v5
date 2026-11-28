@@ -6,6 +6,7 @@
 import 'dotenv/config';
 import express from 'express';
 import http from 'http';
+import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
@@ -1999,6 +2000,77 @@ async function startServer() {
       }
 
       repoUpdate.markSyncing(true);
+
+      // The launch is PROVEN, not assumed. powershell.exe can exit 0 without running anything
+      // (a detached spawn does exactly that), and a click that silently does nothing is the one
+      // failure the badge must never hide. sync-repo.ps1 writes its transcript as its first
+      // action, so a fresh mtime is the evidence that the script actually started.
+      const syncLogPath = path.join(process.env.TEMP || os.tmpdir(), 'autotrade-sync.log');
+      const logMtime = () => {
+        try {
+          return fs.statSync(syncLogPath).mtimeMs;
+        } catch {
+          return 0;
+        }
+      };
+      const mtimeBefore = logMtime();
+
+      // Detached on purpose: the sync kills this very process during the restart, so the script
+      // must outlive it. sync-repo.ps1 is ff-only, refuses over local edits, guards secrets,
+      // gates on lint, and launches restart-app.ps1 (backup + clean shutdown) itself.
+      //
+      // -ForceRestart when there is nothing to pull: this is the recovery path for "a pull landed
+      // but the restart did not" (lint gate). Without it that state could only be fixed by hand,
+      // while the desk happily reported "up to date".
+      try {
+        const child = spawn(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            scriptPath,
+            '-Restart',
+            ...(repoStatus.behind === 0 ? ['-ForceRestart'] : []),
+            '-Port',
+            String(PORT),
+          ],
+          {
+            cwd: repoRoot,
+            // NOT detached. DETACHED_PROCESS leaves powershell.exe with no console at all and it
+            // exits 0 WITHOUT executing the script (verified: the log never appeared, the pull
+            // never happened). Killing the node process does not kill this child on Windows, so
+            // the sync still outlives the process it is about to restart.
+            stdio: 'ignore',
+            windowsHide: true,
+            shell: false,
+          }
+        );
+        child.on('error', (err: any) => {
+          console.error('[Repo] sync spawn error:', err?.message || err);
+        });
+        child.unref();
+      } catch (err: any) {
+        repoUpdate.markSyncing(false);
+        return res.status(500).json({
+          success: false,
+          error: `Nu am putut lansa scripts/sync-repo.ps1: ${err?.message || err}`,
+        });
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (logMtime() <= mtimeBefore) {
+        // Nothing was written: the script did not start. Fail loudly instead of leaving the desk
+        // waiting six minutes for a sync that never began.
+        repoUpdate.markSyncing(false);
+        return res.status(500).json({
+          success: false,
+          error:
+            'Scriptul de sync nu a pornit (nu a scris in %TEMP%\\autotrade-sync.log). Nu am lasat sincronizarea in curs; incearca din nou si verifica log-ul.',
+        });
+      }
+
       res.status(202).json({
         success: true,
         behind: repoStatus.behind,
@@ -2019,38 +2091,7 @@ async function startServer() {
       // -ForceRestart when there is nothing to pull: this is the recovery path for "a pull landed
       // but the restart did not" (lint gate). Without it that state could only be fixed by hand,
       // while the desk happily reported "up to date".
-      setTimeout(() => {
-        try {
-          const child = spawn(
-            'powershell.exe',
-            [
-              '-NoProfile',
-              '-ExecutionPolicy',
-              'Bypass',
-              '-File',
-              scriptPath,
-              '-Restart',
-              ...(repoStatus.behind === 0 ? ['-ForceRestart'] : []),
-              '-Port',
-              String(PORT),
-            ],
-            {
-              cwd: repoRoot,
-              // NOT detached. DETACHED_PROCESS leaves powershell.exe with no console at all and it
-              // exits 0 WITHOUT executing the script (verified: the log never appeared, the pull
-              // never happened). Killing the node process does not kill this child on Windows, so
-              // the sync still outlives the process it is about to restart.
-              stdio: 'ignore',
-              windowsHide: true,
-              shell: false,
-            }
-          );
-          child.unref();
-        } catch (err: any) {
-          repoUpdate.markSyncing(false);
-          console.error('[Repo] Failed to launch scripts/sync-repo.ps1:', err?.message || err);
-        }
-      }, 300);
+      // (the launch happens above, before the response, so a silent no-op surfaces as an error)
     } catch (err: any) {
       repoUpdate.markSyncing(false);
       res.status(500).json({ success: false, error: err?.message || 'Eroare la pornirea sincronizarii' });
