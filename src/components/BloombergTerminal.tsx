@@ -44,6 +44,7 @@ import {
   BarChart2,
   BrainCircuit,
 } from 'lucide-react';
+import { RepoUpdateBadge } from './RepoUpdateBadge';
 import { formatPrice, formatTimeLocal, formatDateTimeLocal } from '../shared/formatters';
 import { OKXFeeCalculatorModal } from './OKXFeeCalculatorModal';
 import { OKXNativeGridPanel } from './OKXNativeGridPanel';
@@ -1558,6 +1559,14 @@ export const BloombergTerminal: React.FC<BloombergTerminalProps> = ({
             <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isRestartingServer ? 'animate-spin' : ''}`} />
             <span className="truncate">{isRestartingServer ? 'REPORNIRE...' : 'RESTART SERVER'}</span>
           </button>
+
+          {/* Repo update badge: check runs on the server every 5 min; one click pulls + lints + restarts */}
+          <RepoUpdateBadge
+            controlToken={controlToken}
+            inline
+            onNotify={(type, text) => setLocalBanner({ type, text })}
+            onRefresh={() => onRefresh()}
+          />
 
           <button
             type="button"

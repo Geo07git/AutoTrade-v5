@@ -38,6 +38,8 @@ interface RepoUpdateStatusView {
 
 export interface RepoUpdateBadgeProps {
   controlToken: string;
+  /** Renders as a header button instead of a floating pill (same state, same click). */
+  inline?: boolean;
   /** Surfaces the outcome through the desk's existing alert banner. */
   onNotify?: (type: 'success' | 'error' | 'info', text: string) => void;
   /** Re-reads desk state after the pull/restart actually happened. */
@@ -62,6 +64,7 @@ const fmtClock = (ms: number): string => {
 
 export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
   controlToken,
+  inline = false,
   onNotify,
   onRefresh,
 }) => {
@@ -197,19 +200,22 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
       .map((c) => `- ${c.sha} ${c.subject}`)
       .join('\n');
 
-    const confirmed = window.confirm(
-      `Aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}?\n\n` +
-        (commitPreview ? `${commitPreview}\n\n` : '') +
-        'Ce se intampla, in ordine:\n' +
-        '1. git pull --ff-only (fara merge, fara rebase; refuza daca ai modificari locale)\n' +
-        '2. npm run lint pe codul nou\n' +
-        (status.restartRequired
-          ? '3. repornire automata: copie .data/, shutdown curat, pornire, /api/health\n'
-          : '3. fara restart: commit-urile nu ating cod runtime\n') +
-        '\nDaca lint-ul pica, serverul vechi ramane sus si functional.\n' +
-        'Log: %TEMP%\\autotrade-sync.log'
-    );
-    if (!confirmed) return;
+    // The click on the badge IS the decision. A docs-only pull changes nothing that is running,
+    // so it goes straight through; only a pull that will replace the running process stops to be
+    // read first. That is the single question worth asking, and it is asked once.
+    if (status.restartRequired) {
+      const confirmed = window.confirm(
+        `Aduc ${status.behind} commit(uri) de pe origin/${status.branch || 'main'}?\n\n` +
+          (commitPreview ? `${commitPreview}\n\n` : '') +
+          'Ce se intampla, in ordine:\n' +
+          '1. git pull --ff-only (fara merge, fara rebase; refuza daca ai modificari locale)\n' +
+          '2. npm run lint pe codul nou\n' +
+          '3. repornire automata: copie .data/, shutdown curat, pornire, /api/health\n' +
+          '\nDaca lint-ul pica, serverul vechi ramane sus si functional.\n' +
+          'Log: %TEMP%\\autotrade-sync.log'
+      );
+      if (!confirmed) return;
+    }
 
     syncingRef.current = true;
     setSyncing(true);
@@ -312,9 +318,13 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
   if (!status || isDismissed) return null;
 
   return (
-    <div className="fixed right-2 bottom-24 lg:bottom-3 z-[60] flex items-center">
+    <div className={inline ? 'flex items-center' : 'fixed right-2 bottom-24 lg:bottom-3 z-[60] flex items-center'}>
       <div
-        className={`flex items-center gap-1.5 rounded border px-2 py-1.5 text-[11px] font-mono shadow-lg backdrop-blur ${chipClass}`}
+        className={`flex items-center gap-1.5 rounded border font-mono ${chipClass} ${
+          inline
+            ? 'px-2 sm:px-2.5 py-1.5 text-[10px] sm:text-xs font-bold'
+            : 'px-2 py-1.5 text-[11px] shadow-lg backdrop-blur'
+        }`}
         title={titleText}
       >
         {variant === 'update' ? (
