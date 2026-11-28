@@ -116,7 +116,39 @@ const main = async (): Promise<void> => {
     eq(fourth.behind, 2, 'both commits are now pending on this clone');
     eq(fourth.restartRequired, true, 'the first one still touches runtime code');
 
-    console.log('  ok    git plumbing: behind/ahead, incoming files, dirty guard');
+    // "Stale" = the running process is missing RUNTIME code that is already on disk. It must be
+    // derived from what changed, not from "HEAD moved": a docs-only pull moves HEAD and nothing
+    // else, and flagging that would put a false "RESTART NECESAR" on a current desk.
+    git(workDir, ['merge', '--ff-only', 'origin/main']);
+    const service2 = new RepoUpdateService(workDir, 60_000);
+    await new Promise((resolve) => setTimeout(resolve, 400)); // let it capture the running sha
+
+    write(path.join(seedDir, 'docs', 'notes.md'), '# notes\n');
+    commitAll(seedDir, 'docs: notes');
+    git(seedDir, ['push', 'origin', 'main']);
+    await service2.check(true); // fetch, exactly what the badge poll does
+    git(workDir, ['merge', '--ff-only', 'origin/main']); // the pull a docs-only sync performs
+
+    const docsDrift = await service2.check(true);
+    eq(docsDrift.behind, 0, 'the docs commit was pulled');
+    eq(docsDrift.stale, false, 'docs-only drift is NOT a stale process - no restart needed');
+    eq(docsDrift.canSync, false, 'and there is nothing to do about it');
+
+    // Same shape, but the pulled commit touches src/: now the running process IS behind.
+    write(path.join(seedDir, 'src', 'engine.ts'), 'export const engine = 3;\n');
+    commitAll(seedDir, 'feat: runtime tweak');
+    git(seedDir, ['push', 'origin', 'main']);
+    await service2.check(true);
+    git(workDir, ['merge', '--ff-only', 'origin/main']);
+
+    const runtimeDrift = await service2.check(true);
+    eq(runtimeDrift.behind, 0, 'nothing left to pull');
+    eq(runtimeDrift.ahead, 0, 'and nothing local to publish');
+    eq(runtimeDrift.stale, true, 'runtime drift IS stale: the running process is on older code');
+    eq(runtimeDrift.canSync, true, 'and it is actionable without pulling anything');
+    eq(runtimeDrift.restartRequired, true, 'the fix is a lint + restart');
+
+    console.log('  ok    git plumbing: behind/ahead, incoming files, dirty guard, runtime-aware stale');
   } finally {
     try {
       fs.rmSync(root, { recursive: true, force: true });

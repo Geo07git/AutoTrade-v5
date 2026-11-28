@@ -1,3 +1,4 @@
+
 /**
  * The badge in the header tells the owner "there is an update" without being asked, and the pull
  * is one click. That click must be justified by origin and must refuse to run when the local tree
@@ -99,8 +100,17 @@ test('a stale process is actionable even with nothing to pull', () => {
 test('a stale process does not need a clean tree to be restarted', () => {
   // Restarting reads the working tree, it never merges into it, so local edits are irrelevant.
   const d = deriveRepoUpdateDecision(inputs({ stale: true, dirtyFiles: ['server.ts'], ahead: 2 }));
-  eq(d.canSync, true, 'local edits do not prevent loading the code that is already on disk');
-  eq(d.restartRequired, true, 'the restart is still the point');
+  eq(d.canSync, false, 'restartul nu publica: cu commit-uri locale nepublicate scriptul refuza');
+  eq(d.restartRequired, true, 'starea stale ramane adevarata, doar actiunea e blocata');
+  eq(Boolean(d.blockedReason), true, 'si motivul e spus, nu ascuns');
+  eq(d.blockedReason!.includes('nepublicate'), true, 'operatorul afla ce are de facut');
+});
+
+test('a stale process with a clean tree is one click', () => {
+  const d = deriveRepoUpdateDecision(inputs({ stale: true, dirtyFiles: ['server.ts'] }));
+  eq(d.canSync, true, 'modificarile locale nu blocheaza un restart (nu se face merge)');
+  eq(d.restartRequired, true, 'lint + restart e actiunea');
+  eq(d.blockedReason, undefined, 'nimic nu o opreste');
 });
 
 test('runtime path detection matches scripts/sync-repo.ps1', () => {

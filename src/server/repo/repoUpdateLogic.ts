@@ -71,6 +71,17 @@ export function deriveRepoUpdateDecision(inputs: RepoUpdateInputs): RepoUpdateDe
   // though origin has nothing new.
   if (inputs.behind === 0) {
     if (inputs.stale) {
+      // A restart does not publish anything, and scripts/sync-repo.ps1 refuses to run with
+      // unpushed commits. Offering a click that is guaranteed to bounce off would be a lie, so
+      // name the real blocker instead.
+      if (inputs.ahead > 0) {
+        return {
+          canSync: false,
+          restartRequired: true,
+          blockedReason: `Ai ${inputs.ahead} commit(uri) locale nepublicate, iar scripts/sync-repo.ps1 refuza sa ruleze asa (nu face merge, nu publica). Publica-le (git push) sau revino la origin, apoi restaureaza.`,
+          summary: 'Cod nou pe disc si commit-uri locale nepublicate: restartul e blocat de ele.',
+        };
+      }
       return {
         canSync: true,
         restartRequired: true,

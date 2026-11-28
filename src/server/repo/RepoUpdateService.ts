@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { deriveRepoUpdateDecision, RepoUpdateDecision } from './repoUpdateLogic';
+import { deriveRepoUpdateDecision, isRuntimePath, RepoUpdateDecision } from './repoUpdateLogic';
 
 /**
  * "Did origin move?" - answered on a schedule, by the server itself.
@@ -311,9 +311,27 @@ export class RepoUpdateService {
     const headRes = await runGit(['rev-parse', 'HEAD'], this.repoRoot, 10_000);
     const headFull = headRes.code === 0 ? headRes.stdout.trim() : '';
     const headSha = headFull;
-    // Unknown running sha (git failed at boot) is NOT treated as stale: a guard that fires on
-    // missing data is worse than no guard.
-    const stale = Boolean(this.runningShaFull) && Boolean(headFull) && this.runningShaFull !== headFull;
+
+    // "Stale" means the RUNNING process is missing RUNTIME code that is already on disk. Moving
+    // HEAD is not enough: a docs-only pull changes the commit without changing anything the
+    // process executes, and warning "restart needed" there would be a false alarm on a desk that
+    // is perfectly current - the mirror image of the lie this check exists to prevent.
+    // Unknown running sha (git failed at boot) is not stale: a guard that fires on missing data
+    // is worse than no guard.
+    let stale = false;
+    if (this.runningShaFull && headFull && this.runningShaFull !== headFull) {
+      const driftRes = await runGit(
+        ['diff', '--name-only', this.runningShaFull, headFull],
+        this.repoRoot,
+        15_000
+      );
+      if (driftRes.code !== 0) {
+        // Cannot prove it is harmless, so say the loud thing instead of the quiet wrong thing.
+        stale = true;
+      } else {
+        stale = splitLines(driftRes.stdout).some(isRuntimePath);
+      }
+    }
 
     const fetchRes = await runGit(['fetch', 'origin', '--prune'], this.repoRoot, GIT_TIMEOUT_MS);
     if (fetchRes.code !== 0) {
