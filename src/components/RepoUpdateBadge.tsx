@@ -187,7 +187,7 @@ export const RepoUpdateBadge: React.FC<RepoUpdateBadgeProps> = ({
         }) nu ruleaza: procesul a pornit din ${status?.runningSha}.\n\nClick = npm run lint pe arborele curent, apoi repornire (backup .data/, shutdown curat).\nDaca lint-ul pica, serverul vechi ramane sus.\nSe intampla dupa un pull al carui restart nu a avut loc.`
       : `Cod la zi cu origin/${status?.branch || 'main'} (${status?.headSha}).\nVerificare automata la 5 min, ultima la ${fmtClock(
           status?.checkedAt || 0
-        )}. Click = verifica acum.`;
+        )}. Procesul ruleaza exact acelasi commit. Click = verifica acum.`;
 
   const handleRecheck = async () => {
     if (checking) return;
