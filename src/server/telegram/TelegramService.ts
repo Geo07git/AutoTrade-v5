@@ -16,6 +16,7 @@ import {
   formatBucharestDateTime,
 } from '../utils/timezone';
 import { formatPrice } from '../../shared/formatters';
+import { writeJsonAtomic } from '../utils/atomicFile';
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), '.telegram_config.json');
 
@@ -76,21 +77,14 @@ export class TelegramService {
 
   private savePersistedConfig() {
     try {
-      fs.writeFileSync(
-        CONFIG_FILE_PATH,
-        JSON.stringify(
-          {
-            botToken: this.botToken,
-            chatId: this.chatId,
-            botUsername: this.botUsername,
-            notificationsEnabled: this.notificationsEnabled,
-            updatedAt: Date.now(),
-          },
-          null,
-          2
-        ),
-        'utf-8'
-      );
+      // Atomic: un kill in timpul scrierii nu mai poate trunchia tokenul/chatId-ul salvat.
+      writeJsonAtomic(CONFIG_FILE_PATH, {
+        botToken: this.botToken,
+        chatId: this.chatId,
+        botUsername: this.botUsername,
+        notificationsEnabled: this.notificationsEnabled,
+        updatedAt: Date.now(),
+      });
     } catch (e) {
       // Ignored
     }

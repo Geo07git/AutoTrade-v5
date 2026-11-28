@@ -1884,6 +1884,50 @@ async function startServer() {
     }, 150);
   });
 
+  // Prepare for shutdown: flush every store to disk, then exit cleanly.
+  //
+  // scripts/restart-app.ps1 calls this BEFORE it falls back to Stop-Process -Force. A forced kill on
+  // Windows is TerminateProcess: it never runs the SIGTERM/SIGINT handlers below, so the debounced
+  // JsonStore writes (~200 ms) still pending in memory are simply lost, and a write that started
+  // mid-flight leaves a truncated file. Order guarantees are: flush -> response -> exit.
+  app.post('/api/bot/prepare-shutdown', requireControlAuth, (req, res) => {
+    if (isRestartingServer) {
+      return res.status(409).json({
+        success: false,
+        error: 'Repornirea serverului este deja în curs.',
+      });
+    }
+    isRestartingServer = true;
+
+    let flushed = true;
+    try {
+      flushAllStores();
+    } catch (err: any) {
+      flushed = false;
+      console.error('[Server] Flush before shutdown failed:', err?.message || err);
+    }
+
+    res.status(202).json({
+      success: true,
+      flushed,
+      pid: process.pid,
+      startedAt: SERVER_STARTED_AT,
+      reason: String(req.body?.reason || 'prepare-shutdown'),
+      message: flushed
+        ? 'Store-urile au fost salvate pe disc. Procesul se oprește imediat.'
+        : 'Flush parțial: unele store-uri nu au putut fi salvate. Verifică jurnalul înainte de a te baza pe date.',
+    });
+
+    // Mic delay ca răspunsul HTTP să ajungă la apelant; apoi ieșim curat (handlerele `exit`
+    // flush-uiesc din nou, deci un al doilea apel e ieftin și idempotent).
+    setTimeout(() => {
+      try {
+        flushAllStores();
+      } catch {}
+      process.exit(0);
+    }, 250);
+  });
+
   // Catch-all JSON 404 for any unmatched /api/* route so Vite/SPA never returns <!doctype html>
   app.all('/api/*', (req, res) => {
     res.status(404).json({

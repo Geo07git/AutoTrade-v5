@@ -1,25 +1,32 @@
-# restart-app.ps1 - opreste instanta AutoTrade-v5 care asculta pe portul aplicatiei
-#                   si porneste una noua, apoi verifica /api/health.
+# restart-app.ps1 - salveaza .data\, opreste instanta AutoTrade-v5 care asculta pe portul
+#                   aplicatiei, porneste una noua, apoi verifica /api/health.
 #
 # Rulare (din radacina repo-ului):
 #   powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1 -Status      # doar raporteaza
 #   powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1 -Port 3001   # alt port
 #   powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1 -NoWait      # nu astepta health
+#   powershell -ExecutionPolicy Bypass -File scripts\restart-app.ps1 -NoBackup    # fara copie .data\
 #
 # De ce asa: procesul se identifica dupa PORT, nu dupa nume sau PID ghicit.
 # Numele `node` e comun (pe masina asta ruleaza si serverul MCP okx-trade-mcp),
 # deci `Stop-Process -Name node` ar omori si unelte fara legatura cu aplicatia.
 # Portul e unic: doar instanta aplicatiei il asculta.
 #
-# Ce opreste:
-#   1. procesul care asculta pe port (copilul tsx/node - chiar aplicatia)
-#   2. parintii lui ramasi atarnati (npm run dev / cmd), doar daca ruleaza tsx server.ts
+# Ordinea, si de ce exact asa:
+#   0. COPIE a .data\ in %LOCALAPPDATA%\AutoTrade-v5\data-backups\ (in afara repo-ului,
+#      deci nu poate fi comisa). Doar copiere: sursa nu e mutata, stearsa sau modificata.
+#   1. shutdown CURAT prin POST /api/bot/prepare-shutdown -> serverul da flush la toate
+#      store-urile si iese singur. `Stop-Process -Force` este TerminateProcess: NU ruleaza
+#      handlerele SIGTERM/SIGINT, deci scrierile inca in memorie se pierd, iar o scriere
+#      in curs lasa fisier trunchiat. Forta e doar plasa de siguranta, dupa flush.
+#   2. procesul care asculta pe port (copilul tsx/node - chiar aplicatia)
+#   3. parintii lui ramasi atarnati (npm run dev / cmd), doar daca ruleaza tsx server.ts
 #      din ACEST repo (verificat prin linia de comanda)
 #
 # Ce NU atinge NICIODATA:
 #   - procese care nu asculta pe port si nu ruleaza server.ts din repo (ex. MCP-ul OKX)
-#   - .data\ (chei, pozitii, ordine), .git\, sursa
+#   - .data\ (chei, pozitii, ordine) - doar il COPIAZA; .git\ si sursa nu sunt atinse
 #   - alte instante AutoTrade-v5 pe alt port
 
 [CmdletBinding()]
@@ -27,7 +34,10 @@ param(
     [int]    $Port = 3000,
     [switch] $Status,
     [switch] $NoWait,
-    [int]    $HealthTimeoutSec = 30
+    [switch] $NoBackup,
+    [int]    $HealthTimeoutSec = 30,
+    [int]    $GracefulTimeoutSec = 12,
+    [int]    $BackupKeep = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -63,6 +73,79 @@ function Get-Health {
     }
 }
 
+# Copie de siguranta a .data\ INAINTE de orice oprire. Doar COPIE: sursa ramane neatinsa
+# (nu se muta, nu se sterge). Un restart fortat in mijlocul unei scrieri poate lasa un store
+# trunchiat; copia e plasa de siguranta, iar manifestul nu contine continut de fisier (fara secrete).
+function Backup-Data {
+    param([string]$RepoRoot, [int]$P, [int]$Keep = 10)
+
+    $dataDir = Join-Path $RepoRoot '.data'
+    if (-not (Test-Path $dataDir)) {
+        Write-Host '   .data\ nu exista - nimic de salvat' -ForegroundColor DarkGray
+        return $null
+    }
+
+    $backupRoot = Join-Path $env:LOCALAPPDATA 'AutoTrade-v5\data-backups'
+    $target = Join-Path $backupRoot ('data-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+
+    $files = @(Get-ChildItem -LiteralPath $dataDir -Recurse -File -Force -ErrorAction SilentlyContinue)
+    $bytes = 0
+    if ($files.Count -gt 0) { $bytes = ($files | Measure-Object -Property Length -Sum).Sum }
+
+    New-Item -ItemType Directory -Path $target -Force | Out-Null
+    if ($files.Count -gt 0) {
+        Copy-Item -Path (Join-Path $dataDir '*') -Destination $target -Recurse -Force -ErrorAction Stop
+    }
+
+    $health = Get-Health -P $P
+    $manifest = @(
+        ('created     : {0}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
+        ('source      : {0}' -f $dataDir),
+        ('files       : {0}' -f $files.Count),
+        ('bytes       : {0}' -f $bytes),
+        ('healthOk    : {0}' -f $(if ($health -and $health.status -eq 'ok') { 'da' } else { 'nu' })),
+        ('runningBots : {0}' -f $(if ($health) { $health.runningGridBots } else { 'n/a' })),
+        'manifest: doar numar si dimensiune; continutul fisierelor nu se copiaza aici.'
+    )
+    Set-Content -LiteralPath (Join-Path $target 'MANIFEST.txt') -Value $manifest -Encoding UTF8
+
+    $existing = @(Get-ChildItem -LiteralPath $backupRoot -Directory -ErrorAction SilentlyContinue)
+    if ($existing.Count -gt $Keep) {
+        Write-Host ('   ATENTIE: {0} backup-uri in {1} (peste pragul {2}) - curata-le manual; scriptul nu sterge nimic.' -f $existing.Count, $backupRoot, $Keep) -ForegroundColor Yellow
+    }
+
+    return $target
+}
+
+# Cere serverului sa dea flush la store-uri si sa iasa singur (POST /api/bot/prepare-shutdown).
+# Intoarce $true daca procesul s-a oprit singur in intervalul dat.
+function Request-GracefulShutdown {
+    param([int]$P, [int]$TimeoutSec)
+
+    $headers = @{}
+    if ($env:BOT_CONTROL_TOKEN) { $headers['x-bot-token'] = [string] $env:BOT_CONTROL_TOKEN }
+
+    try {
+        $body = @{ reason = 'restart-app.ps1' } | ConvertTo-Json -Compress
+        Invoke-RestMethod -Uri "http://localhost:$P/api/bot/prepare-shutdown" `
+            -Method Post `
+            -Body $body `
+            -ContentType 'application/json' `
+            -Headers $headers `
+            -TimeoutSec 10 | Out-Null
+    } catch {
+        Write-Host ('   flush refuzat/esuat: {0}' -f $_.Exception.Message) -ForegroundColor Yellow
+        return $false
+    }
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        if (@(Get-AppListeners -P $P).Count -eq 0) { return $true }
+        Start-Sleep -Milliseconds 250
+    }
+    return $false
+}
+
 # ------------------------------------------------------------------ 0. stare
 $listeners = @(Get-AppListeners -P $Port)
 $repoProcs = @(Get-RepoAppProcesses -RepoRoot $root)
@@ -89,13 +172,53 @@ if ($Status) {
     exit 0
 }
 
+# ------------------------------------------------------------------ 0. backup .data
+if ($NoBackup) {
+    Write-Host ''
+    Write-Host '0. backup .data\ sarit (-NoBackup)' -ForegroundColor Yellow
+} else {
+    Write-Host ''
+    Write-Host '0. backup .data\ (copie; sursa ramane neatinsa)' -ForegroundColor Cyan
+    try {
+        $backupPath = Backup-Data -RepoRoot $root -P $Port -Keep $BackupKeep
+        if ($backupPath) {
+            Write-Host ('   {0}' -f $backupPath) -ForegroundColor Green
+        }
+    } catch {
+        Write-Host ('   BACKUP A ESUT: {0}' -f $_.Exception.Message) -ForegroundColor Red
+        Write-Host '   Nu opresc serverul fara copie. Ruleaza din nou, sau -NoBackup daca stii exact ce faci.' -ForegroundColor Red
+        exit 1
+    }
+}
+
 # ------------------------------------------------------------------ 1. oprire
 if ($listeners.Count -eq 0 -and $repoProcs.Count -eq 0) {
-    Write-Host ""
-    Write-Host "Nimic de oprit - pornesc direct." -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host 'Nimic de oprit - pornesc direct.' -ForegroundColor DarkGray
 } else {
-    Write-Host ""
+    Write-Host ''
     Write-Host "1. opresc procesul care asculta pe portul $Port" -ForegroundColor Cyan
+
+    # Intai shutdown curat (flush pe disc), abia apoi forta. Stop-Process -Force nu ruleaza
+    # handlerele de semnal, deci fara pasul asta se pierd scrierile inca in memorie.
+    if ($listeners.Count -gt 0) {
+        $graceful = $false
+        try {
+            $graceful = Request-GracefulShutdown -P $Port -TimeoutSec $GracefulTimeoutSec
+        } catch {
+            $graceful = $false
+        }
+        if ($graceful) {
+            Write-Host '   shutdown curat: store-urile sunt pe disc, procesul a iesit singur' -ForegroundColor Green
+        } else {
+            Write-Host ('   fara shutdown curat in {0}s - trec la oprire fortata (datele sunt in backup)' -f $GracefulTimeoutSec) -ForegroundColor Yellow
+        }
+    }
+
+    # Reimprospatare dupa flush: PID-urile se pot recicla si procesul poate fi deja mort.
+    $listeners = @(Get-AppListeners -P $Port)
+    $repoProcs = @(Get-RepoAppProcesses -RepoRoot $root)
+
     foreach ($procId in $listeners) {
         try {
             $p = Get-Process -Id $procId -ErrorAction Stop

@@ -16,9 +16,12 @@
 #   2. git status - daca exista modificari la fisiere URMARITE -> stop, nu atinge nimic
 #   3. git fetch origin  (GIT_TERMINAL_PROMPT=0, deci nu se blocheaza pe credentiale)
 #   4. compara HEAD cu origin/main (in urma / inainte)
-#   5. git pull --ff-only origin main   - NUMAI fast-forward
-#   6. npm run lint, dar doar daca s-a schimbat cod (src/, server.ts, configs)
-#   7. optional (-Restart): lanseaza scripts\restart-app.ps1 - si numai dupa lint verde
+#   5. garda pe ce intra: .data\ trebuie sa fie ignorat, iar commit-urile de tras nu au
+#      voie sa atinga .data/, .env*, *.pem, *.key, *.zip, *.patch -> stop INAINTE de pull
+#   6. git pull --ff-only origin main   - NUMAI fast-forward
+#   7. npm run lint, dar doar daca s-a schimbat cod (src/, server.ts, configs)
+#   8. optional (-Restart): lanseaza scripts\restart-app.ps1 - si numai dupa lint verde
+#      (restart-app.ps1 face singur copie de siguranta a .data\ si shutdown curat)
 #
 # Ce NU face NICIODATA (reguli din AGENTS.md):
 #   - git reset --hard / git clean / git checkout -- . / git restore .
@@ -263,6 +266,35 @@ $incoming -split "`r?`n" | Where-Object { $_.Trim() } | ForEach-Object { Write-L
 if ($Status) {
     Exit-With -Code 0 -Message ("Ar fi de tras {0} commit(uri). Mod -Status: nu s-a modificat nimic." -f $behind) -Color Yellow
 }
+
+# ------------------------------------------------------------------ 3b. garda pe ce intra
+
+# Un `pull` nu poate atinge .data\ (e gitignored) si nu poate suprascrie fisiere netracked
+# fara sa refuze singur. Verificam totusi explicit: daca cineva a scos regula din .gitignore
+# sau a comis din greseala un secret / un fisier din .data, ne oprim INAINTE de a-l asterne
+# in working tree (si inainte de a-l expune la `git add -A`).
+$ignoreCheck = Invoke-Git -GitArgs @('check-ignore', '-q', '.data')
+if ($ignoreCheck.ExitCode -ne 0) {
+    Exit-With -Code 1 -Message '.data\ nu mai este ignorat de git. Nu fac pull pana nu revine regula .data/ in .gitignore - altfel urmatorul git add -A ar comite chei, pozitii si ordine.' -Color Red
+}
+
+$incomingPaths = @(
+    (Invoke-Git -GitArgs @('diff', '--name-only', $headRev, $remoteRef)).StdOut -split "`r?`n" |
+        Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() }
+)
+$forbidden = @($incomingPaths | Where-Object {
+    ($_ -match '^\.data/') -or
+    (($_ -match '^\.env') -and ($_ -notmatch '\.example$')) -or
+    ($_ -match '\.(pem|key|zip|patch)$')
+})
+if ($forbidden.Count -gt 0) {
+    Write-Log ''
+    Write-Log 'Commit-urile de tras ating fisiere care nu au ce cauta in repo:' 'Red'
+    $forbidden | ForEach-Object { Write-Log ("  {0}" -f $_) 'Red' }
+    Exit-With -Code 1 -Message 'Nu fac pull peste .data/secrete. Curata-le pe origin (local nu se rescrie istoric) si ruleaza din nou.' -Color Red
+}
+Write-Log ''
+Write-Log ("garda: {0} fisiere de adus, niciunul .data/.env/secret   |   .data ignorat: da" -f $incomingPaths.Count) 'Green'
 
 # ------------------------------------------------------------------ 4. pull ff-only
 

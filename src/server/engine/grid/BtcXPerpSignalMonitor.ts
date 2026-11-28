@@ -18,6 +18,7 @@ import {
   XPerpAssetKey,
 } from '../../../shared/types';
 import { telegramService } from '../../telegram/TelegramService';
+import { writeJsonAtomic } from '../../utils/atomicFile';
 import { formatBucharestDateTime } from '../../utils/timezone';
 import {
   choppinessIndex,
@@ -784,11 +785,10 @@ export class BtcXPerpSignalMonitor {
 
   private saveState(): void {
     try {
-      const dir = path.dirname(this.stateFile);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(this.stateFile, JSON.stringify(this.state, null, 2), 'utf8');
+      // Atomic: starea asta tine recomandarile si botii monitorizati. Un kill in timpul
+      // scrierii (restart fortat) nu mai poate lasa JSON trunchiat -> nu se mai reseteaza
+      // tacut istoricul de semnale la valorile implicite.
+      writeJsonAtomic(this.stateFile, this.state);
     } catch (err: any) {
       console.warn('[BtcXPerpSignalMonitor] Failed to persist state:', err?.message || err);
     }

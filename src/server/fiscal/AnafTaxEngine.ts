@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { OKXAdapter } from '../exchange/OKXAdapter';
+import { writeFileAtomic, writeJsonAtomic } from '../utils/atomicFile';
 import {
   AnafCoverageStatus,
   AnafEfficiencyStatus,
@@ -213,7 +214,7 @@ export class AnafTaxEngine {
   private saveSettingsStore(store: PersistedSettingsStore): void {
     this.ensureDataDir();
     try {
-      fs.writeFileSync(this.settingsFile, JSON.stringify(store, null, 2), 'utf8');
+      writeJsonAtomic(this.settingsFile, store);
     } catch (err: any) {
       console.warn('[AnafTaxEngine] Failed to save fiscal settings:', err.message);
     }
@@ -519,7 +520,7 @@ export class AnafTaxEngine {
   private saveCanonicalCacheStore(store: SyncedCacheV2): void {
     this.ensureDataDir();
     try {
-      fs.writeFileSync(this.syncedTransactionsFile, JSON.stringify(store, null, 2), 'utf8');
+      writeJsonAtomic(this.syncedTransactionsFile, store);
     } catch (err: any) {
       console.warn('[AnafTaxEngine] Failed to save canonical bills cache:', err.message);
     }
@@ -564,7 +565,7 @@ export class AnafTaxEngine {
   public saveImportedTransactions(records: AnafTransactionRecord[]): void {
     this.ensureDataDir();
     try {
-      fs.writeFileSync(this.importedCsvFile, JSON.stringify(records, null, 2), 'utf8');
+      writeJsonAtomic(this.importedCsvFile, records);
     } catch (err: any) {
       console.warn('[AnafTaxEngine] Failed to save imported transactions:', err.message);
     }
@@ -592,7 +593,7 @@ export class AnafTaxEngine {
   private savePersistedNativeBots(bots: any[]): void {
     this.ensureDataDir();
     try {
-      fs.writeFileSync(this.nativeBotsFile, JSON.stringify(bots, null, 2), 'utf8');
+      writeJsonAtomic(this.nativeBotsFile, bots);
     } catch (err: any) {
       console.warn('[AnafTaxEngine] Failed to save native bots reconciliation cache:', err.message);
     }
@@ -628,7 +629,7 @@ export class AnafTaxEngine {
 
     try {
       this.ensureDataDir();
-      fs.writeFileSync(path.join(this.dataDir, 'last_uploaded_okx.csv'), rawContent, 'utf8');
+      writeFileAtomic(path.join(this.dataDir, 'last_uploaded_okx.csv'), rawContent, 'utf8');
     } catch {}
 
     const lines = rawContent
