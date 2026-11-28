@@ -28,3 +28,14 @@ commit-uri pe care procesul care ruleaza nu le are.
 Verificarea nu depinde de fereastra deschisa: daca tab-ul e inchis, serverul tot stie. Badge-ul
 doar citeste o valoare deja proaspata. Iar "cod la zi" nu poate insemna "discul == origin" cat timp
 procesul ruleaza altceva - de aceea exista `runningSha` si starea `RESTART NECESAR`.
+
+## Capcana gasita la prima proba reala
+
+Primul click real nu a facut nimic: serverul a raspuns 202, dar `scripts/sync-repo.ps1` nu a scris
+nimic in log si pull-ul nu a avut loc. Cauza: `spawn(..., { detached: true, stdio: "ignore" })`.
+Pe Windows, `DETACHED_PROCESS` lasa `powershell.exe` fara consola, iar procesul iese cu cod 0
+fara sa execute scriptul. Fix: `detached: false` - copilul supravietuieste oricum opririi
+parintelui, pentru ca `restart-app.ps1` opreste doar PID-ul care asculta pe port.
+
+Lectia: un 202 fara dovada e o minciuna. Endpoint-ul verifica acum ca log-ul a fost scris inainte
+sa raspunda; daca nu, intoarce 500 si nu lasa sincronizarea "in curs".
